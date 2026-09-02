@@ -414,3 +414,27 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   design-setup chunk's 18 intentionally-red checks; the real files exist and are correct
   at their `src/` locations, verified by hand and by `npm run build`/`lint`/`test`
   instead.
+- 2026-09-03 Harness pipeline bundle = **mattpocock** (`ugt-nextjs-standard-mattpocock@ugt`
+  in `.claude/settings.json`, matching `[PIPELINE:mattpocock]` spans kept in `CLAUDE.md`) —
+  **because** this session's environment has `mattpocock-skills` commands/skills available
+  and no `superpowers` skills at all, which is the documented detection signal in
+  `ugt-nextjs-full-setup`'s own instructions · rejected: asking the user to confirm (the
+  skill's own rule is to ask only when detection is ambiguous — both present or neither;
+  here it wasn't ambiguous).
+- 2026-09-03 Wrote `.claude/rules/ugt-nextjs-auth.md` by hand instead of re-running the
+  auth-setup skill to regenerate it — **because** the auth chunk's own work (schema,
+  Server Actions, pages, middleware) was already correct and verified; the only gap was the
+  rule file itself, and re-running the whole skill risked touching already-correct,
+  already-verified code for a documentation-only fix · rejected: leaving the gap
+  (`ugt-nextjs-full-setup`'s own harness step explicitly requires "verify each installed
+  module's child skill wrote its rule file" — this is not optional cleanup, a missing rule
+  file means future sessions never get the auth-specific guidance loaded when touching
+  those paths).
+- 2026-09-03 Pruned `.claude/state/handoff.md`'s Done section from ~225 lines (one very
+  detailed paragraph per chunk) to condensed one-liners for everything before the CI/CD
+  chunk — **because** this file is imported into every session via `CLAUDE.md` and the
+  skill's own guidance caps it at ~60 lines; the detail those paragraphs held is not lost,
+  it lives in git commit messages (one commit per chunk) and this file's own git history ·
+  rejected: leaving it as-is (defeats the purpose of an always-loaded file — a session
+  reading 225 lines of history before doing any work is the exact waste the ~60-line
+  guidance exists to prevent).
