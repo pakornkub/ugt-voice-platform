@@ -20,6 +20,7 @@ import {
   INITIAL_GATEKEEPER_CONFIGS 
 } from '../mockData';
 import { syncAllTicketsToSqlite } from './sqliteDb';
+import { safeStorage } from './safeStorage';
 
 const STORAGE_KEY_TICKETS = 'enterprise_grievance_tickets_v3';
 const STORAGE_KEY_NOTIFS = 'enterprise_grievance_notifs_v3';
@@ -295,7 +296,7 @@ export const INITIAL_ROLE_PERMISSIONS: Record<UserRole, RolePermissionConfig> = 
 
 export function getStoredRolePermissions(): Record<UserRole, RolePermissionConfig> {
   try {
-    const data = localStorage.getItem(STORAGE_KEY_RBAC);
+    const data = safeStorage.getItem(STORAGE_KEY_RBAC);
     if (data) {
       const parsed = JSON.parse(data);
       // Ensure all current roles exist
@@ -307,13 +308,13 @@ export function getStoredRolePermissions(): Record<UserRole, RolePermissionConfi
   } catch (e) {
     console.error('Failed to load RBAC permissions from localStorage', e);
   }
-  localStorage.setItem(STORAGE_KEY_RBAC, JSON.stringify(INITIAL_ROLE_PERMISSIONS));
+  safeStorage.setItem(STORAGE_KEY_RBAC, JSON.stringify(INITIAL_ROLE_PERMISSIONS));
   return INITIAL_ROLE_PERMISSIONS;
 }
 
 export function saveStoredRolePermissions(permissions: Record<UserRole, RolePermissionConfig>) {
   try {
-    localStorage.setItem(STORAGE_KEY_RBAC, JSON.stringify(permissions));
+    safeStorage.setItem(STORAGE_KEY_RBAC, JSON.stringify(permissions));
   } catch (e) {
     console.error('Failed to save RBAC permissions', e);
   }
@@ -347,7 +348,7 @@ export function resetRolePermissionsToDefault(): Record<UserRole, RolePermission
 
 export function getActiveGatekeeperDepartment(): GrievanceCategory {
   try {
-    const data = localStorage.getItem(STORAGE_KEY_ACTIVE_GK_DEPT);
+    const data = safeStorage.getItem(STORAGE_KEY_ACTIVE_GK_DEPT);
     if (data && CATEGORY_DEFINITIONS[data as GrievanceCategory]) {
       return data as GrievanceCategory;
     }
@@ -359,7 +360,7 @@ export function getActiveGatekeeperDepartment(): GrievanceCategory {
 
 export function setActiveGatekeeperDepartment(cat: GrievanceCategory) {
   try {
-    localStorage.setItem(STORAGE_KEY_ACTIVE_GK_DEPT, cat);
+    safeStorage.setItem(STORAGE_KEY_ACTIVE_GK_DEPT, cat);
   } catch (e) {
     console.error('Failed to set active GK department', e);
   }
@@ -367,20 +368,20 @@ export function setActiveGatekeeperDepartment(cat: GrievanceCategory) {
 
 export function getStoredGatekeeperConfigs(): Record<GrievanceCategory, DepartmentGatekeeperConfig> {
   try {
-    const data = localStorage.getItem(STORAGE_KEY_GATEKEEPERS);
+    const data = safeStorage.getItem(STORAGE_KEY_GATEKEEPERS);
     if (data) {
       return JSON.parse(data);
     }
   } catch (e) {
     console.error('Failed to load gatekeeper configs from localStorage', e);
   }
-  localStorage.setItem(STORAGE_KEY_GATEKEEPERS, JSON.stringify(INITIAL_GATEKEEPER_CONFIGS));
+  safeStorage.setItem(STORAGE_KEY_GATEKEEPERS, JSON.stringify(INITIAL_GATEKEEPER_CONFIGS));
   return INITIAL_GATEKEEPER_CONFIGS;
 }
 
 export function saveStoredGatekeeperConfigs(configs: Record<GrievanceCategory, DepartmentGatekeeperConfig>) {
   try {
-    localStorage.setItem(STORAGE_KEY_GATEKEEPERS, JSON.stringify(configs));
+    safeStorage.setItem(STORAGE_KEY_GATEKEEPERS, JSON.stringify(configs));
   } catch (e) {
     console.error('Failed to save gatekeeper configs', e);
   }
@@ -416,20 +417,20 @@ export function resetGatekeeperConfigsToDefault(): Record<GrievanceCategory, Dep
 // Executive Members Storage & CRUD
 export function getStoredExecutives(): ExecutiveMember[] {
   try {
-    const data = localStorage.getItem(STORAGE_KEY_EXECUTIVES);
+    const data = safeStorage.getItem(STORAGE_KEY_EXECUTIVES);
     if (data) {
       return JSON.parse(data);
     }
   } catch (e) {
     console.error('Failed to load executives from localStorage', e);
   }
-  localStorage.setItem(STORAGE_KEY_EXECUTIVES, JSON.stringify(INITIAL_EXECUTIVES));
+  safeStorage.setItem(STORAGE_KEY_EXECUTIVES, JSON.stringify(INITIAL_EXECUTIVES));
   return INITIAL_EXECUTIVES;
 }
 
 export function saveStoredExecutives(executives: ExecutiveMember[]) {
   try {
-    localStorage.setItem(STORAGE_KEY_EXECUTIVES, JSON.stringify(executives));
+    safeStorage.setItem(STORAGE_KEY_EXECUTIVES, JSON.stringify(executives));
   } catch (e) {
     console.error('Failed to save executives', e);
   }
@@ -473,20 +474,20 @@ export function resetExecutivesToDefault(): ExecutiveMember[] {
 // HR Admin Members Storage & CRUD
 export function getStoredHrAdmins(): HrAdminMember[] {
   try {
-    const data = localStorage.getItem(STORAGE_KEY_HR_ADMINS);
+    const data = safeStorage.getItem(STORAGE_KEY_HR_ADMINS);
     if (data) {
       return JSON.parse(data);
     }
   } catch (e) {
     console.error('Failed to load HR admins from localStorage', e);
   }
-  localStorage.setItem(STORAGE_KEY_HR_ADMINS, JSON.stringify(INITIAL_HR_ADMINS));
+  safeStorage.setItem(STORAGE_KEY_HR_ADMINS, JSON.stringify(INITIAL_HR_ADMINS));
   return INITIAL_HR_ADMINS;
 }
 
 export function saveStoredHrAdmins(admins: HrAdminMember[]) {
   try {
-    localStorage.setItem(STORAGE_KEY_HR_ADMINS, JSON.stringify(admins));
+    safeStorage.setItem(STORAGE_KEY_HR_ADMINS, JSON.stringify(admins));
   } catch (e) {
     console.error('Failed to save HR admins', e);
   }
@@ -529,14 +530,14 @@ export function resetHrAdminsToDefault(): HrAdminMember[] {
 
 export function getStoredTickets(): ComplaintTicket[] {
   try {
-    const data = localStorage.getItem(STORAGE_KEY_TICKETS);
+    const data = safeStorage.getItem(STORAGE_KEY_TICKETS);
     if (data) {
       return JSON.parse(data);
     }
   } catch (e) {
     console.error('Failed to load tickets from localStorage', e);
   }
-  localStorage.setItem(STORAGE_KEY_TICKETS, JSON.stringify(INITIAL_COMPLAINTS));
+  safeStorage.setItem(STORAGE_KEY_TICKETS, JSON.stringify(INITIAL_COMPLAINTS));
   return INITIAL_COMPLAINTS;
 }
 
@@ -551,7 +552,7 @@ export function getTicketByTrackingCode(trackingCode: string): ComplaintTicket |
 
 export function saveStoredTickets(tickets: ComplaintTicket[]) {
   try {
-    localStorage.setItem(STORAGE_KEY_TICKETS, JSON.stringify(tickets));
+    safeStorage.setItem(STORAGE_KEY_TICKETS, JSON.stringify(tickets));
     // Asynchronously synchronize SQLite relational database in browser
     syncAllTicketsToSqlite(tickets).catch((err) => {
       console.warn('SQLite sync warning:', err);
@@ -563,20 +564,20 @@ export function saveStoredTickets(tickets: ComplaintTicket[]) {
 
 export function getStoredNotifications(): NotificationItem[] {
   try {
-    const data = localStorage.getItem(STORAGE_KEY_NOTIFS);
+    const data = safeStorage.getItem(STORAGE_KEY_NOTIFS);
     if (data) {
       return JSON.parse(data);
     }
   } catch (e) {
     console.error('Failed to load notifications from localStorage', e);
   }
-  localStorage.setItem(STORAGE_KEY_NOTIFS, JSON.stringify(INITIAL_NOTIFICATIONS));
+  safeStorage.setItem(STORAGE_KEY_NOTIFS, JSON.stringify(INITIAL_NOTIFICATIONS));
   return INITIAL_NOTIFICATIONS;
 }
 
 export function saveStoredNotifications(notifs: NotificationItem[]) {
   try {
-    localStorage.setItem(STORAGE_KEY_NOTIFS, JSON.stringify(notifs));
+    safeStorage.setItem(STORAGE_KEY_NOTIFS, JSON.stringify(notifs));
   } catch (e) {
     console.error('Failed to save notifications', e);
   }

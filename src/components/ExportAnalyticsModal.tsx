@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   Download,
@@ -207,7 +209,7 @@ ORDER BY COUNT(*) DESC;`
         assignedOfficerName: t.assignedOfficerName || '-',
         slaTargetHours: t.slaTargetHours,
         slaStatus: t.slaStatus,
-        slaBreached: t.slaStatus === 'breached' ? 'เกินกำหนด SLA' : 'อยู่ในเกณฑ์ SLA',
+        slaBreached: t.slaStatus === 'overdue' ? 'เกินกำหนด SLA' : 'อยู่ในเกณฑ์ SLA',
         triageLeadTimeHours: triageLeadTimeHours || '-',
         resolutionLeadTimeHours: resolutionLeadTimeHours || '-',
         resolvedAt: t.resolvedAt || '-',

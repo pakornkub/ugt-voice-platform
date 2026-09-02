@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import { 
   Shield, 
@@ -90,7 +92,7 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
   const receivedCount = deptScopedTickets.filter((t) => t.status === 'submitted' || t.status === 'gatekeeper_triaged').length;
   const inProgressOnlyCount = deptScopedTickets.filter((t) => t.status === 'in_progress').length;
   const resolvedOnlyCount = deptScopedTickets.filter((t) => t.status === 'resolved').length;
-  const closedOnlyCount = deptScopedTickets.filter((t) => t.status === 'closed' || t.status === 'rejected').length;
+  const closedOnlyCount = deptScopedTickets.filter((t) => t.status === 'closed').length;
   const ceoDirectCount = deptScopedTickets.filter((t) => t.isDirectToExecutive).length;
 
   // Active triage modal state
@@ -113,7 +115,7 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
     } else if (selectedStatusFilter === 'resolved') {
       if (t.status !== 'resolved') return false;
     } else if (selectedStatusFilter === 'closed') {
-      if (t.status !== 'closed' && t.status !== 'rejected') return false;
+      if (t.status !== 'closed') return false;
     } else if (selectedStatusFilter === 'submitted') {
       if (t.status !== 'submitted') return false;
     } else if (selectedStatusFilter === 'gatekeeper_triaged') {

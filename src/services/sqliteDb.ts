@@ -10,6 +10,7 @@ import {
 } from '../types';
 import { INITIAL_COMPLAINTS, INITIAL_GATEKEEPER_CONFIGS, INITIAL_NOTIFICATIONS } from '../mockData';
 import { INITIAL_EXECUTIVES, INITIAL_HR_ADMINS } from './api';
+import { safeStorage } from './safeStorage';
 
 const SQLITE_STORAGE_KEY = 'enterprise_grievance_sqlite_bin_v1';
 const SQLITE_WASM_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/sql-wasm.wasm';
@@ -51,7 +52,7 @@ export async function getSqliteDb(): Promise<Database> {
     // Try restoring existing binary from localStorage
     let savedBinary: Uint8Array | null = null;
     try {
-      const b64 = localStorage.getItem(SQLITE_STORAGE_KEY);
+      const b64 = safeStorage.getItem(SQLITE_STORAGE_KEY);
       if (b64) {
         const binaryString = atob(b64);
         const len = binaryString.length;
@@ -450,7 +451,7 @@ export function persistSqliteToStorage(db: Database) {
       binary += String.fromCharCode(data[i]);
     }
     const base64 = btoa(binary);
-    localStorage.setItem(SQLITE_STORAGE_KEY, base64);
+    safeStorage.setItem(SQLITE_STORAGE_KEY, base64);
   } catch (err) {
     console.warn('Unable to persist SQLite to localStorage (may exceed quota):', err);
   }
