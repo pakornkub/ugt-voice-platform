@@ -11,6 +11,22 @@
 // every mutation here needs a session guard + permission check + real
 // CreatedBy/UpdatedBy/actor id per .claude/rules/ugt-nextjs-database.md and
 // references/raw-sql-and-sp.md's Server Action frame.
+//
+// ugt-nextjs-mail-setup (2026-09-02): this is where the workflow email hook
+// plugs in. See docs/project-context/decisions.md for the scoping decision —
+// in short: notifications the app already generates (below) also go out by
+// email via sendTemplatedMail(), called right after the Notification row is
+// written, in try/catch, so a mail outage never fails the ticket mutation.
+// This module is NOT yet called by any component (still open — see
+// docs/project-context/architecture.md's ⚠ deviation), so no real email
+// goes out today; the wiring is correct and ready for when the call sites
+// switch from src/services/api.ts's localStorage functions to these.
+import { headers } from 'next/headers';
+import { auth } from '@/lib/auth';
+import { env } from '@/lib/env';
+import { sendTemplatedMail, type MailActor } from '@/lib/email';
+import { getUserPermissions } from '@/lib/get-user-permissions';
+import { PERMISSIONS } from '@/lib/permissions';
 import { prisma } from '@/lib/prisma';
 import { mapTicket } from './mappers';
 import type {
@@ -19,6 +35,84 @@ import type {
   SatisfactionEvaluation,
   TicketStatus,
 } from '@/types';
+
+const APP_NAME = env.NEXT_PUBLIC_APP_NAME ?? 'UGT VoiceCare';
+
+/** Full URL for a link inside an email — email opens outside the app, so a
+ *  relative path is useless there (org rule, .claude/rules/ugt-nextjs-mail.md). */
+function detailUrl(path: string): string {
+  const base = env.APP_URL?.replace(/\/$/, '') ?? '';
+  const prefix = env.NEXT_PUBLIC_BASE_PATH ?? '';
+  return `${base}${prefix}${path}`;
+}
+
+/**
+ * The user whose action triggered this mutation, as a mail actor (dev mode
+ * redirect — see lib/email.ts). No session yet reaching this module in
+ * practice (see the module header), so this degrades to "no dev mode" rather
+ * than throwing — a Server Action must not 500 just because it was called
+ * outside a request context that happens to lack a session.
+ */
+async function resolveMailActor(): Promise<MailActor> {
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session) return { email: null, hasDevMode: false };
+    const perms = await getUserPermissions(session.user.id);
+    return { email: session.user.email, hasDevMode: perms.includes(PERMISSIONS.DEV_MODE) };
+  } catch {
+    return { email: null, hasDevMode: false };
+  }
+}
+
+/** Send one notification's matching workflow email — never lets a mail
+ * failure fail the caller's ticket mutation (org rule: send after commit,
+ * catch + log). No-op for notification types this project has no template
+ * for (e.g. a future type added without a matching mail template yet). */
+async function sendNotificationMail(
+  notif: {
+    trackingCode: string;
+    title: string;
+    message: string;
+    type: NotificationItem['type'];
+  },
+  recipients: { to?: string | string[] | null; recipientName?: string | null }
+): Promise<void> {
+  const to = recipients.to;
+  if (!to || (Array.isArray(to) && to.length === 0)) return;
+
+  const templateKey =
+    notif.type === 'new_ticket'
+      ? ('ticket.new_ticket' as const)
+      : notif.type === 'status_update'
+        ? ('ticket.status_update' as const)
+        : notif.type === 'satisfaction_pending'
+          ? ('ticket.satisfaction_pending' as const)
+          : notif.type === 'direct_ceo_alert'
+            ? ('ticket.direct_ceo_alert' as const)
+            : notif.type === 'sla_warning'
+              ? ('ticket.sla_warning' as const)
+              : null;
+  if (!templateKey) return;
+
+  try {
+    const actor = await resolveMailActor();
+    await sendTemplatedMail({
+      templateKey,
+      to,
+      actor: actor,
+      vars: {
+        appName: APP_NAME,
+        recipientName: recipients.recipientName || 'ผู้เกี่ยวข้อง',
+        trackingCode: notif.trackingCode,
+        notificationTitle: notif.title,
+        notificationMessage: notif.message,
+        detailUrl: detailUrl(notif.type === 'direct_ceo_alert' ? '/executive' : '/my-tickets'),
+      },
+    });
+  } catch (error) {
+    console.error('sendNotificationMail failed', { templateKey, error });
+  }
+}
 
 const TICKET_INCLUDE = {
   timeline: { orderBy: { createdAt: 'asc' as const } },
@@ -169,6 +263,24 @@ export async function submitTicket(
   }
   await prisma.notification.createMany({ data: notifs });
 
+  // Workflow email — after the ticket + notifications commit, never blocking
+  // the response (see sendNotificationMail's own try/catch).
+  for (const notif of notifs) {
+    const to =
+      notif.type === 'direct_ceo_alert'
+        ? (
+            await prisma.executiveMember.findMany({
+              where: { isActive: true, isDeleted: false, receiveAlertNotifications: true },
+              select: { email: true },
+            })
+          ).map((e) => e.email)
+        : notif.recipientEmail;
+    await sendNotificationMail(notif, {
+      to,
+      recipientName: notif.type === 'direct_ceo_alert' ? 'ผู้บริหาร' : created.submitterName,
+    });
+  }
+
   return mapTicket(created);
 }
 
@@ -242,6 +354,11 @@ export async function updateTicketWorkflow(
       recipientEmail: updated.submitterEmail,
     },
   });
+
+  await sendNotificationMail(
+    { trackingCode: updated.trackingCode, title: notifTitle, message: notifMsg, type: notifType },
+    { to: updated.submitterEmail, recipientName: updated.submitterName }
+  );
 
   return mapTicket(updated);
 }

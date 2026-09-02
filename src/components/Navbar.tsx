@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   ScrollText,
   LogOut,
+  Mail,
 } from 'lucide-react';
 import { UserRole, NotificationItem, AppTabId } from '../types';
 import { getStoredRolePermissions } from '../services/api';
@@ -132,7 +133,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   const canSeeUsers = identity.permissions.includes('users:read');
   const canSeeRoles = identity.permissions.includes('roles:read');
   const canSeeAuditLogs = identity.permissions.includes('audit-logs:read');
-  const hasAdminSection = canSeeUsers || canSeeRoles || canSeeAuditLogs;
+  // ugt-nextjs-mail-setup (2026-09-02): same pattern as the 3 above.
+  const canSeeMailTemplates = identity.permissions.includes('mail-templates:manage');
+  const hasAdminSection = canSeeUsers || canSeeRoles || canSeeAuditLogs || canSeeMailTemplates;
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 shadow-xs backdrop-blur">
@@ -465,6 +468,22 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <ScrollText className="h-3.5 w-3.5" />
                 <span>บันทึกการใช้งาน</span>
+              </button>
+            )}
+
+            {canSeeMailTemplates && (
+              <button
+                id="nav-tab-admin-mail-templates"
+                type="button"
+                onClick={() => handleTabSelect('admin_mail_templates')}
+                className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                  activeTab === 'admin_mail_templates'
+                    ? 'bg-slate-800 font-semibold text-white'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`}
+              >
+                <Mail className="h-3.5 w-3.5" />
+                <span>เทมเพลตอีเมล</span>
               </button>
             )}
           </nav>

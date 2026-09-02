@@ -44,6 +44,16 @@ export const env = createEnv({
     KEYCLOAK_CLIENT_ID: z.string().optional(),
     KEYCLOAK_CLIENT_SECRET: z.string().optional(),
 
+    // ── ugt-nextjs-mail-setup: SMTP relay for workflow email (2026-09-02) ──
+    // All optional so a build without a relay still passes — lib/email.ts's
+    // sendMail() is the real runtime guard (throws if SMTP_HOST is missing).
+    SMTP_HOST: z.string().optional(),
+    SMTP_PORT: z.string().default('25'),
+    SMTP_SECURE: z.enum(['true', 'false']).default('false'),
+    SMTP_USER: z.string().optional(),
+    SMTP_PASS: z.string().optional(),
+    SMTP_FROM: z.string().optional(),
+
     // Node.js built-ins
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   },
@@ -78,6 +88,12 @@ export const env = createEnv({
     KEYCLOAK_ISSUER: process.env.KEYCLOAK_ISSUER,
     KEYCLOAK_CLIENT_ID: process.env.KEYCLOAK_CLIENT_ID,
     KEYCLOAK_CLIENT_SECRET: process.env.KEYCLOAK_CLIENT_SECRET,
+    SMTP_HOST: process.env.SMTP_HOST,
+    SMTP_PORT: process.env.SMTP_PORT,
+    SMTP_SECURE: process.env.SMTP_SECURE,
+    SMTP_USER: process.env.SMTP_USER,
+    SMTP_PASS: process.env.SMTP_PASS,
+    SMTP_FROM: process.env.SMTP_FROM,
     NODE_ENV: process.env.NODE_ENV,
     NEXT_PUBLIC_BASE_PATH: process.env.NEXT_PUBLIC_BASE_PATH,
     NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,

@@ -167,3 +167,55 @@
   it, keep going" rule from the session's Auto Mode guidance, and is recorded as its own มติ above
   rather than left as an open question — flag any of these back to the coordinator if they need to
   change.
+- 2026-09-02 Installed `ugt-nextjs-mail-setup` (SMTP workflow email) **without** the org UI kit/
+  next-intl the skill's assets assume — the admin editor at `/admin/mail-templates`
+  (`src/app/(shell)/admin/mail-templates/page.tsx` + `src/components/MailTemplatesManager.tsx`) is
+  hand-built Tailwind matching the app's existing pattern instead of shadcn
+  `Card`/`Sheet`/`ConfirmActionDialog`, and skips the skill's `messages/mail.{th,en}.ts` i18n
+  catalog entirely — **because** the standing 2026-09-02 decision to keep this app's hand-built,
+  Thai-only design applies to new pages too (already recorded in `docs/DESIGN.md` §10,
+  `docs/project-context/decisions.md`'s auth-setup entry) · rejected: installing next-intl just for
+  this one page (would create a second, unused i18n substrate the rest of the app doesn't have) ·
+  reset confirms via `window.confirm()` (matching `RolesManager.tsx`'s convention), preview renders
+  in a centered overlay modal with a sandboxed iframe (matching `TrackingTimelineModal.tsx`'s
+  pattern) instead of the skill's shadcn `Sheet`.
+- 2026-09-02 The 5 mail template keys (`ticket.new_ticket`/`ticket.status_update`/
+  `ticket.satisfaction_pending`/`ticket.direct_ceo_alert`/`ticket.sla_warning`) map 1:1 to
+  `NotificationItem['type']` in `src/types.ts`, replacing the skill's generic
+  request/approve/reject example — **because** this project already has a well-defined
+  notification domain with its own in-app copy (`lib/actions/tickets.ts`'s `notifTitle`/`notifMsg`
+  strings), so the email body reuses that exact text via `{{notificationTitle}}`/
+  `{{notificationMessage}}` tokens instead of maintaining separate copy for in-app vs. email ·
+  the skill's `auth.password-reset` key was dropped entirely (not just left unused) — this project
+  is SSO (Keycloak) only, no local accounts to reset a password for (see the auth-setup entries
+  above) · `ticket.sla_warning` is defined even though no code path creates that notification type
+  yet (no SLA watcher/cron exists in this codebase) — kept for parity with the type already
+  declared in `src/types.ts`, not a new feature being built this chunk.
+- 2026-09-02 The mail-send hook is wired into `lib/actions/tickets.ts`'s `submitTicket`/
+  `updateTicketWorkflow` (the Prisma Server Actions from the database chunk), not
+  `src/services/api.ts` (the client-side localStorage functions every component actually calls
+  today) — **because** `sendTemplatedMail` needs nodemailer + Prisma, both server-only, and
+  `src/services/api.ts` is `'use client'`-adjacent code that runs in the browser · this means no
+  real email goes out yet (documented as an open question, unchanged from the database chunk's
+  unresolved call-site rewiring), but the wiring is correct and complete for the moment components
+  switch from `api.ts` to these Server Actions · rejected: adding a duplicate mail-trigger path
+  inside `src/services/api.ts` via a `fetch()` to a new Route Handler (would create two
+  notification-creation code paths to keep in sync, and a client-triggered mail-send endpoint has
+  no session to check `dev-mode:enable` against without also duplicating the auth guard) ·
+  rejected: waiting to wire mail until the localStorage-to-Prisma rewiring happens (would leave
+  this chunk with no concrete integration point to verify against, and every future chunk would
+  face the same "where does X plug in" question).
+- 2026-09-02 `/admin/mail-templates` follows every other `(shell)/admin/*` page's pattern of
+  guarding itself inline (session → `syncPermissionsIfNeeded()` → permission check) rather than a
+  shared `(admin)` layout, matching the skill's own note that this project has no such layout (see
+  `admin/roles/page.tsx`, `admin/audit-logs/page.tsx`) — no new decision here, just confirming the
+  established pattern extends to this page too.
+- 2026-09-02 SMTP host, sender address, and the mail footer's support-contact text are
+  **placeholders** in `.env.example`/`.env.local`/`lib/types/mail-templates.ts` for this chunk —
+  same reasoning as the database and auth chunks' placeholder values: no real SMTP relay was
+  available to provision against yet, and proceeding with placeholders keeps the chunk from
+  blocking on Admin/IT turnaround · the email header color (`#4f46e5`, Tailwind indigo-600) was
+  **not** left as a placeholder — it is decided directly from this project's existing primary
+  color (`docs/DESIGN.md` §1), which email clients need as a literal hex regardless of a live
+  relay · going live is filling in `SMTP_HOST`/`SMTP_FROM`/support-contact once Admin/IT returns
+  real values (tracked in `docs/admin-handoff.md` §3 and `.claude/state/handoff.md`).

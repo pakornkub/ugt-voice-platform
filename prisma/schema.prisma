@@ -489,3 +489,28 @@ model activityLog {
   @@index([userId])
   @@map("ActivityLogs")
 }
+
+// ─── App settings (key/value) ─────────────────────────────────────────────────
+// Added by ugt-nextjs-mail-setup, 2026-09-02. Generic admin-editable
+// settings store — mail templates live here under `mailTemplate:<key>`
+// (lib/types/mail-templates.ts); reuse this table for future admin-editable
+// settings instead of adding a table per setting.
+//
+// Deliberately NOT the full audit-column set (lookup/settings tables are
+// exempt per .claude/rules/ugt-nextjs-database.md) — but UpdatedBy stays,
+// because an admin editing a template that goes out to real recipients must
+// be traceable. `key`/`value` are T-SQL reserved words, hence SettingKey/
+// SettingValue.
+
+model appSetting {
+  id String @id @default(cuid()) @map("Id")
+
+  key   String @unique @map("SettingKey") @db.NVarChar(200)
+  value String @map("SettingValue") @db.NVarChar(Max)
+
+  createdAt DateTime @default(now()) @map("CreatedAt")
+  updatedAt DateTime @updatedAt @map("UpdatedAt")
+  updatedBy String?  @map("UpdatedBy") @db.NVarChar(200)
+
+  @@map("AppSettings")
+}

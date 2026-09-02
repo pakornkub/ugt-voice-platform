@@ -100,6 +100,38 @@
     diff, no live SQL Server — same method as the initial migration); apply via `prisma migrate
 resolve --applied` once real DB values land, see `docs/admin-handoff.md`.
 
+- **Mail (added 2026-09-02, `ugt-nextjs-mail-setup`) — SMTP workflow email, live once real
+  SMTP values land (currently placeholders, see `docs/admin-handoff.md` §3):**
+  - `lib/email.ts` — nodemailer transport + `sendMail`/`sendTemplatedMail` (the one entry
+    point for workflow email — dev-mode redirect via `dev-mode:enable` permission, `[DEV] `
+    subject prefix, disclosure banner).
+  - `lib/mail-templates.ts` — token substitution (`{{token}}`, HTML-escaped by default),
+    `getMailTemplate` (AppSettings override else in-code default, fail-open on a corrupt
+    override), `renderComposedMail` (chrome + content, same renderer used by send and preview).
+  - `lib/types/mail-templates.ts` — 5 template keys 1:1 with `NotificationItem['type']`
+    (`ticket.new_ticket`/`ticket.status_update`/`ticket.satisfaction_pending`/
+    `ticket.direct_ceo_alert`/`ticket.sla_warning`), each with its definition (variables,
+    banner, CTA) and in-code default subject/body. Fixed chrome (header/footer/banner/CTA,
+    `composeEmail`) is not admin-editable. No `auth.password-reset` key — this project is
+    SSO-only, no local accounts.
+  - `lib/actions/admin-mail-templates.ts` — `saveMailTemplateAction`/`resetMailTemplateAction`/
+    `previewMailTemplateAction` for `/admin/mail-templates` (session → permission
+    `mail-templates:manage` → action → audit log, org pattern).
+  - `src/app/(shell)/admin/mail-templates/page.tsx` + `src/components/MailTemplatesManager.tsx`
+    — the ongoing admin page, hand-built Tailwind (list + subject/body form + sandboxed-iframe
+    preview modal) — **not** the skill's shadcn `Card`/`Sheet`/`ConfirmActionDialog` assets, and
+    no i18n catalog — see ⚠ deviation below. Rendered inside the `(shell)` group like the 3
+    auth-chunk admin pages (no separate admin layout in this project).
+  - `prisma/schema.prisma` — `appSetting` model (`@@map("AppSettings")`), generic key/value
+    settings store; mail template overrides live at `mailTemplate:<key>`.
+  - `prisma/migrations/20260902020000_add_mail_templates/` — generated **offline**
+    (schema-to-schema diff against git HEAD's prior schema, no live SQL Server — same method as
+    the two prior migrations); apply via `prisma migrate resolve --applied` once real DB values
+    land, see `docs/admin-handoff.md`.
+  - `lib/permissions.ts` — new `mail-templates:manage` (admin page gate) and `dev-mode:enable`
+    (redirects a tester's own mail to themselves) permissions, seeded via `ALL_PERMISSIONS`.
+  - `lib/audit-actions.ts` — new `mail-templates.update`/`mail-templates.reset` audit actions.
+
 ## Data flow หลัก
 
 - ยื่นคำร้อง: `EmployeeSubmitForm` (`src/components/EmployeeSubmitForm.tsx`) →
@@ -117,6 +149,12 @@ resolve --applied` once real DB values land, see `docs/admin-handoff.md`.
 - Tab navigation: `Navbar` (`src/components/Navbar.tsx`, prop-driven, unchanged) →
   `navigateTab()` in `src/app/(shell)/shell.tsx` → `router.push()` → route change →
   `usePathname()` recomputes `activeTab`, passed back into `Navbar` via `ShellContext`.
+- Workflow email (added 2026-09-02, `ugt-nextjs-mail-setup`): `lib/actions/tickets.ts`'s
+  `submitTicket`/`updateTicketWorkflow` write a `Notification` row (as before), then call
+  `sendNotificationMail()` → `sendTemplatedMail()` (`lib/email.ts`) → `getMailTemplate()`
+  (`lib/mail-templates.ts`, AppSettings override or in-code default) → nodemailer, all inside
+  try/catch (a mail failure never fails the ticket mutation). **Not live yet** — see ⚠
+  deviation below, same root cause as the Prisma persistence layer's.
 
 ## ตารางหลัก → feature
 
@@ -179,8 +217,15 @@ component ทั้งหมดยังอ่าน/เขียน `localStora
   username. See `docs/project-context/decisions.md`.
 - ⚠ deviation: การแนบไฟล์ใน `EmployeeSubmitForm` เป็นการจำลอง (`Math.random()` สร้าง object
   ไฟล์ปลอม) ไม่มี upload/storage จริง — แผนอยู่ใน chunk `ugt-nextjs-upload-setup`.
-- ⚠ deviation: การแจ้งเตือนเป็นแบบ in-app เท่านั้น ไม่มีอีเมลจริง — แผนอยู่ใน chunk
-  `ugt-nextjs-mail-setup`.
+- ⚠ deviation (2026-09-02, `ugt-nextjs-mail-setup`): การส่งอีเมลจริงถูกเชื่อมสายไว้แล้วที่
+  `lib/actions/tickets.ts` (Prisma Server Action) แต่**ยังไม่มีอีเมลออกจริง** เพราะ (1) module
+  นี้ยังไม่มี component ไหนเรียก (เหตุผลเดียวกับ deviation แรกด้านบน — data layer ยังเป็น
+  localStorage) และ (2) SMTP relay ยังเป็น placeholder (`docs/admin-handoff.md` §3) — เมื่อ
+  ทั้งสองอย่างพร้อม อีเมลจะออกจริงโดยไม่ต้องแก้โค้ดเพิ่ม
+- ⚠ deviation (2026-09-02, `ugt-nextjs-mail-setup`): หน้า `/admin/mail-templates` เป็น
+  hand-built Tailwind, ไม่มี i18n catalog (`messages/mail.*.ts` ของ skill ไม่ได้ติดตั้ง) —
+  เหตุผลเดียวกับหน้า auth-setup ทั้ง 3 หน้า (มติต้นโปรเจค "คงดีไซน์เดิม/hand-built ทุกหน้า" —
+  ดู decisions.md).
 - ⚠ deviation: `ExportAnalyticsModal`'s "SQL Query Studio" รันคำสั่ง SQL ที่ผู้ใช้พิมพ์เอง
   ได้อิสระกับ sql.js ในเบราว์เซอร์ — ยอมรับได้ตอนนี้เพราะยังไม่มี backend จริง แต่ต้องปรับเป็น
   preset reports ก่อนต่อกับ SQL Server จริง (มติแล้ว ดู decisions.md).

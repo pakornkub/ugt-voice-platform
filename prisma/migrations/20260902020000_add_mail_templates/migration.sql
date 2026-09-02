@@ -1,0 +1,29 @@
+BEGIN TRY
+
+BEGIN TRAN;
+
+-- CreateTable
+CREATE TABLE [dbo].[AppSettings] (
+    [Id] NVARCHAR(1000) NOT NULL,
+    [SettingKey] NVARCHAR(200) NOT NULL,
+    [SettingValue] NVARCHAR(max) NOT NULL,
+    [CreatedAt] DATETIME2 NOT NULL CONSTRAINT [AppSettings_CreatedAt_df] DEFAULT CURRENT_TIMESTAMP,
+    [UpdatedAt] DATETIME2 NOT NULL,
+    [UpdatedBy] NVARCHAR(200),
+    CONSTRAINT [AppSettings_pkey] PRIMARY KEY CLUSTERED ([Id]),
+    CONSTRAINT [AppSettings_SettingKey_key] UNIQUE NONCLUSTERED ([SettingKey])
+);
+
+COMMIT TRAN;
+
+END TRY
+BEGIN CATCH
+
+IF @@TRANCOUNT > 0
+BEGIN
+    ROLLBACK TRAN;
+END;
+THROW
+
+END CATCH
+

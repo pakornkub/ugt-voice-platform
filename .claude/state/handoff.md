@@ -4,13 +4,11 @@ Last updated: 2026-09-02
 
 ## In progress
 
-- Nothing in progress. Auth chunk (`ugt-nextjs-auth-setup`) is complete this session — see
+- Nothing in progress. Mail chunk (`ugt-nextjs-mail-setup`) is complete this session — see
   Done below.
 
 ## Next
 
-- **`ugt-nextjs-mail-setup`** — wanted (confirmed). Real SMTP for notifications that are
-  currently in-app only.
 - **`ugt-nextjs-upload-setup`** — wanted (confirmed). Real file attachments, replacing
   `EmployeeSubmitForm`'s fake `Math.random()` attachment simulator.
 - **`ugt-nextjs-cicd-setup`** — Jenkinsfile, SonarQube Quality Gate, Docker deploy. Also the
@@ -31,14 +29,18 @@ Last updated: 2026-09-02
   `authClient.signIn.social()` (verified: fails gracefully, resets to a clickable button, no
   crash — see troubleshooting.md if this changes).
 - Real SQL Server values still needed from Admin/DBA (unchanged from the database chunk) —
-  `docs/admin-handoff.md` §1. Both migrations (`20260902000000_init`,
-  `20260902010000_auth_rbac`) are ready to `prisma migrate resolve --applied` once real
-  `DATABASE_URL` lands — see that doc for the exact command sequence.
+  `docs/admin-handoff.md` §1. Migrations (`20260902000000_init`, `20260902010000_auth_rbac`,
+  `20260902020000_add_mail_templates`) are ready to `prisma migrate resolve --applied` once
+  real `DATABASE_URL` lands — see that doc for the exact command sequence.
+- Real SMTP relay values needed from Admin/IT (host/port, sender address, auth) —
+  `docs/admin-handoff.md` §3. Until then `sendMail()` in `lib/email.ts` throws on every call
+  (by design — `SMTP_HOST` is a placeholder).
 - `src/services/api.ts`'s localStorage functions are still NOT wired to the Prisma
-  `src/lib/actions/*` Server Actions — unchanged open question from the database chunk. Now
-  that real session/actor ids exist (`auth.api.getSession()`), this is unblocked whenever
-  someone picks it up; still not done automatically by this chunk (scope was "install auth",
-  not "rewire the data layer").
+  `lib/actions/tickets.ts`/`notifications.ts` Server Actions — unchanged open question from
+  the database chunk. This chunk wired the mail-send hook into `lib/actions/tickets.ts`
+  (`submitTicket`/`updateTicketWorkflow`) rather than `src/services/api.ts` for that reason —
+  see decisions.md — so no real email goes out yet either, until the call-site rewiring
+  happens.
 - No linked-server employee/HR view was requested this chunk (`lib/directory.ts`/`lib/scope.ts`/
   `lib/approval-chain.ts` were not installed — see decisions.md). If a real HR employee view
   becomes available later, revisit whether directory enrichment (employee code/department/
@@ -46,6 +48,31 @@ Last updated: 2026-09-02
 
 ## Done (newest first)
 
+- 2026-09-02 Installed workflow email (`ugt-nextjs-mail-setup`): `lib/email.ts`
+  (`sendTemplatedMail`/`sendMail`, nodemailer transport, dev-mode redirect), `lib/mail-templates.ts`
+  (render + escape), `lib/types/mail-templates.ts` (5 templates, one per `NotificationItem['type']`:
+  `ticket.new_ticket`/`ticket.status_update`/`ticket.satisfaction_pending`/`ticket.direct_ceo_alert`/
+  `ticket.sla_warning` — no `auth.password-reset`, this project is SSO-only). Admin editor at
+  `/admin/mail-templates` (`src/app/(shell)/admin/mail-templates/page.tsx` +
+  `src/components/MailTemplatesManager.tsx`, hand-built Tailwind — **not** the skill's shadcn
+  `Card`/`Sheet`/`ConfirmActionDialog` assets, and **no i18n catalog** (`messages/mail.*.ts`
+  skipped) — same standing 2026-09-02 design decision as every prior chunk's new pages; nav
+  entry gated by `mail-templates:manage` in `Navbar.tsx`, same pattern as the 3 auth-chunk admin
+  tabs. New permissions `mail-templates:manage` + `dev-mode:enable` in `lib/permissions.ts`, new
+  audit actions `mail-templates.update`/`.reset` in `lib/audit-actions.ts`. New `appSetting`
+  model (`@@map("AppSettings")`) in `prisma/schema.prisma`, migration
+  `20260902020000_add_mail_templates` generated offline (schema-to-schema diff against git
+  HEAD's schema, no live SQL Server — same method as the prior two migrations). **Scoping
+  decision** (data layer is still localStorage, not DB-backed — see Open Questions): the mail-send
+  hook is wired into `lib/actions/tickets.ts`'s `submitTicket`/`updateTicketWorkflow` (the
+  Prisma Server Actions), not `src/services/api.ts` (client-side, can't call nodemailer/Prisma).
+  These Server Actions are still not called by any component, so no real email goes out today —
+  the wiring is correct and ready for when the call sites switch over. SMTP host/port/sender are
+  still placeholders (`docs/admin-handoff.md` §3, new section appended, §1/§2 untouched).
+  `npm run build`/`lint`/`format:check`/`test` all pass (20 routes now, up from 19; 0 lint
+  errors, 109 pre-existing warnings unchanged; 4/4 tests pass). Verified in a real browser: `/`
+  still redirects to `/login` and renders unchanged (indigo/slate card, no reskin); `/api/health`
+  still bypasses auth.
 - 2026-09-02 Installed authentication (`ugt-nextjs-auth-setup`): Better Auth + Keycloak SSO
   **only** (no LDAP/local password — confirmed earlier), custom RBAC (`Role`/`Permission`/
   `RolePermission`, gates `/admin/users`/`/admin/roles`/`/admin/audit-logs`), first-admin

@@ -30,6 +30,11 @@ export const AUDIT_ACTIONS = {
   ROLES_UPDATE: 'roles.update',
   ROLES_DELETE: 'roles.delete',
 
+  // Mail templates — written by lib/actions/admin-mail-templates.ts
+  // (ugt-nextjs-mail-setup, 2026-09-02)
+  MAIL_TEMPLATES_UPDATE: 'mail-templates.update',
+  MAIL_TEMPLATES_RESET: 'mail-templates.reset',
+
   // EXTENSION POINT: project-domain actions here, same `<resource>.<verb>` shape
 } as const;
 

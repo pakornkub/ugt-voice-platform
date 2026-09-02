@@ -26,6 +26,12 @@ export const PERMISSIONS = {
   // Audit logs
   AUDIT_LOGS_READ: 'audit-logs:read',
 
+  // Mail templates (ugt-nextjs-mail-setup, 2026-09-02)
+  MAIL_TEMPLATES_MANAGE: 'mail-templates:manage',
+  // Redirects a tester's own workflow email to themselves instead of the
+  // real recipient — grant to testers/developers only, see lib/email.ts.
+  DEV_MODE: 'dev-mode:enable',
+
   // EXTENSION POINT: add project-domain permissions here (resource:action)
 } as const;
 
@@ -49,6 +55,9 @@ export const ALL_PERMISSIONS: Array<{
   { key: PERMISSIONS.ROLES_DELETE, label: 'ลบบทบาท', group: 'roles' },
 
   { key: PERMISSIONS.AUDIT_LOGS_READ, label: 'ดูบันทึกการใช้งาน', group: 'audit-logs' },
+
+  { key: PERMISSIONS.MAIL_TEMPLATES_MANAGE, label: 'แก้ไขเทมเพลตอีเมล', group: 'ระบบ' },
+  { key: PERMISSIONS.DEV_MODE, label: 'โหมดทดสอบอีเมล', group: 'ระบบ' },
 
   // EXTENSION POINT: add seed entries for project-domain permissions here
 ];

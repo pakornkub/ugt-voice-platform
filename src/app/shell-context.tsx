@@ -16,6 +16,8 @@ export const TAB_TO_PATH: Record<AppTabId, string> = {
   admin_users: '/admin/users',
   admin_roles: '/admin/roles',
   admin_audit_logs: '/admin/audit-logs',
+  // ugt-nextjs-mail-setup (2026-09-02)
+  admin_mail_templates: '/admin/mail-templates',
 };
 
 export const PATH_TO_TAB: Record<string, AppTabId> = Object.fromEntries(

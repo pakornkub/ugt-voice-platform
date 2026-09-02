@@ -35,7 +35,11 @@ export type AppTabId =
   // instead, checked directly in Navbar. See docs/project-context/decisions.md.
   | 'admin_users'
   | 'admin_roles'
-  | 'admin_audit_logs';
+  | 'admin_audit_logs'
+  // Added by ugt-nextjs-mail-setup (2026-09-02) — same pattern as the 3
+  // tabs above: governed by RBAC permission (mail-templates:manage), not
+  // RoleAccessConfigs.allowedTabs.
+  | 'admin_mail_templates';
 
 export interface TabDefinition {
   id: AppTabId;

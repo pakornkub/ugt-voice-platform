@@ -25,20 +25,40 @@
 ทุกฟังก์ชันตาม pattern org: session → permission (`lib/permissions.ts`'s `PERMISSIONS`) → action →
 audit log (`lib/audit-actions.ts`) — ดู `.claude/rules/ugt-nextjs-auth.md`
 
-## Server Actions (Prisma) — `src/lib/actions/`
+## Server Actions — Mail (`lib/actions/`)
+
+<!-- เพิ่มโดย ugt-nextjs-mail-setup, 2026-09-02 — root-level lib/ (เหมือน auth chunk) -->
+
+| Module                                | ฟังก์ชันหลัก                                                                   | เรียกจาก                                         |
+| ------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------ |
+| `lib/actions/admin-mail-templates.ts` | `saveMailTemplateAction`/`resetMailTemplateAction`/`previewMailTemplateAction` | `MailTemplatesManager` (`/admin/mail-templates`) |
+
+ตาม pattern org เดียวกัน: session → permission (`mail-templates:manage`) → action → audit log
+— ดู `.claude/rules/ugt-nextjs-mail.md`
+
+ไม่ใช่ URL endpoint แต่ยังเป็น "การส่งอีเมลจริง" ที่ต้องรู้: `sendTemplatedMail()`
+(`lib/email.ts`) ถูกเรียกจาก `lib/actions/tickets.ts`'s `submitTicket`/`updateTicketWorkflow`
+(Prisma Server Actions ใน `lib/actions/` → api.md ด้านล่าง) — ยังไม่มี component ไหนเรียก
+Server Action เหล่านี้จริง (ดู `.claude/state/handoff.md` → Open Questions) จึงยังไม่มีอีเมล
+ออกจริงจนกว่าจะสลับ call site
+
+## Server Actions (Prisma) — `lib/actions/`
 
 <!-- เพิ่มโดย ugt-nextjs-database-setup, 2026-09-02 — ไม่ใช่ URL endpoint (เรียกจาก
      Server Component/Client Component โดยตรงผ่าน 'use server'), ยังไม่มี component ไหนเรียกจริง
-     (ดู handoff.md → Open Questions) — ทุกฟังก์ชัน mirror signature ของ src/services/api.ts เดิม -->
+     (ดู handoff.md → Open Questions) — ทุกฟังก์ชัน mirror signature ของ src/services/api.ts เดิม
+     path แก้เป็น root-level lib/actions/ เมื่อ 2026-09-02 (ugt-nextjs-mail-setup) — ไม่มี
+     src/lib/ ในโปรเจคนี้เลย (ดู decisions.md's database-chunk entry); ไฟล์เหล่านี้เองยังมี
+     คอมเมนต์หัวไฟล์เดิมที่อ้าง src/lib/actions/ ผิดอยู่ — ไม่กระทบการทำงาน ไม่ได้แก้ในรอบนี้ -->
 
-| Module                             | ฟังก์ชันหลัก                                                                                                                                       | แทนที่ (src/services/api.ts)                                                                    |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `src/lib/actions/tickets.ts`       | `getTickets`, `getTicketByTrackingCode`, `submitTicket`, `updateTicketWorkflow`, `submitEvaluation`                                                | `getStoredTickets`/`saveStoredTickets`/`submitTicket`/`updateTicketWorkflow`/`submitEvaluation` |
-| `src/lib/actions/notifications.ts` | `getNotifications`, `markNotificationAsRead`, `markAllNotificationsAsRead`                                                                         | เดียวกัน                                                                                        |
-| `src/lib/actions/gatekeeper.ts`    | `getDepartmentGatekeeperConfigs`, `updateDepartmentGatekeeperConfig`, `addGatekeeperOfficer`, `updateGatekeeperOfficer`, `deleteGatekeeperOfficer` | `getStoredGatekeeperConfigs`/`updateDepartmentGatekeeperConfig`                                 |
-| `src/lib/actions/executives.ts`    | `getExecutives`, `addExecutiveMember`, `updateExecutiveMember`, `deleteExecutiveMember`                                                            | เดียวกัน                                                                                        |
-| `src/lib/actions/hr-admins.ts`     | `getHrAdmins`, `addHrAdminMember`, `updateHrAdminMember`, `deleteHrAdminMember`                                                                    | เดียวกัน                                                                                        |
-| `src/lib/actions/role-access.ts`   | `getRoleAccessConfigs`, `updateRoleAccessConfig`                                                                                                   | `getStoredRolePermissions`/`saveStoredRolePermissions`                                          |
+| Module                         | ฟังก์ชันหลัก                                                                                                                                                                            | แทนที่ (src/services/api.ts)                                                                    |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `lib/actions/tickets.ts`       | `getTickets`, `getTicketByTrackingCode`, `submitTicket`, `updateTicketWorkflow`, `submitEvaluation` — **ยิงอีเมล workflow ด้วย** ตั้งแต่ 2026-09-02 (`ugt-nextjs-mail-setup`, ดูด้านบน) | `getStoredTickets`/`saveStoredTickets`/`submitTicket`/`updateTicketWorkflow`/`submitEvaluation` |
+| `lib/actions/notifications.ts` | `getNotifications`, `markNotificationAsRead`, `markAllNotificationsAsRead`                                                                                                              | เดียวกัน                                                                                        |
+| `lib/actions/gatekeeper.ts`    | `getDepartmentGatekeeperConfigs`, `updateDepartmentGatekeeperConfig`, `addGatekeeperOfficer`, `updateGatekeeperOfficer`, `deleteGatekeeperOfficer`                                      | `getStoredGatekeeperConfigs`/`updateDepartmentGatekeeperConfig`                                 |
+| `lib/actions/executives.ts`    | `getExecutives`, `addExecutiveMember`, `updateExecutiveMember`, `deleteExecutiveMember`                                                                                                 | เดียวกัน                                                                                        |
+| `lib/actions/hr-admins.ts`     | `getHrAdmins`, `addHrAdminMember`, `updateHrAdminMember`, `deleteHrAdminMember`                                                                                                         | เดียวกัน                                                                                        |
+| `lib/actions/role-access.ts`   | `getRoleAccessConfigs`, `updateRoleAccessConfig`                                                                                                                                        | `getStoredRolePermissions`/`saveStoredRolePermissions`                                          |
 
 ไม่มี session/permission guard ในชุดนี้ — session จริงมีแล้ว (`ugt-nextjs-auth-setup`,
 2026-09-02, `auth.api.getSession()`) แต่ยังไม่ได้ใส่ guard ในไฟล์เหล่านี้ เพราะยังไม่มี
