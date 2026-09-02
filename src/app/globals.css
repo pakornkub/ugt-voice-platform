@@ -1,1 +1,8 @@
 @import 'tailwindcss';
+
+@theme inline {
+  /* Inter + Noto Sans Thai loaded via next/font in src/app/layout.tsx —
+     see docs/DESIGN.md §10 (2026-09-02 มติ). Feeds the existing `font-sans`
+     utility already used throughout the app (e.g. src/app/(shell)/shell.tsx). */
+  --font-sans: var(--font-inter), var(--font-noto-sans-thai), ui-sans-serif, system-ui, sans-serif;
+}

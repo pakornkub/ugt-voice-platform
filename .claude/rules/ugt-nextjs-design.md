@@ -18,12 +18,13 @@ project's actual design (hand-built, pre-org-kit) as the agreement, and it
 wins over code, habit, general shadcn/ui knowledge, and any beautification
 skill (`frontend-design`, `impeccable`). The short version:
 
-- **This project has no shadcn/ui / Base UI / org kit installed.** Do not
-  import from `components/ui/*`, `next-intl`, or any shadcn primitive — none
-  of that exists here. See `docs/design-questions.md` #1 for the open
-  decision on whether to add it (as a substrate for brand-new pages only,
-  never by touching existing ones) — until that's answered, follow the
-  pattern below.
+- **This project has no shadcn/ui / Base UI / org kit installed, and never
+  will — including brand-new pages** (decided 2026-09-02, see
+  `docs/DESIGN.md` §10 and `docs/design-questions.md` #1). Do not import
+  from `components/ui/*`, `next-intl`, or any shadcn primitive — none of
+  that exists here, and new pages (e.g. `ugt-nextjs-auth-setup`'s login/
+  admin screens) must follow the hand-built pattern below too, not
+  introduce a second component system.
 - **Match the existing hand-built pattern**: Tailwind utility classes
   directly (no CSS-in-JS, no raw `<style>`), `lucide-react` icons, Thai UI
   copy hardcoded in JSX (no i18n catalog). Colors follow the role/status
@@ -51,7 +52,8 @@ skill (`frontend-design`, `impeccable`). The short version:
 - Deviating from `docs/DESIGN.md` on purpose (new pattern, new color, new
   component style)? Add a dated มติ to its §10 — a silent deviation is a
   defect, same as the org standard says.
-- If a future chunk (e.g. `ugt-nextjs-auth-setup`) decides to adopt shadcn/ui
-  for brand-new pages only, that decision and its resulting pattern belong
-  in `docs/DESIGN.md` §10 first — this rule file should be updated to match
-  in the same change, not left describing a stale state.
+- This was genuinely considered and closed, not skipped: see
+  `docs/DESIGN.md` §10 (2026-09-02) for the rejected alternative (shadcn/ui
+  as a primitive layer for new pages only) and why it lost — consistency
+  across every page won over getting a central `DataTable`/`FormDialog`.
+  Don't re-litigate it without the user raising it again.
