@@ -317,3 +317,175 @@ model roleAccessConfig {
 
   @@map("RoleAccessConfigs")
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Auth + RBAC models — added by ugt-nextjs-auth-setup, 2026-09-02.
+// SSO (Keycloak) only in this project — no LDAP / local email-password (see
+// docs/project-context/decisions.md). Trimmed from the skill's default asset:
+// no central-employee-directory enrichment columns (empCode/department/
+// position/supervisor) — this project has no linked-server employee view to
+// read from yet; see docs/project-context/decisions.md.
+//
+// ⚠ deviation (naming): these 8 tables map to SINGULAR names (Better Auth's
+// own convention for the first 5; Role/Permission/RolePermission share the
+// form) — an explicit, documented exception to the org's PascalCase-plural
+// rule (see .claude/rules/ugt-nextjs-database.md). ActivityLogs is the one
+// plural. Do not "fix" these.
+// ⚠ deviation (audit columns / delete): these tables carry no CreatedBy/
+// UpdatedBy/IsActive/IsDeleted, and roles/permissions really are hard-deleted
+// — Better Auth owns User/Session/Account/Verification/RateLimit (writes and
+// deletes them itself, never reads our audit columns), and Session/Account
+// cascade from User so a soft-deleted user would keep working sessions.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model user {
+  id            String   @id @default(cuid())            @map("Id")
+  name          String                                    @map("Name")
+  email         String   @unique                          @map("Email")
+  emailVerified Boolean  @default(false)                  @map("EmailVerified")
+  image         String?  @db.NVarChar(Max)                @map("Image")
+  createdAt     DateTime @default(now())                  @map("CreatedAt")
+  updatedAt     DateTime @updatedAt                        @map("UpdatedAt")
+
+  // Auth — last login method. SSO only in this project today, but kept as a
+  // free string (not a Prisma enum — MSSQL connector doesn't support them)
+  // so a future LDAP/local addition needs no migration of this column.
+  authType String @default("sso") @map("AuthType")
+
+  // RBAC (admin-section permissions: /admin/users, /admin/roles, /admin/audit-logs)
+  // — each user has at most one role; no role = zero permissions.
+  roleId   String? @map("RoleId")
+  userRole role?   @relation(fields: [roleId], references: [id])
+
+  // This app's OWN role (employee/gatekeeper/executive/admin — src/types.ts
+  // UserRole), separate from the RBAC role above: it drives which of the 6
+  // main tabs are visible via RoleAccessConfigs/Navbar, replacing the free
+  // role-switcher dropdown that used to let anyone pick any role client-side.
+  // Nullable = not yet assigned by an admin (mirrors roleId's "no access
+  // until assigned" pattern) — see docs/project-context/decisions.md.
+  appRole String? @db.NVarChar(20) @map("AppRole")
+
+  // Directory username (Keycloak preferred_username) — identity anchor used
+  // to link an SSO login back to the same row across sessions.
+  ldapUsername String? @unique @map("LdapUsername")
+
+  sessions session[]
+  accounts account[]
+
+  @@map("User")
+}
+
+model session {
+  id        String   @id @default(cuid()) @map("Id")
+  expiresAt DateTime                       @map("ExpiresAt")
+  token     String   @unique              @map("Token")
+  createdAt DateTime @default(now())      @map("CreatedAt")
+  updatedAt DateTime @updatedAt           @map("UpdatedAt")
+  ipAddress String?                        @map("IpAddress")
+  userAgent String?  @db.NVarChar(Max)    @map("UserAgent")
+  userId    String                         @map("UserId")
+  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("Session")
+}
+
+model account {
+  id                    String    @id @default(cuid())  @map("Id")
+  accountId             String                           @map("AccountId")
+  providerId            String                           @map("ProviderId")
+  userId                String                           @map("UserId")
+  user                  user      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?   @db.NVarChar(Max)     @map("AccessToken")
+  refreshToken          String?   @db.NVarChar(Max)     @map("RefreshToken")
+  idToken               String?   @db.NVarChar(Max)     @map("IdToken")
+  accessTokenExpiresAt  DateTime?                        @map("AccessTokenExpiresAt")
+  refreshTokenExpiresAt DateTime?                        @map("RefreshTokenExpiresAt")
+  scope                 String?                          @map("Scope")
+  password              String?   @db.NVarChar(Max)     @map("Password")
+  createdAt             DateTime  @default(now())        @map("CreatedAt")
+  updatedAt             DateTime  @updatedAt             @map("UpdatedAt")
+
+  @@unique([providerId, accountId])
+  @@map("Account")
+}
+
+model verification {
+  id         String    @id @default(cuid()) @map("Id")
+  identifier String                          @map("Identifier")
+  value      String    @db.NVarChar(Max)    @map("VerificationValue")
+  expiresAt  DateTime                        @map("ExpiresAt")
+  createdAt  DateTime? @default(now())       @map("CreatedAt")
+  updatedAt  DateTime? @updatedAt            @map("UpdatedAt")
+
+  @@map("Verification")
+}
+
+// ─── RBAC (admin section only) ─────────────────────────────────────────────
+// user (1) ── (0..1) role (1) ── (M) rolePermission (M) ── (1) permission
+
+model role {
+  id          String   @id @default(cuid()) @map("Id")
+  name        String   @unique              @map("Name")
+  description String?  @db.NVarChar(Max)   @map("Description")
+  isSystem    Boolean  @default(false)      @map("IsSystem") // system roles (Administrator) cannot be deleted
+  createdAt   DateTime @default(now())      @map("CreatedAt")
+  updatedAt   DateTime @updatedAt           @map("UpdatedAt")
+
+  users       user[]
+  permissions rolePermission[]
+
+  @@map("Role")
+}
+
+model permission {
+  id    String @id @default(cuid()) @map("Id")
+  key   String @unique              @map("PermKey")   // e.g. "users:read" — KEY is T-SQL reserved
+  label String                      @map("Label")
+  group String                      @map("GroupName") // GROUP is T-SQL reserved
+
+  roles rolePermission[]
+
+  @@map("Permission")
+}
+
+model rolePermission {
+  roleId       String @map("RoleId")
+  permissionId String @map("PermissionId")
+
+  role         role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("RolePermission")
+}
+
+// ─── Rate limiting ───────────────────────────────────────────────────────────
+// Required by Better Auth when rateLimit.storage = "database". GOTCHA: the
+// primary key MUST be `id String @id` and `key` MUST be nullable — Better
+// Auth sends an `id` field on insert; `key String @id` throws at runtime.
+
+model rateLimit {
+  id          String  @id          @map("Id")
+  key         String?              @map("BucketKey")
+  count       Int                  @map("RequestCount")
+  lastRequest BigInt               @map("LastRequest")
+
+  @@map("RateLimit")
+}
+
+// ─── Audit log ───────────────────────────────────────────────────────────────
+// Written on login.success / logout / logout.sso and after every privileged
+// mutation in the admin section (org contract §2 item 4).
+
+model activityLog {
+  id        Int      @id @default(autoincrement()) @map("Id")
+  userId    String   @map("UserId")
+  action    String   @map("Action")
+  detail    String?  @db.NVarChar(Max) @map("Detail")
+  createdAt DateTime @default(now()) @map("CreatedAt")
+
+  @@index([createdAt])
+  @@index([action])
+  @@index([userId])
+  @@map("ActivityLogs")
+}

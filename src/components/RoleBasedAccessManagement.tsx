@@ -13,7 +13,6 @@ import {
   X,
   RotateCcw,
   Save,
-  Eye,
   HelpCircle,
   Building2,
   Info,
@@ -61,14 +60,12 @@ import { CATEGORY_DEFINITIONS } from '../mockData';
 
 interface RoleBasedAccessManagementProps {
   currentRole: UserRole;
-  onSwitchRole: (role: UserRole) => void;
   onNavigateTab: (tab: AppTabId) => void;
   onPermissionsUpdated?: () => void;
 }
 
 export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps> = ({
   currentRole,
-  onSwitchRole,
   onNavigateTab,
   onPermissionsUpdated,
 }) => {
@@ -442,24 +439,6 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                   สิทธิ์เข้าถึง <strong className="font-bold text-slate-900">{allowedCount}</strong>{' '}
                   หน้าจอ
                 </span>
-
-                <button
-                  type="button"
-                  id={`btn-switch-role-to-${roleKey}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSwitchRole(roleKey);
-                    showToast(`สลับจำลองมุมมองเป็น: ${config.roleTitleTh}`);
-                  }}
-                  className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition ${
-                    isCurrent
-                      ? 'bg-indigo-600 text-white shadow-xs'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
-                >
-                  <Eye className="h-3 w-3" />
-                  <span>{isCurrent ? 'กำลังดู' : 'ทดสอบมุมมอง'}</span>
-                </button>
               </div>
             </div>
           );
@@ -665,10 +644,11 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
               </div>
               <div>
                 <span className="block text-xs font-bold text-slate-900">
-                  จำลองเข้าปฏิบัติงานในฐานะ Gatekeeper ประจำฝ่าย
+                  ศูนย์คัดกรองงาน Gatekeeper (Triage Hub)
                 </span>
                 <span className="text-[11px] text-slate-600">
-                  สลับบทบาทเป็น Gatekeeper และเปิดศูนย์คัดกรองงาน (Triage Hub) ได้ทันที
+                  เปิดดูหน้าจอ Gatekeeper Triage Portal — มองเห็นได้เฉพาะผู้ใช้ที่ได้รับมอบหมาย
+                  บทบาท Gatekeeper จริงจากหน้า &quot;จัดการผู้ใช้&quot;
                 </span>
               </div>
             </div>
@@ -676,13 +656,10 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
             <button
               type="button"
               id="btn-simulate-gatekeeper-direct"
-              onClick={() => {
-                onSwitchRole('gatekeeper');
-                onNavigateTab('gatekeeper');
-              }}
+              onClick={() => onNavigateTab('gatekeeper')}
               className="flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-700 active:bg-emerald-800"
             >
-              <span>เข้าสู่โหมด Gatekeeper</span>
+              <span>เปิด Gatekeeper Triage Portal</span>
               <ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>

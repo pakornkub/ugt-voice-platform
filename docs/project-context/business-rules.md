@@ -25,12 +25,19 @@
   `src/types.ts:RolePermissionConfig`/`DepartmentGatekeeperConfig` (assumption: filter logic
   ไม่ได้ตรวจทุกบรรทัด)
 
-## RBAC (ยังไม่ผูก authentication จริง — ดู ⚠ deviation ใน architecture.md)
+## RBAC — สองระบบแยกกัน (`ugt-nextjs-auth-setup`, 2026-09-02 — ดู decisions.md)
 
-- Role มี 4 แบบ: employee / gatekeeper / executive / admin แต่ละ role มี `allowedTabs` ที่
-  ปรับได้ผ่านหน้า RBAC Management — implement ที่
+- **บทบาทหลักของแอป** มี 4 แบบ: employee / gatekeeper / executive / admin แต่ละ role มี
+  `allowedTabs` ที่ปรับได้ผ่านหน้า RBAC Management — implement ที่
   `src/components/RoleBasedAccessManagement.tsx`, เก็บที่
-  `src/services/api.ts:getStoredRolePermissions/saveStoredRolePermissions`
+  `src/services/api.ts:getStoredRolePermissions/saveStoredRolePermissions` — **บทบาทของผู้ใช้
+  แต่ละคนตอนนี้มาจาก `user.appRole` จริงในฐานข้อมูล** (กำหนดโดย admin จากหน้า
+  "จัดการผู้ใช้" `/admin/users`) ไม่ใช่ dropdown สลับอิสระอีกต่อไป — ผู้ใช้ที่ยังไม่ถูกกำหนด
+  `appRole` จะเห็นหน้า "รอผู้ดูแลระบบกำหนดสิทธิ์การใช้งาน" แทนแอปจริง
+- **สิทธิ์หน้าผู้ดูแลระบบ** (`/admin/users`/`/admin/roles`/`/admin/audit-logs`) เป็นคนละระบบ —
+  ใช้ RBAC role/permission ใหม่ (`Role`/`Permission`/`RolePermission`) จัดการที่หน้า
+  `/admin/roles`, ไม่เกี่ยวกับบทบาทหลักของแอปด้านบน (ดู `docs/project-context/decisions.md`
+  เหตุผลที่ไม่รวมสองระบบเข้าด้วยกัน)
 
 ## CSAT evaluation
 

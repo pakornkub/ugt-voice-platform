@@ -28,11 +28,21 @@ export const env = createEnv({
     GEMINI_API_KEY: z.string().optional(),
     APP_URL: z.string().optional(),
 
-    // ── EXTENSION POINT ──────────────────────────────────────────────────
-    // Auth vars (secrets, issuers, LDAP, SSO) belong to the ugt-nextjs-auth-setup
-    // skill — add them here when that skill is applied. Other feature vars
-    // (SMTP, monitoring, ...) also slot in here, grouped with a comment.
-    // ─────────────────────────────────────────────────────────────────────
+    // ── ugt-nextjs-auth-setup: Better Auth + Keycloak SSO (2026-09-02) ─────
+    // SSO (Keycloak) only — no LDAP/local email-password in this project
+    // (มติ: see docs/project-context/decisions.md). BETTER_AUTH_URL is
+    // REQUIRED (not optional): Better Auth derives the __Secure- cookie
+    // prefix from its scheme, and an empty value in production falls back to
+    // NODE_ENV, which disagrees with what lib/actions/auth.ts computes →
+    // redirect loop (see references/auth-flows.md in the skill).
+    BETTER_AUTH_SECRET: z.string().min(32, 'BETTER_AUTH_SECRET must be at least 32 characters'),
+    BETTER_AUTH_URL: z.url(),
+    BETTER_AUTH_TRUSTED_ORIGINS: z.string().optional(),
+    // Guarded as a group in lib/auth.ts (only registers the Keycloak plugin
+    // when all three are present) so SKIP_ENV_VALIDATION=1 builds don't crash.
+    KEYCLOAK_ISSUER: z.string().optional(),
+    KEYCLOAK_CLIENT_ID: z.string().optional(),
+    KEYCLOAK_CLIENT_SECRET: z.string().optional(),
 
     // Node.js built-ins
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -43,15 +53,13 @@ export const env = createEnv({
    * Must be prefixed with NEXT_PUBLIC_.
    */
   client: {
-    // ── EXTENSION POINT ──────────────────────────────────────────────────
-    // NEXT_PUBLIC_* vars go HERE (not in `server`) **and** must be listed in
-    // runtimeEnv below, or they are undefined at runtime. auth-setup's
-    // NEXT_PUBLIC_BASE_PATH is the critical one — missing it silently falls
-    // back to the default cookie prefix → ERR_TOO_MANY_REDIRECTS on a shared
-    // domain. Example:
-    //   NEXT_PUBLIC_BASE_PATH: z.string().default(''),
-    //   NEXT_PUBLIC_APP_NAME: z.string().optional(),
-    // ─────────────────────────────────────────────────────────────────────
+    // This app is deployed standalone (no shared-domain basePath) as of this
+    // chunk — see docs/admin-handoff.md §2 and .claude/state/handoff.md. Kept
+    // here (defaulting to '') rather than hardcoded so a future basePath
+    // decision (tracked in ugt-nextjs-cicd-setup's queue) is a one-line env
+    // change, not a code change.
+    NEXT_PUBLIC_BASE_PATH: z.string().default(''),
+    NEXT_PUBLIC_APP_NAME: z.string().optional(),
   },
 
   /**
@@ -64,9 +72,15 @@ export const env = createEnv({
     SHADOW_DATABASE_URL: process.env.SHADOW_DATABASE_URL,
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
     APP_URL: process.env.APP_URL,
+    BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
+    BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
+    BETTER_AUTH_TRUSTED_ORIGINS: process.env.BETTER_AUTH_TRUSTED_ORIGINS,
+    KEYCLOAK_ISSUER: process.env.KEYCLOAK_ISSUER,
+    KEYCLOAK_CLIENT_ID: process.env.KEYCLOAK_CLIENT_ID,
+    KEYCLOAK_CLIENT_SECRET: process.env.KEYCLOAK_CLIENT_SECRET,
     NODE_ENV: process.env.NODE_ENV,
-    // EXTENSION POINT: every client var above must appear here too, e.g.
-    //   NEXT_PUBLIC_BASE_PATH: process.env.NEXT_PUBLIC_BASE_PATH,
+    NEXT_PUBLIC_BASE_PATH: process.env.NEXT_PUBLIC_BASE_PATH,
+    NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
   },
 
   /**

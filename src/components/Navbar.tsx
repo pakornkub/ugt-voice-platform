@@ -9,7 +9,6 @@ import {
   Crown,
   LifeBuoy,
   Layers,
-  CheckCircle2,
   FileText,
   SlidersHorizontal,
   ChevronDown,
@@ -17,14 +16,21 @@ import {
   GitBranch,
   LayoutDashboard,
   FileSpreadsheet,
+  ShieldCheck,
+  ScrollText,
+  LogOut,
 } from 'lucide-react';
 import { UserRole, NotificationItem, AppTabId } from '../types';
 import { getStoredRolePermissions } from '../services/api';
+import type { ShellIdentity } from '../app/shell-context';
+import { ssoLogoutAction } from '@/lib/actions/auth';
 
 interface NavbarProps {
   currentRole: UserRole;
-  onRoleChange?: (role: UserRole) => void;
-  onSelectRole?: (role: UserRole) => void;
+  // ugt-nextjs-auth-setup (2026-09-02): identity from the real session,
+  // replacing the free role-switcher. Optional + defaulted so this component
+  // still renders standalone (e.g. Navbar.test.tsx) without a live session.
+  identity?: ShellIdentity;
   activeTab: string;
   onTabChange?: (tab: string) => void;
   onSelectTab?: (tab: string) => void;
@@ -37,10 +43,17 @@ interface NavbarProps {
   onOpenExport?: () => void;
 }
 
+const DEFAULT_IDENTITY: ShellIdentity = {
+  name: 'ผู้ใช้งาน',
+  email: '',
+  appRole: 'employee',
+  roleName: null,
+  permissions: [],
+};
+
 export const Navbar: React.FC<NavbarProps> = ({
   currentRole = 'employee',
-  onRoleChange,
-  onSelectRole,
+  identity = DEFAULT_IDENTITY,
   activeTab = 'submit',
   onTabChange,
   onSelectTab,
@@ -52,7 +65,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenExport,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
+  const [isIdentityMenuOpen, setIsIdentityMenuOpen] = useState(false);
   const unreadCount = (notifications || []).filter((n) => !n.read).length;
 
   const rolePermissions = getStoredRolePermissions();
@@ -64,11 +77,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   ];
 
   const canAccessExecutive = allowedTabs.includes('executive');
-
-  const handleRoleSelect = (r: UserRole) => {
-    if (onRoleChange) onRoleChange(r);
-    if (onSelectRole) onSelectRole(r);
-  };
 
   const handleTabSelect = (t: string) => {
     if (onTabChange) onTabChange(t);
@@ -117,6 +125,14 @@ export const Navbar: React.FC<NavbarProps> = ({
       color: 'bg-rose-50 border-rose-200 text-rose-800',
     },
   };
+
+  // ugt-nextjs-auth-setup (2026-09-02): visibility of these 3 comes from the
+  // new RBAC permission system, not RoleAccessConfigs.allowedTabs like the
+  // tabs above — see docs/project-context/decisions.md.
+  const canSeeUsers = identity.permissions.includes('users:read');
+  const canSeeRoles = identity.permissions.includes('roles:read');
+  const canSeeAuditLogs = identity.permissions.includes('audit-logs:read');
+  const hasAdminSection = canSeeUsers || canSeeRoles || canSeeAuditLogs;
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 shadow-xs backdrop-blur">
@@ -230,75 +246,59 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </button>
 
-            {/* Role Switcher Menu */}
+            {/* Identity Menu — replaces the old free role-switcher dropdown
+                (ugt-nextjs-auth-setup, 2026-09-02): บทบาทมาจาก session จริง
+                อ่านอย่างเดียว ไม่มีปุ่มสลับ */}
             <div className="relative">
               <button
-                id="btn-role-dropdown"
+                id="btn-identity-menu"
                 type="button"
-                onClick={() => setIsRoleDropdownOpen(!isRoleDropdownOpen)}
+                onClick={() => setIsIdentityMenuOpen(!isIdentityMenuOpen)}
                 className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${roleLabels[currentRole].color}`}
               >
                 <div className="flex items-center gap-1.5">
                   {roleLabels[currentRole].icon}
-                  <span className="font-semibold">
-                    {roleLabels[currentRole].label.split('(')[0]}
-                  </span>
+                  <span className="max-w-[8rem] truncate font-semibold">{identity.name}</span>
                 </div>
                 <ChevronDown className="h-3.5 w-3.5 opacity-70" />
               </button>
 
-              {isRoleDropdownOpen && (
+              {isIdentityMenuOpen && (
                 <>
                   <div
                     className="fixed inset-0 z-40"
-                    onClick={() => setIsRoleDropdownOpen(false)}
+                    onClick={() => setIsIdentityMenuOpen(false)}
                   />
-                  <div className="animate-in fade-in slide-in-from-top-2 absolute right-0 z-50 mt-2 w-80 rounded-xl border border-slate-200 bg-white py-1.5 shadow-xl">
-                    <div className="border-b border-slate-100 bg-slate-50 px-3 py-2">
-                      <p className="text-[11px] font-bold tracking-wider text-slate-500 uppercase">
-                        สลับบทบาทการใช้งาน (Role-Based Access)
-                      </p>
-                      <p className="mt-0.5 text-[11px] text-slate-500">
-                        ระบบจะปรับเปลี่ยนเมนูและข้อมูลที่มองเห็นตามสิทธิ์ของบทบาททันที
-                      </p>
-                    </div>
-                    {(['employee', 'gatekeeper', 'executive', 'admin'] as UserRole[]).map((r) => {
-                      const item = roleLabels[r];
-                      const isSelected = currentRole === r;
-                      return (
-                        <button
-                          key={r}
-                          id={`role-select-${r}`}
-                          type="button"
-                          onClick={() => {
-                            handleRoleSelect(r);
-                            setIsRoleDropdownOpen(false);
-                            if (r === 'employee') handleTabSelect('submit');
-                            if (r === 'gatekeeper') handleTabSelect('gatekeeper');
-                            if (r === 'executive') handleTabSelect('executive');
-                            if (r === 'admin') handleTabSelect('rbac_management');
-                          }}
-                          className={`flex w-full items-start gap-3 px-3 py-2.5 text-left transition hover:bg-slate-50 ${
-                            isSelected
-                              ? 'bg-indigo-50/70 font-semibold text-indigo-900'
-                              : 'text-slate-700'
-                          }`}
+                  <div className="animate-in fade-in slide-in-from-top-2 absolute right-0 z-50 mt-2 w-72 rounded-xl border border-slate-200 bg-white py-1.5 shadow-xl">
+                    <div className="border-b border-slate-100 bg-slate-50 px-3.5 py-3">
+                      <p className="truncate text-xs font-bold text-slate-900">{identity.name}</p>
+                      <p className="truncate text-[11px] text-slate-500">{identity.email}</p>
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold ${roleLabels[currentRole].color}`}
                         >
-                          <div className="mt-0.5 shrink-0">{item.icon}</div>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-slate-900">{item.label}</span>
-                              {isSelected && (
-                                <CheckCircle2 className="h-3.5 w-3.5 text-indigo-600" />
-                              )}
-                            </div>
-                            <p className="mt-0.5 text-[11px] leading-tight text-slate-500">
-                              {item.sub}
-                            </p>
-                          </div>
-                        </button>
-                      );
-                    })}
+                          {roleLabels[currentRole].icon}
+                          {roleLabels[currentRole].label.split('(')[0]}
+                        </span>
+                        {identity.roleName && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                            <ShieldCheck className="h-3 w-3 text-slate-400" />
+                            {identity.roleName}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <form action={ssoLogoutAction}>
+                      <button
+                        id="btn-sign-out"
+                        type="submit"
+                        className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-xs font-semibold text-rose-700 transition hover:bg-rose-50"
+                      >
+                        <LogOut className="h-3.5 w-3.5" />
+                        <span>ออกจากระบบ</span>
+                      </button>
+                    </form>
                   </div>
                 </>
               )}
@@ -394,7 +394,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
 
-            {/* Tab: Role-Based Access Control (RBAC) */}
+            {/* Tab: Role-Based Access Control (RBAC) — this app's own
+                tab-visibility settings (RoleAccessConfigs), unchanged */}
             {allowedTabs.includes('rbac_management') && (
               <button
                 id="nav-tab-rbac-management"
@@ -408,6 +409,62 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <SlidersHorizontal className="h-3.5 w-3.5 text-rose-600" />
                 <span>กำหนดสิทธิ์เข้าถึง (RBAC)</span>
+              </button>
+            )}
+
+            {/* ugt-nextjs-auth-setup (2026-09-02): admin section — visibility
+                from RBAC permissions (identity.permissions), not allowedTabs */}
+            {hasAdminSection && (
+              <span className="mx-1 hidden self-center text-slate-200 sm:inline" aria-hidden>
+                |
+              </span>
+            )}
+
+            {canSeeUsers && (
+              <button
+                id="nav-tab-admin-users"
+                type="button"
+                onClick={() => handleTabSelect('admin_users')}
+                className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                  activeTab === 'admin_users'
+                    ? 'bg-slate-800 font-semibold text-white'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`}
+              >
+                <Users className="h-3.5 w-3.5" />
+                <span>จัดการผู้ใช้</span>
+              </button>
+            )}
+
+            {canSeeRoles && (
+              <button
+                id="nav-tab-admin-roles"
+                type="button"
+                onClick={() => handleTabSelect('admin_roles')}
+                className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                  activeTab === 'admin_roles'
+                    ? 'bg-slate-800 font-semibold text-white'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`}
+              >
+                <ShieldCheck className="h-3.5 w-3.5" />
+                <span>บทบาทและสิทธิ์</span>
+              </button>
+            )}
+
+            {canSeeAuditLogs && (
+              <button
+                id="nav-tab-admin-audit-logs"
+                type="button"
+                onClick={() => handleTabSelect('admin_audit_logs')}
+                className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                  activeTab === 'admin_audit_logs'
+                    ? 'bg-slate-800 font-semibold text-white'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`}
+              >
+                <ScrollText className="h-3.5 w-3.5" />
+                <span>บันทึกการใช้งาน</span>
               </button>
             )}
           </nav>

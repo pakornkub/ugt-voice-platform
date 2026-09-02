@@ -12,22 +12,37 @@ export const TAB_TO_PATH: Record<AppTabId, string> = {
   clustering: '/clustering',
   admin_gatekeeper: '/admin/gatekeepers',
   rbac_management: '/admin/rbac',
+  // ugt-nextjs-auth-setup (2026-09-02)
+  admin_users: '/admin/users',
+  admin_roles: '/admin/roles',
+  admin_audit_logs: '/admin/audit-logs',
 };
 
 export const PATH_TO_TAB: Record<string, AppTabId> = Object.fromEntries(
   Object.entries(TAB_TO_PATH).map(([tab, path]) => [path, tab as AppTabId])
 );
 
+/** Identity of the signed-in user, from the Better Auth session (ugt-nextjs-auth-setup, 2026-09-02). */
+export interface ShellIdentity {
+  name: string;
+  email: string;
+  /** This app's own role (employee/gatekeeper/executive/admin) — drives allowedTabs, replaces the old free role-switcher. */
+  appRole: UserRole;
+  /** RBAC role name (e.g. "Administrator"), null if no admin-section role assigned. */
+  roleName: string | null;
+  /** RBAC permission keys held by this user — governs visibility of the admin_users/admin_roles/admin_audit_logs tabs. */
+  permissions: string[];
+}
+
 export interface ShellContextValue {
   currentRole: UserRole;
+  identity: ShellIdentity;
   tickets: ComplaintTicket[];
   notifications: NotificationItem[];
   isMobileSimulator: boolean;
   activeTab: string;
   refreshData: () => void;
   navigateTab: (tab: string) => void;
-  setCurrentRole: (role: UserRole) => void;
-  handleRoleChange: (role: UserRole) => void;
   handleTicketCreated: (ticket: ComplaintTicket) => void;
   handleTicketUpdated: (ticket: ComplaintTicket) => void;
   openTrackingByCode: (code: string) => void;

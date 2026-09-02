@@ -3,11 +3,27 @@
 <!-- ตาราง endpoint — index ชี้เข้าโค้ด ไม่ใช่ spec เต็ม (validation schema ในไฟล์ route
      คือ spec ตัวจริง อย่าลอกมา) · อัปเดตผ่าน /ugt-handoff เมื่อเพิ่ม/เปลี่ยน endpoint -->
 
-| Method | Path                        | ทำอะไร                                                                                                                  | ไฟล์                                        | ใครเรียก                                                                             |
-| ------ | --------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------ |
-| GET    | `/api/health`               | health check + บอกว่ามี `GEMINI_API_KEY` ตั้งไว้หรือไม่                                                                 | `src/app/api/health/route.ts`               | ops/uptime check                                                                     |
-| POST   | `/api/ai/analyze-complaint` | Gemini triage: แนะนำหมวดหมู่/urgency/risk จากร่างคำร้อง (fallback เป็น heuristic คงที่ถ้าไม่มี API key)                 | `src/app/api/ai/analyze-complaint/route.ts` | `analyzeGrievanceWithAI()` ใน `src/services/api.ts`, เรียกจาก `EmployeeSubmitForm`   |
-| POST   | `/api/ai/cluster-insights`  | Gemini root-cause clustering + executive summary จากคำร้องทั้งหมด (fallback เป็น cluster ตัวอย่างคงที่ถ้าไม่มี API key) | `src/app/api/ai/cluster-insights/route.ts`  | `getClusterInsightsWithAI()` ใน `src/services/api.ts`, เรียกจาก `ExecutiveDashboard` |
+| Method   | Path                        | ทำอะไร                                                                                                                  | ไฟล์                                        | ใครเรียก                                                                                                     |
+| -------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| GET      | `/api/health`               | health check + บอกว่ามี `GEMINI_API_KEY` ตั้งไว้หรือไม่                                                                 | `src/app/api/health/route.ts`               | ops/uptime check                                                                                             |
+| POST     | `/api/ai/analyze-complaint` | Gemini triage: แนะนำหมวดหมู่/urgency/risk จากร่างคำร้อง (fallback เป็น heuristic คงที่ถ้าไม่มี API key)                 | `src/app/api/ai/analyze-complaint/route.ts` | `analyzeGrievanceWithAI()` ใน `src/services/api.ts`, เรียกจาก `EmployeeSubmitForm`                           |
+| POST     | `/api/ai/cluster-insights`  | Gemini root-cause clustering + executive summary จากคำร้องทั้งหมด (fallback เป็น cluster ตัวอย่างคงที่ถ้าไม่มี API key) | `src/app/api/ai/cluster-insights/route.ts`  | `getClusterInsightsWithAI()` ใน `src/services/api.ts`, เรียกจาก `ExecutiveDashboard`                         |
+| GET/POST | `/api/auth/[...all]`        | Better Auth catch-all (sign-in/sign-out/callback/get-session ฯลฯ)                                                       | `src/app/api/auth/[...all]/route.ts`        | `authClient` (`lib/auth-client.ts`), `auth.api.*` ฝั่ง server — เพิ่มโดย `ugt-nextjs-auth-setup`, 2026-09-02 |
+
+## Server Actions — Auth/RBAC (`lib/actions/`)
+
+<!-- เพิ่มโดย ugt-nextjs-auth-setup, 2026-09-02 — root-level lib/ (เหมือน database
+     chunk) ไม่ใช่ src/lib/. SSO only ในโปรเจคนี้ — ไม่มี ldapLoginAction/localLoginAction -->
+
+| Module                       | ฟังก์ชันหลัก                                                                          | เรียกจาก                                                                        |
+| ---------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `lib/actions/auth.ts`        | `ssoLogoutAction`                                                                     | `Navbar`'s identity menu, `src/app/(shell)/layout.tsx`'s "รอกำหนดสิทธิ์" screen |
+| `lib/actions/admin-setup.ts` | `initializeAdminAction` (first-admin bootstrap)                                       | `AdminSetupForm` (`/admin/setup`)                                               |
+| `lib/actions/admin-roles.ts` | `createRoleAction`/`updateRoleAction`/`deleteRoleAction`                              | `RolesManager` (`/admin/roles`)                                                 |
+| `lib/actions/admin-users.ts` | `assignUserRoleAction` (RBAC role) / `assignUserAppRoleAction` (app's own `UserRole`) | `UsersTable` (`/admin/users`)                                                   |
+
+ทุกฟังก์ชันตาม pattern org: session → permission (`lib/permissions.ts`'s `PERMISSIONS`) → action →
+audit log (`lib/audit-actions.ts`) — ดู `.claude/rules/ugt-nextjs-auth.md`
 
 ## Server Actions (Prisma) — `src/lib/actions/`
 
@@ -24,5 +40,8 @@
 | `src/lib/actions/hr-admins.ts`     | `getHrAdmins`, `addHrAdminMember`, `updateHrAdminMember`, `deleteHrAdminMember`                                                                    | เดียวกัน                                                                                        |
 | `src/lib/actions/role-access.ts`   | `getRoleAccessConfigs`, `updateRoleAccessConfig`                                                                                                   | `getStoredRolePermissions`/`saveStoredRolePermissions`                                          |
 
-ไม่มี session/permission guard ในชุดนี้ — รอ `ugt-nextjs-auth-setup` ก่อนถึงจะมี
-session จริงให้ตรวจ (ดู `.claude/rules/ugt-nextjs-database.md`)
+ไม่มี session/permission guard ในชุดนี้ — session จริงมีแล้ว (`ugt-nextjs-auth-setup`,
+2026-09-02, `auth.api.getSession()`) แต่ยังไม่ได้ใส่ guard ในไฟล์เหล่านี้ เพราะยังไม่มี
+component ไหนเรียกจริง (component ทั้งหมดยังอ่าน/เขียน `localStorage` ผ่าน
+`src/services/api.ts` — ดู `.claude/state/handoff.md` → Open Questions) ใส่ guard
+พร้อมกับตอนสลับ call site จริงในอนาคต ไม่ใช่ตอนนี้ที่ยังไม่มีใครเรียก

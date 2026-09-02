@@ -6,7 +6,7 @@ import { Navbar } from '@/components/Navbar';
 import { TrackingTimelineModal } from '@/components/TrackingTimelineModal';
 import { SatisfactionModal } from '@/components/SatisfactionModal';
 import { ExportAnalyticsModal } from '@/components/ExportAnalyticsModal';
-import { ComplaintTicket, NotificationItem, UserRole } from '@/types';
+import { ComplaintTicket, NotificationItem } from '@/types';
 import {
   getTickets,
   getTicketByTrackingCode,
@@ -26,14 +26,23 @@ import {
   Smartphone,
   X,
 } from 'lucide-react';
-import { PATH_TO_TAB, ShellContext, TAB_TO_PATH } from '../shell-context';
+import { PATH_TO_TAB, ShellContext, ShellIdentity, TAB_TO_PATH } from '../shell-context';
 
-export default function Shell({ children }: { children: React.ReactNode }) {
+export default function Shell({
+  identity,
+  children,
+}: {
+  identity: ShellIdentity;
+  children: React.ReactNode;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const activeTab = PATH_TO_TAB[pathname] || 'submit';
 
-  const [currentRole, setCurrentRole] = useState<UserRole>('employee');
+  // Role now comes from the authenticated session (ugt-nextjs-auth-setup,
+  // 2026-09-02) — no more free client-side role-switcher state. Assigned by
+  // an admin from /admin/users; see docs/project-context/decisions.md.
+  const currentRole = identity.appRole;
   const [tickets, setTickets] = useState<ComplaintTicket[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -90,14 +99,6 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const openTracking = (ticket: ComplaintTicket) => setSelectedTicketForTracking(ticket);
   const openSatisfaction = (ticket: ComplaintTicket) => setSelectedTicketForSatisfaction(ticket);
 
-  const handleRoleChange = (newRole: UserRole) => {
-    setCurrentRole(newRole);
-    if (newRole === 'gatekeeper') navigateTab('gatekeeper');
-    else if (newRole === 'executive') navigateTab('executive');
-    else if (newRole === 'admin') navigateTab('rbac_management');
-    else if (newRole === 'employee') navigateTab('submit');
-  };
-
   const handleNotificationClick = (item: NotificationItem) => {
     const updated = markNotificationAsRead(item.id);
     setNotifications(updated);
@@ -113,14 +114,13 @@ export default function Shell({ children }: { children: React.ReactNode }) {
     <ShellContext.Provider
       value={{
         currentRole,
+        identity,
         tickets,
         notifications,
         isMobileSimulator,
         activeTab,
         refreshData,
         navigateTab,
-        setCurrentRole,
-        handleRoleChange,
         handleTicketCreated,
         handleTicketUpdated,
         openTrackingByCode,
@@ -132,8 +132,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         {/* Top Navigation */}
         <Navbar
           currentRole={currentRole}
-          onRoleChange={handleRoleChange}
-          onSelectRole={handleRoleChange}
+          identity={identity}
           activeTab={activeTab}
           onTabChange={navigateTab}
           onSelectTab={navigateTab}

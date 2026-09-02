@@ -61,6 +61,45 @@
     — importing `api.ts` from a Node script would drag in the browser-only `sqliteDb.ts`/
     `sql.js`). Keep these three lists in sync until `api.ts` is retired.
 
+- **Auth + RBAC (added 2026-09-02, `ugt-nextjs-auth-setup`) — SSO (Keycloak) only, live once
+  real Keycloak values land (currently placeholders, see `docs/admin-handoff.md` §2):**
+  - `lib/auth.ts` — Better Auth server config: Prisma adapter, Keycloak `genericOAuth` plugin
+    (guarded — no-op until `KEYCLOAK_ISSUER`/`CLIENT_ID`/`CLIENT_SECRET` are real), 8h session
+    (30m refresh), `databaseHooks.session.create.after` writes `login.success` + syncs
+    `authType`/`ldapUsername`. `emailAndPassword.enabled: false` (no local accounts).
+  - `lib/auth-client.ts` — browser client (`authClient.signIn.social({ provider: 'keycloak' })`).
+  - `lib/actions/auth.ts` — `ssoLogoutAction` only (local session cleanup + Keycloak backchannel
+    logout). No LDAP/local login actions — SSO only.
+  - `lib/permissions.ts`/`lib/get-user-permissions.ts`/`lib/permissions-sync.ts` — RBAC for the
+    `/admin/*` section only: `users:read`/`users:update`, `roles:read/create/update/delete`,
+    `audit-logs:read`. This is a **separate system** from the app's own `UserRole` tab-visibility
+    model below — see ⚠ deviation.
+  - `lib/actions/admin-setup.ts`/`admin-roles.ts`/`admin-users.ts` — first-admin bootstrap, role
+    CRUD, `assignUserRoleAction` (RBAC role) + `assignUserAppRoleAction` (this app's own
+    `UserRole`).
+  - `lib/audit-actions.ts` — `ActivityLogs.action` constants: `login.success`/`logout`/
+    `logout.sso`/`users.role-assign`/`users.app-role-assign`/`roles.create/update/delete`.
+  - `src/middleware.ts` — route guard (Next.js ≤15 filename — see ⚠ deviation), cookie-presence
+    check + security headers on every response.
+  - `src/app/login/page.tsx` + `src/components/LoginForm.tsx` — public SSO login page.
+  - `src/app/admin/setup/` — first-admin bootstrap (`/admin/setup`), outside the `(shell)` group
+    (no permissions exist yet at this point).
+  - `src/app/(shell)/admin/{users,roles,audit-logs}/page.tsx` + `UsersTable`/`RolesManager`/
+    `AuditLogsTable` components — the 3 ongoing admin pages, rendered **inside** the existing
+    `(shell)` group so they get the same `Navbar`/tab chrome as every other route (no separate
+    admin sidebar was built — see `docs/project-context/decisions.md`).
+  - `src/app/(shell)/layout.tsx` — now the real session guard for every route under the shell:
+    no session → `/login`; no bootstrap admin yet → `/admin/setup`; no `appRole` assigned yet →
+    a "รอผู้ดูแลระบบกำหนดสิทธิ์การใช้งาน" waiting screen (not the shell).
+  - `prisma/schema.prisma` — `user`/`session`/`account`/`verification`/`role`/`permission`/
+    `rolePermission`/`rateLimit`/`activityLog` models (8 singular + `ActivityLogs`, per the org's
+    documented naming exception), `user.appRole` (this app's own `UserRole`, separate from
+    `roleId`/RBAC — see ⚠ deviation). No directory-enrichment columns (`empCode`/`department`/…
+    — not installed this chunk, see decisions.md).
+  - `prisma/migrations/20260902010000_auth_rbac/` — generated **offline** (schema-to-schema
+    diff, no live SQL Server — same method as the initial migration); apply via `prisma migrate
+resolve --applied` once real DB values land, see `docs/admin-handoff.md`.
+
 ## Data flow หลัก
 
 - ยื่นคำร้อง: `EmployeeSubmitForm` (`src/components/EmployeeSubmitForm.tsx`) →
@@ -71,6 +110,10 @@
   Gemini API (falls back to static heuristics when `GEMINI_API_KEY` is unset).
 - AI clustering: `ExecutiveDashboard` "สรุปเชิงกลยุทธ์ด้วย Gemini AI" →
   `getClusterInsightsWithAI()` in api.ts → `POST /api/ai/cluster-insights` → same pattern.
+- Login: `/login` (`LoginForm`) → `authClient.signIn.social({ provider: 'keycloak' })` → Keycloak
+  → `/api/auth/callback/keycloak` → `lib/auth.ts`'s `databaseHooks.session.create.after` (writes
+  `login.success`, syncs `authType`) → `src/app/(shell)/layout.tsx` session check on next
+  navigation → `Shell`/`Navbar` render with `identity.appRole` from the DB, not client state.
 - Tab navigation: `Navbar` (`src/components/Navbar.tsx`, prop-driven, unchanged) →
   `navigateTab()` in `src/app/(shell)/shell.tsx` → `router.push()` → route change →
   `usePathname()` recomputes `activeTab`, passed back into `Navbar` via `ShellContext`.
@@ -110,10 +153,30 @@ component ทั้งหมดยังอ่าน/เขียน `localStora
 - ⚠ deviation (2026-09-02): ทุกตารางมี `CreatedBy`/`UpdatedBy` เป็น nullable (ปกติควร
   required ตาม org convention) — เหตุผล: ยังไม่มี authentication จริง จึงไม่มี session user
   id ให้ stamp จนกว่า `ugt-nextjs-auth-setup` จะติดตั้งเสร็จ.
-- ⚠ deviation: ไม่มี authentication จริง — `Navbar`'s role switcher เป็น dropdown ที่สลับ
-  role ได้อิสระโดยไม่มีการตรวจสอบใดๆ, `currentRole` เป็น React state ที่ reset ทุกครั้งที่
-  reload — แผน Keycloak SSO อยู่ใน chunk ถัดไป (`ugt-nextjs-auth-setup`) ซึ่งจะปลด role
-  switcher นี้ออก.
+- ⚠ deviation (**retired 2026-09-02**, `ugt-nextjs-auth-setup`): `Navbar`'s free role-switcher
+  dropdown (any user could pick any of the 4 roles client-side, no auth) is gone —
+  `src/app/(shell)/shell.tsx`'s `currentRole` now comes from the authenticated session's
+  `user.appRole` (set only by an admin via `/admin/users` → `assignUserAppRoleAction`), fetched
+  server-side in `src/app/(shell)/layout.tsx`. `RoleBasedAccessManagement.tsx`'s "ทดสอบมุมมอง"
+  preview-switch buttons and `WorkflowDiagram.tsx`'s step-click role-switch were removed for the
+  same reason (they called the same retired `handleRoleChange`).
+- ⚠ deviation (2026-09-02, `ugt-nextjs-auth-setup`): the 8 Better Auth/RBAC tables
+  (`User`/`Session`/`Account`/`Verification`/`Role`/`Permission`/`RolePermission`/`RateLimit`)
+  carry no `CreatedBy`/`UpdatedBy`/`IsActive`/`IsDeleted` and use hard delete (`prisma.role.delete`
+  in `lib/actions/admin-roles.ts`, not `IsDeleted = 1`) — Better Auth owns these rows (writes/
+  deletes them itself, never reads this project's audit columns), and `Session`/`Account` cascade
+  from `User`, so a soft-deleted user would keep working sessions. Per the org naming-exception
+  rule in `.claude/rules/ugt-nextjs-database.md`.
+- ⚠ deviation (2026-09-02, `ugt-nextjs-auth-setup`): the new RBAC permission system
+  (`Role`/`Permission`, gates only `/admin/users`/`/admin/roles`/`/admin/audit-logs`) and this
+  app's own `UserRole` tab-visibility system (`RoleAccessConfigs`/`allowedTabs`, gates the 6
+  original feature tabs) are **two separate, independently-assigned systems** — a user's RBAC
+  role and their `appRole` are unrelated and set independently from `/admin/users`. See
+  `docs/project-context/decisions.md` for why they were not merged.
+- ⚠ deviation (2026-09-02, `ugt-nextjs-auth-setup`): no central-employee-directory enrichment
+  (`lib/directory.ts`/`lib/scope.ts`/`lib/approval-chain.ts` from the skill were not installed) —
+  this project has no linked-server employee view to read from yet; SSO gives only name/email/
+  username. See `docs/project-context/decisions.md`.
 - ⚠ deviation: การแนบไฟล์ใน `EmployeeSubmitForm` เป็นการจำลอง (`Math.random()` สร้าง object
   ไฟล์ปลอม) ไม่มี upload/storage จริง — แผนอยู่ใน chunk `ugt-nextjs-upload-setup`.
 - ⚠ deviation: การแจ้งเตือนเป็นแบบ in-app เท่านั้น ไม่มีอีเมลจริง — แผนอยู่ใน chunk

@@ -28,7 +28,14 @@ export type AppTabId =
   | 'executive'
   | 'clustering'
   | 'admin_gatekeeper'
-  | 'rbac_management';
+  | 'rbac_management'
+  // Added by ugt-nextjs-auth-setup (2026-09-02) — NOT governed by
+  // RoleAccessConfigs.allowedTabs like the tabs above. Visibility comes from
+  // the new RBAC permission system (users:read/roles:read/audit-logs:read)
+  // instead, checked directly in Navbar. See docs/project-context/decisions.md.
+  | 'admin_users'
+  | 'admin_roles'
+  | 'admin_audit_logs';
 
 export interface TabDefinition {
   id: AppTabId;

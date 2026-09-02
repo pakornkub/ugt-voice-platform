@@ -101,3 +101,69 @@
   confirmed no behavior change: `tsc --noEmit` and `next build` both clean before and after,
   110 ESLint **warnings** (mostly unused icon imports) deliberately left as-is — warnings don't
   fail the pipeline and fixing them is unrelated cleanup outside this chunk's scope.
+- 2026-09-02 Installed `ugt-nextjs-auth-setup` (Better Auth + Keycloak SSO + RBAC) **without**
+  the org UI kit/next-intl the skill's assets assume — every login/admin page (login,
+  `/admin/setup`, `/admin/users`, `/admin/roles`, `/admin/audit-logs`) is hand-built Tailwind,
+  matching the app's existing pattern instead of shadcn `DataTable`/`Sheet`/`ConfirmActionDialog`
+  — **because** the standing 2026-09-02 decision to keep this app's hand-built design applies to
+  new pages too (already recorded in `docs/DESIGN.md` §10, `docs/design-questions.md` #1) ·
+  destructive deletes use `window.confirm()` (matching `RoleBasedAccessManagement.tsx`'s existing
+  `handleDeleteExec`), not a custom confirm modal · rejected: installing shadcn/ui as a substrate
+  for the new auth pages only (already rejected on 2026-09-02, see `DESIGN.md` §10 — would create
+  two parallel design systems in one app).
+- 2026-09-02 Auth interview answers not already covered by a standing decision, decided by the
+  installer (no `AskUserQuestion` available in this run — see below) rather than left blocking:
+  (1) **no basePath** — app deploys standalone, matching the existing "currently assumed
+  standalone" note in `.claude/state/handoff.md`; (2) **no central employee directory /
+  linked-server view** — `lib/directory.ts`/`lib/scope.ts`/`lib/approval-chain.ts` were **not**
+  installed; this app's existing tables (`GatekeeperOfficers`/`ExecutiveMembers`/`HrAdminMembers`)
+  already carry name/department/position managed by hand through the admin UI, not through an AD
+  sync, so there was no existing concept to enrich against — revisit if/when a real HR linked-server
+  view becomes available; (3) **existing menus under RBAC** — none of the 6 existing feature tabs
+  (submit/my_tickets/workflow/gatekeeper/executive/clustering) were put under the new
+  `resource:action` permission system; they keep using the app's own `RoleAccessConfigs`/
+  `allowedTabs` exactly as before, now driven by the real session role instead of the free
+  switcher — only the 3 brand-new admin pages use the new permission system. Rejected: migrating
+  the 6 existing tabs onto the new permission model too (a much larger refactor of established
+  business logic than "install auth", and risks the "never silently reskin/rebehave an existing
+  page" rule).
+- 2026-09-02 Added `user.appRole` (nullable `employee|gatekeeper|executive|admin`) as a **separate
+  column from the new RBAC `Role`/`Permission` system** — this is what the old free role-switcher
+  dropdown used to set client-side; it now comes only from `/admin/users` via
+  `assignUserAppRoleAction` (`lib/actions/admin-users.ts`) — **because** the RBAC role/permission
+  model this skill installs (`Role`/`Permission`/`RolePermission`, used for `/admin/*` access) is a
+  free-form admin-configurable system, structurally incompatible with this app's fixed 4-value
+  `UserRole` enum that `RoleAccessConfigs`/`Navbar`/every ticket-routing component already depends
+  on — collapsing them into one system would be a much larger business-logic rewrite than "install
+  auth" · the very first admin (via `/admin/setup`) also gets `appRole: 'admin'` automatically so
+  they land in a working app immediately, not a second manual step · a user with `appRole: null`
+  (not yet assigned — SSO rows appear on first login with no role, per the skill's own มติ
+  2026-08-11) sees a "รอผู้ดูแลระบบกำหนดสิทธิ์การใช้งาน" waiting screen instead of the shell, rather
+  than silently defaulting to `employee` — deny-by-default matches how the RBAC `roleId` already
+  behaves · rejected: reusing the RBAC `Role.name` field to carry one of the 4 fixed app roles
+  (would block admins from creating additional free-form admin-section roles, e.g. "Auditor —
+  audit-logs:read only", without also accidentally granting/blocking app tab access) · rejected:
+  auto-defaulting an unassigned user to `employee` (silently grants grievance-submission access
+  before anyone reviewed the account).
+- 2026-09-02 Skipped `SessionExpiredDialog`/the `session-expired` `CustomEvent` mid-page-401
+  mechanism the skill ships — **because** it exists specifically to catch a 401 from React Query
+  (`query-provider`, part of the org design kit) mid-page; this app has neither React Query nor
+  any other client-side data-fetching layer that could receive a 401 while the page stays open
+  (every page reads `localStorage` directly, and the only session-gated calls are the new admin
+  Server Actions, which already return a `{success:false, code:'UNAUTHORIZED'}` result the calling
+  component surfaces itself) — `middleware.ts` + the `(shell)` layout's server-side session check
+  on every navigation cover the real case (an expired cookie on the next page load) · revisit if a
+  later chunk adds client-side data fetching that can 401 while a page stays open.
+- 2026-09-02 This project pins `next@^15.5.0` (not 16.x), so the auth-setup skill's `proxy.ts`
+  asset was installed as **`src/middleware.ts`** (Next.js ≤15 filename/location; `proxy.ts` is a
+  Next 16-only convention) — **because** on <16 Next.js never loads a file named `proxy.ts`, so
+  keeping that name would silently disable all route protection with no error anywhere · revisit
+  and rename to `proxy.ts` at the project root when/if this project upgrades to Next 16 (tracked
+  alongside the `eslint-config-next` FlatCompat note above, which has the same trigger).
+- 2026-09-02 The skill's interview (§3 in its SKILL.md) could not be run interactively — this
+  session had no `AskUserQuestion` tool available (it runs as a delegated chunk, not the main
+  interactive session) — every question not already answered by a standing decision or by
+  `.claude/state/handoff.md` was decided by the installer using the "reasonable default, document
+  it, keep going" rule from the session's Auto Mode guidance, and is recorded as its own มติ above
+  rather than left as an open question — flag any of these back to the coordinator if they need to
+  change.
