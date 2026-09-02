@@ -1,34 +1,28 @@
 # Handoff
 
-Last updated: 2026-09-02
+Last updated: 2026-09-03
 
 ## In progress
 
-- Nothing in progress. Upload chunk (`ugt-nextjs-upload-setup`) is complete this
-  session — see Done below.
+- Nothing in progress. CI/CD chunk (`ugt-nextjs-cicd-setup`) is complete this
+  session — see Done below. **This was the last module in the fixed pipeline
+  order.** Only the harness-install step remains (CLAUDE.md block, `.claude/rules`
+  merge/index, `.claude/settings.json`) — per explicit instruction this chunk did
+  NOT run it; that is the orchestrating session's next step, not a new chunk to
+  delegate. No project-root `CLAUDE.md` exists yet — confirm before assuming the
+  harness is installed.
 
 ## Next
 
-- **`ugt-nextjs-cicd-setup`** — Jenkinsfile, SonarQube Quality Gate, Docker deploy.
-  Also the point to redesign `ExportAnalyticsModal`'s SQL Studio as preset reports
-  (decision already made — see `docs/project-context/decisions.md`), and to decide
-  basePath/ports if this app goes under a shared org domain (currently assumed
-  standalone — auth chunk's cookie prefix/`middleware.ts` already handle a future
-  basePath, just unset for now).
-- **Close-out right after `ugt-nextjs-cicd-setup` lands the Dockerfile**: apply the
-  Upload chunk's deferred `docker-compose`/`Dockerfile` snippet
-  (`ugt-nextjs-upload-setup`'s `assets/compose-and-dockerfile.snippet.md`) — storage
-  volume bind-mount + the `clamav` service. It could not be installed this chunk
-  because `docker-compose.yml`/`docker-compose.dev.yml`/`Dockerfile` don't exist yet.
-  Until this lands, every real upload attempt fails closed with
-  `SCANNER_UNAVAILABLE` and `/api/health`'s `scanAvailable` stays `false` — both
-  expected, not bugs. See `docs/project-context/decisions.md` and
-  `docs/admin-handoff.md` §4 for the exact snippet contents and admin-facing
-  checklist.
-- Harness install (CLAUDE.md block, `.claude/rules/*`) — do this after all modules
-  above are in, per `ugt-nextjs-full-setup`'s own step 4.
-- Each of the above chunks should end with `/ugt-handoff` again (per the user's
-  chosen chunked run-shape) — install in this fixed order, never reorder.
+- Harness install (CLAUDE.md block, `.claude/settings.json` merge) — the one
+  remaining step of `ugt-nextjs-full-setup`'s own sequence, done by the
+  orchestrating session directly, not another chunk.
+- Redesign `ExportAnalyticsModal`'s SQL Query Studio as preset reports before
+  wiring it to a real SQL Server (decision already made — see
+  `docs/project-context/decisions.md`) — not started.
+- The big remaining rewiring, unchanged across every chunk so far: switch
+  `src/services/api.ts`'s localStorage call sites over to the Prisma Server
+  Actions in `lib/actions/` (see Open Questions).
 
 ## Open Questions
 
@@ -41,23 +35,30 @@ Last updated: 2026-09-02
   `docs/admin-handoff.md` §1. Migrations (`20260902000000_init`, `20260902010000_auth_rbac`,
   `20260902020000_add_mail_templates`, `20260902030000_add_attachments`) are ready to
   `prisma migrate resolve --applied` once real `DATABASE_URL` lands — see that doc for the
-  exact command sequence.
+  exact command sequence. **New this chunk**: `/api/health` now does a real
+  `SELECT 1` check and returns 503/`degraded` while `DATABASE_URL` is a placeholder — so the
+  Jenkins Deploy stage's health poll (and the `prisma migrate deploy` step just before it)
+  will not succeed until real SQL Server values land. Expected, not a bug — see
+  `docs/project-context/decisions.md`.
 - Real SMTP relay values needed from Admin/IT (host/port, sender address, auth) —
   `docs/admin-handoff.md` §3. Until then `sendMail()` in `lib/email.ts` throws on every call
   (by design — `SMTP_HOST` is a placeholder).
-- Whether a reverse proxy (nginx/traefik) will sit in front of this app in production —
-  needed to confirm `UPLOAD_MAX_BYTES` (25 MB) isn't silently capped lower at the proxy.
-  Tied to the same open basePath/shared-domain decision `ugt-nextjs-cicd-setup` will
-  resolve — see `docs/admin-handoff.md` §4 and `docs/project-context/decisions.md`.
+- Real Jenkins/SonarQube/Docker-host values needed from Admin/DevOps — project name, ports,
+  basePath and app URLs are now DECIDED (see Done below), but real host port
+  allocation, real app host/domain, Jenkins host, and which VCS this repo will be pushed to
+  are still open — `docs/admin-handoff.md` §5, "ค่าที่ต้องส่งกลับ" table.
+- **This repo has no git remote configured** (local-only) — the CI/CD chunk could not verify
+  a GitHub-style webhook flow works; `docs/admin-handoff.md` §5.2/§5.3 flags this explicitly
+  and asks the admin/user which VCS hosting to push to before the Jenkins Multibranch
+  Pipeline job can be created.
 - Retention duration for soft-deleted attachments (`Attachments.IsDeleted = 1`) — no
   cleanup job exists yet (org-wide decision on background-job placement still pending, see
   `ugt-nextjs-upload-setup`'s own SKILL.md). Open question for Admin/Compliance once a
   retention job is actually built — see `docs/project-context/decisions.md`.
 - `src/services/api.ts`'s localStorage functions are still NOT wired to the Prisma
   `lib/actions/tickets.ts`/`notifications.ts` Server Actions — unchanged open question from
-  the database chunk. This chunk (mail, and now upload) both wired their integration points
-  into `lib/actions/tickets.ts` for the same reason — see decisions.md — so no real email or
-  real file attachment reaches a live ticket yet, until the call-site rewiring happens.
+  the database chunk, carried through every chunk since (mail, upload, and now CI/CD all
+  built their integration points ready but unreached by any live call site).
   `FileUpload.tsx`/`/api/files*` are built and correct but not called by
   `EmployeeSubmitForm.tsx`/`TrackingTimelineModal.tsx` for the same reason.
 - No linked-server employee/HR view was requested this chunk (`lib/directory.ts`/`lib/scope.ts`/
@@ -67,6 +68,60 @@ Last updated: 2026-09-02
 
 ## Done (newest first)
 
+- 2026-09-03 Installed CI/CD (`ugt-nextjs-cicd-setup`) — the last module in the fixed
+  pipeline order: `Jenkinsfile` (10-stage declarative pipeline: Checkout → Install →
+  Code Quality (lint/format:check/tsc, parallel) → Unit Tests → Build → OWASP Dependency
+  Check → SonarQube Analysis → Quality Gate `abortPipeline: true` → Docker Build →
+  Deploy), `sonar-project.properties` (`sonar.sources`/`sonar.tests` set to this
+  project's real layout — `src/app,src/components,src/services,lib`, not the skill's
+  generic `app,components,lib,hooks` default), `Dockerfile` (3-stage Node 22 Alpine,
+  `output: 'standalone'`), `docker-compose.yml`/`docker-compose.dev.yml`,
+  `owasp-suppressions.xml` (empty skeleton), `.dockerignore`, `.claude/rules/ugt-nextjs-ci.md`.
+  **Shared-identity interview answered this chunk** (no `AskUserQuestion` tool available —
+  same situation as every prior chunk, decided + documented per Auto Mode, see decisions.md):
+  project name `ugt-voicecare`, display name "UGT VoiceCare", **no basePath** (standalone
+  deploy — formally resolves the open question the upload chunk left, confirming the
+  auth chunk's earlier assumption), ports 3000 (prod, placeholder pending real
+  allocation)/3001 (dev), app URLs `http://localhost:3000`/`:3001` (placeholder pending
+  real host — see `docs/admin-handoff.md` §5), no Sentry (no `@sentry/*` package in this
+  project). **Applied the Upload chunk's deferred ClamAV/storage wiring in this same
+  chunk** (per that chunk's own §4.4 instruction) using its exact
+  `assets/compose-and-dockerfile.snippet.md`: both compose files now bind-mount
+  `/home/docker02/appdata/ugt-voicecare(-dev)/storage:/app/storage`, add a `clamav`
+  service (`clamav/clamav:stable`, `clamdscan --ping` healthcheck, `start_period: 300s`
+  for the ~1 GB first-boot signature download, signature-DB volume at
+  `.../clamav-db:/var/lib/clamav`), and `app` now has `depends_on: clamav: condition:
+service_healthy`; the Dockerfile creates `/app/storage` before `USER nextjs`; the
+  Jenkinsfile's `[VOLUME]` `mkdir -p` line now prepares `storage` and `clamav-db` for
+  both prod and dev paths — `SCANNER_UNAVAILABLE`/`scanAvailable: false` should no
+  longer be the norm once this stack actually runs. **Extended (not replaced)**
+  `src/app/api/health/route.ts` — added a real `checks.database` (`prisma.$queryRaw`,
+  200/503) and the org-contract `status: 'healthy'|'degraded'` literal, on top of
+  keeping the upload chunk's existing `aiAvailable`/`scanAvailable` fields (chose this
+  over the skill's generic asset, which would have dropped those fields — see
+  decisions.md). Consequence: this endpoint returns 503 until real `DATABASE_URL`
+  lands, which will also fail the Deploy stage's health poll — expected, not new (the
+  `prisma migrate deploy` step earlier in Deploy already fails first for the same
+  reason). `next.config.ts` now sets `output: process.env.CI ? 'standalone' : undefined`.
+  `docs/admin-handoff.md` gained a new §5 (Jenkins/SonarQube/Docker host, keeping §1–4
+  intact) plus a new row in the 1-minute overview table; flagged that this repo has no
+  git remote yet, so the Jenkins Multibranch Pipeline/webhook steps need a VCS decision
+  first. Created local, gitignored `.env`/`.env.dev` (mirrors of `.env.local` +
+  `APP_PORT`) for `docker compose` testing per the skill's §4.5. Fixed a pre-existing
+  `format:check` failure in `lib/storage.ts` (one stray whitespace-only line, unrelated
+  to this chunk's own edits) while getting the whole repo prettier-clean again.
+  `node <skill>/scripts/verify.mjs`: 21/22 checks green; the one red
+  (`docs/admin-handoff.md rendered (no __*__ left)`) is **expected** — it flags
+  `__KEYCLOAK_HOST__`/`__REALM__`/`__KEYCLOAK_CLIENT_SECRET__`/`__SUPPORT_CONTACT_EMAIL__`,
+  which are literal placeholder tokens that genuinely exist in `.env.local`/
+  `.env.example`/`lib/types/mail-templates.ts` from the auth/mail chunks — rewriting
+  them would misrepresent the real placeholder names, same pattern as design-setup's 18
+  and upload-setup's 9 intentionally-red checks. `npm run build`/`lint`/`format:check`/
+  `test` all pass (22 routes, unchanged; 0 lint errors, 109 pre-existing warnings
+  unchanged; 4/4 tests pass; `.next/standalone/server.js` confirmed present). Verified
+  in a real browser: `/` still redirects to `/login` and renders unchanged; `/api/health`
+  now correctly reports `{"status":"degraded",...,"checks":{"database":"error"}}`
+  against the placeholder `DATABASE_URL` (fast failure, no hang).
 - 2026-09-02 Installed real file attachments (`ugt-nextjs-upload-setup`): `lib/storage.ts`
   (Docker-volume I/O, generated `yyyy/mm/<uuid>` paths), `lib/virus-scan.ts` (ClamAV clamd
   INSTREAM client, fail-closed), `lib/attachment-access.ts` (`canReadAttachment` — real

@@ -289,6 +289,94 @@ Attachment`) — timeline log rows are append-only and never deleted in practice
   tool was available this session to ask the user directly; flag to Admin/Compliance for
   when a retention job is actually built (tracked in `docs/project-context/board.md` and
   `.claude/state/handoff.md`).
+- 2026-09-03 The ClamAV Docker service + storage bind-mount deferral recorded above
+  (2026-09-02, "Virus scanning (ClamAV) is installed... but the ClamAV Docker service
+  itself is deferred") is now **closed** — `ugt-nextjs-cicd-setup` applied
+  `ugt-nextjs-upload-setup`'s own `assets/compose-and-dockerfile.snippet.md` verbatim
+  as its own close-out step in the same chunk that created `docker-compose.yml`/
+  `docker-compose.dev.yml`/`Dockerfile`, per that snippet's own instructions and the
+  upload chunk's §4.4 note · both compose files now have a `clamav` service, the
+  storage bind mount, and `depends_on: clamav: condition: service_healthy`; the
+  Dockerfile creates `/app/storage` before dropping to the `nextjs` user; the
+  Jenkinsfile's `[VOLUME]` step now prepares `storage`/`clamav-db` host directories for
+  both prod and dev · `CLAMAV_HOST=clamav`/`CLAMAV_PORT=3310` in `lib/env.ts`'s
+  defaults already matched the new service's name/port with no code change needed —
+  `SCANNER_UNAVAILABLE ` should stop being the normal case once this stack is actually
+  deployed (still expected locally/in dev without Docker running, and until real
+  `DATABASE_URL`/other infra lands per the Open Questions in `handoff.md`).
+- 2026-09-03 Resolved the shared-identity/basePath question `ugt-nextjs-cicd-setup`
+  was explicitly holding open (see the upload chunk's `docs/admin-handoff.md` §4.1 and
+  `.claude/state/handoff.md`): **project name `ugt-voicecare`** (already the de facto
+  name — matches `package.json`'s `name` and the Keycloak Client ID chosen in the auth
+  chunk), **no basePath** for both prod and dev — this app deploys standalone at the
+  root path, not under a shared-domain reverse-proxy subpath — **because** every module
+  built so far already assumed this (auth's Keycloak redirect URIs, `BETTER_AUTH_URL`,
+  `NEXT_PUBLIC_BASE_PATH` defaulting to `''`, the "standalone" note already in
+  `handoff.md`), and nothing in this project's requirements or admin-handoff answers so
+  far calls for a shared org domain · this session had no `AskUserQuestion` tool
+  available (same situation as every prior chunk's interview — see the auth chunk's
+  entry above) so this and the following sibling decisions were made using the
+  "reasonable default, document it, keep going" Auto Mode rule, using the overwhelming
+  precedent already in the codebase rather than guessing blind · rejected: leaving
+  basePath undecided again (the whole point of this chunk reaching the CI/CD skill's own
+  interview was to force a real answer — deferring a third time serves no one). Ports:
+  prod `3000`, dev `3001` — the skill's own defaults, and its `admin-handoff.template.md`
+  already has a built-in "confirm the real port" follow-up row, so these are safe,
+  clearly-flagged placeholders, not a real infra decision. App URLs (baked into the
+  client bundle via `NEXT_PUBLIC_APP_URL`, unlike ports/basePath these have no
+  established placeholder convention beyond `.env.example`'s own
+  `BETTER_AUTH_URL="http://localhost:3000"`): prod `http://localhost:3000`, dev
+  `http://localhost:3001` — mirrors that existing convention rather than inventing a
+  fake domain nobody chose; the real prod host is requested back in
+  `docs/admin-handoff.md` §5's "ค่าที่ต้องส่งกลับ" table (same row the auth chunk's §2
+  already uses for the Keycloak redirect URI, so there is exactly one place the admin
+  needs to answer this, not two). No Sentry — **because** no `@sentry/*` package exists
+  anywhere in this project and nothing in the requirements/admin-handoff history asked
+  for error tracking · rejected: installing Sentry speculatively "since the skill
+  supports it" (adds a whole credential + build-arg surface for a capability nobody
+  requested — revisit if/when the user actually wants it).
+- 2026-09-03 Fixed the `__APP_HOST__` prose placeholder in `docs/admin-handoff.md` §2
+  (added by the auth chunk, two occurrences) to `<app-host>` — **because** unlike
+  `__KEYCLOAK_HOST__`/`__REALM__`/`__KEYCLOAK_CLIENT_SECRET__`/`__SUPPORT_CONTACT_EMAIL__`
+  elsewhere in the same file (which are left alone — they are literal placeholder
+  strings that genuinely exist in `.env.local`/`.env.example`/
+  `lib/types/mail-templates.ts`, so rewriting them would misrepresent the real code),
+  `__APP_HOST__` was never a real env var or code placeholder — just illustrative prose
+  — and its `__X__` shape collides with `ugt-nextjs-cicd-setup`'s `verify.mjs` check
+  that the rendered admin-handoff has no unfilled installer placeholders left ·
+  rejected: leaving it as-is and accepting a 5th intentionally-red verify.mjs line item
+  (the other four are genuine, this one was a free, zero-risk fix since it doesn't
+  touch any value the auth chunk actually decided).
+- 2026-09-03 `src/app/api/health/route.ts` was **extended in place**, not replaced with
+  `ugt-nextjs-cicd-setup`'s generic `assets/api-health-route.ts` — added a real
+  `checks.database` (`prisma.$queryRaw\`SELECT 1\``, 200 on success/503 on failure) and
+switched the top-level `status`literal from the upload chunk's`'ok'`to the org-wide
+contract`'healthy'`/`'degraded'`— **because** the skill's own asset would have
+silently dropped`aiAvailable`/`scanAvailable`, both real, load-bearing fields the
+upload chunk added and this project's `/api/health`consumers (admin/monitoring)
+already rely on, and the previous route never checked the database at all (always
+200), which is a real gap against the org contract now that this is genuinely going
+through a Docker-healthcheck-gated deploy pipeline · consequence, called out
+explicitly rather than left to be rediscovered as a surprise: this endpoint now
+returns 503 while`DATABASE_URL`is a placeholder, so the Jenkins Deploy stage's
+health poll will not succeed until real SQL Server values land — not a new blocker,
+since the`prisma migrate deploy`step immediately before it in the same stage was
+already going to fail first for the identical reason · rejected: leaving`status`hardcoded to`'ok'`/no DB check (keeps a health endpoint that lies about the database
+being reachable, defeating the point of wiring it into `docker-compose`'s
+`healthcheck:`) · rejected: dropping `aiAvailable`/`scanAvailable`to match the
+skill's asset shape exactly (removes real information for no benefit — the org
+contract only mandates the`status`/`checks` shape and forbids version/commit
+  leakage, it does not forbid additional fields).
+- 2026-09-03 `sonar.sources`/`sonar.tests` in `sonar-project.properties` are
+  `src/app,src/components,src/services,lib`, not the skill's generic
+  `app,components,lib,hooks` default — **because** this project has no root-level
+  `app`/`components`/`hooks` directories (Next.js only reads `src/app/` here, per the
+  Phase A migration), and `sonar-scanner` hard-fails instantly on a listed path that
+  doesn't exist · matches `vitest.config.ts`'s own `coverage.include` list exactly
+  (`src/app/**`, `src/components/**`, `src/services/**`, `lib/**`) so coverage and
+  static-analysis scope agree · rejected: using the skill's literal default paths and
+  letting the first `sonar-scanner` run hard-fail (would make the SonarQube Analysis
+  stage red on the very first pipeline run for a reason unrelated to code quality).
 - 2026-09-02 `FileUpload.tsx`/`/api/files`/`/api/files/[id]` are built correctly and
   completely this chunk, but **not wired into `EmployeeSubmitForm.tsx` or
   `TrackingTimelineModal.tsx`** — both keep their original `Math.random()` fake-

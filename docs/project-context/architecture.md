@@ -164,11 +164,45 @@ resolve --applied` once real DB values land, see `docs/admin-handoff.md`.
     audit actions.
   - `src/app/api/health/route.ts` — now also reports `scanAvailable` (`pingScanner()`);
     `false` until the ClamAV service exists in compose (see ⚠ deviation below).
-  - **Deferred to right after `ugt-nextjs-cicd-setup` lands the Dockerfile**: the
-    ClamAV Docker service + storage volume bind-mount (the skill's
-    `assets/compose-and-dockerfile.snippet.md`) — `docker-compose.yml`,
-    `docker-compose.dev.yml`, and `Dockerfile` don't exist in this project yet. Tracked
-    in `.claude/state/handoff.md` as a close-out step, not skipped.
+  - ClamAV Docker service + storage bind-mount, previously deferred, are now wired
+    into `docker-compose.yml`/`docker-compose.dev.yml`/`Dockerfile` — see the CI/CD
+    entry below and `docs/project-context/decisions.md`.
+
+- **CI/CD (added 2026-09-03, `ugt-nextjs-cicd-setup`) — the last module in the fixed
+  pipeline order, standalone deploy (no basePath), no Sentry:**
+  - `Jenkinsfile` — 10-stage declarative pipeline (Checkout → Install → Code Quality
+    (lint/format:check/tsc, parallel) → Unit Tests → Build → OWASP Dependency Check →
+    SonarQube Analysis → Quality Gate → Docker Build → Deploy), branch-resolved
+    (`main`=prod, `develop`=dev) inside `script {}` blocks, `post {}` sends
+    `emailext` on every outcome + `cleanWs()`.
+  - `sonar-project.properties` — `sonar.sources`/`sonar.tests` =
+    `src/app,src/components,src/services,lib` (this project's real layout, not the
+    skill's generic default — see decisions.md), CPD/rule-suppression lists start
+    empty.
+  - `Dockerfile` — 3-stage Node 22 Alpine build (`deps` → `builder` → `runner`),
+    `output: 'standalone'` (gated on `CI` in `next.config.ts`), creates
+    `/app/storage` before dropping to the non-root `nextjs` user, `HEALTHCHECK`
+    against `/api/health`.
+  - `docker-compose.yml` / `docker-compose.dev.yml` — `app` + `clamav` services,
+    `pull_policy: never` (image built locally by Jenkins), bind-mount
+    `/home/docker02/appdata/ugt-voicecare(-dev)/storage:/app/storage` and
+    `.../clamav-db:/var/lib/clamav`, `app`'s `depends_on: clamav: condition:
+service_healthy`.
+  - `owasp-suppressions.xml` — empty skeleton (suppressions added only after a
+    reviewed real finding).
+  - `.dockerignore`, `.claude/rules/ugt-nextjs-ci.md`.
+  - `src/app/api/health/route.ts` — **extended in place** (not replaced by the
+    skill's generic asset): added a real `checks.database` (`prisma.$queryRaw`,
+    200/503) and the org-contract `status: 'healthy'|'degraded'` literal on top of
+    the upload chunk's existing `aiAvailable`/`scanAvailable` fields — see
+    decisions.md. Returns 503 while `DATABASE_URL` is a placeholder (expected).
+  - `next.config.ts` — `output: process.env.CI ? 'standalone' : undefined`.
+  - Local, gitignored `.env`/`.env.dev` (mirrors of `.env.local` + `APP_PORT`) for
+    `docker compose up`/`docker compose -f docker-compose.dev.yml --env-file .env.dev
+up` testing.
+  - `docs/admin-handoff.md` §5 — Jenkins credentials/job/webhook, SonarQube
+    projects/Quality Gate/webhook, Docker host prep (`/home/docker02/appdata`,
+    `proxy-network`), flags this repo has no git remote yet.
 
 ## Data flow หลัก
 
@@ -268,13 +302,14 @@ component ทั้งหมดยังอ่าน/เขียน `localStora
   `lib/storage.ts`, `lib/virus-scan.ts`) ก็ตาม เหตุผลเดียวกับ deviation แรกด้านบน: ยังไม่มี
   component ไหนเรียก Prisma Server Actions จริง จึงไม่มี `ticketId` จริงให้แนบไฟล์ด้วย —
   ดู decisions.md.
-- ⚠ deviation (2026-09-02, `ugt-nextjs-upload-setup`): ClamAV virus scanning ถูกเลือกใช้
-  (org default) และโค้ดฝั่งแอปพร้อมสแกนจริงแล้ว (`lib/virus-scan.ts`, fail-closed) แต่
-  **service `clamav` เองยังไม่มีใน `docker-compose.yml`/`docker-compose.dev.yml`/`Dockerfile`**
-  — ไฟล์เหล่านี้ยังไม่มีในโปรเจคเลย (`ugt-nextjs-cicd-setup` ยังไม่รัน) ทุก upload
-  จริงตอนนี้จะ fail closed ด้วย `SCANNER_UNAVAILABLE` และ `/api/health`'s `scanAvailable`
-  จะเป็น `false` จนกว่าจะ apply compose+Dockerfile snippet ของ skill เป็น close-out step
-  ทันทีหลัง `ugt-nextjs-cicd-setup` ติดตั้ง Dockerfile เสร็จ — ดู `.claude/state/handoff.md`.
+- ⚠ deviation (**resolved 2026-09-03**, `ugt-nextjs-cicd-setup`): ClamAV virus
+  scanning's service was missing from compose — now fixed. Both compose files carry a
+  `clamav` service + storage bind-mount (the upload skill's own
+  `assets/compose-and-dockerfile.snippet.md`, applied verbatim as this chunk's
+  close-out step per that skill's §4.4 instruction) — see decisions.md. Real uploads
+  still fail closed with `SCANNER_UNAVAILABLE`/`/api/health`'s `scanAvailable: false`
+  whenever this stack isn't actually running under Docker (e.g. local `next dev`),
+  which remains correct fail-closed behavior, not a bug.
 - ⚠ deviation (2026-09-02, `ugt-nextjs-upload-setup`): `FileUpload.tsx` เป็น hand-built
   Tailwind, ไม่มี i18n catalog (`messages/upload.{th,en}.ts` ของ skill ไม่ได้ติดตั้ง) —
   เหตุผลเดียวกับหน้า auth-setup/mail-setup ทั้งหมด (มติต้นโปรเจค "คงดีไซน์เดิม/hand-built
@@ -309,8 +344,8 @@ scripts/verify.mjs` จึงยังแดง 18 จุดโดยตั้�
 - Vitest (`vitest.config.ts`, jsdom environment) + Testing Library + ESLint (flat config,
   `eslint.config.mjs`) + Prettier (`.prettierrc`) + husky/lint-staged pre-commit — installed
   2026-09-02 (`ugt-nextjs-test-lint-setup`). Scripts: `npm run lint` / `format:check` /
-  `test:coverage` / `build` (the four the Jenkins pipeline will call by exact name once
-  `ugt-nextjs-cicd-setup` lands).
+  `test:coverage` / `build` — the four the `Jenkinsfile`'s Code Quality/Unit
+  Tests/Build stages call by exact name (`ugt-nextjs-cicd-setup`, 2026-09-03).
 - `coverage.include` = `src/app/**`, `src/components/**`, `src/services/**`, `lib/**` (this
   project's real source layout — `app`/`components`/`hooks` do **not** exist at repo root, only
   under `src/`, plus the root-level `lib/` from the database chunk).

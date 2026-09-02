@@ -1,0 +1,111 @@
+# Production compose — deployed by Jenkins on the `main` branch — UGT VoiceCare.
+# Jenkins always runs `docker compose up -d --no-build`, so the build: section
+# is never used at deploy time; NEXT_PUBLIC_* are passed via --build-arg in the
+# Jenkinsfile Docker Build stage.
+#
+# No basePath (standalone deploy) as of this chunk — see
+# docs/project-context/decisions.md.
+services:
+  app:
+    build:
+      context: .
+      target: runner
+    image: ugt-voicecare:latest
+    # Image is built locally by Jenkins — never pull from Docker Hub
+    pull_policy: never
+    container_name: ugt-voicecare
+    restart: unless-stopped
+    ports:
+      # Host port comes from .env (APP_PORT) with a default; container port is
+      # always 3000
+      - '${APP_PORT:-3000}:3000'
+    volumes:
+      # Real attachment bytes (ugt-nextjs-upload-setup) — bind mount only,
+      # never a named volume (org contract §2.8): not in the image, not in the
+      # database, needs its own backup job — see docs/admin-handoff.md.
+      - /home/docker02/appdata/ugt-voicecare/storage:/app/storage
+    networks:
+      - proxy-network
+    environment:
+      # Runtime secrets — read from .env (copied from the Jenkins Secret File
+      # credential at deploy time). NEVER bake secrets into image layers, and
+      # NEVER put NEXT_PUBLIC_* / client-side vars here (no effect at runtime).
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL}
+      BETTER_AUTH_TRUSTED_ORIGINS: ${BETTER_AUTH_TRUSTED_ORIGINS}
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-25}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      APP_URL: ${APP_URL:-}
+      STORAGE_ROOT: /app/storage
+      UPLOAD_MAX_BYTES: ${UPLOAD_MAX_BYTES:-26214400}
+      CLAMAV_HOST: clamav
+      CLAMAV_PORT: '3310'
+      CLAMAV_TIMEOUT_MS: '30000'
+      # [METHOD: SSO] Internal-CA TLS — decide with admin via
+      # docs/admin-handoff.md ("TLS ภายในองค์กร") before uncommenting either
+      # line. This is an infra decision, NOT a secret — set it here directly,
+      # never inside the env-ugt-voicecare Jenkins Secret File credential.
+      # NODE_EXTRA_CA_CERTS: /etc/ssl/certs/org-ca.pem   # preferred — mount the cert; needs a matching volumes: bind
+      # NODE_TLS_REJECT_UNAUTHORIZED: '0'                # closed intranet only, admin-confirmed — disables TLS verification for the whole container
+    depends_on:
+      clamav:
+        condition: service_healthy
+    healthcheck:
+      # Always 127.0.0.1 (NOT localhost — Alpine resolves it to IPv6 ::1) and
+      # always internal port 3000 (container-internal, not the host port)
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/api/health || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # Virus scanner (ugt-nextjs-upload-setup) — clamd, checked via lib/virus-scan.ts's
+  # INSTREAM client. fail-closed: app refuses uploads whenever this is
+  # unreachable, so the app container waits for this to report healthy first
+  # (depends_on above).
+  clamav:
+    image: clamav/clamav:stable
+    container_name: ugt-voicecare-clamav
+    restart: unless-stopped
+    networks:
+      - proxy-network
+    volumes:
+      # Keep the signature DB across restarts — re-downloading it on every
+      # deploy costs minutes of refused uploads (the app fails closed).
+      - /home/docker02/appdata/ugt-voicecare/clamav-db:/var/lib/clamav
+    healthcheck:
+      test: ['CMD-SHELL', 'clamdscan --ping 1 || exit 1']
+      interval: 30s
+      timeout: 10s
+      # First boot loads ~1 GB of signatures — without a long start_period the
+      # container is marked unhealthy before it has ever had a chance.
+      start_period: 300s
+      retries: 3
+
+networks:
+  # Shared reverse-proxy network on the Docker host (created once, externally)
+  proxy-network:
+    external: true

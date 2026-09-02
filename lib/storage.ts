@@ -73,7 +73,6 @@ export function safeDisplayName(name: string): string {
     .replaceAll('\\', '/')
     .split('/')
     .pop()!
-     
     .replaceAll(/[\x00-\x1f\x7f]/g, '')
     .replaceAll(/\s+/g, ' ')
     .trim();
