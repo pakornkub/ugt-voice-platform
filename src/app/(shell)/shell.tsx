@@ -49,7 +49,6 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     refreshData();
-     
   }, []);
 
   const refreshData = () => {

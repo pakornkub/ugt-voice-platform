@@ -1,0 +1,15 @@
+# Force LF in the repo and on checkout regardless of each developer's local
+# core.autocrlf — without this, Windows checkouts rewrite LF -> CRLF, which
+# fights Prettier's default endOfLine: 'lf' and makes `npm run format:check`
+# flip back to red after any git operation (checkout, stash, commit) even
+# though nothing in the file actually changed. See troubleshooting.md.
+* text=auto eol=lf
+
+# Binary-ish or intentionally-CRLF-agnostic files: leave alone.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
