@@ -30,6 +30,12 @@
 - `src/mockData.ts` — seed data: `CATEGORY_DEFINITIONS` (9 grievance categories),
   `INITIAL_COMPLAINTS`, `INITIAL_GATEKEEPER_CONFIGS`, `INITIAL_NOTIFICATIONS` — also the
   source `prisma/seed.ts` seeds from.
+- `docs/DESIGN.md` (added 2026-09-02, `ugt-nextjs-design-setup`, existing-project scan mode)
+  — the design agreement, but documents this app's **existing hand-built design** (Tailwind
+  utilities, indigo/slate/role-color palette, hand-built Navbar/shell) as the ratified pattern,
+  not the org's shadcn/ui default. `docs/design-questions.md` holds the still-open decision on
+  whether to add shadcn/ui + the org UI kit as a substrate for brand-new pages only (relevant to
+  the next `ugt-nextjs-auth-setup` chunk's generated login/admin pages) — see ⚠ deviation below.
 - **Database layer (added 2026-09-02, `ugt-nextjs-database-setup`) — installed but not the
   live data source yet, see ⚠ deviation below:**
   - `prisma/schema.prisma` — 9 tables (`Tickets`, `TicketTimelineLogs`, `TicketEvaluations`,
@@ -115,6 +121,13 @@ component ทั้งหมดยังอ่าน/เขียน `localStora
 - ⚠ deviation: `ExportAnalyticsModal`'s "SQL Query Studio" รันคำสั่ง SQL ที่ผู้ใช้พิมพ์เอง
   ได้อิสระกับ sql.js ในเบราว์เซอร์ — ยอมรับได้ตอนนี้เพราะยังไม่มี backend จริง แต่ต้องปรับเป็น
   preset reports ก่อนต่อกับ SQL Server จริง (มติแล้ว ดู decisions.md).
+- ⚠ deviation (2026-09-02): `ugt-nextjs-design-setup` รันในโหมด scan-only — **ไม่ได้ติดตั้ง**
+  shadcn/ui, Base UI primitives, org UI kit (`DataTable`/`StatusBadge`/`FormDialog`/...),
+  `next-intl`, หรือ shell block ใด ๆ เหตุผล: มติต้นโปรเจค "คงดีไซน์/UX เดิมทุกประการ" ทำให้
+  การติดตั้งเต็มรูปแบบ (ซึ่งต้องแตะ `app/globals.css`/`app/layout.tsx` ที่ทั้งแอป share และ
+  แทนที่ shell ด้วย shadcn block) มีความเสี่ยงเกินกว่าจะทำโดยไม่ถามก่อน — `node <skill>/
+scripts/verify.mjs` จึงยังแดง 18 จุดโดยตั้งใจ (ทุกจุดผูกกับ substrate ที่ไม่ได้ติดตั้ง)
+  ดูมติเต็มที่ `docs/DESIGN.md` §10 และคำถามเปิดที่ `docs/design-questions.md` ข้อ 1.
 
 ## Testing map
 

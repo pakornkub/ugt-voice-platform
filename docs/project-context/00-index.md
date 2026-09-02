@@ -14,6 +14,8 @@
 
 บ้านความรู้อื่น (ไม่อยู่โฟลเดอร์นี้):
 
-- มติเรื่อง design → `docs/DESIGN.md` §10 (sync mode ของ design-setup ใช้ — ยังไม่ได้ติดตั้ง)
+- มติเรื่อง design → `docs/DESIGN.md` §10 (ติดตั้งแล้ว 2026-09-02 ในโหมด existing-project
+  scan — บันทึกดีไซน์เดิมของแอปเป็นข้อตกลง ยังไม่ได้ติดตั้ง shadcn/ui/org kit จริง ดู
+  คำถามเปิดที่ `docs/design-questions.md`)
 - งานถึงไหน / คิวถัดไป / คำถามค้าง → `.claude/state/handoff.md` (โหลดทุก session)
 - ที่มาความต้องการ (as-requested) → `docs/requirements-brief/` — ยังไม่มี

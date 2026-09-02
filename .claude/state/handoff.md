@@ -4,14 +4,11 @@ Last updated: 2026-09-02
 
 ## In progress
 
-- Nothing in progress. Test/lint chunk (`ugt-nextjs-test-lint-setup`) is complete this
-  session (Quality gate: done — see Done below).
+- Nothing in progress. Design chunk (`ugt-nextjs-design-setup`) is complete this session in
+  scan-only mode (see Done below) — one open decision carried forward, see Open Questions.
 
 ## Next
 
-- **`ugt-nextjs-design-setup`** — run in _existing-project scan mode_: document the current
-  Tailwind indigo/slate theme and shell layout into `docs/DESIGN.md` as the agreement (not
-  the org default look) — this is how "keep Design exactly as-is" gets satisfied formally.
 - **`ugt-nextjs-auth-setup`** — Keycloak SSO only (confirmed), RBAC tied to real sessions,
   admin bootstrap via `/admin/setup`. This retires `Navbar`'s free role-switcher dropdown.
 - **`ugt-nextjs-mail-setup`** — wanted (confirmed). Real SMTP for notifications that are
@@ -29,6 +26,14 @@ Last updated: 2026-09-02
 
 ## Open Questions
 
+- `docs/design-questions.md` #1 (opened 2026-09-02): should shadcn/ui + the org UI kit be
+  installed as a component substrate for **brand-new pages only** (relevant now — the next
+  chunk, `ugt-nextjs-auth-setup`, generates login/`/admin/setup`/`/admin/users`/`/admin/roles`/
+  `/admin/audit-logs`)? Default answer while unresolved: **no** — write those new pages in the
+  existing hand-built Tailwind pattern instead (see `docs/DESIGN.md` §1/§4,
+  `.claude/rules/ugt-nextjs-design.md`). Also open: wiring real Inter+Noto Sans Thai fonts
+  (design-questions.md #2) and the `<html lang="en">` → `lang="th"` bug fix (#3) — both
+  deliberately deferred, not done this chunk.
 - Real SQL Server values needed from Admin/DBA (host, port, database name confirmation,
   login/password, TLS trust mode) — placeholders live in `.env.example`/`.env.local` now.
   Request + exact return-value table is in `docs/admin-handoff.md` §1. Once real values land:
@@ -42,6 +47,28 @@ Last updated: 2026-09-02
 
 ## Done (newest first)
 
+- 2026-09-02 Ran `ugt-nextjs-design-setup` in **existing-project scan mode only** — wrote
+  `docs/DESIGN.md` documenting the app's _existing_ hand-built design (indigo/slate + role
+  colors emerald/blue/purple/rose, Topbar-classified hand-built shell in
+  `src/app/(shell)/shell.tsx`+`Navbar.tsx`, no dark mode, no i18n catalog, Thai-only) as the
+  agreement, with every gap vs. the org default (no shadcn/ui, no Base UI, no `next-intl`, no
+  `DataTable`/`StatusBadge`/kit, `rounded-2xl`/`3xl` used in 12 files/32 spots, inline
+  `toLocaleDateString` instead of a central `lib/format.ts`) recorded as a deliberate
+  deviation in §9, tied to the standing "keep design/UX exactly as-is" decision
+  (`decisions.md`, 2026-09-02). **Deliberately did not run** `shadcn init` or install the org
+  UI kit/tokens/shell block — doing so per the skill's literal Step 3 would touch
+  `app/globals.css`/`app/layout.tsx` (shared by the whole app) and replace the shell with a
+  shadcn `sidebar-07`/`navigation-menu` block, which the standing decision forbids without
+  asking first. Wrote `docs/design-questions.md` with the 3 concrete open items (shadcn/kit as
+  a substrate for brand-new pages only; Inter+Noto Sans Thai font wiring; `<html lang="en">`
+  bug) — each states its "while waiting" default. Installed `.claude/rules/ugt-nextjs-design.md`
+  adapted (not the skill's literal asset) to describe the actual hand-built pattern instead of
+  telling sessions to reach for a kit that isn't installed. `node <skill>/scripts/verify.mjs`
+  is **intentionally red** (18 failed — components.json/Base UI/tokens/kit files/`next-intl`/
+  radius-role check, all tied 1:1 to the substrate not installed) and `check-contrast.mjs`
+  fails (no token blocks exist yet to check) — both documented as accepted, not bugs to chase,
+  in `docs/DESIGN.md` §10's second มติ row. `npm run build` reconfirmed clean (13 routes,
+  unchanged) since zero app code was touched this chunk.
 - 2026-09-02 Installed test/lint tooling (`ugt-nextjs-test-lint-setup`): Vitest (jsdom,
   `vitest.config.ts`/`vitest.setup.ts`) + Testing Library, ESLint flat config
   (`eslint.config.mjs`), Prettier (`.prettierrc`/`.prettierignore`, incl.
