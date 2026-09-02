@@ -438,3 +438,30 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   rejected: leaving it as-is (defeats the purpose of an always-loaded file — a session
   reading 225 lines of history before doing any work is the exact waste the ~60-line
   guidance exists to prevent).
+- 2026-09-03 Directory enrichment (`lib/directory.ts`/`lib/approval-chain.ts`/`lib/scope.ts`,
+  the auth-setup skill's org-employee-view-over-linked-server layer) will **not** be
+  installed, even though the skill's own default for org apps is "yes" — **because** a full
+  code audit found zero current consumers: `EmployeeSubmitForm.tsx`'s
+  `submitterEmployeeId`/`submitterDepartment` are free-text self-report fields (not a
+  lookup), there is no supervisor/reportsTo/approval-chain concept anywhere in the domain
+  model, `GatekeeperOfficers`/`ExecutiveMembers`/`HrAdminMembers` are small hand-curated
+  rosters (not "all employees"), and "My Tickets" doesn't even scope by session identity
+  yet. Installing it now would be speculative infrastructure (a linked server, a DBA SELECT
+  grant, three new lib files) with nothing in the app to consume it · rejected: installing
+  it anyway "since the org default is yes" (the org default is a starting assumption for a
+  generic org app, not a requirement independent of what this specific app actually does) ·
+  revisit if a real feature need appears (e.g. auto-filling submitter department from HR
+  instead of asking the employee to type it).
+- 2026-09-03 The `src/services/api.ts` → `lib/actions/*` (localStorage → Prisma) rewiring
+  is **explicitly deferred until a real SQL Server exists** (not merely unscoped/unstarted
+  as prior chunks left it) — **because** unlike every other chunk's infrastructure (which
+  sits unused until called), rewiring component call sites means every page load
+  immediately depends on a live `DATABASE_URL`; doing this against the current placeholder
+  connection would break the entire app with no fallback path, destroying the only thing
+  that's currently browser-verifiable end to end · rejected: rewiring now and accepting a
+  broken app until DBA delivers (no way to verify correctness in the meantime, and every
+  future chunk's own browser verification step would be meaningless) · rejected: standing
+  up a local/Docker SQL Server specifically to unblock this now (user declined when asked —
+  chose to wait for the real one instead). A full file-by-function audit of what still
+  needs rewiring is recorded in `.claude/state/handoff.md` → Next, ready to execute as soon
+  as `DATABASE_URL` is real.

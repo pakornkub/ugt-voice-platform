@@ -13,8 +13,28 @@ Last updated: 2026-09-03
 - **The big remaining rewiring, unchanged across every chunk since Database**: switch
   `src/services/api.ts`'s localStorage call sites over to the Prisma Server Actions in
   `lib/actions/*`. Nothing that depends on a live DB (mail sending, real uploads, real
-  audit trail for app data) works end-to-end until this happens. Not started — needs a
-  scoping decision (own chunk vs. piggyback on something else) before it can be sized.
+  audit trail for app data) works end-to-end until this happens.
+  **Explicitly deferred (2026-09-03, user decision) until real `DATABASE_URL` lands from
+  DBA** — rewiring now would make every page hit a placeholder connection and break the
+  app end-to-end with no fallback, destroying the only thing that's currently
+  browser-testable. Do not start this rewiring without either a real SQL Server or a local
+  Docker one the user has explicitly asked to set up first.
+  Full audit done 2026-09-03 (see decisions.md for the complete file-by-function
+  breakdown) — ready to execute the moment a DB exists:
+  - 10 files still call `src/services/api.ts` 1:1 against an already-built Server Action
+    (`shell.tsx`, `EmployeeSubmitForm.tsx`, `GatekeeperInbox.tsx`,
+    `TrackingTimelineModal.tsx`, `SatisfactionModal.tsx`, `Navbar.tsx`,
+    `AdminGatekeeperManagement.tsx`, `RoleBasedAccessManagement.tsx`).
+  - **New gap found**: `resetGatekeeperConfigsToDefault`/`resetExecutivesToDefault`/
+    `resetHrAdminsToDefault`/`resetRolePermissionsToDefault` have **no** Server Action
+    equivalent in `lib/actions/*` yet — must be written as part of the rewiring, not just
+    a call-site swap.
+  - `getActiveGatekeeperDepartment`/`setActiveGatekeeperDepartment` is a per-browser UI
+    preference with no natural DB shape — recommend converting to plain React state
+    instead of adding a Server Action for it.
+  - `getStatusBadgeText`/`getStatusColor`/`APP_TABS`/`INITIAL_ROLE_PERMISSIONS` don't touch
+    storage at all — no migration needed, can keep importing from `api.ts` or get moved to
+    a shared util, either is fine.
 - Redesign `ExportAnalyticsModal`'s SQL Query Studio as preset reports before wiring it to
   a real SQL Server (decision already made — see `docs/project-context/decisions.md`).
 - Push this repo to a real VCS host and pick one — currently local-only, which blocks the
