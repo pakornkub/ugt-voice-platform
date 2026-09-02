@@ -35,6 +35,12 @@ export const AUDIT_ACTIONS = {
   MAIL_TEMPLATES_UPDATE: 'mail-templates.update',
   MAIL_TEMPLATES_RESET: 'mail-templates.reset',
 
+  // File attachments — written by src/app/api/files/route.ts and
+  // src/app/api/files/[id]/route.ts (ugt-nextjs-upload-setup, 2026-09-02)
+  FILES_UPLOAD: 'files.upload',
+  FILES_UPLOAD_REJECTED: 'files.upload-rejected',
+  FILES_DOWNLOAD: 'files.download',
+
   // EXTENSION POINT: project-domain actions here, same `<resource>.<verb>` shape
 } as const;
 

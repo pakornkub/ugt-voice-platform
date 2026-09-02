@@ -85,11 +85,12 @@ model ticket {
   resolvedAt        DateTime? @map("ResolvedAt")
   closedAt          DateTime? @map("ClosedAt")
 
-  // ⚠ Bridging column until ugt-nextjs-upload-setup lands real file storage:
-  // JSON-serialized Attachment[] (src/types.ts:Attachment). Replace with a
-  // proper Attachments table + blob storage in that chunk — see
-  // docs/project-context/architecture.md.
-  attachmentsJson String? @default("[]") @map("AttachmentsJson") @db.NVarChar(Max)
+  // Real file storage (ugt-nextjs-upload-setup, 2026-09-02) — replaces the
+  // former `attachmentsJson` bridging column. See the `attachment` model
+  // below and docs/project-context/decisions.md for why linking is a real FK
+  // (`Attachment.ticketId`) rather than the skill's default polymorphic
+  // entityType/entityId shape.
+  attachments attachment[]
 
   timeline   ticketTimelineLog[]
   evaluation ticketEvaluation?
@@ -124,6 +125,12 @@ model ticketTimelineLog {
   attachmentName String? @map("AttachmentName") @db.NVarChar(300)
   isAutomated    Boolean @default(false) @map("IsAutomated")
 
+  // Real file storage (ugt-nextjs-upload-setup, 2026-09-02) — set only when
+  // an inquiry/timeline note itself carries a file (in addition to whatever
+  // was attached at the original submission, which links to `ticketId`
+  // directly with `timelineLogId = null`). See docs/project-context/decisions.md.
+  attachments attachment[]
+
   createdAt DateTime @default(now()) @map("CreatedAt")
 
   @@map("TicketTimelineLogs")
@@ -149,6 +156,71 @@ model ticketEvaluation {
   createdAt DateTime @default(now()) @map("CreatedAt")
 
   @@map("TicketEvaluations")
+}
+
+// ─── File attachments (ugt-nextjs-upload-setup, 2026-09-02) ───────────────
+// Real file storage on a Docker volume — replaces `Tickets.AttachmentsJson`.
+// The row is the source of truth: the file on the volume is opaque bytes
+// named after `storageKey`; nothing reads the filesystem to decide what
+// exists or who may see it.
+//
+// LINKING (project decision, see docs/project-context/decisions.md — not the
+// skill's default polymorphic entityType/entityId shape): this app has
+// exactly one real owning type (a grievance ticket), attached at exactly two
+// moments — the original submission (`ticketId` set, `timelineLogId` null)
+// and a later gatekeeper/employee inquiry note (`timelineLogId` also set,
+// pointing at that specific TicketTimelineLogs row). A real FK per
+// attachment-linking.md's Pattern B fits better here than a generic
+// entityType/entityId pair with only one type ever populated.
+//
+// `ticketId` cascades on ticket delete (mirrors ticketTimelineLog/
+// ticketEvaluation). `timelineLogId` is `NoAction` on purpose — SQL Server
+// refuses a second cascade path reaching the same table (Ticket →
+// Attachment directly, and Ticket → TicketTimelineLog → Attachment), so only
+// one path (via ticketId) may cascade. Timeline log rows are append-only and
+// never deleted in practice (see that model's own comment), so this mostly
+// never fires — a real ticket-delete only needs to remove via `ticketId`.
+model attachment {
+  id String @id @default(cuid()) @map("Id")
+
+  ticketId String @map("TicketId")
+  ticket   ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  timelineLogId String?            @map("TimelineLogId")
+  timelineLog   ticketTimelineLog? @relation(fields: [timelineLogId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  /** Generated path on the volume ("2026/09/<uuid>") — never derived from the
+   *  uploaded filename; see lib/storage.ts. */
+  storageKey  String @unique @db.NVarChar(300) @map("StorageKey")
+  /** Original filename — display and the download header only. */
+  fileName    String @db.NVarChar(255) @map("FileName")
+  /** Client-declared type. Advisory only — never trusted for how we serve it. */
+  contentType String @db.NVarChar(150) @map("ContentType")
+  fileSize    Int @map("FileSize")
+  checksum    String @db.NVarChar(64) @map("Checksum")
+
+  /** "clean" | "infected" | "error" — only "clean" rows are ever served.
+   *  Virus scanning is installed in this project (ClamAV, org default,
+   *  2026-08-09) — see lib/virus-scan.ts and docs/admin-handoff.md. */
+  scanStatus    String    @default("clean") @db.NVarChar(20) @map("ScanStatus")
+  scanSignature String?   @db.NVarChar(200) @map("ScanSignature")
+  scannedAt     DateTime? @map("ScannedAt")
+
+  // Standard audit columns. CreatedBy/UpdatedBy nullable project-wide — see
+  // .claude/rules/ugt-nextjs-database.md. Delete is soft (IsDeleted = 1); the
+  // bytes on the volume are removed later by a retention job that does not
+  // exist yet in this project (org-wide decision pending — see
+  // docs/project-context/decisions.md and docs/admin-handoff.md §4).
+  isActive  Boolean  @default(true) @map("IsActive")
+  isDeleted Boolean  @default(false) @map("IsDeleted")
+  createdBy String?  @map("CreatedBy")
+  createdAt DateTime @default(now()) @map("CreatedAt")
+  updatedBy String?  @map("UpdatedBy")
+  updatedAt DateTime @updatedAt @map("UpdatedAt")
+
+  @@index([ticketId])
+  @@index([timelineLogId])
+  @@map("Attachments")
 }
 
 // ─── Gatekeeper directory (9 fixed department categories) ─────────────────

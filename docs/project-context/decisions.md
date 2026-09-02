@@ -219,3 +219,110 @@
   color (`docs/DESIGN.md` §1), which email clients need as a literal hex regardless of a live
   relay · going live is filling in `SMTP_HOST`/`SMTP_FROM`/support-contact once Admin/IT returns
   real values (tracked in `docs/admin-handoff.md` §3 and `.claude/state/handoff.md`).
+- 2026-09-02 Installed `ugt-nextjs-upload-setup` (real file attachments, replacing
+  `Tickets.AttachmentsJson`) **without** the org UI kit/next-intl the skill's assets
+  assume — `src/components/FileUpload.tsx` is hand-built Tailwind with hardcoded Thai
+  error copy instead of the skill's `useTranslations('upload')` + `components/ui/button`/
+  `ui/icon-action` asset, and skips the skill's `messages/upload.{th,en}.ts` catalog
+  entirely — **because** the standing 2026-09-02 decision to keep this app's hand-built,
+  Thai-only design applies to new UI too (already recorded for the auth-setup and
+  mail-setup chunks above, `docs/DESIGN.md` §10) · this makes `verify.mjs`'s
+  `messages/upload.*.ts` and i18n checks fail on purpose, same as the design-setup
+  chunk's 18 intentionally-red checks · rejected: installing next-intl just for this one
+  widget (would create a second, unused i18n substrate the rest of the app doesn't have).
+- 2026-09-02 Attachment→record linking is a **real foreign key** (`Attachment.ticketId`
+  required + `Attachment.timelineLogId` optional), not the skill's default polymorphic
+  `entityType`/`entityId` pair — **because** reading `EmployeeSubmitForm.tsx` and
+  `TrackingTimelineModal.tsx` confirmed this app has exactly one real owning type (a
+  grievance ticket), attached at exactly two moments: the original submission
+  (`timelineLogId = null`) and a later gatekeeper/employee inquiry note recorded as a
+  `TicketTimelineLogs` row (`timelineLogId` set to that row). Per
+  `references/attachment-linking.md`'s own guidance table ("one or two types, orphans
+  unacceptable → a real FK"), a polymorphic pair bought no real flexibility here and
+  would have let the database silently accept a `ticketId` that doesn't exist ·
+  `ticketId` cascades on ticket delete (mirrors `ticketTimelineLog`/`ticketEvaluation`);
+  `timelineLogId` is `NoAction` because SQL Server refuses two cascade paths reaching
+  the same table (`Ticket → Attachment` directly, and `Ticket → TicketTimelineLog →
+Attachment`) — timeline log rows are append-only and never deleted in practice, so
+  this is a theoretical safety net, not a live path · rejected: the skill's default
+  `entityType`/`entityId` shape (would leave the database unable to enforce that a
+  ticket actually exists, and `canReadAttachment` would need a `switch` for a single
+  case that will never grow a second branch).
+- 2026-09-02 Virus scanning (ClamAV) is **installed** (`lib/virus-scan.ts`, fail-closed,
+  org default since 2026-08-09) — **because** this project's own mail/upload decision
+  above already anticipated ClamAV as required infra, and nothing about this project's
+  infrastructure rules out the ~2 GB RAM / ~1 GB signature-DB download the skill warns
+  about · **but the ClamAV Docker service itself is deferred** — `docker-compose.yml`,
+  `docker-compose.dev.yml`, and `Dockerfile` don't exist yet in this project
+  (`ugt-nextjs-cicd-setup` hasn't run), so the skill's compose+Dockerfile snippet
+  (mount point, clamav service, signature-DB volume) cannot be applied this chunk.
+  Tracked as a close-out step for immediately after `ugt-nextjs-cicd-setup` lands the
+  Dockerfile — see `.claude/state/handoff.md` and `docs/admin-handoff.md` §4 · until
+  then, `CLAMAV_HOST=clamav` in `.env.example` resolves to nothing and every real
+  upload attempt fails closed with `SCANNER_UNAVAILABLE` (expected, not a bug).
+- 2026-09-02 Max attachment size = **25 MB per file** (`UPLOAD_MAX_BYTES=26214400`) —
+  **because** this matches both the skill's own default and the existing (fake)
+  attachment UI copy already in `EmployeeSubmitForm.tsx` ("ขนาดไม่เกิน 25 MB"), so no
+  user-facing expectation changes when the real upload path goes live · decided by the
+  installer, not the user directly — this session had no `AskUserQuestion` tool
+  available (same situation as the auth-setup chunk's interview, see that chunk's มติ
+  above) · revisit with the user/Admin if 25 MB proves too small for real evidence
+  files (e.g. video, multi-page scans).
+- 2026-09-02 Reverse-proxy presence in production is **left unconfirmed** — this
+  project's `docs/admin-handoff.md`/`handoff.md` already flag basePath/shared-domain as
+  an open decision for `ugt-nextjs-cicd-setup` to resolve, and no answer exists yet to
+  say whether a reverse proxy (nginx/traefik) will sit in front of this app · recorded
+  in `docs/admin-handoff.md` §4 as guidance regardless of the answer: if one is added,
+  its body-size limit (e.g. nginx `client_max_body_size`) must be raised to ≥25 MB to
+  match `UPLOAD_MAX_BYTES`, or large uploads die at the proxy before this app ever sees
+  them · decided by the installer (no `AskUserQuestion` tool available this session) —
+  flag to the user/coordinator to confirm once the CI/CD chunk's deployment topology is
+  known.
+- 2026-09-02 Deleted attachments stay **soft-deleted only** (`Attachments.IsDeleted = 1`)
+  — this is the org's non-negotiable pattern (`ugt-nextjs-upload-setup` SKILL.md §2 rule
+  7), not a choice this project could opt out of · **no cleanup/retention job is
+  installed this chunk** — the skill is explicit that background-job placement is an
+  org-wide decision still pending (platform backlog), so this project cannot promise
+  automatic deletion of the underlying bytes yet · the retention _duration_ (how long a
+  soft-deleted attachment's bytes should be kept before a future job removes them) is an
+  **open business/compliance question**, not decided this chunk — no `AskUserQuestion`
+  tool was available this session to ask the user directly; flag to Admin/Compliance for
+  when a retention job is actually built (tracked in `docs/project-context/board.md` and
+  `.claude/state/handoff.md`).
+- 2026-09-02 `FileUpload.tsx`/`/api/files`/`/api/files/[id]` are built correctly and
+  completely this chunk, but **not wired into `EmployeeSubmitForm.tsx` or
+  `TrackingTimelineModal.tsx`** — both keep their original `Math.random()` fake-
+  attachment simulator exactly as before, unchanged · **because** this follows the same
+  scoping decision the mail chunk already made and recorded above: the real upload path
+  needs a real `ticketId` from a Prisma `Tickets` row, and no component calls the Prisma
+  Server Actions yet (`src/services/api.ts`'s localStorage functions are still what
+  every component actually calls — unresolved since the database chunk, see Open
+  Questions in `.claude/state/handoff.md`) · wiring the widget into a component that
+  still generates client-only fake ticket ids would mean either faking the `ticketId`
+  too (silently reskinning/rebehaving a page the project's design rules forbid without
+  asking) or leaving the widget half-functional in a way that's worse than the existing,
+  honest simulator · rejected: wiring it anyway with a TODO (the "never silently
+  reskin/rebehave an existing page" rule applies here — a real upload button that only
+  works after an unrelated future rewiring is a worse trap than the current simulator).
+- 2026-09-02 Asset destinations follow this project's existing `src/` layout, not the
+  skill's literal defaults: `src/app/api/files/route.ts` /
+  `src/app/api/files/[id]/route.ts` (not root `app/api/files/**`) and
+  `src/components/FileUpload.tsx` (PascalCase, not `components/file-upload.tsx`) —
+  **because** every other Route Handler and component in this project already lives
+  under `src/` (Phase A migration), and `lib/*` alone stays at the repo root per the
+  database chunk's own asset-destination decision above — matching that precedent keeps
+  one consistent rule ("`lib/` at root, everything else under `src/`") instead of two
+  different root-vs-`src/` splits for different skill outputs. This project has **no**
+  root-level `app/` or `components/` directory at all (Next.js only reads `src/app/`
+  here) — creating one to satisfy the skill's literal paths would give Next.js two
+  parallel App Router trees, which is a hard error, not a style choice · consequence:
+  `ugt-nextjs-upload-setup`'s `verify.mjs` shows red on every check with a hardcoded
+  `app/api/files/**`/`components/file-upload.tsx` path (`Core files present`, `Scan
+happens BEFORE the file is written`, `Scanner failure fails closed`, `Paths never come
+from the uploaded filename`, `Download route guards session + permission + record
+scope`, `Download serves as an attachment, never inline`, `Forbidden and missing both
+answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation above —
+  9 of verify.mjs's 16 checks are expected to stay red for this project, same as the
+  design-setup chunk's 18 intentionally-red checks; the real files exist and are correct
+  at their `src/` locations, verified by hand and by `npm run build`/`lint`/`test`
+  instead.

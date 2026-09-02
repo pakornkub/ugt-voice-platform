@@ -39,6 +39,25 @@
   `/admin/roles`, ไม่เกี่ยวกับบทบาทหลักของแอปด้านบน (ดู `docs/project-context/decisions.md`
   เหตุผลที่ไม่รวมสองระบบเข้าด้วยกัน)
 
+## ไฟล์แนบ (Attachments, `ugt-nextjs-upload-setup`, 2026-09-02)
+
+- ไฟล์แนบเกิดขึ้นได้ 2 จุด: ตอนยื่นคำร้องครั้งแรก (`EmployeeSubmitForm.tsx`, ผูกกับ
+  `Attachment.ticketId` เท่านั้น) และตอนบันทึกไทม์ไลน์/ข้อความสอบถามภายหลัง
+  (`TrackingTimelineModal.tsx`, ผูกทั้ง `ticketId` และ `timelineLogId`) — implement ที่
+  `prisma/schema.prisma`'s `attachment` model, ดู `docs/project-context/decisions.md`
+  สำหรับเหตุผลที่เลือก FK จริงแทน polymorphic entityType/entityId
+- ทุกไฟล์ผ่านการสแกนไวรัส (ClamAV) ก่อนเขียนลง volume เสมอ — สแกนเนอร์ล่ม/timeout =
+  ปฏิเสธการอัปโหลด (fail closed) ไม่ใช่ปล่อยผ่าน — implement ที่ `lib/virus-scan.ts`,
+  `src/app/api/files/route.ts`
+- สิทธิ์ดูไฟล์แนบของแต่ละคำร้อง (`canReadAttachment`) ให้เฉพาะ: admin (ทุกคำร้อง),
+  ผู้ยื่นเรื่องเอง (จับคู่ด้วยอีเมล session — ยังไม่มีการผูกบัญชีผู้ใช้กับผู้ยื่นเรื่องที่
+  แน่นหนากว่านี้), ผู้บริหาร (เฉพาะคำร้องที่ `isDirectToExecutive`), Gatekeeper (เฉพาะ
+  หมวดหมู่ที่ตนรับผิดชอบตาม `RoleAccessConfigs`) — implement ที่
+  `lib/attachment-access.ts` (assumption: mirror ตรรกะเดียวกับ `GatekeeperInbox.tsx`/
+  `ExecutiveDashboard.tsx` ไม่ได้ไล่อ่านทุกเงื่อนไขในสองไฟล์นั้นซ้ำ)
+- **ยังไม่ live**: `EmployeeSubmitForm.tsx`/`TrackingTimelineModal.tsx` ยังใช้ตัวจำลอง
+  แนบไฟล์เดิม (`Math.random()`) — ดู `docs/project-context/architecture.md` ⚠ deviation
+
 ## CSAT evaluation
 
 - ผู้ยื่นเรื่องประเมินความพึงพอใจได้หลังคำร้อง resolved/closed ให้คะแนน 1-5 ใน หลายมิติ

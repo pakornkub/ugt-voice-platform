@@ -207,5 +207,71 @@ intranet ปิด — ตัดสินใจนี้เป็นของท
 
 ---
 
+<!-- [UPLOAD] เพิ่มโดย ugt-nextjs-upload-setup เมื่อ 2026-09-02 — อย่าลบ section นี้ -->
+
+## 4. ไฟล์แนบ (Upload) + การตรวจไวรัส (ClamAV)
+
+โปรเจคนี้เก็บไฟล์แนบจริงบน Docker volume (ไม่ใช่ใน database, ไม่ใช่ใน image) และสแกน
+ไวรัสทุกไฟล์ก่อนเขียนลงดิสก์ (ClamAV, fail-closed — สแกนเนอร์ล่ม = ปฏิเสธการอัปโหลด
+ไม่ใช่ปล่อยผ่าน) โค้ดฝั่งแอปพร้อมใช้งานจริงแล้ว (`lib/storage.ts`, `lib/virus-scan.ts`,
+`src/app/api/files/**`) **แต่ service `clamav` และ volume bind-mount ยังไม่มีใน
+`docker-compose.yml`/`docker-compose.dev.yml`/`Dockerfile` เลย** เพราะไฟล์เหล่านั้นยังไม่
+ถูกสร้าง (`ugt-nextjs-cicd-setup` ยังไม่รัน) — ส่วนนี้จะถูกเติมเป็นขั้นตอนปิดงาน (close-out)
+ทันทีหลัง CI/CD chunk ติดตั้ง Dockerfile เสร็จ (ดู `.claude/state/handoff.md`)
+
+### 4.1 สิ่งที่ทีม Admin/DevOps ต้องรู้ (สำคัญ — ผลกระทบจริงเมื่อ deploy)
+
+- **`/home/docker02/appdata/ugt-voicecare/storage` คือสำเนาไฟล์แนบชุดเดียวเท่านั้น**
+  ไม่ได้อยู่ใน image และไม่ได้อยู่ใน database จึง**ไม่อยู่ในแผน backup ของฐานข้อมูล** —
+  ต้องมี backup job แยกต่างหากสำหรับโฟลเดอร์นี้
+- ลบโฟลเดอร์นี้บน host = ไฟล์แนบทุกไฟล์หายถาวร (container ลบ/สร้างใหม่ได้อิสระ
+  `docker compose down && up -d` ปลอดภัย — แต่โฟลเดอร์นี้ห้ามลบ)
+- ClamAV ต้องการ RAM ประมาณ **2 GB** และอัปเดต signature เอง (`freshclam` รันในตัว
+  image) — boot ครั้งแรกดาวน์โหลด signature DB ~1 GB จากอินเทอร์เน็ต ถ้า host ไม่มี
+  outbound internet ต้อง preload ไฟล์ signature เอง (รายละเอียดใน
+  `ugt-nextjs-upload-setup`'s SKILL.md §7)
+- **ถ้ามี reverse proxy (nginx/traefik) อยู่หน้าแอปใน production ต้องปรับ body-size
+  limit ของ proxy ให้ ≥ 25 MB** (`UPLOAD_MAX_BYTES` ปัจจุบัน) เช่น nginx
+  `client_max_body_size 25m;` — มิฉะนั้นไฟล์แนบขนาดใหญ่จะถูก proxy ปฏิเสธด้วย 413 ก่อน
+  ถึงแอปเลย โดยที่แอปไม่เห็น error ใด ๆ — **ยังไม่ยืนยันว่า production มี reverse proxy
+  หรือไม่** (รอมติเรื่อง basePath/shared-domain จาก `ugt-nextjs-cicd-setup`, ดู
+  `.claude/state/handoff.md`) — ถือว่าคำแนะนำนี้ใช้ได้ไม่ว่าคำตอบจะเป็นอะไร
+
+### 4.2 ขั้นตอนที่ยังไม่ได้ทำ (รอ CI/CD chunk ก่อน)
+
+เมื่อ `ugt-nextjs-cicd-setup` สร้าง `Dockerfile`/`docker-compose.yml`/
+`docker-compose.dev.yml` แล้ว ให้ apply
+`assets/compose-and-dockerfile.snippet.md` จาก `ugt-nextjs-upload-setup` skill:
+
+- Dockerfile: `RUN mkdir -p /app/storage && chown -R nextjs:nodejs /app/storage`
+  ก่อน `USER nextjs`
+- compose (ทั้งสองไฟล์): env `STORAGE_ROOT`/`UPLOAD_MAX_BYTES`/`CLAMAV_HOST`/
+  `CLAMAV_PORT`/`CLAMAV_TIMEOUT_MS`, volume bind mount
+  `/home/docker02/appdata/ugt-voicecare/storage:/app/storage` (bind mount เท่านั้น
+  ห้าม named volume — ตาม cicd contract §2.8), service `clamav` พร้อม
+  `depends_on: clamav: condition: service_healthy` และ `start_period: 300s` ใน
+  healthcheck (boot แรกโหลด signature ~1 GB)
+- Jenkinsfile's `[VOLUME]` mkdir -p line: เพิ่ม `storage` และ `clamav-db` เข้าไป
+
+### ✅ ค่าที่ต้องส่งกลับให้ทีมพัฒนา (กรอกแล้วส่งไฟล์นี้คืน)
+
+| ค่า                                                                          | มาจากไหน                                                                                                               | กรอกตรงนี้ |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------- |
+| **→ มี reverse proxy หน้าแอปใน production ไหม**                              | เช่น nginx/traefik ที่ terminate TLS หรือ route หลาย path บน domain เดียวกัน — ถ้ามี ต้องปรับ body-size limit ตาม §4.1 |            |
+| **→ ใครรับผิดชอบ backup ของ `/home/docker02/appdata/ugt-voicecare/storage`** | ไม่ใช่ backup เดียวกับ database — ต้องมีแผนแยก                                                                         |            |
+| **→ host มี outbound internet ให้ ClamAV ดาวน์โหลด signature DB ไหม**        | ถ้าไม่มี ต้อง preload ไฟล์ signature เอง — ดู SKILL.md §7 ของ `ugt-nextjs-upload-setup`                                |            |
+
+## เช็คก่อนปิดงาน (ฝั่ง Admin/DevOps) — หลัง CI/CD chunk ติดตั้ง compose แล้วเท่านั้น
+
+- [ ] `docker-compose.yml`/`docker-compose.dev.yml` มี volume bind mount ที่
+      `/app/storage` และ service `clamav` (ไม่ใช่ named volume)
+- [ ] มีแผน backup แยกสำหรับโฟลเดอร์ storage (ไม่ใช่แผนเดียวกับ database)
+- [ ] ยืนยัน/ปฏิเสธเรื่อง reverse proxy แล้ว — ถ้ามี ปรับ body-size limit แล้ว
+- [ ] ยืนยันแล้วว่า host มี/ไม่มี outbound internet สำหรับ ClamAV signature DB
+
+<!-- /[UPLOAD] -->
+
+---
+
 <!-- ส่วนของ ugt-nextjs-cicd-setup (Jenkins/SonarQube) จะถูกเพิ่มต่อท้ายไฟล์นี้โดย
      chunk นั้นเอง เมื่อรัน -->

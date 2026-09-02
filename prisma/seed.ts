@@ -337,7 +337,13 @@ async function seedTickets() {
       resolutionSummary: ticket.resolutionSummary ?? null,
       resolvedAt: ticket.resolvedAt ? new Date(ticket.resolvedAt) : null,
       closedAt: ticket.closedAt ? new Date(ticket.closedAt) : null,
-      attachmentsJson: JSON.stringify(ticket.attachments ?? []),
+      // Real Attachments table (ugt-nextjs-upload-setup, 2026-09-02) replaces
+      // the former AttachmentsJson bridging column — see decisions.md. Not
+      // seeded here on purpose: src/mockData.ts's Attachment[] entries are
+      // simulator output (Math.random()-generated names/sizes, no real bytes
+      // anywhere) — inserting an Attachments row pointing at a storageKey with
+      // nothing on the volume would make its download 404/ENOENT instead of
+      // simply not existing, which is worse than leaving no seed rows.
       createdAt: new Date(ticket.createdAt),
       updatedAt: new Date(ticket.updatedAt),
     };

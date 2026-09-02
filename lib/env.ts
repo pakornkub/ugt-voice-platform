@@ -54,6 +54,23 @@ export const env = createEnv({
     SMTP_PASS: z.string().optional(),
     SMTP_FROM: z.string().optional(),
 
+    // ── ugt-nextjs-upload-setup: file storage + virus scanning (2026-09-02) ─
+    // Uploads go through a Route Handler (src/app/api/files/route.ts), never
+    // a Server Action — see .claude/rules/ugt-nextjs-upload.md.
+    STORAGE_ROOT: z.string().default('/app/storage'),
+    // 25 MB per file — matches EmployeeSubmitForm.tsx's existing attachment
+    // UI copy ("ขนาดไม่เกิน 25 MB") and the skill's own default; see
+    // docs/project-context/decisions.md for the reverse-proxy caveat (raise
+    // its body-size limit to match, if one fronts this app in production).
+    UPLOAD_MAX_BYTES: z.string().default('26214400'),
+    // clamd, reachable on the compose network once ugt-nextjs-cicd-setup adds
+    // the clamav service (deferred — see docs/admin-handoff.md §4 and
+    // .claude/state/handoff.md). The app fails closed: unreachable = refused
+    // upload, never accepted unscanned.
+    CLAMAV_HOST: z.string().default('clamav'),
+    CLAMAV_PORT: z.string().default('3310'),
+    CLAMAV_TIMEOUT_MS: z.string().default('30000'),
+
     // Node.js built-ins
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   },
@@ -94,6 +111,11 @@ export const env = createEnv({
     SMTP_USER: process.env.SMTP_USER,
     SMTP_PASS: process.env.SMTP_PASS,
     SMTP_FROM: process.env.SMTP_FROM,
+    STORAGE_ROOT: process.env.STORAGE_ROOT,
+    UPLOAD_MAX_BYTES: process.env.UPLOAD_MAX_BYTES,
+    CLAMAV_HOST: process.env.CLAMAV_HOST,
+    CLAMAV_PORT: process.env.CLAMAV_PORT,
+    CLAMAV_TIMEOUT_MS: process.env.CLAMAV_TIMEOUT_MS,
     NODE_ENV: process.env.NODE_ENV,
     NEXT_PUBLIC_BASE_PATH: process.env.NEXT_PUBLIC_BASE_PATH,
     NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,

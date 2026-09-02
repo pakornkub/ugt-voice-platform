@@ -4,22 +4,31 @@ Last updated: 2026-09-02
 
 ## In progress
 
-- Nothing in progress. Mail chunk (`ugt-nextjs-mail-setup`) is complete this session — see
-  Done below.
+- Nothing in progress. Upload chunk (`ugt-nextjs-upload-setup`) is complete this
+  session — see Done below.
 
 ## Next
 
-- **`ugt-nextjs-upload-setup`** — wanted (confirmed). Real file attachments, replacing
-  `EmployeeSubmitForm`'s fake `Math.random()` attachment simulator.
-- **`ugt-nextjs-cicd-setup`** — Jenkinsfile, SonarQube Quality Gate, Docker deploy. Also the
-  point to redesign `ExportAnalyticsModal`'s SQL Studio as preset reports (decision already
-  made — see `docs/project-context/decisions.md`), and to decide basePath/ports if this app
-  goes under a shared org domain (currently assumed standalone — auth chunk's cookie
-  prefix/`middleware.ts` already handle a future basePath, just unset for now).
-- Harness install (CLAUDE.md block, `.claude/rules/*`) — do this after all modules above are
-  in, per `ugt-nextjs-full-setup`'s own step 4.
-- Each of the above chunks should end with `/ugt-handoff` again (per the user's chosen
-  chunked run-shape) — install in this fixed order, never reorder.
+- **`ugt-nextjs-cicd-setup`** — Jenkinsfile, SonarQube Quality Gate, Docker deploy.
+  Also the point to redesign `ExportAnalyticsModal`'s SQL Studio as preset reports
+  (decision already made — see `docs/project-context/decisions.md`), and to decide
+  basePath/ports if this app goes under a shared org domain (currently assumed
+  standalone — auth chunk's cookie prefix/`middleware.ts` already handle a future
+  basePath, just unset for now).
+- **Close-out right after `ugt-nextjs-cicd-setup` lands the Dockerfile**: apply the
+  Upload chunk's deferred `docker-compose`/`Dockerfile` snippet
+  (`ugt-nextjs-upload-setup`'s `assets/compose-and-dockerfile.snippet.md`) — storage
+  volume bind-mount + the `clamav` service. It could not be installed this chunk
+  because `docker-compose.yml`/`docker-compose.dev.yml`/`Dockerfile` don't exist yet.
+  Until this lands, every real upload attempt fails closed with
+  `SCANNER_UNAVAILABLE` and `/api/health`'s `scanAvailable` stays `false` — both
+  expected, not bugs. See `docs/project-context/decisions.md` and
+  `docs/admin-handoff.md` §4 for the exact snippet contents and admin-facing
+  checklist.
+- Harness install (CLAUDE.md block, `.claude/rules/*`) — do this after all modules
+  above are in, per `ugt-nextjs-full-setup`'s own step 4.
+- Each of the above chunks should end with `/ugt-handoff` again (per the user's
+  chosen chunked run-shape) — install in this fixed order, never reorder.
 
 ## Open Questions
 
@@ -30,17 +39,27 @@ Last updated: 2026-09-02
   crash — see troubleshooting.md if this changes).
 - Real SQL Server values still needed from Admin/DBA (unchanged from the database chunk) —
   `docs/admin-handoff.md` §1. Migrations (`20260902000000_init`, `20260902010000_auth_rbac`,
-  `20260902020000_add_mail_templates`) are ready to `prisma migrate resolve --applied` once
-  real `DATABASE_URL` lands — see that doc for the exact command sequence.
+  `20260902020000_add_mail_templates`, `20260902030000_add_attachments`) are ready to
+  `prisma migrate resolve --applied` once real `DATABASE_URL` lands — see that doc for the
+  exact command sequence.
 - Real SMTP relay values needed from Admin/IT (host/port, sender address, auth) —
   `docs/admin-handoff.md` §3. Until then `sendMail()` in `lib/email.ts` throws on every call
   (by design — `SMTP_HOST` is a placeholder).
+- Whether a reverse proxy (nginx/traefik) will sit in front of this app in production —
+  needed to confirm `UPLOAD_MAX_BYTES` (25 MB) isn't silently capped lower at the proxy.
+  Tied to the same open basePath/shared-domain decision `ugt-nextjs-cicd-setup` will
+  resolve — see `docs/admin-handoff.md` §4 and `docs/project-context/decisions.md`.
+- Retention duration for soft-deleted attachments (`Attachments.IsDeleted = 1`) — no
+  cleanup job exists yet (org-wide decision on background-job placement still pending, see
+  `ugt-nextjs-upload-setup`'s own SKILL.md). Open question for Admin/Compliance once a
+  retention job is actually built — see `docs/project-context/decisions.md`.
 - `src/services/api.ts`'s localStorage functions are still NOT wired to the Prisma
   `lib/actions/tickets.ts`/`notifications.ts` Server Actions — unchanged open question from
-  the database chunk. This chunk wired the mail-send hook into `lib/actions/tickets.ts`
-  (`submitTicket`/`updateTicketWorkflow`) rather than `src/services/api.ts` for that reason —
-  see decisions.md — so no real email goes out yet either, until the call-site rewiring
-  happens.
+  the database chunk. This chunk (mail, and now upload) both wired their integration points
+  into `lib/actions/tickets.ts` for the same reason — see decisions.md — so no real email or
+  real file attachment reaches a live ticket yet, until the call-site rewiring happens.
+  `FileUpload.tsx`/`/api/files*` are built and correct but not called by
+  `EmployeeSubmitForm.tsx`/`TrackingTimelineModal.tsx` for the same reason.
 - No linked-server employee/HR view was requested this chunk (`lib/directory.ts`/`lib/scope.ts`/
   `lib/approval-chain.ts` were not installed — see decisions.md). If a real HR employee view
   becomes available later, revisit whether directory enrichment (employee code/department/
@@ -48,6 +67,35 @@ Last updated: 2026-09-02
 
 ## Done (newest first)
 
+- 2026-09-02 Installed real file attachments (`ugt-nextjs-upload-setup`): `lib/storage.ts`
+  (Docker-volume I/O, generated `yyyy/mm/<uuid>` paths), `lib/virus-scan.ts` (ClamAV clamd
+  INSTREAM client, fail-closed), `lib/attachment-access.ts` (`canReadAttachment` — real
+  per-ticket scoping: admin all, submitter by email match, executive on
+  `isDirectToExecutive`, gatekeeper by `RoleAccessConfigs` department scope), guarded
+  Route Handlers `src/app/api/files/route.ts` (upload) and `src/app/api/files/[id]/route.ts`
+  (download), and hand-built Tailwind widget `src/components/FileUpload.tsx` (no
+  next-intl/org UI kit — same standing design decision as every prior chunk's new UI).
+  New `attachment` model (`@@map("Attachments")`) replaces `Tickets.AttachmentsJson`, with
+  a **real FK pair** (`ticketId` required + `timelineLogId` optional) instead of the skill's
+  default polymorphic `entityType`/`entityId` — see decisions.md for why. Migration
+  `20260902030000_add_attachments` generated offline (schema-to-schema diff, no live SQL
+  Server — same method as the prior three). New `files:create`/`files:read` permissions and
+  `files.upload`/`files.upload-rejected`/`files.download` audit actions. Virus scanning is
+  **installed** (org default) but the ClamAV Docker service itself is **deferred** — see Next
+  above — so every real upload today fails closed with `SCANNER_UNAVAILABLE`. **Not wired
+  into any page** — `EmployeeSubmitForm.tsx`/`TrackingTimelineModal.tsx` still use their
+  original `Math.random()` fake-attachment simulator, same scoping decision as the mail
+  chunk's send hook. Fixed a real break the schema change caused:
+  `lib/actions/mappers.ts`/`tickets.ts` referenced the now-removed `attachmentsJson` column
+  — added `mapAttachment()` and wired the real `attachments` relation into `mapTicket`/
+  `TICKET_INCLUDE` instead. Interview questions (max file size, reverse proxy, retention)
+  had no `AskUserQuestion` tool available this session (same situation as the auth-setup
+  chunk) — decided by the installer with reasoning recorded in decisions.md; flagged above
+  as Open Questions for the user/Admin to confirm. `npm run build`/`lint`/`format:check`/
+  `test` all pass (22 routes now, up from 20; 0 lint errors, 110 pre-existing warnings
+  unchanged in nature; 4/4 tests pass). Verified in a real browser: `/` still redirects to
+  `/login` and renders unchanged; `/api/health` now also reports `scanAvailable` (false,
+  expected); `/api/files/*` correctly 401s when unauthenticated via the existing middleware.
 - 2026-09-02 Installed workflow email (`ugt-nextjs-mail-setup`): `lib/email.ts`
   (`sendTemplatedMail`/`sendMail`, nodemailer transport, dev-mode redirect), `lib/mail-templates.ts`
   (render + escape), `lib/types/mail-templates.ts` (5 templates, one per `NotificationItem['type']`:
@@ -99,11 +147,7 @@ Last updated: 2026-09-02
   project pins `next@^15.5.0`) is the route guard. No central-employee-directory enrichment
   installed (`lib/directory.ts`/`scope.ts`/`approval-chain.ts` skipped — no linked-server HR
   view to read from yet). Real Keycloak client + SQL Server values are still placeholders — see
-  Open Questions and `docs/admin-handoff.md` §1–2. Verified by hand in a real browser: `/`,
-  `/submit`, `/admin/setup` all correctly bounce to `/login?from=...` when unauthenticated;
-  `/api/health` still bypasses auth; clicking "เข้าสู่ระบบด้วยบัญชีองค์กร (SSO)" shows the
-  loading state, then fails gracefully back to a clickable button against the placeholder
-  Keycloak host (expected — no crash, no stuck spinner). `npm run build`/`lint`/`format:check`/
+  Open Questions and `docs/admin-handoff.md` §1–2. `npm run build`/`lint`/`format:check`/
   `test` all pass (19 routes now, up from 13; 0 lint errors, 109 pre-existing warnings unchanged
   in nature; 4/4 tests pass including the updated `Navbar.test.tsx` path). Prisma migration
   `20260902010000_auth_rbac` generated offline (schema-to-schema diff, no live DB — same method

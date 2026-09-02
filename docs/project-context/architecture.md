@@ -132,6 +132,44 @@ resolve --applied` once real DB values land, see `docs/admin-handoff.md`.
     (redirects a tester's own mail to themselves) permissions, seeded via `ALL_PERMISSIONS`.
   - `lib/audit-actions.ts` — new `mail-templates.update`/`mail-templates.reset` audit actions.
 
+- **Upload (added 2026-09-02, `ugt-nextjs-upload-setup`) — real file storage, built and
+  correct but not called by any page yet, see ⚠ deviation below:**
+  - `lib/storage.ts` — Docker-volume file I/O (`STORAGE_ROOT`), generated `yyyy/mm/<uuid>`
+    paths (never derived from the uploaded filename), `safeDisplayName()`.
+  - `lib/virus-scan.ts` — ClamAV `clamd` INSTREAM client over raw TCP (`scanBuffer`,
+    `pingScanner`), fail-closed (scanner down/timeout = upload refused, never accepted
+    unscanned).
+  - `lib/attachment-access.ts` — `canReadAttachment(userId, {ticketId})`, the per-ticket
+    download scope: admin sees everything; the ticket's own submitter (matched by
+    session email against `Tickets.SubmitterEmail` — no stronger link exists yet, see
+    ⚠ deviation below); executive only on `isDirectToExecutive` tickets; gatekeeper only
+    within `RoleAccessConfigs.assignedDepartments`/`canViewAllDepartments`, mirroring
+    `GatekeeperInbox.tsx`'s existing client-side filter.
+  - `src/app/api/files/route.ts` (upload) / `src/app/api/files/[id]/route.ts` (download)
+    — Route Handlers (not Server Actions — `bodySizeLimit` caps those at 1 MB), guard
+    order session → permission → scan/scope → action → audit log.
+  - `src/components/FileUpload.tsx` — hand-built Tailwind attachment widget (no
+    next-intl/org UI kit — see ⚠ deviation below), posts to `/api/files`, downloads via
+    plain `<a href="/api/files/<id>">`.
+  - `prisma/schema.prisma` — new `attachment` model (`@@map("Attachments")`), replacing
+    `Tickets.AttachmentsJson`. `ticketId` (required, cascades) + `timelineLogId`
+    (optional, `NoAction` — SQL Server disallows a second cascade path to the same
+    table) — see `docs/project-context/decisions.md` for why this is a real FK pair
+    instead of the skill's default polymorphic `entityType`/`entityId`.
+  - `prisma/migrations/20260902030000_add_attachments/` — generated **offline**
+    (schema-to-schema diff, no live SQL Server — same method as the prior three
+    migrations); apply via `prisma migrate resolve --applied` once real DB values land.
+  - `lib/permissions.ts` — new `files:create`/`files:read` permissions (group "ไฟล์แนบ").
+  - `lib/audit-actions.ts` — new `files.upload`/`files.upload-rejected`/`files.download`
+    audit actions.
+  - `src/app/api/health/route.ts` — now also reports `scanAvailable` (`pingScanner()`);
+    `false` until the ClamAV service exists in compose (see ⚠ deviation below).
+  - **Deferred to right after `ugt-nextjs-cicd-setup` lands the Dockerfile**: the
+    ClamAV Docker service + storage volume bind-mount (the skill's
+    `assets/compose-and-dockerfile.snippet.md`) — `docker-compose.yml`,
+    `docker-compose.dev.yml`, and `Dockerfile` don't exist in this project yet. Tracked
+    in `.claude/state/handoff.md` as a close-out step, not skipped.
+
 ## Data flow หลัก
 
 - ยื่นคำร้อง: `EmployeeSubmitForm` (`src/components/EmployeeSubmitForm.tsx`) →
@@ -155,6 +193,13 @@ resolve --applied` once real DB values land, see `docs/admin-handoff.md`.
   (`lib/mail-templates.ts`, AppSettings override or in-code default) → nodemailer, all inside
   try/catch (a mail failure never fails the ticket mutation). **Not live yet** — see ⚠
   deviation below, same root cause as the Prisma persistence layer's.
+- File attachment (added 2026-09-02, `ugt-nextjs-upload-setup`): `FileUpload.tsx` →
+  `POST /api/files` (session → permission `files:create` → ticket/timeline-log exist →
+  `scanBuffer()` → `writeStoredFile()` on the volume → `Attachments` row → audit log) →
+  download via `GET /api/files/<id>` (session → permission `files:read` →
+  `canReadAttachment()` → `scanStatus === 'clean'` → stream + audit log). **Not called by
+  any page yet** — see ⚠ deviation below, same root cause as the Prisma persistence
+  layer's and the mail send hook's.
 
 ## ตารางหลัก → feature
 
@@ -166,6 +211,7 @@ resolve --applied` once real DB values land, see `docs/admin-handoff.md`.
 | `HrAdminMembers`                                       | HR admin directory — `admin_gatekeeper` tab                                                  |
 | `Notifications`                                        | in-app notification drawer                                                                   |
 | `RoleAccessConfigs`                                    | `RoleBasedAccessManagement` (`rbac_management` tab)                                          |
+| `Attachments`                                          | ticket + timeline-note file uploads — `FileUpload.tsx`, `/api/files*`                        |
 
 ยังไม่ใช่ live source — ดู ⚠ deviation ด้านล่าง (schema/migration/seed พร้อมใช้แล้ว แต่
 component ทั้งหมดยังอ่าน/เขียน `localStorage` ผ่าน `src/services/api.ts` เหมือนเดิม)
@@ -215,8 +261,29 @@ component ทั้งหมดยังอ่าน/เขียน `localStora
   (`lib/directory.ts`/`lib/scope.ts`/`lib/approval-chain.ts` from the skill were not installed) —
   this project has no linked-server employee view to read from yet; SSO gives only name/email/
   username. See `docs/project-context/decisions.md`.
-- ⚠ deviation: การแนบไฟล์ใน `EmployeeSubmitForm` เป็นการจำลอง (`Math.random()` สร้าง object
-  ไฟล์ปลอม) ไม่มี upload/storage จริง — แผนอยู่ใน chunk `ugt-nextjs-upload-setup`.
+- ⚠ deviation (updated 2026-09-02, `ugt-nextjs-upload-setup`): การแนบไฟล์ใน
+  `EmployeeSubmitForm.tsx`/`TrackingTimelineModal.tsx` ยังเป็นการจำลอง (`Math.random()`
+  สร้าง object ไฟล์ปลอม) ผ่าน `src/services/api.ts` (localStorage) เหมือนเดิม — แม้ตอนนี้
+  จะมี upload/storage/scan/download จริงพร้อมใช้แล้ว (`FileUpload.tsx`, `/api/files*`,
+  `lib/storage.ts`, `lib/virus-scan.ts`) ก็ตาม เหตุผลเดียวกับ deviation แรกด้านบน: ยังไม่มี
+  component ไหนเรียก Prisma Server Actions จริง จึงไม่มี `ticketId` จริงให้แนบไฟล์ด้วย —
+  ดู decisions.md.
+- ⚠ deviation (2026-09-02, `ugt-nextjs-upload-setup`): ClamAV virus scanning ถูกเลือกใช้
+  (org default) และโค้ดฝั่งแอปพร้อมสแกนจริงแล้ว (`lib/virus-scan.ts`, fail-closed) แต่
+  **service `clamav` เองยังไม่มีใน `docker-compose.yml`/`docker-compose.dev.yml`/`Dockerfile`**
+  — ไฟล์เหล่านี้ยังไม่มีในโปรเจคเลย (`ugt-nextjs-cicd-setup` ยังไม่รัน) ทุก upload
+  จริงตอนนี้จะ fail closed ด้วย `SCANNER_UNAVAILABLE` และ `/api/health`'s `scanAvailable`
+  จะเป็น `false` จนกว่าจะ apply compose+Dockerfile snippet ของ skill เป็น close-out step
+  ทันทีหลัง `ugt-nextjs-cicd-setup` ติดตั้ง Dockerfile เสร็จ — ดู `.claude/state/handoff.md`.
+- ⚠ deviation (2026-09-02, `ugt-nextjs-upload-setup`): `FileUpload.tsx` เป็น hand-built
+  Tailwind, ไม่มี i18n catalog (`messages/upload.{th,en}.ts` ของ skill ไม่ได้ติดตั้ง) —
+  เหตุผลเดียวกับหน้า auth-setup/mail-setup ทั้งหมด (มติต้นโปรเจค "คงดีไซน์เดิม/hand-built
+  ทุกหน้า" — ดู decisions.md) `node <upload-setup skill>/scripts/verify.mjs` จึงแดง
+  ที่เช็ค `messages/upload.th.ts`/`messages/upload.en.ts` โดยตั้งใจ.
+- ⚠ deviation (2026-09-02, `ugt-nextjs-upload-setup`): ไม่มี retention/cleanup job สำหรับ
+  ไฟล์ที่ถูก soft-delete (`Attachments.IsDeleted = 1`) — skill เองระบุชัดว่ายังไม่มีมติ
+  องค์กรว่า background job จะรันที่ไหน (ดู decisions.md) — ระยะเวลาที่ควรเก็บไฟล์ไว้ก่อน
+  ลบจริงยังเป็นคำถามเปิดสำหรับ Admin/Compliance.
 - ⚠ deviation (2026-09-02, `ugt-nextjs-mail-setup`): การส่งอีเมลจริงถูกเชื่อมสายไว้แล้วที่
   `lib/actions/tickets.ts` (Prisma Server Action) แต่**ยังไม่มีอีเมลออกจริง** เพราะ (1) module
   นี้ยังไม่มี component ไหนเรียก (เหตุผลเดียวกับ deviation แรกด้านบน — data layer ยังเป็น

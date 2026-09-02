@@ -117,6 +117,11 @@ async function sendNotificationMail(
 const TICKET_INCLUDE = {
   timeline: { orderBy: { createdAt: 'asc' as const } },
   evaluation: true,
+  // Real Attachments (ugt-nextjs-upload-setup, 2026-09-02) — includes both
+  // submission-time and timeline-note attachments (mapTicket doesn't split
+  // them; TrackingTimelineModal can filter by attachment.url's id against a
+  // given TimelineLog if that split view is ever needed).
+  attachments: { where: { isDeleted: false }, orderBy: { createdAt: 'asc' as const } },
 } as const;
 
 function actionLabelForStatus(status: TicketStatus, note?: string): string {
@@ -214,7 +219,12 @@ export async function submitTicket(
       urgency: payload.urgency,
       riskSeverity: payload.riskSeverity,
       sentiment: payload.sentiment,
-      attachmentsJson: JSON.stringify(payload.attachments ?? []),
+      // No AttachmentsJson column anymore (ugt-nextjs-upload-setup, 2026-09-02
+      // — see prisma/schema.prisma's `attachment` model). `payload.attachments`
+      // is whatever the caller's fake simulator built (no real bytes exist for
+      // it — see docs/project-context/decisions.md) and is intentionally not
+      // persisted here; a real attachment is created by POSTing to
+      // `/api/files` with this ticket's `id` once it exists below.
       timeline: {
         create: {
           status: 'submitted',

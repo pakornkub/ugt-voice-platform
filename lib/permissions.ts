@@ -32,6 +32,12 @@ export const PERMISSIONS = {
   // real recipient — grant to testers/developers only, see lib/email.ts.
   DEV_MODE: 'dev-mode:enable',
 
+  // File attachments (ugt-nextjs-upload-setup, 2026-09-02) — FILES_READ only
+  // says "this user may download files in general"; per-ticket scope is a
+  // separate check, see lib/attachment-access.ts.
+  FILES_CREATE: 'files:create',
+  FILES_READ: 'files:read',
+
   // EXTENSION POINT: add project-domain permissions here (resource:action)
 } as const;
 
@@ -58,6 +64,9 @@ export const ALL_PERMISSIONS: Array<{
 
   { key: PERMISSIONS.MAIL_TEMPLATES_MANAGE, label: 'แก้ไขเทมเพลตอีเมล', group: 'ระบบ' },
   { key: PERMISSIONS.DEV_MODE, label: 'โหมดทดสอบอีเมล', group: 'ระบบ' },
+
+  { key: PERMISSIONS.FILES_CREATE, label: 'แนบไฟล์', group: 'ไฟล์แนบ' },
+  { key: PERMISSIONS.FILES_READ, label: 'ดาวน์โหลดไฟล์แนบ', group: 'ไฟล์แนบ' },
 
   // EXTENSION POINT: add seed entries for project-domain permissions here
 ];
