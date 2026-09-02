@@ -1,12 +1,16 @@
 node_modules/
+.pnp
+.pnp.*
 .next/
 out/
 build/
 dist/
 coverage/
 .DS_Store
+*.pem
 *.log
 .env*
 !.env.example
 *.tsbuildinfo
 .claude/logs/
+.vercel

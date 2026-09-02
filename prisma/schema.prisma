@@ -1,0 +1,319 @@
+// ─── Naming Convention (org standard — see .claude/rules/ugt-nextjs-database.md) ──
+// All table names MUST use PascalCase plural and be set via @@map().
+//   ✅  @@map("Tickets")        ✅  @@map("HrAdminMembers")
+//   ❌  @@map("ticket")         ❌  @@map("hr_admin_members")
+// Column names in the DB are PascalCase via @map(); Prisma fields and
+// relation names stay camelCase (Prisma convention).
+//
+// SQL Server has no native enum type, and Prisma enums are not supported by
+// the sqlserver connector — every "enum-shaped" field below (GrievanceCategory,
+// TicketStatus, UrgencyLevel, ConfidentialityLevel, UserRole, ...) is typed
+// String @db.NVarChar(n) and validated at the app layer against the TS union
+// types in src/types.ts (the authoritative source for the allowed values).
+//
+// This is the first schema for UGT VoiceCare (no legacy tables to preserve).
+// It replaces the browser-only sql.js draft in src/services/sqliteDb.ts,
+// with two deliberate changes documented in decisions.md (2026-09-02):
+//   1. `tickets.tracking_code` (PK in the sqlite draft) becomes a surrogate
+//      `id` (cuid) + a `@unique` `trackingCode` column, per org convention.
+//   2. The app's own per-role tab/permission settings ("RolePermissionConfig"
+//      in src/types.ts) is mapped to `RoleAccessConfigs`, not `RolePermissions`,
+//      to avoid colliding with the singular `RolePermission` table that
+//      ugt-nextjs-auth-setup will install later for Better Auth's own RBAC.
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  // Org choice, not a Prisma limitation: "prisma-client" is upstream's
+  // recommended default (and works with the MSSQL adapter too), but every kit
+  // asset imports from "@prisma/client", which only this generator emits.
+  // "prisma-client-js" is deprecated upstream — a coordinated migration for the
+  // whole kit is planned; do not switch one project on its own.
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver" // NO url here — the url lives only in prisma.config.ts
+}
+
+// ─── Grievance tickets (core domain) ───────────────────────────────────────
+
+model ticket {
+  id           String @id @default(cuid()) @map("Id")
+  // Human-readable code shown to employees (e.g. TK-2026-0881) — unique
+  // indexed column, NOT the primary key (see header note above).
+  trackingCode String @unique @map("TrackingCode") @db.NVarChar(20)
+
+  type           String  @map("Type") @db.NVarChar(20) // SubmissionType: 'complaint' | 'suggestion'
+  category       String  @map("Category") @db.NVarChar(30) // GrievanceCategory (9 fixed values — src/types.ts)
+  title          String  @map("Title") @db.NVarChar(500)
+  description    String  @map("Description") @db.NVarChar(Max)
+  locationOrUnit String? @map("LocationOrUnit") @db.NVarChar(300)
+
+  // High-priority executive / whistleblower channel
+  isDirectToExecutive Boolean @default(false) @map("IsDirectToExecutive")
+
+  // Privacy & confidentiality
+  confidentiality     String  @default("confidential_restricted") @map("Confidentiality") @db.NVarChar(30) // ConfidentialityLevel
+  submitterName       String? @map("SubmitterName") @db.NVarChar(200)
+  submitterEmployeeId String? @map("SubmitterEmployeeId") @db.NVarChar(50)
+  submitterDepartment String? @map("SubmitterDepartment") @db.NVarChar(300)
+  submitterEmail      String? @map("SubmitterEmail") @db.NVarChar(200)
+  submitterPhone      String? @map("SubmitterPhone") @db.NVarChar(50)
+
+  // Triage & gatekeeper handling
+  gatekeeperDepartment String    @map("GatekeeperDepartment") @db.NVarChar(300)
+  assignedOfficerName  String?   @map("AssignedOfficerName") @db.NVarChar(200)
+  assignedOfficerEmail String?   @map("AssignedOfficerEmail") @db.NVarChar(200)
+  slaTargetHours       Int       @default(48) @map("SlaTargetHours")
+  slaDueDate           DateTime  @map("SlaDueDate")
+  slaStatus            String    @default("on_track") @map("SlaStatus") @db.NVarChar(30) // on_track|approaching_deadline|overdue|met
+
+  // State & assessment
+  status       String  @default("submitted") @map("Status") @db.NVarChar(30) // TicketStatus
+  urgency      String  @default("Medium") @map("Urgency") @db.NVarChar(20) // UrgencyLevel
+  riskSeverity String  @default("Moderate") @map("RiskSeverity") @db.NVarChar(20)
+  sentiment    String? @map("Sentiment") @db.NVarChar(50)
+
+  // Root cause analysis & clustering
+  clusterGroup         String? @map("ClusterGroup") @db.NVarChar(300)
+  rootCauseCategory    String? @map("RootCauseCategory") @db.NVarChar(50)
+  rootCauseSummary     String? @map("RootCauseSummary") @db.NVarChar(Max)
+  preventiveActionPlan String? @map("PreventiveActionPlan") @db.NVarChar(Max)
+
+  // Resolution
+  resolutionSummary String?   @map("ResolutionSummary") @db.NVarChar(Max)
+  resolvedAt        DateTime? @map("ResolvedAt")
+  closedAt          DateTime? @map("ClosedAt")
+
+  // ⚠ Bridging column until ugt-nextjs-upload-setup lands real file storage:
+  // JSON-serialized Attachment[] (src/types.ts:Attachment). Replace with a
+  // proper Attachments table + blob storage in that chunk — see
+  // docs/project-context/architecture.md.
+  attachmentsJson String? @default("[]") @map("AttachmentsJson") @db.NVarChar(Max)
+
+  timeline   ticketTimelineLog[]
+  evaluation ticketEvaluation?
+
+  // Standard audit columns. CreatedBy/UpdatedBy are nullable project-wide
+  // right now — there is no real session user yet (SSO lands in
+  // ugt-nextjs-auth-setup) — see .claude/rules/ugt-nextjs-database.md.
+  isActive  Boolean  @default(true) @map("IsActive")
+  isDeleted Boolean  @default(false) @map("IsDeleted")
+  createdBy String?  @map("CreatedBy")
+  createdAt DateTime @default(now()) @map("CreatedAt")
+  updatedBy String?  @map("UpdatedBy")
+  updatedAt DateTime @updatedAt @map("UpdatedAt")
+
+  @@map("Tickets")
+}
+
+// Real-time timeline log per ticket. Append-only — exempt from the full
+// audit-column set (a log entry is never edited or soft-deleted); "timestamp"
+// avoided as a column name because TIMESTAMP is a T-SQL reserved word
+// (ROWVERSION synonym) — CreatedAt serves the same purpose.
+model ticketTimelineLog {
+  id       String @id @default(cuid()) @map("Id")
+  ticketId String @map("TicketId")
+  ticket   ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  status         String  @map("Status") @db.NVarChar(30) // TicketStatus at the time of this entry
+  action         String  @map("Action") @db.NVarChar(500)
+  actor          String  @map("Actor") @db.NVarChar(200)
+  actorRole      String  @map("ActorRole") @db.NVarChar(50)
+  notes          String? @map("Notes") @db.NVarChar(Max)
+  attachmentName String? @map("AttachmentName") @db.NVarChar(300)
+  isAutomated    Boolean @default(false) @map("IsAutomated")
+
+  createdAt DateTime @default(now()) @map("CreatedAt")
+
+  @@map("TicketTimelineLogs")
+}
+
+// CSAT evaluation — one per ticket (1:1), submitted once by the employee
+// after resolution. Append-once — exempt from the full audit-column set for
+// the same reason as TicketTimelineLogs.
+model ticketEvaluation {
+  id       String @id @default(cuid()) @map("Id")
+  ticketId String @unique @map("TicketId")
+  ticket   ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  overallScore            Int     @map("OverallScore")
+  speedRating             Int     @default(5) @map("SpeedRating")
+  resolutionQualityRating Int     @default(5) @map("ResolutionQualityRating")
+  serviceMannerRating     Int     @default(5) @map("ServiceMannerRating")
+  clarityRating           Int     @default(5) @map("ClarityRating")
+  isResolvedPermanently   Boolean @default(true) @map("IsResolvedPermanently")
+  feedbackComment         String? @map("FeedbackComment") @db.NVarChar(Max)
+  improvementSuggestions  String? @map("ImprovementSuggestions") @db.NVarChar(Max)
+
+  createdAt DateTime @default(now()) @map("CreatedAt")
+
+  @@map("TicketEvaluations")
+}
+
+// ─── Gatekeeper directory (9 fixed department categories) ─────────────────
+
+model departmentGatekeeperConfig {
+  id String @id @default(cuid()) @map("Id")
+  // One row per GrievanceCategory (9 total) — the "lead officer" for a
+  // department is derived at read time as officers.find(o => o.isLead),
+  // not a separate FK (mirrors the original sqlite draft's design).
+  category String @unique @map("Category") @db.NVarChar(30)
+
+  departmentName         String  @map("DepartmentName") @db.NVarChar(300)
+  departmentCode         String  @map("DepartmentCode") @db.NVarChar(50)
+  defaultSlaHours        Int     @default(48) @map("DefaultSlaHours")
+  autoAssignMode         String  @default("lead_manual") @map("AutoAssignMode") @db.NVarChar(30) // round_robin|lead_manual|workload_balanced
+  escalationEmail        String? @map("EscalationEmail") @db.NVarChar(200)
+  notificationWebhookUrl String? @map("NotificationWebhookUrl") @db.NVarChar(500)
+
+  officers gatekeeperOfficer[]
+
+  isActive  Boolean  @default(true) @map("IsActive")
+  isDeleted Boolean  @default(false) @map("IsDeleted")
+  createdBy String?  @map("CreatedBy")
+  createdAt DateTime @default(now()) @map("CreatedAt")
+  updatedBy String?  @map("UpdatedBy")
+  updatedAt DateTime @updatedAt @map("UpdatedAt")
+
+  @@map("DepartmentGatekeeperConfigs")
+}
+
+model gatekeeperOfficer {
+  id               String                     @id @default(cuid()) @map("Id")
+  category         String                     @map("Category") @db.NVarChar(30)
+  departmentConfig departmentGatekeeperConfig @relation(fields: [category], references: [category])
+
+  name      String  @map("Name") @db.NVarChar(200)
+  roleTitle String  @map("RoleTitle") @db.NVarChar(300)
+  email     String  @map("Email") @db.NVarChar(200)
+  phone     String? @map("Phone") @db.NVarChar(50)
+  isLead    Boolean @default(false) @map("IsLead")
+  avatarUrl String? @map("AvatarUrl") @db.NVarChar(500)
+
+  isActive  Boolean  @default(true) @map("IsActive")
+  isDeleted Boolean  @default(false) @map("IsDeleted")
+  createdBy String?  @map("CreatedBy")
+  createdAt DateTime @default(now()) @map("CreatedAt")
+  updatedBy String?  @map("UpdatedBy")
+  updatedAt DateTime @updatedAt @map("UpdatedAt")
+
+  @@map("GatekeeperOfficers")
+}
+
+// ─── Executives & whistleblower receivers ──────────────────────────────────
+
+model executiveMember {
+  id         String  @id @default(cuid()) @map("Id")
+  name       String  @map("Name") @db.NVarChar(200)
+  position   String  @map("Position") @db.NVarChar(400)
+  department String  @map("Department") @db.NVarChar(300)
+  email      String  @map("Email") @db.NVarChar(200)
+  phone      String? @map("Phone") @db.NVarChar(50)
+  roleType   String  @map("RoleType") @db.NVarChar(30) // CEO|EVP|GRC_Chair|Audit_Committee|Board_Member
+
+  isPrimaryWhistleblowerReceiver Boolean @default(false) @map("IsPrimaryWhistleblowerReceiver")
+  canViewConfidentialIdentities  Boolean @default(false) @map("CanViewConfidentialIdentities")
+  receiveAlertNotifications      Boolean @default(true) @map("ReceiveAlertNotifications")
+  // JSON array of committee name strings (src/types.ts:ExecutiveMember.assignedCommittees)
+  assignedCommitteesJson         String? @default("[]") @map("AssignedCommitteesJson") @db.NVarChar(Max)
+  status                         String  @default("active") @map("Status") @db.NVarChar(20)
+
+  isActive  Boolean  @default(true) @map("IsActive")
+  isDeleted Boolean  @default(false) @map("IsDeleted")
+  createdBy String?  @map("CreatedBy")
+  createdAt DateTime @default(now()) @map("CreatedAt")
+  updatedBy String?  @map("UpdatedBy")
+  updatedAt DateTime @updatedAt @map("UpdatedAt")
+
+  @@map("ExecutiveMembers")
+}
+
+// ─── HR / system administrators ────────────────────────────────────────────
+
+model hrAdminMember {
+  id         String  @id @default(cuid()) @map("Id")
+  name       String  @map("Name") @db.NVarChar(200)
+  position   String  @map("Position") @db.NVarChar(400)
+  department String  @map("Department") @db.NVarChar(300)
+  email      String  @map("Email") @db.NVarChar(200)
+  phone      String? @map("Phone") @db.NVarChar(50)
+  roleLevel  String  @map("RoleLevel") @db.NVarChar(30) // super_admin|hr_manager|compliance_auditor
+
+  canManageRbac        Boolean @default(false) @map("CanManageRbac")
+  canManageGatekeepers Boolean @default(false) @map("CanManageGatekeepers")
+  canManageExecutives  Boolean @default(false) @map("CanManageExecutives")
+  receiveSystemAlerts  Boolean @default(true) @map("ReceiveSystemAlerts")
+  status               String  @default("active") @map("Status") @db.NVarChar(20)
+
+  isActive  Boolean  @default(true) @map("IsActive")
+  isDeleted Boolean  @default(false) @map("IsDeleted")
+  createdBy String?  @map("CreatedBy")
+  createdAt DateTime @default(now()) @map("CreatedAt")
+  updatedBy String?  @map("UpdatedBy")
+  updatedAt DateTime @updatedAt @map("UpdatedAt")
+
+  @@map("HrAdminMembers")
+}
+
+// ─── Notifications ──────────────────────────────────────────────────────────
+// System-generated, fire-and-forget records — no per-row human actor, so
+// trimmed to Created/Updated only (no CreatedBy/UpdatedBy/IsActive/IsDeleted;
+// deviation recorded in docs/project-context/architecture.md).
+
+model notification {
+  id           String  @id @default(cuid()) @map("Id")
+  ticketId     String? @map("TicketId") // loose reference, no FK (mirrors the sqlite draft — a ticket may be deleted without cascading notification history)
+  trackingCode String? @map("TrackingCode") @db.NVarChar(20)
+  title        String  @map("Title") @db.NVarChar(500)
+  message      String  @map("Message") @db.NVarChar(Max)
+  type         String  @map("Type") @db.NVarChar(30) // NotificationItem['type']
+
+  recipientRole  String? @map("RecipientRole") @db.NVarChar(20)
+  recipientEmail String? @map("RecipientEmail") @db.NVarChar(200)
+  isRead         Boolean @default(false) @map("IsRead")
+
+  createdAt DateTime @default(now()) @map("CreatedAt")
+  updatedAt DateTime @updatedAt @map("UpdatedAt")
+
+  @@map("Notifications")
+}
+
+// ─── Role access configuration ─────────────────────────────────────────────
+// The app's own per-role tab-visibility & capability settings (RBAC
+// Management screen) — one row per fixed UserRole (4 total: employee,
+// gatekeeper, executive, admin). NOT the same thing as Better Auth's own
+// Role/Permission/RolePermission tables that ugt-nextjs-auth-setup installs
+// later — named RoleAccessConfigs specifically to avoid that collision (see
+// decisions.md, 2026-09-02).
+
+model roleAccessConfig {
+  id   String @id @default(cuid()) @map("Id")
+  role String @unique @map("RoleKey") @db.NVarChar(20) // UserRole: employee|gatekeeper|executive|admin
+
+  roleTitleTh    String  @map("RoleTitleTh") @db.NVarChar(200)
+  roleTitleEn    String  @map("RoleTitleEn") @db.NVarChar(200)
+  descriptionTh  String  @map("DescriptionTh") @db.NVarChar(Max)
+  badgeColor     String  @map("BadgeColor") @db.NVarChar(200)
+  // JSON array of AppTabId strings (src/types.ts:RolePermissionConfig.allowedTabs)
+  allowedTabsJson String @default("[]") @map("AllowedTabsJson") @db.NVarChar(Max)
+
+  canViewAllDepartments Boolean @default(false) @map("CanViewAllDepartments")
+  // JSON array of GrievanceCategory strings (assignedDepartments)
+  assignedDepartmentsJson String? @default("[]") @map("AssignedDepartmentsJson") @db.NVarChar(Max)
+
+  canViewDirectCeoTickets       Boolean @default(false) @map("CanViewDirectCeoTickets")
+  canViewConfidentialIdentities Boolean @default(false) @map("CanViewConfidentialIdentities")
+  canEditRootCauseAndCapa       Boolean @default(false) @map("CanEditRootCauseAndCapa")
+  canManageGatekeeperOfficers   Boolean @default(false) @map("CanManageGatekeeperOfficers")
+  canManageRolePermissions      Boolean @default(false) @map("CanManageRolePermissions")
+
+  isActive  Boolean  @default(true) @map("IsActive")
+  isDeleted Boolean  @default(false) @map("IsDeleted")
+  createdBy String?  @map("CreatedBy")
+  createdAt DateTime @default(now()) @map("CreatedAt")
+  updatedBy String?  @map("UpdatedBy")
+  updatedAt DateTime @updatedAt @map("UpdatedAt")
+
+  @@map("RoleAccessConfigs")
+}

@@ -13,21 +13,47 @@
 - `src/app/shell-context.tsx` — React Context bridging the Shell's state/handlers down to
   each route's page component; also the tab-id ↔ URL-path maps (`TAB_TO_PATH`/`PATH_TO_TAB`).
 - `src/app/api/` — Route Handlers: `health/route.ts`, `ai/analyze-complaint/route.ts`,
-  `ai/cluster-insights/route.ts` (Gemini calls via `@google/genai`).
+  `ai/cluster-insights/route.ts` (Gemini calls via `@google/genai`); read `GEMINI_API_KEY` via
+  `@/lib/env`, not `process.env` directly.
 - `src/components/` — one component per feature screen/modal, all `'use client'`. Unchanged
   logic from the pre-migration Vite SPA (see decisions.md, 2026-09-02 migration).
-- `src/services/api.ts` — the entire data layer: tickets, notifications, RBAC permissions,
-  gatekeeper department configs, executives, HR admins. All backed by `localStorage`
-  (see ⚠ deviation below).
+- `src/services/api.ts` — **still the live data layer** (localStorage) that every component
+  calls — see ⚠ deviation below. `INITIAL_EXECUTIVES`/`INITIAL_HR_ADMINS` also live here.
 - `src/services/sqliteDb.ts` — sql.js (SQLite-in-browser via WASM, binary fetched from a
   CDN) shadow copy of the tickets/officers/executives/notifications data, used only by
   `ExportAnalyticsModal`'s "SQL Query Studio" — not the source of truth.
 - `src/services/safeStorage.ts` — SSR-safe `localStorage` wrapper (no-ops on the server;
   needed because Next.js server-renders `'use client'` components once before hydration).
 - `src/types.ts` — domain model (`ComplaintTicket`, `NotificationItem`, `RolePermissionConfig`,
-  `DepartmentGatekeeperConfig`, `ExecutiveMember`, `HrAdminMember`, ...).
+  `DepartmentGatekeeperConfig`, `ExecutiveMember`, `HrAdminMember`, ...) — authoritative for
+  field-level types; mirrored into `prisma/schema.prisma` (see below).
 - `src/mockData.ts` — seed data: `CATEGORY_DEFINITIONS` (9 grievance categories),
-  `INITIAL_COMPLAINTS`, `INITIAL_GATEKEEPER_CONFIGS`, `INITIAL_NOTIFICATIONS`.
+  `INITIAL_COMPLAINTS`, `INITIAL_GATEKEEPER_CONFIGS`, `INITIAL_NOTIFICATIONS` — also the
+  source `prisma/seed.ts` seeds from.
+- **Database layer (added 2026-09-02, `ugt-nextjs-database-setup`) — installed but not the
+  live data source yet, see ⚠ deviation below:**
+  - `prisma/schema.prisma` — 9 tables (`Tickets`, `TicketTimelineLogs`, `TicketEvaluations`,
+    `DepartmentGatekeeperConfigs`, `GatekeeperOfficers`, `ExecutiveMembers`, `HrAdminMembers`,
+    `Notifications`, `RoleAccessConfigs`); SQL Server has no native enum, so every
+    enum-shaped column (`GrievanceCategory`, `TicketStatus`, ...) is `String` validated
+    against `src/types.ts`'s TS unions at the app layer.
+  - `prisma.config.ts` — the only place `DATABASE_URL`/`SHADOW_DATABASE_URL` are read (Prisma
+    7 driver-adapter model — no `url` in `schema.prisma`'s `datasource` block).
+  - `lib/prisma.ts`, `lib/env.ts` — **root-level**, not `src/lib/` — per the skill's own asset
+    convention. Reachable from `src/` code via `@/lib/*` -> `./lib/*` in `tsconfig.json`,
+    added ahead of the general `@/*` -> `./src/*` rule from Phase A (TS tries `paths` entries
+    in listing order, so the more specific one must come first).
+  - `src/lib/actions/*` — Prisma-backed Server Actions mirroring `src/services/api.ts`'s
+    function signatures (see `api.md` → Server Actions). Not called by any component yet.
+  - `prisma/migrations/20260902000000_init/` — generated **offline** (`prisma migrate diff
+    --from-empty`, no live SQL Server at authoring time); apply via `prisma migrate resolve
+    --applied` once real DB values land, not by replaying `migrate dev` — see
+    `docs/admin-handoff.md`.
+  - `prisma/seed.ts` — mirrors `src/mockData.ts` (tickets/timeline/evaluations/gatekeeper
+    configs & officers/notifications) plus a hand-mirrored copy of `src/services/api.ts`'s
+    `INITIAL_EXECUTIVES`/`INITIAL_HR_ADMINS`/`INITIAL_ROLE_PERMISSIONS` (not imported directly
+    — importing `api.ts` from a Node script would drag in the browser-only `sqliteDb.ts`/
+    `sql.js`). Keep these three lists in sync until `api.ts` is retired.
 
 ## Data flow หลัก
 
@@ -45,15 +71,38 @@
 
 ## ตารางหลัก → feature
 
-_(ยังไม่มีฐานข้อมูลจริง — ดู ⚠ deviation ด้านล่าง)_
+| ตาราง (Prisma `@@map`) | feature |
+| --- | --- |
+| `Tickets` / `TicketTimelineLogs` / `TicketEvaluations` | ยื่นคำร้อง, ติดตามสถานะ, CSAT — `EmployeeSubmitForm`, `GatekeeperInbox`, `SatisfactionModal` |
+| `DepartmentGatekeeperConfigs` / `GatekeeperOfficers` | จัดการผู้รับผิดชอบ 9 หน่วยงาน — `admin_gatekeeper` tab |
+| `ExecutiveMembers` | CEO/EVP whistleblower directory — `admin_gatekeeper` tab |
+| `HrAdminMembers` | HR admin directory — `admin_gatekeeper` tab |
+| `Notifications` | in-app notification drawer |
+| `RoleAccessConfigs` | `RoleBasedAccessManagement` (`rbac_management` tab) |
 
-## ⚠ Deviations (2026-09-02, ทั้งหมดเป็นผลจากการ migrate Phase A ที่จงใจคงพฤติกรรมเดิมไว้ก่อน)
+ยังไม่ใช่ live source — ดู ⚠ deviation ด้านล่าง (schema/migration/seed พร้อมใช้แล้ว แต่
+component ทั้งหมดยังอ่าน/เขียน `localStorage` ผ่าน `src/services/api.ts` เหมือนเดิม)
 
-- ⚠ deviation: ไม่มีฐานข้อมูลจริง — ข้อมูลทั้งหมดอยู่ใน browser `localStorage`
-  (`src/services/api.ts`); schema ใน `src/services/sqliteDb.ts` เป็นแค่ shadow copy ฝั่ง
-  client สำหรับ SQL Studio เท่านั้น ไม่ใช่ persistence layer จริง — เหตุผล: โปรเจคเดิม (Vite
-  SPA จาก AI Studio) ไม่เคยมี backend จริงมาก่อน แผน Prisma/SQL Server อยู่ใน chunk ถัดไป
-  (`ugt-nextjs-database-setup`).
+## ⚠ Deviations (2026-09-02, ทั้งหมดเป็นผลจากการ migrate Phase A ที่จงใจคงพฤติกรรมเดิมไว้ก่อน
+เว้นแต่ระบุวันที่อื่น)
+
+- ⚠ deviation (2026-09-02): มี schema/migration/seed/Server Actions (Prisma + SQL Server)
+  พร้อมแล้ว (`prisma/`, `lib/prisma.ts`, `src/lib/actions/`) แต่**ยังไม่ใช่ live persistence
+  layer** — ทุก component ยังอ่าน/เขียน `localStorage` ผ่าน `src/services/api.ts` เหมือนเดิม —
+  เหตุผล: (1) ยังไม่มี SQL Server จริงให้เชื่อมต่อ (รอ Admin/DBA ตาม
+  `docs/admin-handoff.md`), (2) การสลับทุก call site จาก sync localStorage เป็น async Server
+  Action เป็นงาน UI-refactor ขนาดใหญ่แยกต่างหากจากการติดตั้ง DB layer — แผนสลับอยู่ในคิวถัดไป
+  (`.claude/state/handoff.md` → Open Questions). `src/services/sqliteDb.ts` (sql.js shadow
+  copy สำหรับ SQL Studio) ไม่แตะต้อง ยังทำงานเหมือนเดิมทุกประการ.
+- ⚠ deviation (2026-09-02): `TicketTimelineLogs`/`TicketEvaluations` (append-only log/CSAT
+  submission) และ `Notifications` (system-generated) ไม่มี audit column ครบชุด — ตัดเหลือ
+  เท่าที่มีความหมาย (`CreatedAt` อย่างเดียวสำหรับสองตัวแรก, `CreatedAt`/`UpdatedAt` สำหรับ
+  Notifications) — เหตุผล: แถวเหล่านี้ไม่เคยถูกแก้ไข/soft-delete จริง ตาม
+  `.claude/rules/ugt-nextjs-database.md`'s trim rule. `verify.mjs` เตือน (ไม่ fail) เรื่องนี้
+  โดยตั้งใจ.
+- ⚠ deviation (2026-09-02): ทุกตารางมี `CreatedBy`/`UpdatedBy` เป็น nullable (ปกติควร
+  required ตาม org convention) — เหตุผล: ยังไม่มี authentication จริง จึงไม่มี session user
+  id ให้ stamp จนกว่า `ugt-nextjs-auth-setup` จะติดตั้งเสร็จ.
 - ⚠ deviation: ไม่มี authentication จริง — `Navbar`'s role switcher เป็น dropdown ที่สลับ
   role ได้อิสระโดยไม่มีการตรวจสอบใดๆ, `currentRole` เป็น React state ที่ reset ทุกครั้งที่
   reload — แผน Keycloak SSO อยู่ใน chunk ถัดไป (`ugt-nextjs-auth-setup`) ซึ่งจะปลด role

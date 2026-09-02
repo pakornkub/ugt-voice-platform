@@ -4,15 +4,11 @@ Last updated: 2026-09-02
 
 ## In progress
 
-- Nothing in progress. Phase A (Next.js migration) is complete and verified this chunk.
+- Nothing in progress. Database chunk (`ugt-nextjs-database-setup`) is complete this
+  session, pending only real SQL Server values from Admin/DBA (see Open Questions).
 
 ## Next
 
-- **`ugt-nextjs-database-setup`** — Prisma + SQL Server. Use `src/services/sqliteDb.ts`'s
-  8-table schema as the starting draft, but move the `tickets` primary key from the
-  human-readable tracking code to a surrogate ID per org convention. Swap every
-  `src/services/api.ts` localStorage function for a real Server Action/Prisma call. Drop
-  `sql.js`/`src/services/sqliteDb.ts` entirely once the real DB is wired in.
 - **`ugt-nextjs-test-lint-setup`** — Vitest + ESLint + Prettier + pre-commit. No test/lint
   tooling exists yet.
 - **`ugt-nextjs-design-setup`** — run in *existing-project scan mode*: document the current
@@ -35,11 +31,37 @@ Last updated: 2026-09-02
 
 ## Open Questions
 
-- None right now — all decisions needed to start the Database chunk are already recorded in
-  `docs/project-context/decisions.md`.
+- Real SQL Server values needed from Admin/DBA (host, port, database name confirmation,
+  login/password, TLS trust mode) — placeholders live in `.env.example`/`.env.local` now.
+  Request + exact return-value table is in `docs/admin-handoff.md` §1. Once real values land:
+  `npx prisma migrate resolve --applied 20260902000000_init` → `npx prisma generate` →
+  `npx prisma db seed` (steps also listed in that doc).
+- `src/services/api.ts`'s localStorage functions are NOT yet swapped to call the new
+  `src/lib/actions/*` Server Actions — the Prisma-backed actions exist and are fully typed
+  (mirror api.ts's signatures 1:1 for an easy swap) but no component has been rewired yet.
+  Decide in a follow-up chunk whether that rewiring happens standalone or piggybacks on
+  `ugt-nextjs-auth-setup` (since real `CreatedBy`/actor ids need a session anyway).
 
 ## Done (newest first)
 
+- 2026-09-02 Installed the database layer (`ugt-nextjs-database-setup`): Prisma 7 +
+  `@prisma/adapter-mssql`, schema at `prisma/schema.prisma` (9 tables — `Tickets`,
+  `TicketTimelineLogs`, `TicketEvaluations`, `DepartmentGatekeeperConfigs`,
+  `GatekeeperOfficers`, `ExecutiveMembers`, `HrAdminMembers`, `Notifications`,
+  `RoleAccessConfigs`), `prisma.config.ts`, `lib/prisma.ts`/`lib/env.ts` (root-level per the
+  skill's convention, reachable from `src/` via a new `@/lib/*` -> `./lib/*` tsconfig path
+  added ahead of the existing `@/*` -> `./src/*` rule — see tsconfig.json). Initial migration
+  (`prisma/migrations/20260902000000_init/`) generated offline via `prisma migrate diff
+  --from-empty` (no live SQL Server available) and `prisma/seed.ts` mirrors today's
+  `src/mockData.ts` demo data. Added a parallel Prisma-backed Server Action surface under
+  `src/lib/actions/` (tickets, notifications, gatekeeper, executives, hr-admins, role-access)
+  — not yet wired into components, see Open Questions. Moved the three
+  `src/app/api/ai/*`+`health` routes off direct `process.env.GEMINI_API_KEY` onto `@/lib/env`.
+  `node <skill>/scripts/verify.mjs` passes (13 checks, 1 expected warning for the two
+  append-only log tables + Notifications' trimmed audit columns). Wrote
+  `docs/admin-handoff.md` with the exact SQL Server request for Admin/DBA. sql.js/
+  `src/services/sqliteDb.ts` untouched (still backs the SQL Studio export modal, as decided in
+  Phase A — see decisions.md).
 - 2026-09-02 Migrated `ugt-voice-platform` ("UGT VoiceCare") from Vite+React SPA+Express to
   Next.js 15 App Router (Phase A — pure framework port, zero data-layer changes). New
   `src/app/` tree (route group `(shell)` with one route per former tab, `shell-context.tsx`

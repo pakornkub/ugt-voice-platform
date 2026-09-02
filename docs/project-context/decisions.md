@@ -37,3 +37,42 @@
   admin + a read-only DB user (still considered a live risk, and preset reports cover the
   same "export for analysis" need without it) · rejected: dropping the feature entirely (the
   user wants the export/analytics capability preserved, just not as raw SQL).
+- 2026-09-02 `tickets` moves from a natural key (`tracking_code` as PK, per the
+  `src/services/sqliteDb.ts` draft) to a **surrogate `id` (cuid) + `@unique trackingCode`
+  column** in `prisma/schema.prisma` — **because** the org naming/audit-column convention
+  (`ugt-nextjs-database-setup`'s `references/naming-conventions.md`) requires a surrogate PK
+  named `Id` on every app-owned table, and this was already flagged as needed in the Phase A
+  handoff notes · rejected: keeping `trackingCode` as PK (violates the org convention, and
+  ties every FK in the schema to a human-editable-looking string instead of an opaque id).
+- 2026-09-02 The app's own per-role tab/permission settings table (`RolePermissionConfig` in
+  `src/types.ts`) maps to **`RoleAccessConfigs`**, not `RolePermissions` — **because**
+  `ugt-nextjs-auth-setup` will later install its own singular `RolePermission` table for
+  Better Auth's core RBAC, and the two are structurally different things (this app's table is
+  tab-visibility/capability settings for 4 fixed roles; Better Auth's is the real
+  session-backed permission model) · rejected: naming it `RolePermissions` (the more obvious
+  plural) — would collide/confuse with the future Better Auth table sharing nearly the same
+  name.
+- 2026-09-02 `lib/prisma.ts`/`lib/env.ts`/`lib/actions/` live at the **repo root**, matching
+  `ugt-nextjs-database-setup`'s literal asset destinations and its `verify.mjs`'s hardcoded
+  paths, reached from `src/` code via a new `@/lib/*` -> `./lib/*` tsconfig path listed ahead
+  of the existing `@/*` -> `./src/*` rule from the Phase A migration — **because** keeping the
+  skill's assets at their documented location keeps `verify.mjs` and future `/plugin update`
+  kit-syncs accurate without needing a project-specific carve-out · rejected: moving them to
+  `src/lib/` to match the rest of the codebase (would need `.claude/rules/ugt-nextjs-database.md`
+  edited every time it's overwritten wholesale by the skill, and made `verify.mjs`'s hardcoded
+  `lib/prisma.ts`/`lib/env.ts` checks permanently red).
+- 2026-09-02 SQL Server host/instance, port, database name, and login credentials are all
+  **placeholders** in `.env.example`/`.env.local` for this chunk — **because** no real SQL
+  Server was available to provision against yet, and the user (coordinator) explicitly chose
+  to proceed with placeholders now rather than block the chunk on Admin/DBA turnaround ·
+  the full schema, offline-generated initial migration, and seed script are built exactly as
+  if the connection were real, so going live is `npx prisma migrate resolve --applied
+  20260902000000_init && npx prisma generate && npx prisma db seed` once real values land
+  (tracked in `docs/admin-handoff.md` and `.claude/state/handoff.md`) · rejected: leaving the
+  database chunk entirely undone until real infra exists (would block every later chunk that
+  depends on the schema being in place, e.g. auth's session tables referencing app data).
+- 2026-09-02 Every table's `CreatedBy`/`UpdatedBy` audit columns are **nullable** for now
+  (org convention normally requires `CreatedBy` on master/transaction tables) — **because**
+  there is no real authentication yet, so no session user id exists to stamp · deferred:
+  tighten to required (or default to a system actor) once `ugt-nextjs-auth-setup` lands and
+  every Server Action in `src/lib/actions/` can receive a real user id.

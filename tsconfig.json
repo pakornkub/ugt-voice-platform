@@ -15,6 +15,15 @@
     "incremental": true,
     "plugins": [{ "name": "next" }],
     "paths": {
+      // More specific pattern first: TypeScript's path resolver tries
+      // `paths` entries in listing order, so this must precede the general
+      // "@/*" rule below or every "@/lib/..." import would resolve into
+      // ./src/lib/... instead. Root-level lib/ matches the ugt-nextjs-
+      // database-setup skill's literal asset destinations (lib/prisma.ts,
+      // lib/env.ts, lib/actions/**) and its verify.mjs's hardcoded paths —
+      // everything else keeps using the src/ layout from the Phase A
+      // Next.js migration.
+      "@/lib/*": ["./lib/*"],
       "@/*": ["./src/*"]
     }
   },
