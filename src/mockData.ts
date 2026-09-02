@@ -1,9 +1,9 @@
-import { 
-  CategoryInfo, 
-  ComplaintTicket, 
-  DepartmentGatekeeperConfig, 
-  GrievanceCategory, 
-  NotificationItem 
+import {
+  CategoryInfo,
+  ComplaintTicket,
+  DepartmentGatekeeperConfig,
+  GrievanceCategory,
+  NotificationItem,
 } from './types';
 
 export const CATEGORY_DEFINITIONS: Record<GrievanceCategory, CategoryInfo> = {
@@ -29,7 +29,8 @@ export const CATEGORY_DEFINITIONS: Record<GrievanceCategory, CategoryInfo> = {
     key: 'Safety',
     nameTh: 'ความปลอดภัยและชีวอนามัย (Safety)',
     nameEn: 'Occupational Health & Safety (EHS)',
-    descriptionTh: 'สภาพแวดล้อมเสี่ยงอันตราย อุปกรณ์ป้องกันภัย (PPE) อุบัติเหตุ และความปลอดภัยในอาคาร/โรงงาน',
+    descriptionTh:
+      'สภาพแวดล้อมเสี่ยงอันตราย อุปกรณ์ป้องกันภัย (PPE) อุบัติเหตุ และความปลอดภัยในอาคาร/โรงงาน',
     responsibleDept: 'Occupational Health & Safety Office (ฝ่ายความปลอดภัยและอาชีวอนามัย)',
     badgeColor: 'bg-amber-50 text-amber-700 border-amber-200',
     iconName: 'ShieldAlert',
@@ -83,8 +84,10 @@ export const CATEGORY_DEFINITIONS: Record<GrievanceCategory, CategoryInfo> = {
     key: 'Environment',
     nameTh: 'สิ่งแวดล้อมและความยั่งยืน (Environment)',
     nameEn: 'Environment, Energy & ESG',
-    descriptionTh: 'การจัดการขยะ/ของเสีย การใช้พลังงานสิ้นเปลือง มลพิษทางอากาศ/น้ำ และการปล่อยคาร์บอน',
-    responsibleDept: 'Sustainability & Environmental Safety Team (ฝ่ายความยั่งยืนและสิ่งแวดล้อม ESG)',
+    descriptionTh:
+      'การจัดการขยะ/ของเสีย การใช้พลังงานสิ้นเปลือง มลพิษทางอากาศ/น้ำ และการปล่อยคาร์บอน',
+    responsibleDept:
+      'Sustainability & Environmental Safety Team (ฝ่ายความยั่งยืนและสิ่งแวดล้อม ESG)',
     badgeColor: 'bg-teal-50 text-teal-700 border-teal-200',
     iconName: 'Leaf',
   },
@@ -96,8 +99,10 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
     trackingCode: 'TK-2026-0881',
     type: 'complaint',
     category: 'IT',
-    title: 'ระบบ VPN และเครือข่ายสำนักงานชั้น 18 ตัดการเชื่อมต่อบ่อยครั้งกระทบการประชุมกับลูกค้าต่างประเทศ',
-    description: 'ในช่วง 2 สัปดาห์ที่ผ่านมา สัญญาณ Wi-Fi และ Gateway VPN ในโซน Open Space ชั้น 18 อาคาร B มีอาการหลุดทุก 20 นาที ทำให้ทีมงานไม่สามารถประชุม Virtual Pitch กับลูกค้าได้ตามกำหนด',
+    title:
+      'ระบบ VPN และเครือข่ายสำนักงานชั้น 18 ตัดการเชื่อมต่อบ่อยครั้งกระทบการประชุมกับลูกค้าต่างประเทศ',
+    description:
+      'ในช่วง 2 สัปดาห์ที่ผ่านมา สัญญาณ Wi-Fi และ Gateway VPN ในโซน Open Space ชั้น 18 อาคาร B มีอาการหลุดทุก 20 นาที ทำให้ทีมงานไม่สามารถประชุม Virtual Pitch กับลูกค้าได้ตามกำหนด',
     locationOrUnit: 'อาคาร B ชั้น 18 โซน Enterprise Solutions',
     isDirectToExecutive: false,
     confidentiality: 'standard_named',
@@ -121,7 +126,12 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
     rootCauseSummary: 'Access Point Firmware เก่าและโหลด Balancing เกินพิกัดช่วง 10:00 - 15:00',
     preventiveActionPlan: 'อัปเกรด Cisco Core AP เป็น Wi-Fi 6 และเพิ่มกระจายช่องสัญญาณ',
     attachments: [
-      { id: 'att-1', name: 'ping_packet_loss_log_ch18.pdf', size: '1.2 MB', type: 'application/pdf' },
+      {
+        id: 'att-1',
+        name: 'ping_packet_loss_log_ch18.pdf',
+        size: '1.2 MB',
+        type: 'application/pdf',
+      },
       { id: 'att-2', name: 'speedtest_screenshot.png', size: '480 KB', type: 'image/png' },
     ],
     timeline: [
@@ -141,7 +151,8 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
         actorRole: 'Gatekeeper',
         action: 'รับเรื่องและคัดกรองความเร่งด่วน',
         status: 'gatekeeper_triaged',
-        notes: 'ตรวจสอบผลกระทบ พบว่ามีพนักงานในโซนได้รับผลกระทบกว่า 45 คน จัดระดับความเร่งด่วนเป็น High และส่งต่อวิศวกรโครงข่าย',
+        notes:
+          'ตรวจสอบผลกระทบ พบว่ามีพนักงานในโซนได้รับผลกระทบกว่า 45 คน จัดระดับความเร่งด่วนเป็น High และส่งต่อวิศวกรโครงข่าย',
       },
       {
         id: 'tl-3',
@@ -150,7 +161,8 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
         actorRole: 'Assigned Officer',
         action: 'เริ่มกระบวนการตรวจสอบและแก้ไขทางเทคนิค',
         status: 'in_progress',
-        notes: 'ลงพื้นที่ตรวจจับค่า Packet Collision ที่ Switch ชั้น 18 และจัดเตรียม Config AP ใหม่เพื่อลดการชนกันของคลื่น',
+        notes:
+          'ลงพื้นที่ตรวจจับค่า Packet Collision ที่ Switch ชั้น 18 และจัดเตรียม Config AP ใหม่เพื่อลดการชนกันของคลื่น',
       },
     ],
     createdAt: '2026-08-27T09:15:00.000Z',
@@ -162,7 +174,8 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
     type: 'complaint',
     category: 'Safety',
     title: 'บันไดหนีไฟทางทิศตะวันออกมีกล่องพัสดุและพาเลทไม้กีดขวางทางออกฉุกเฉิน',
-    description: 'พบพาเลทสินค้าจากผู้รับเหมาวางกองสะสมปิดทางออกประตูหนีไฟชั้น 2 โกดังสินค้า A ซึ่งหากเกิดเพลิงไหม้จะไม่สามารถผลักประตูหนีไฟออกได้ตามมาตรฐานความปลอดภัย',
+    description:
+      'พบพาเลทสินค้าจากผู้รับเหมาวางกองสะสมปิดทางออกประตูหนีไฟชั้น 2 โกดังสินค้า A ซึ่งหากเกิดเพลิงไหม้จะไม่สามารถผลักประตูหนีไฟออกได้ตามมาตรฐานความปลอดภัย',
     locationOrUnit: 'โกดังสินค้ากลาง A ชั้น 2 ประตูหนีไฟทิศตะวันออก',
     isDirectToExecutive: true,
     confidentiality: 'standard_named',
@@ -182,13 +195,21 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
     sentiment: 'Urgent',
     clusterGroup: 'Factory & Warehouse EHS Compliance',
     rootCauseCategory: 'Process',
-    rootCauseSummary: 'ผู้รับเหมาภายนอกไม่มีพื้นที่พักของชั่วคราวและขาดเจ้าหน้าที่ รปภ. กำกับดูแลจุดหนีไฟ',
-    preventiveActionPlan: 'กำหนดจุดวางพักสินค้าชั่วคราวพร้อมตีเส้นสีเหลือง-ดำ ห้ามวางของกีดขวางประตูฉุกเฉินทุกกรณี',
-    resolutionSummary: 'เจ้าหน้าที่ EHS และทีม รปภ. ได้เข้าทำการเคลื่อนย้ายพาเลทและสิ่งกีดขวางทั้งหมดออกเรียบร้อยแล้ว ตรวจสอบระบบล็อคหนีไฟพร้อมใช้งาน 100% และตักเตือนผู้รับเหมาเป็นลายลักษณ์อักษร',
+    rootCauseSummary:
+      'ผู้รับเหมาภายนอกไม่มีพื้นที่พักของชั่วคราวและขาดเจ้าหน้าที่ รปภ. กำกับดูแลจุดหนีไฟ',
+    preventiveActionPlan:
+      'กำหนดจุดวางพักสินค้าชั่วคราวพร้อมตีเส้นสีเหลือง-ดำ ห้ามวางของกีดขวางประตูฉุกเฉินทุกกรณี',
+    resolutionSummary:
+      'เจ้าหน้าที่ EHS และทีม รปภ. ได้เข้าทำการเคลื่อนย้ายพาเลทและสิ่งกีดขวางทั้งหมดออกเรียบร้อยแล้ว ตรวจสอบระบบล็อคหนีไฟพร้อมใช้งาน 100% และตักเตือนผู้รับเหมาเป็นลายลักษณ์อักษร',
     resolvedAt: '2026-08-27T15:45:00.000Z',
     attachments: [
       { id: 'att-3', name: 'blocked_emergency_exit_photo.jpg', size: '2.4 MB', type: 'image/jpeg' },
-      { id: 'att-4', name: 'cleared_emergency_exit_verified.jpg', size: '1.8 MB', type: 'image/jpeg' },
+      {
+        id: 'att-4',
+        name: 'cleared_emergency_exit_verified.jpg',
+        size: '1.8 MB',
+        type: 'image/jpeg',
+      },
     ],
     timeline: [
       {
@@ -236,8 +257,10 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
     trackingCode: 'TK-2026-0879',
     type: 'suggestion',
     category: 'HR',
-    title: 'ข้อเสนอแนะ: จัดตั้งโปรแกรม Flexible Benefits และวันลาเพื่อสุขภาพจิต (Mental Health Day)',
-    description: 'เสนอให้ฝ่าย HR เพิ่มความยืดหยุ่นในแพ็กเกจสวัสดิการ เช่น นำวงเงินค่ารักษาพยาบาลคงเหลือไปแลกเป็นคอร์สฟิตเนส หรือการตรวจสุขภาพเฉพาะทาง และเพิ่มวันลา Mental Wellness 2 วันต่อปี',
+    title:
+      'ข้อเสนอแนะ: จัดตั้งโปรแกรม Flexible Benefits และวันลาเพื่อสุขภาพจิต (Mental Health Day)',
+    description:
+      'เสนอให้ฝ่าย HR เพิ่มความยืดหยุ่นในแพ็กเกจสวัสดิการ เช่น นำวงเงินค่ารักษาพยาบาลคงเหลือไปแลกเป็นคอร์สฟิตเนส หรือการตรวจสุขภาพเฉพาะทาง และเพิ่มวันลา Mental Wellness 2 วันต่อปี',
     locationOrUnit: 'ทุกหน่วยงาน (Corporate-wide)',
     isDirectToExecutive: true,
     confidentiality: 'standard_named',
@@ -258,8 +281,10 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
     clusterGroup: 'Employee Wellbeing & Benefits Enhancement',
     rootCauseCategory: 'Policy/Governance',
     rootCauseSummary: 'สวัสดิการเดิมเป็นแบบตายตัว ไม่ตอบโจทย์ความหลากหลายของช่วงวัยพนักงาน',
-    preventiveActionPlan: 'บรรจุเข้าสู่วาระพิจารณาแผนสวัสดิการประจำปี 2027 และนำร่องโครงการ Flexible Points ใน Q1',
-    resolutionSummary: 'ฝ่ายบริหารและ HR พิจารณาเห็นชอบในหลักการ โดยจะเริ่มนำร่องระบบ Flex-Points ในไตรมาสที่ 1 ปีหน้า และอนุมัติวัน Wellness Leave เพิ่มเติม 1 วันในนโยบายใหม่',
+    preventiveActionPlan:
+      'บรรจุเข้าสู่วาระพิจารณาแผนสวัสดิการประจำปี 2027 และนำร่องโครงการ Flexible Points ใน Q1',
+    resolutionSummary:
+      'ฝ่ายบริหารและ HR พิจารณาเห็นชอบในหลักการ โดยจะเริ่มนำร่องระบบ Flex-Points ในไตรมาสที่ 1 ปีหน้า และอนุมัติวัน Wellness Leave เพิ่มเติม 1 วันในนโยบายใหม่',
     resolvedAt: '2026-08-25T14:30:00.000Z',
     closedAt: '2026-08-26T09:00:00.000Z',
     evaluation: {
@@ -271,12 +296,19 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
       serviceMannerRating: 5,
       clarityRating: 5,
       isResolvedPermanently: true,
-      feedbackComment: 'ประทับใจมากที่ฝ่ายบริหารและ HR นำข้อเสนอแนะของพนักงานไปพิจารณาปรับใช้อย่างเป็นรูปธรรมและรวดเร็ว ขอบคุณที่เปิดรับฟังเสียงพนักงานค่ะ',
-      improvementSuggestions: 'อยากให้มีการอัปเดตความคืบหน้าระบบ Flex-Points ผ่าน Townhall ครั้งต่อไปด้วยค่ะ',
+      feedbackComment:
+        'ประทับใจมากที่ฝ่ายบริหารและ HR นำข้อเสนอแนะของพนักงานไปพิจารณาปรับใช้อย่างเป็นรูปธรรมและรวดเร็ว ขอบคุณที่เปิดรับฟังเสียงพนักงานค่ะ',
+      improvementSuggestions:
+        'อยากให้มีการอัปเดตความคืบหน้าระบบ Flex-Points ผ่าน Townhall ครั้งต่อไปด้วยค่ะ',
       evaluatedAt: '2026-08-26T09:00:00.000Z',
     },
     attachments: [
-      { id: 'att-5', name: 'flexible_benefits_benchmark_proposal.pdf', size: '3.1 MB', type: 'application/pdf' },
+      {
+        id: 'att-5',
+        name: 'flexible_benefits_benchmark_proposal.pdf',
+        size: '3.1 MB',
+        type: 'application/pdf',
+      },
     ],
     timeline: [
       {
@@ -329,7 +361,8 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
     type: 'complaint',
     category: 'Harassment',
     title: 'การใช้คำพูดคุกคามและข่มขู่ในช่องสื่อสารกลุ่มงาน',
-    description: 'หัวหน้างานระดับกลางใช้ถ้อยคำดูถูกเหยียดหยามและข่มขู่ตัดโบนัสพนักงานต่อหน้าสมาชิกในทีมกว่า 20 คนในแชตกลุ่มงาน สร้างบรรยากาศหวาดกลัวและกระทบต่อสภาพจิตใจของทีม',
+    description:
+      'หัวหน้างานระดับกลางใช้ถ้อยคำดูถูกเหยียดหยามและข่มขู่ตัดโบนัสพนักงานต่อหน้าสมาชิกในทีมกว่า 20 คนในแชตกลุ่มงาน สร้างบรรยากาศหวาดกลัวและกระทบต่อสภาพจิตใจของทีม',
     locationOrUnit: 'แผนก Regional Operations สาขาภาคตะวันออก',
     isDirectToExecutive: true,
     confidentiality: 'standard_named',
@@ -349,8 +382,10 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
     sentiment: 'Frustrated',
     clusterGroup: 'Workplace Psychological Safety & Ethics',
     rootCauseCategory: 'People',
-    rootCauseSummary: 'ภาวะผู้นำบกพร่องและขาดความเข้าใจเรื่อง Anti-Bullying / Harassment Code of Conduct',
-    preventiveActionPlan: 'แต่งตั้งคณะกรรมการสอบข้อเท็จจริงอิสระและจัดคอร์ส Mandatory Respectful Leadership',
+    rootCauseSummary:
+      'ภาวะผู้นำบกพร่องและขาดความเข้าใจเรื่อง Anti-Bullying / Harassment Code of Conduct',
+    preventiveActionPlan:
+      'แต่งตั้งคณะกรรมการสอบข้อเท็จจริงอิสระและจัดคอร์ส Mandatory Respectful Leadership',
     attachments: [
       { id: 'att-6', name: 'chat_export_redacted.pdf', size: '950 KB', type: 'application/pdf' },
     ],
@@ -380,7 +415,8 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
         actorRole: 'Assigned Officer',
         action: 'เริ่มกระบวนการสอบข้อเท็จจริงเบื้องต้น',
         status: 'in_progress',
-        notes: 'นัดสัมภาษณ์พยานบุคคลแยกห้องปิด และประสานฝ่ายบุคคลเพื่อพิจารณาการย้ายสายการบังคับบัญชาชั่วคราว',
+        notes:
+          'นัดสัมภาษณ์พยานบุคคลแยกห้องปิด และประสานฝ่ายบุคคลเพื่อพิจารณาการย้ายสายการบังคับบัญชาชั่วคราว',
       },
     ],
     createdAt: '2026-08-26T16:00:00.000Z',
@@ -392,7 +428,8 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
     type: 'complaint',
     category: 'Environment',
     title: 'ระบบปรับอากาศปล่อยน้ำรั่วซึมลงแปลงคัดแยกขยะรีไซเคิล และเปิดแอร์ทิ้งไว้ช่วงวันหยุด',
-    description: 'พบระบบชิลเลอร์ชั้น 4 มีน้ำหยดลงจุดเก็บกล่องกระดาษรีไซเคิลทำให้เน่าเสีย และมีการเปิดเครื่องปรับอากาศทิ้งไว้ในวันเสาร์-อาทิตย์โดยไม่มีการใช้งาน เป็นการสิ้นเปลืองพลังงานขัดต่อนโยบาย ESG',
+    description:
+      'พบระบบชิลเลอร์ชั้น 4 มีน้ำหยดลงจุดเก็บกล่องกระดาษรีไซเคิลทำให้เน่าเสีย และมีการเปิดเครื่องปรับอากาศทิ้งไว้ในวันเสาร์-อาทิตย์โดยไม่มีการใช้งาน เป็นการสิ้นเปลืองพลังงานขัดต่อนโยบาย ESG',
     locationOrUnit: 'อาคารนวัตกรรม C ชั้น 4',
     isDirectToExecutive: false,
     confidentiality: 'standard_named',
@@ -412,7 +449,8 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
     sentiment: 'Concerned',
     clusterGroup: 'Energy Conservation & Facility Maintenance',
     rootCauseCategory: 'Equipment/Tools',
-    rootCauseSummary: 'ท่อระบายน้ำทิ้งคอยล์เย็นอุดตัน และ Timer ระบบ Building Automation System (BAS) รีเซ็ตค่าหลังไฟตก',
+    rootCauseSummary:
+      'ท่อระบายน้ำทิ้งคอยล์เย็นอุดตัน และ Timer ระบบ Building Automation System (BAS) รีเซ็ตค่าหลังไฟตก',
     preventiveActionPlan: 'ล้างท่อระบายน้ำและตั้งค่าระบบตั้งเวลาอัตโนมัติบน Cloud BAS',
     attachments: [
       { id: 'att-7', name: 'water_leak_chiller4.jpg', size: '1.5 MB', type: 'image/jpeg' },
@@ -452,7 +490,8 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
     type: 'complaint',
     category: 'Fraud',
     title: 'ข้อสงสัยเกี่ยวกับการเสนอราคาคู่เทียบในการจัดซื้ออุปกรณ์ฮาร์ดแวร์พิเศษ',
-    description: 'ตรวจพบว่าใบเสนอราคา 3 บริษัทคู่เทียบมีที่อยู่จดทะเบียนและเบอร์โทรศัพท์เดียวกัน มีแนวโน้มเป็นการจัดฮั้วประมูลเพื่อหลีกเลี่ยงเกณฑ์การตรวจสอบราคากลาง',
+    description:
+      'ตรวจพบว่าใบเสนอราคา 3 บริษัทคู่เทียบมีที่อยู่จดทะเบียนและเบอร์โทรศัพท์เดียวกัน มีแนวโน้มเป็นการจัดฮั้วประมูลเพื่อหลีกเลี่ยงเกณฑ์การตรวจสอบราคากลาง',
     locationOrUnit: 'ฝ่ายจัดซื้อและสัญญา (Procurement)',
     isDirectToExecutive: true,
     confidentiality: 'standard_named',
@@ -472,10 +511,17 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
     sentiment: 'Urgent',
     clusterGroup: 'Procurement Integrity & Anti-Corruption',
     rootCauseCategory: 'Policy/Governance',
-    rootCauseSummary: 'ขาดระบบตรวจสอบความเชื่อมโยงของผู้ถือหุ้นบริษัทคู่เทียบอัตโนมัติในกระบวนการ Vendor Onboarding',
-    preventiveActionPlan: 'เชื่อมต่อ API กรมพัฒนาธุรกิจการค้า (DBD) เพื่อตรวจเช็ค Cross-Shareholding อัตโนมัติ',
+    rootCauseSummary:
+      'ขาดระบบตรวจสอบความเชื่อมโยงของผู้ถือหุ้นบริษัทคู่เทียบอัตโนมัติในกระบวนการ Vendor Onboarding',
+    preventiveActionPlan:
+      'เชื่อมต่อ API กรมพัฒนาธุรกิจการค้า (DBD) เพื่อตรวจเช็ค Cross-Shareholding อัตโนมัติ',
     attachments: [
-      { id: 'att-8', name: 'procurement_quotations_evidence.pdf', size: '4.5 MB', type: 'application/pdf' },
+      {
+        id: 'att-8',
+        name: 'procurement_quotations_evidence.pdf',
+        size: '4.5 MB',
+        type: 'application/pdf',
+      },
     ],
     timeline: [
       {
@@ -513,7 +559,8 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
     type: 'complaint',
     category: 'Quality',
     title: 'คู่มือการทำงาน (SOP) ในสายการผลิตไลน์ 3 ข้อมูลไม่ตรงกับเครื่องจักรรุ่นใหม่',
-    description: 'เอกสารคู่มือการผลิตและการตรวจสอบคุณภาพที่ติดหน้างานเป็นเวอร์ชันเก่า ทำให้พนักงานใหม่เข้าใจขั้นตอนการสอบเทียบเซนเซอร์ผิดพลาดและเกิดของเสียในล็อตการผลิต',
+    description:
+      'เอกสารคู่มือการผลิตและการตรวจสอบคุณภาพที่ติดหน้างานเป็นเวอร์ชันเก่า ทำให้พนักงานใหม่เข้าใจขั้นตอนการสอบเทียบเซนเซอร์ผิดพลาดและเกิดของเสียในล็อตการผลิต',
     locationOrUnit: 'โรงงานผลิต สายการประกอบ 3',
     isDirectToExecutive: false,
     confidentiality: 'standard_named',
@@ -533,9 +580,12 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
     sentiment: 'Concerned',
     clusterGroup: 'Process Standardization & SOP Maintenance',
     rootCauseCategory: 'Process',
-    rootCauseSummary: 'ฝ่ายวิศวกรรมส่งมอบเครื่องจักรใหม่โดยยังไม่ได้อัปเดตเอกสารมาตรฐาน QA เข้าระบบ Document Control',
-    preventiveActionPlan: 'บังคับใช้ Checklist การตรวจรับเครื่องจักรใหม่ ต้องมี SOP ภาษาไทยอนุมัติก่อนเริ่มการผลิต',
-    resolutionSummary: 'ทีม QA ได้ทำการแก้ไขและพิมพ์ SOP ฉบับอัปเดต Rev.4 พร้อม QR Code วิดีโอสอนการใช้งานติดหน้างานเรียบร้อยแล้ว และจัด Briefing พนักงานประจำกะทุกคน',
+    rootCauseSummary:
+      'ฝ่ายวิศวกรรมส่งมอบเครื่องจักรใหม่โดยยังไม่ได้อัปเดตเอกสารมาตรฐาน QA เข้าระบบ Document Control',
+    preventiveActionPlan:
+      'บังคับใช้ Checklist การตรวจรับเครื่องจักรใหม่ ต้องมี SOP ภาษาไทยอนุมัติก่อนเริ่มการผลิต',
+    resolutionSummary:
+      'ทีม QA ได้ทำการแก้ไขและพิมพ์ SOP ฉบับอัปเดต Rev.4 พร้อม QR Code วิดีโอสอนการใช้งานติดหน้างานเรียบร้อยแล้ว และจัด Briefing พนักงานประจำกะทุกคน',
     resolvedAt: '2026-08-26T15:00:00.000Z',
     closedAt: '2026-08-27T08:30:00.000Z',
     evaluation: {
@@ -547,7 +597,8 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
       serviceMannerRating: 5,
       clarityRating: 4,
       isResolvedPermanently: true,
-      feedbackComment: 'ทีม QA ดำเนินการแก้ไขได้รวดเร็วมาก มีการทำวิดีโอ QR Code ให้สแกนดูทำให้เข้าใจง่ายขึ้นมากครับ',
+      feedbackComment:
+        'ทีม QA ดำเนินการแก้ไขได้รวดเร็วมาก มีการทำวิดีโอ QR Code ให้สแกนดูทำให้เข้าใจง่ายขึ้นมากครับ',
       improvementSuggestions: 'อยากให้มีการทบทวน SOP ของไลน์ 1 และ 2 เพิ่มเติมด้วยครับ',
       evaluatedAt: '2026-08-27T08:30:00.000Z',
     },
@@ -605,7 +656,8 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
     type: 'complaint',
     category: 'Ethics',
     title: 'ข้อร้องเรียนเรื่องการเลือกปฏิบัติในการจัดสรรกะการทำงานล่วงเวลา (OT)',
-    description: 'หัวหน้ากะจัดสรรชั่วโมงโอทีให้เฉพาะกลุ่มคนสนิท ทำให้พนักงานคนอื่นเสียโอกาสในการสร้างรายได้เสริมอย่างไม่เป็นธรรมและขาดความโปร่งใส',
+    description:
+      'หัวหน้ากะจัดสรรชั่วโมงโอทีให้เฉพาะกลุ่มคนสนิท ทำให้พนักงานคนอื่นเสียโอกาสในการสร้างรายได้เสริมอย่างไม่เป็นธรรมและขาดความโปร่งใส',
     locationOrUnit: 'ศูนย์กระจายสินค้าภาคกลาง',
     isDirectToExecutive: false,
     confidentiality: 'standard_named',
@@ -626,7 +678,8 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
     clusterGroup: 'Workplace Fairness & Supervisory Conduct',
     rootCauseCategory: 'People',
     rootCauseSummary: 'ไม่มีระบบหมุนเวียนโควตา OT แบบดิจิทัล ใช้ดุลยพินิจของหัวหน้ากะแบบ manual',
-    preventiveActionPlan: 'นำระบบ Auto-OT Allocation ในแอปพลิเคชันพนักงานมาใช้เพื่อความโปร่งใส 100%',
+    preventiveActionPlan:
+      'นำระบบ Auto-OT Allocation ในแอปพลิเคชันพนักงานมาใช้เพื่อความโปร่งใส 100%',
     attachments: [],
     timeline: [
       {
@@ -663,7 +716,8 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
     type: 'complaint',
     category: 'Compliance',
     title: 'การจัดเก็บข้อมูลลูกค้าบนกระดาษโดยไม่มีการทำลายตามมาตรฐาน PDPA',
-    description: 'พบเอกสารสำเนาบัตรประชาชนและข้อมูลติดต่อของลูกค้าที่ทำธุรกรรมหน้าร้านสาขาวางทิ้งไว้ในกล่องไม่ได้ใส่ตู้ล็อค และยังไม่มีการทำลายตามระยะเวลาที่กำหนดในกฎหมายคุ้มครองข้อมูลส่วนบุคคล',
+    description:
+      'พบเอกสารสำเนาบัตรประชาชนและข้อมูลติดต่อของลูกค้าที่ทำธุรกรรมหน้าร้านสาขาวางทิ้งไว้ในกล่องไม่ได้ใส่ตู้ล็อค และยังไม่มีการทำลายตามระยะเวลาที่กำหนดในกฎหมายคุ้มครองข้อมูลส่วนบุคคล',
     locationOrUnit: 'สาขาบริการลูกค้า Central World',
     isDirectToExecutive: true,
     confidentiality: 'standard_named',
@@ -684,8 +738,10 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
     clusterGroup: 'Data Privacy & PDPA Compliance',
     rootCauseCategory: 'Policy/Governance',
     rootCauseSummary: 'สาขาไม่มีเครื่องทำลายเอกสาร (Shredder) ประจำจุด และขาดตู้เซฟเก็บเอกสารสำคัญ',
-    preventiveActionPlan: 'จัดซื้อเครื่องทำลายเอกสาร Cross-Cut ระดับความปลอดภัย DIN Level 4 ประจำทุกสาขา และเปลี่ยนเป็น Digital e-KYC 100%',
-    resolutionSummary: 'DPO ได้ส่งทีมเข้าเก็บรวบรวมเอกสารทั้งหมดนำไปทำลายตามมาตรฐานความปลอดภัย พร้อมติดตั้งตู้ล็อคเอกสาร และเปิดใช้งานระบบ Paperless e-KYC ที่สาขาเพื่อป้องกันข้อมูลรั่วไหลถาวร',
+    preventiveActionPlan:
+      'จัดซื้อเครื่องทำลายเอกสาร Cross-Cut ระดับความปลอดภัย DIN Level 4 ประจำทุกสาขา และเปลี่ยนเป็น Digital e-KYC 100%',
+    resolutionSummary:
+      'DPO ได้ส่งทีมเข้าเก็บรวบรวมเอกสารทั้งหมดนำไปทำลายตามมาตรฐานความปลอดภัย พร้อมติดตั้งตู้ล็อคเอกสาร และเปิดใช้งานระบบ Paperless e-KYC ที่สาขาเพื่อป้องกันข้อมูลรั่วไหลถาวร',
     resolvedAt: '2026-08-27T11:30:00.000Z',
     attachments: [
       { id: 'att-10', name: 'pdpa_paper_storage_log.pdf', size: '2.1 MB', type: 'application/pdf' },
@@ -733,7 +789,8 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
     type: 'complaint',
     category: 'IT',
     title: 'ปัญหา Token 2FA ของระบบ ERP ล็อคบ่อยกระทบการบันทึกใบสั่งซื้อและปิดรอบบิล',
-    description: 'พนักงานฝ่ายจัดซื้อและบัญชีพบปัญหา Session Timeout และ Token 2FA ล็อคทุก 15 นาที ทำให้ต้องโทรแจ้ง IT ปลดล็อควันละกว่า 10 รอบ',
+    description:
+      'พนักงานฝ่ายจัดซื้อและบัญชีพบปัญหา Session Timeout และ Token 2FA ล็อคทุก 15 นาที ทำให้ต้องโทรแจ้ง IT ปลดล็อควันละกว่า 10 รอบ',
     locationOrUnit: 'สำนักงานใหญ่ ชั้น 14 ฝ่ายการเงินและจัดซื้อ',
     isDirectToExecutive: false,
     confidentiality: 'standard_named',
@@ -771,7 +828,8 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
     type: 'complaint',
     category: 'HR',
     title: 'สอบถามความชัดเจนเรื่องสิทธิการเบิกค่ารักษาพยาบาลกรณีพบแพทย์เฉพาะทางนอกเวลา',
-    description: 'เอกสารคู่มือสวัสดิการระบุไม่ชัดเจนเกี่ยวกับการเบิกจ่ายคลินิกพิเศษนอกเวลาของโรงพยาบาลรัฐ ทำให้พนักงานถูกตีกลับเอกสารขอเบิก',
+    description:
+      'เอกสารคู่มือสวัสดิการระบุไม่ชัดเจนเกี่ยวกับการเบิกจ่ายคลินิกพิเศษนอกเวลาของโรงพยาบาลรัฐ ทำให้พนักงานถูกตีกลับเอกสารขอเบิก',
     locationOrUnit: 'Corporate HR Services',
     isDirectToExecutive: false,
     confidentiality: 'standard_named',
@@ -809,7 +867,8 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
     type: 'suggestion',
     category: 'HR',
     title: 'ข้อเสนอแนะ: ขยายเวลาเปิดให้บริการห้องพยาบาลประจำโรงงานช่วงกะดึก',
-    description: 'พนักงานฝ่ายผลิตกะดึก (20:00 - 08:00) ขอเสนอให้มีพยาบาลวิชาชีพหรือเจ้าหน้าที่ปฐมพยาบาลประจำการตลอด 24 ชั่วโมง เพื่อรองรับเหตุเจ็บป่วยฉุกเฉิน',
+    description:
+      'พนักงานฝ่ายผลิตกะดึก (20:00 - 08:00) ขอเสนอให้มีพยาบาลวิชาชีพหรือเจ้าหน้าที่ปฐมพยาบาลประจำการตลอด 24 ชั่วโมง เพื่อรองรับเหตุเจ็บป่วยฉุกเฉิน',
     locationOrUnit: 'โรงงานระยอง โซนพยาบาลอาคาร 1',
     isDirectToExecutive: false,
     confidentiality: 'standard_named',
@@ -845,8 +904,10 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
     trackingCode: 'TK-2026-0885',
     type: 'complaint',
     category: 'Safety',
-    title: 'ไฟส่องสว่างบริเวณลานจอดรถพนักงานด้านหลังอาคาร 2 ชำรุดดับหลายจุด เสี่ยงต่อความปลอดภัยในกะดึก',
-    description: 'เสาไฟทางเดินและลานจอดรถจักรยานยนต์ดับมืดตั้งแต่เวลา 19:00 น. ทางเดินค่อนข้างเปลี่ยวและมีจุดอับสายตา',
+    title:
+      'ไฟส่องสว่างบริเวณลานจอดรถพนักงานด้านหลังอาคาร 2 ชำรุดดับหลายจุด เสี่ยงต่อความปลอดภัยในกะดึก',
+    description:
+      'เสาไฟทางเดินและลานจอดรถจักรยานยนต์ดับมืดตั้งแต่เวลา 19:00 น. ทางเดินค่อนข้างเปลี่ยวและมีจุดอับสายตา',
     locationOrUnit: 'ลานจอดรถจักรยานยนต์ ท้ายอาคาร 2',
     isDirectToExecutive: false,
     confidentiality: 'standard_named',
@@ -883,7 +944,8 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
     type: 'complaint',
     category: 'Compliance',
     title: 'ข้อหารือเรื่องแนวปฏิบัติการส่งข้อมูลพนักงานให้คู่ค้าภายนอกตามเกณฑ์ PDPA',
-    description: 'ฝ่ายการตลาดต้องการส่งรายชื่อผู้ร่วมงานสัมมนาให้ผู้จัดงานภายนอก ขอคำแนะนำและแบบฟอร์ม Data Sharing Agreement',
+    description:
+      'ฝ่ายการตลาดต้องการส่งรายชื่อผู้ร่วมงานสัมมนาให้ผู้จัดงานภายนอก ขอคำแนะนำและแบบฟอร์ม Data Sharing Agreement',
     locationOrUnit: 'ฝ่ายการตลาดและการสื่อสารองค์กร',
     isDirectToExecutive: false,
     confidentiality: 'standard_named',
@@ -919,8 +981,10 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
     trackingCode: 'TK-2026-0887',
     type: 'complaint',
     category: 'Ethics',
-    title: 'ข้อร้องเรียนเรื่องการรับของขวัญมูลค่าสูงและเลี้ยงสังสรรค์ช่วงเทศกาลจากคู่ค้าผู้ประมูลงาน',
-    description: 'พบข้อมูลว่ามีกรรมการตรวจรับงานเข้าร่วมงานเลี้ยงสังสรรค์ส่วนตัวที่จัดโดยผู้รับเหมารายใหญ่ที่อยู่ระหว่างขั้นตอนการประมูลคัดเลือก',
+    title:
+      'ข้อร้องเรียนเรื่องการรับของขวัญมูลค่าสูงและเลี้ยงสังสรรค์ช่วงเทศกาลจากคู่ค้าผู้ประมูลงาน',
+    description:
+      'พบข้อมูลว่ามีกรรมการตรวจรับงานเข้าร่วมงานเลี้ยงสังสรรค์ส่วนตัวที่จัดโดยผู้รับเหมารายใหญ่ที่อยู่ระหว่างขั้นตอนการประมูลคัดเลือก',
     locationOrUnit: 'ฝ่ายจัดซื้อและวิศวกรรมโครงการ',
     isDirectToExecutive: true,
     confidentiality: 'confidential_restricted',
@@ -955,7 +1019,8 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
     type: 'complaint',
     category: 'Harassment',
     title: 'พฤติกรรมการใช้วาจาข่มขู่คุกคามและการเลือกปฏิบัติในแผนกงานอย่างต่อเนื่อง',
-    description: 'พนักงานในทีมถูกผู้จัดการกดดันด้วยถ้อยคำหยาบคาย และข่มขู่ว่าจะไม่ผ่านการทดลองงานหากไม่ยอมทำงานนอกเวลาโดยไม่บันทึกโอที',
+    description:
+      'พนักงานในทีมถูกผู้จัดการกดดันด้วยถ้อยคำหยาบคาย และข่มขู่ว่าจะไม่ผ่านการทดลองงานหากไม่ยอมทำงานนอกเวลาโดยไม่บันทึกโอที',
     locationOrUnit: 'ศูนย์กระจายสินค้าภาคตะวันออกเฉียงเหนือ',
     isDirectToExecutive: true,
     confidentiality: 'confidential_restricted',
@@ -989,7 +1054,8 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
     type: 'complaint',
     category: 'Fraud',
     title: 'ข้อสงสัยเกี่ยวกับการอนุมัติเบิกจ่ายค่าเดินทางและเบี้ยเลี้ยงซ้ำซ้อนในโครงการต่างจังหวัด',
-    description: 'ตรวจสอบพบใบเสร็จค่าน้ำมันและโรงแรมที่ซ้ำกับใบเบิกของอีกทีมในวันและเวลาเดียวกัน ยอดรวมกว่า 180,000 บาท',
+    description:
+      'ตรวจสอบพบใบเสร็จค่าน้ำมันและโรงแรมที่ซ้ำกับใบเบิกของอีกทีมในวันและเวลาเดียวกัน ยอดรวมกว่า 180,000 บาท',
     locationOrUnit: 'ฝ่ายบริหารโครงการภาคเหนือ',
     isDirectToExecutive: true,
     confidentiality: 'confidential_restricted',
@@ -1023,7 +1089,8 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
     type: 'complaint',
     category: 'Quality',
     title: 'อุปกรณ์ตรวจวัด Caliper ในแผนก QA ไลน์ 2 มีค่าเบี่ยงเบนเกินเกณฑ์มาตรฐาน ISO',
-    description: 'อุปกรณ์เวอร์เนียร์คาลิปเปอร์ 4 ตัวที่ใช้ในไลน์ตรวจสอบชิ้นงานแม่พิมพ์ส่งผลการวัดคลาดเคลื่อน 0.05 mm จำเป็นต้องส่งสอบเทียบด่วน',
+    description:
+      'อุปกรณ์เวอร์เนียร์คาลิปเปอร์ 4 ตัวที่ใช้ในไลน์ตรวจสอบชิ้นงานแม่พิมพ์ส่งผลการวัดคลาดเคลื่อน 0.05 mm จำเป็นต้องส่งสอบเทียบด่วน',
     locationOrUnit: 'โรงงานแปรรูปชิ้นส่วน ไลน์ QC-02',
     isDirectToExecutive: false,
     confidentiality: 'standard_named',
@@ -1060,7 +1127,8 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
     type: 'complaint',
     category: 'Environment',
     title: 'ปัญหากลิ่นสารเคมีและเสียงรบกวนจากบ่อบำบัดน้ำเสียส่วนขยายใกล้โซนโรงอาหาร',
-    description: 'ช่วงเวลา 11:30 - 13:00 น. มีกลิ่นกำมะถันรุนแรงพัดเข้ามายังโรงอาหารพนักงาน ขอให้ฝ่ายสิ่งแวดล้อมตรวจเช็คระบบ Bio-filter และพัดลมดูดอากาศ',
+    description:
+      'ช่วงเวลา 11:30 - 13:00 น. มีกลิ่นกำมะถันรุนแรงพัดเข้ามายังโรงอาหารพนักงาน ขอให้ฝ่ายสิ่งแวดล้อมตรวจเช็คระบบ Bio-filter และพัดลมดูดอากาศ',
     locationOrUnit: 'โรงอาหารกลาง และบ่อบำบัดน้ำเสียแปลงใต้',
     isDirectToExecutive: false,
     confidentiality: 'standard_named',
@@ -1097,7 +1165,8 @@ export const INITIAL_COMPLAINTS: ComplaintTicket[] = [
     type: 'complaint',
     category: 'IT',
     title: 'จอแสดงผลและพอร์ต HDMI ห้องประชุม Boardroom 402 ภาพกระพริบไม่สามารถเชื่อมต่อได้',
-    description: 'สายเชื่อมต่อ HDMI และ Adapter Type-C ชำรุด ภาพขึ้นจอดำสลับติดๆ ดับๆ จำเป็นต้องเปลี่ยนอุปกรณ์ก่อนการประชุมผู้ถือหุ้นวันพุธนี้',
+    description:
+      'สายเชื่อมต่อ HDMI และ Adapter Type-C ชำรุด ภาพขึ้นจอดำสลับติดๆ ดับๆ จำเป็นต้องเปลี่ยนอุปกรณ์ก่อนการประชุมผู้ถือหุ้นวันพุธนี้',
     locationOrUnit: 'อาคาร A ชั้น 4 ห้องประชุม Boardroom 402',
     isDirectToExecutive: false,
     confidentiality: 'standard_named',
@@ -1429,7 +1498,8 @@ export const INITIAL_GATEKEEPER_CONFIGS: Record<GrievanceCategory, DepartmentGat
   },
   Environment: {
     category: 'Environment',
-    departmentName: 'Sustainability & Environmental Safety Team (ฝ่ายความยั่งยืนและสิ่งแวดล้อม ESG)',
+    departmentName:
+      'Sustainability & Environmental Safety Team (ฝ่ายความยั่งยืนและสิ่งแวดล้อม ESG)',
     departmentCode: 'DEPT-ESG-09',
     defaultSlaHours: 48,
     leadOfficer: {
@@ -1470,7 +1540,8 @@ export const INITIAL_NOTIFICATIONS: NotificationItem[] = [
     ticketId: 'tk-2',
     trackingCode: 'TK-2026-0880',
     title: 'แก้ไขเสร็จสิ้น: ปัญหาบันไดหนีไฟฉุกเฉิน',
-    message: 'หน่วยงาน EHS ได้ทำการเคลียร์สิ่งกีดขวางเรียบร้อยแล้ว กรุณาเข้าประเมินความพึงพอใจการให้บริการ',
+    message:
+      'หน่วยงาน EHS ได้ทำการเคลียร์สิ่งกีดขวางเรียบร้อยแล้ว กรุณาเข้าประเมินความพึงพอใจการให้บริการ',
     timestamp: '2026-08-27T15:45:00.000Z',
     read: false,
     type: 'satisfaction_pending',
@@ -1481,7 +1552,8 @@ export const INITIAL_NOTIFICATIONS: NotificationItem[] = [
     ticketId: 'tk-1',
     trackingCode: 'TK-2026-0881',
     title: 'อัปเดตสถานะ: ปัญหาเครือข่าย Wi-Fi ชั้น 18',
-    message: 'วิศวกรโครงข่ายไอที (กิตติศักดิ์ ชัยชนะ) เริ่มเข้าดำเนินการตรวจสอบและปรับแต่ง Access Point แล้ว',
+    message:
+      'วิศวกรโครงข่ายไอที (กิตติศักดิ์ ชัยชนะ) เริ่มเข้าดำเนินการตรวจสอบและปรับแต่ง Access Point แล้ว',
     timestamp: '2026-08-27T13:00:00.000Z',
     read: false,
     type: 'status_update',
@@ -1492,7 +1564,8 @@ export const INITIAL_NOTIFICATIONS: NotificationItem[] = [
     ticketId: 'tk-4',
     trackingCode: 'TK-2026-0878',
     title: 'แจ้งเตือนผู้บริหาร: ได้รับข้อร้องเรียนส่งตรงถึง CEO/EVP',
-    message: 'มีข้อร้องเรียนหมวดหมู่ Harassment ระดับความเร่งด่วนสูง ยื่นเรื่องส่งตรงถึงผู้บริหารระดับสูง',
+    message:
+      'มีข้อร้องเรียนหมวดหมู่ Harassment ระดับความเร่งด่วนสูง ยื่นเรื่องส่งตรงถึงผู้บริหารระดับสูง',
     timestamp: '2026-08-26T16:00:00.000Z',
     read: true,
     type: 'direct_ceo_alert',

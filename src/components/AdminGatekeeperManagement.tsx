@@ -1,28 +1,28 @@
 'use client';
 
 import React, { useState } from 'react';
-import { 
-  Shield, 
-  Users, 
-  UserPlus, 
-  UserCheck, 
-  Crown, 
-  Trash2, 
-  Clock, 
-  Mail, 
-  Phone, 
-  Briefcase, 
-  Building, 
-  CheckCircle2, 
-  AlertTriangle, 
-  Settings2, 
-  Sliders, 
-  Layers, 
-  Sparkles, 
-  Zap, 
-  Info, 
-  ChevronRight, 
-  User, 
+import {
+  Shield,
+  Users,
+  UserPlus,
+  UserCheck,
+  Crown,
+  Trash2,
+  Clock,
+  Mail,
+  Phone,
+  Briefcase,
+  Building,
+  CheckCircle2,
+  AlertTriangle,
+  Settings2,
+  Sliders,
+  Layers,
+  Sparkles,
+  Zap,
+  Info,
+  ChevronRight,
+  User,
   Plus,
   SlidersHorizontal,
   Lock,
@@ -33,20 +33,20 @@ import {
   Edit2,
   RotateCcw,
   Search,
-  Filter
+  Filter,
 } from 'lucide-react';
-import { 
-  ComplaintTicket, 
-  DepartmentGatekeeperConfig, 
-  GatekeeperOfficer, 
+import {
+  ComplaintTicket,
+  DepartmentGatekeeperConfig,
+  GatekeeperOfficer,
   ExecutiveMember,
   HrAdminMember,
-  GrievanceCategory 
+  GrievanceCategory,
 } from '../types';
 import { CATEGORY_DEFINITIONS } from '../mockData';
-import { 
-  getStoredGatekeeperConfigs, 
-  updateDepartmentGatekeeperConfig, 
+import {
+  getStoredGatekeeperConfigs,
+  updateDepartmentGatekeeperConfig,
   resetGatekeeperConfigsToDefault,
   getStoredExecutives,
   addExecutiveMember,
@@ -57,7 +57,7 @@ import {
   addHrAdminMember,
   updateHrAdminMember,
   deleteHrAdminMember,
-  resetHrAdminsToDefault
+  resetHrAdminsToDefault,
 } from '../services/api';
 
 interface AdminGatekeeperManagementProps {
@@ -66,11 +66,15 @@ interface AdminGatekeeperManagementProps {
 
 type ManagementSubTab = 'gatekeepers' | 'executives' | 'hr_admins';
 
-export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps> = ({ tickets = [] }) => {
+export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps> = ({
+  tickets = [],
+}) => {
   const [activeSubTab, setActiveSubTab] = useState<ManagementSubTab>('gatekeepers');
-  
+
   // Gatekeeper states
-  const [configs, setConfigs] = useState<Record<GrievanceCategory, DepartmentGatekeeperConfig>>(() => getStoredGatekeeperConfigs());
+  const [configs, setConfigs] = useState<Record<GrievanceCategory, DepartmentGatekeeperConfig>>(
+    () => getStoredGatekeeperConfigs()
+  );
   const [selectedCategory, setSelectedCategory] = useState<GrievanceCategory>('HR');
   const [isAddingOfficer, setIsAddingOfficer] = useState(false);
   const [newOfficerName, setNewOfficerName] = useState('');
@@ -145,7 +149,9 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
     }
     const target = currentConfig.officers.find((o) => o.id === officerId);
     if (target?.isLead) {
-      alert('ไม่สามารถลบ Lead Gatekeeper ได้ กรุณาแต่งตั้งเจ้าหน้าที่ท่านอื่นเป็น Lead ก่อนทำการลบ');
+      alert(
+        'ไม่สามารถลบ Lead Gatekeeper ได้ กรุณาแต่งตั้งเจ้าหน้าที่ท่านอื่นเป็น Lead ก่อนทำการลบ'
+      );
       return;
     }
 
@@ -172,7 +178,7 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
 
     const updatedOfficers = [...currentConfig.officers, newOfficer];
     handleUpdateConfig({ officers: updatedOfficers });
-    
+
     // Reset Form
     setNewOfficerName('');
     setNewOfficerEmail('');
@@ -183,7 +189,11 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
   };
 
   const handleResetGatekeepersToDefaults = () => {
-    if (confirm('คุณต้องการรีเซ็ตรายชื่อ Gatekeeper ของทุกหน่วยงานกลับเป็นค่าเริ่มต้นขององค์กรใช่หรือไม่?')) {
+    if (
+      confirm(
+        'คุณต้องการรีเซ็ตรายชื่อ Gatekeeper ของทุกหน่วยงานกลับเป็นค่าเริ่มต้นขององค์กรใช่หรือไม่?'
+      )
+    ) {
       const defs = resetGatekeeperConfigsToDefault();
       setConfigs(defs);
       showToast('รีเซ็ตรายชื่อ Gatekeeper ทุกหน่วยงานเป็นค่าเริ่มต้นแล้ว');
@@ -214,7 +224,8 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
         isPrimaryWhistleblowerReceiver: execIsWhistleblower,
         canViewConfidentialIdentities: execCanViewConfidential,
         receiveAlertNotifications: execReceiveAlerts,
-        assignedCommittees: committeeArray.length > 0 ? committeeArray : ['คณะกรรมการบริหารระดับสูง (ExCom)'],
+        assignedCommittees:
+          committeeArray.length > 0 ? committeeArray : ['คณะกรรมการบริหารระดับสูง (ExCom)'],
       });
       setExecutives(updated);
       showToast(`อัปเดตข้อมูลผู้บริหาร "${execName}" เรียบร้อยแล้ว`);
@@ -229,7 +240,8 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
         isPrimaryWhistleblowerReceiver: execIsWhistleblower,
         canViewConfidentialIdentities: execCanViewConfidential,
         receiveAlertNotifications: execReceiveAlerts,
-        assignedCommittees: committeeArray.length > 0 ? committeeArray : ['คณะกรรมการบริหารระดับสูง (ExCom)'],
+        assignedCommittees:
+          committeeArray.length > 0 ? committeeArray : ['คณะกรรมการบริหารระดับสูง (ExCom)'],
         status: 'active',
       });
       setExecutives(updated);
@@ -266,7 +278,9 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
     const newStatus = exec.status === 'active' ? 'inactive' : 'active';
     const updated = updateExecutiveMember(exec.id, { status: newStatus });
     setExecutives(updated);
-    showToast(`เปลี่ยนสถานะผู้บริหารเป็น ${newStatus === 'active' ? 'พร้อมปฏิบัติงาน (Active)' : 'พักสถานะ (Inactive)'}`);
+    showToast(
+      `เปลี่ยนสถานะผู้บริหารเป็น ${newStatus === 'active' ? 'พร้อมปฏิบัติงาน (Active)' : 'พักสถานะ (Inactive)'}`
+    );
   };
 
   const handleDeleteExec = (id: string, name: string) => {
@@ -355,7 +369,9 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
     const newStatus = admin.status === 'active' ? 'inactive' : 'active';
     const updated = updateHrAdminMember(admin.id, { status: newStatus });
     setHrAdmins(updated);
-    showToast(`เปลี่ยนสถานะเจ้าหน้าที่เป็น ${newStatus === 'active' ? 'พร้อมปฏิบัติงาน (Active)' : 'พักสถานะ (Inactive)'}`);
+    showToast(
+      `เปลี่ยนสถานะเจ้าหน้าที่เป็น ${newStatus === 'active' ? 'พร้อมปฏิบัติงาน (Active)' : 'พักสถานะ (Inactive)'}`
+    );
   };
 
   const handleDeleteAdmin = (id: string, name: string) => {
@@ -376,62 +392,72 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
 
   // Stats calculation
   const categoryKeys = Object.keys(CATEGORY_DEFINITIONS) as GrievanceCategory[];
-  const totalOfficersCount = categoryKeys.reduce((acc, cat) => acc + (configs[cat]?.officers?.length || 0), 0);
+  const totalOfficersCount = categoryKeys.reduce(
+    (acc, cat) => acc + (configs[cat]?.officers?.length || 0),
+    0
+  );
   const currentDeptTicketsCount = tickets.filter((t) => t.category === selectedCategory).length;
-  const currentDeptPendingCount = tickets.filter((t) => t.category === selectedCategory && t.status === 'submitted').length;
+  const currentDeptPendingCount = tickets.filter(
+    (t) => t.category === selectedCategory && t.status === 'submitted'
+  ).length;
 
-  const filteredExecutives = executives.filter((ex) => 
-    ex.name.toLowerCase().includes(execSearch.toLowerCase()) ||
-    ex.position.toLowerCase().includes(execSearch.toLowerCase()) ||
-    ex.department.toLowerCase().includes(execSearch.toLowerCase()) ||
-    ex.email.toLowerCase().includes(execSearch.toLowerCase())
+  const filteredExecutives = executives.filter(
+    (ex) =>
+      ex.name.toLowerCase().includes(execSearch.toLowerCase()) ||
+      ex.position.toLowerCase().includes(execSearch.toLowerCase()) ||
+      ex.department.toLowerCase().includes(execSearch.toLowerCase()) ||
+      ex.email.toLowerCase().includes(execSearch.toLowerCase())
   );
 
-  const filteredAdmins = hrAdmins.filter((ad) => 
-    ad.name.toLowerCase().includes(adminSearch.toLowerCase()) ||
-    ad.position.toLowerCase().includes(adminSearch.toLowerCase()) ||
-    ad.department.toLowerCase().includes(adminSearch.toLowerCase()) ||
-    ad.email.toLowerCase().includes(adminSearch.toLowerCase())
+  const filteredAdmins = hrAdmins.filter(
+    (ad) =>
+      ad.name.toLowerCase().includes(adminSearch.toLowerCase()) ||
+      ad.position.toLowerCase().includes(adminSearch.toLowerCase()) ||
+      ad.department.toLowerCase().includes(adminSearch.toLowerCase()) ||
+      ad.email.toLowerCase().includes(adminSearch.toLowerCase())
   );
 
   return (
     <div className="space-y-6">
-      
       {/* Toast notification */}
       {toastMessage && (
-        <div className="fixed bottom-5 right-5 z-50 bg-slate-900 text-white text-xs px-4 py-3 rounded-xl shadow-2xl border border-slate-700 flex items-center gap-2.5 animate-in fade-in slide-in-from-bottom-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+        <div className="animate-in fade-in slide-in-from-bottom-2 fixed right-5 bottom-5 z-50 flex items-center gap-2.5 rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-xs text-white shadow-2xl">
+          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
           <span>{toastMessage}</span>
         </div>
       )}
 
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 shadow-md border border-slate-800">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="rounded-2xl border border-slate-800 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 text-white shadow-md">
+        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div>
-            <div className="flex items-center gap-2.5 text-xs text-indigo-300 font-semibold tracking-wider uppercase mb-1">
-              <Shield className="w-4 h-4 text-indigo-400" />
-              <span>ศูนย์บริหารจัดการโครงสร้างบุคลากรและสิทธิ์ (Personnel & Governance Directory)</span>
+            <div className="mb-1 flex items-center gap-2.5 text-xs font-semibold tracking-wider text-indigo-300 uppercase">
+              <Shield className="h-4 w-4 text-indigo-400" />
+              <span>
+                ศูนย์บริหารจัดการโครงสร้างบุคลากรและสิทธิ์ (Personnel & Governance Directory)
+              </span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+            <h1 className="text-xl font-bold tracking-tight text-white sm:text-2xl">
               จัดการผู้บริหารระดับสูง, HR Admin & Gatekeeper ประจำฝ่าย
             </h1>
-            <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-3xl leading-relaxed">
-              จุดศูนย์กลางสำหรับ HR Admin และตัวแทนผู้บริหารในการ Maintain รายชื่อคณะผู้บริหาร (CEO/EVP Whistleblower Channel), เจ้าหน้าที่ HR Admin & GRC และผู้รับผิดชอบ Gatekeeper ทั้ง 9 หน่วยงาน
+            <p className="mt-1 max-w-3xl text-xs leading-relaxed text-slate-300 sm:text-sm">
+              จุดศูนย์กลางสำหรับ HR Admin และตัวแทนผู้บริหารในการ Maintain รายชื่อคณะผู้บริหาร
+              (CEO/EVP Whistleblower Channel), เจ้าหน้าที่ HR Admin & GRC และผู้รับผิดชอบ Gatekeeper
+              ทั้ง 9 หน่วยงาน
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <div className="px-3.5 py-2 bg-white/10 backdrop-blur rounded-xl border border-white/15 text-center">
-              <span className="text-[11px] text-slate-300 block">ผู้บริหาร (Executives)</span>
+            <div className="rounded-xl border border-white/15 bg-white/10 px-3.5 py-2 text-center backdrop-blur">
+              <span className="block text-[11px] text-slate-300">ผู้บริหาร (Executives)</span>
               <span className="text-lg font-bold text-purple-300">{executives.length} ท่าน</span>
             </div>
-            <div className="px-3.5 py-2 bg-white/10 backdrop-blur rounded-xl border border-white/15 text-center">
-              <span className="text-[11px] text-slate-300 block">HR Admins</span>
+            <div className="rounded-xl border border-white/15 bg-white/10 px-3.5 py-2 text-center backdrop-blur">
+              <span className="block text-[11px] text-slate-300">HR Admins</span>
               <span className="text-lg font-bold text-rose-300">{hrAdmins.length} ท่าน</span>
             </div>
-            <div className="px-3.5 py-2 bg-white/10 backdrop-blur rounded-xl border border-white/15 text-center">
-              <span className="text-[11px] text-slate-300 block">Gatekeepers (9 ฝ่าย)</span>
+            <div className="rounded-xl border border-white/15 bg-white/10 px-3.5 py-2 text-center backdrop-blur">
+              <span className="block text-[11px] text-slate-300">Gatekeepers (9 ฝ่าย)</span>
               <span className="text-lg font-bold text-indigo-300">{totalOfficersCount} ท่าน</span>
             </div>
           </div>
@@ -443,13 +469,13 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
             type="button"
             id="subtab-gatekeepers"
             onClick={() => setActiveSubTab('gatekeepers')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition ${
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition ${
               activeSubTab === 'gatekeepers'
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
             }`}
           >
-            <Shield className="w-4 h-4" />
+            <Shield className="h-4 w-4" />
             <span>1. Gatekeeper ประจำ 9 ฝ่ายงาน ({totalOfficersCount})</span>
           </button>
 
@@ -457,13 +483,13 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
             type="button"
             id="subtab-executives"
             onClick={() => setActiveSubTab('executives')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition ${
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition ${
               activeSubTab === 'executives'
                 ? 'bg-purple-600 text-white shadow-sm'
                 : 'bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
             }`}
           >
-            <Crown className="w-4 h-4" />
+            <Crown className="h-4 w-4" />
             <span>2. คณะผู้บริหารระดับสูง & CEO Direct ({executives.length})</span>
           </button>
 
@@ -471,13 +497,13 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
             type="button"
             id="subtab-hr-admins"
             onClick={() => setActiveSubTab('hr_admins')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition ${
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition ${
               activeSubTab === 'hr_admins'
                 ? 'bg-rose-600 text-white shadow-sm'
                 : 'bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
             }`}
           >
-            <SlidersHorizontal className="w-4 h-4" />
+            <SlidersHorizontal className="h-4 w-4" />
             <span>3. ทีมงาน HR Admin & GRC Operator ({hrAdmins.length})</span>
           </button>
         </div>
@@ -487,24 +513,23 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
       {/* SUBTAB 1: GATEKEEPERS MANAGEMENT                                          */}
       {/* ========================================================================= */}
       {activeSubTab === 'gatekeepers' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-in fade-in duration-200">
-          
+        <div className="animate-in fade-in grid grid-cols-1 gap-6 duration-200 lg:grid-cols-12">
           {/* Left Column: 9 Categories List */}
-          <div className="lg:col-span-4 space-y-4">
-            <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                  <Building className="w-4 h-4 text-indigo-600" />
+          <div className="space-y-4 lg:col-span-4">
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900">
+                  <Building className="h-4 w-4 text-indigo-600" />
                   <span>เลือกหน่วยงาน (9 หมวดหมู่)</span>
                 </h3>
                 <button
                   type="button"
                   id="btn-reset-gatekeepers"
                   onClick={handleResetGatekeepersToDefaults}
-                  className="text-[11px] text-slate-500 hover:text-rose-600 flex items-center gap-1 font-medium transition"
+                  className="flex items-center gap-1 text-[11px] font-medium text-slate-500 transition hover:text-rose-600"
                   title="รีเซ็ตเป็นค่าเริ่มต้น"
                 >
-                  <RotateCcw className="w-3 h-3" />
+                  <RotateCcw className="h-3 w-3" />
                   <span>รีเซ็ตค่าเดิม</span>
                 </button>
               </div>
@@ -526,33 +551,39 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
                         setSelectedCategory(catKey);
                         setIsAddingOfficer(false);
                       }}
-                      className={`w-full text-left p-3 rounded-xl border transition flex items-center justify-between ${
+                      className={`flex w-full items-center justify-between rounded-xl border p-3 text-left transition ${
                         isSelected
-                          ? 'bg-indigo-50/80 border-indigo-300 ring-2 ring-indigo-500/20 shadow-xs'
-                          : 'bg-white border-slate-200/80 hover:bg-slate-50 hover:border-slate-300 text-slate-700'
+                          ? 'border-indigo-300 bg-indigo-50/80 shadow-xs ring-2 ring-indigo-500/20'
+                          : 'border-slate-200/80 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${
-                          isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
-                        }`}>
+                        <div
+                          className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold ${
+                            isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
+                          }`}
+                        >
                           {catKey.substring(0, 2)}
                         </div>
                         <div>
-                          <div className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
                             <span>{catDef.nameTh}</span>
                           </div>
-                          <div className="text-[11px] text-slate-500 truncate max-w-[170px] sm:max-w-[200px]">
-                            {cfg?.leadOfficer?.name ? `Lead: ${cfg.leadOfficer.name}` : catDef.responsibleDept}
+                          <div className="max-w-[170px] truncate text-[11px] text-slate-500 sm:max-w-[200px]">
+                            {cfg?.leadOfficer?.name
+                              ? `Lead: ${cfg.leadOfficer.name}`
+                              : catDef.responsibleDept}
                           </div>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                        <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
                           {officerCount} ท่าน
                         </span>
-                        <ChevronRight className={`w-4 h-4 transition ${isSelected ? 'text-indigo-600 translate-x-0.5' : 'text-slate-400'}`} />
+                        <ChevronRight
+                          className={`h-4 w-4 transition ${isSelected ? 'translate-x-0.5 text-indigo-600' : 'text-slate-400'}`}
+                        />
                       </div>
                     </button>
                   );
@@ -562,38 +593,42 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
           </div>
 
           {/* Right Column: Selected Department Details & Officers List */}
-          <div className="lg:col-span-8 space-y-6">
-            
+          <div className="space-y-6 lg:col-span-8">
             {/* Department Summary & SLA Settings Card */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+            <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+              <div className="flex flex-col justify-between gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-center">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-0.5 rounded-md text-xs font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                    <span className="rounded-md border border-indigo-200 bg-indigo-100 px-2.5 py-0.5 text-xs font-bold text-indigo-800">
                       หมวด {selectedCategory}
                     </span>
                     <h2 className="text-base font-bold text-slate-900">
                       {CATEGORY_DEFINITIONS[selectedCategory].nameTh}
                     </h2>
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">
-                    หน่วยงานผู้รับผิดชอบหลัก: <span className="font-medium text-slate-700">{currentConfig.departmentName}</span>
+                  <p className="mt-1 text-xs text-slate-500">
+                    หน่วยงานผู้รับผิดชอบหลัก:{' '}
+                    <span className="font-medium text-slate-700">
+                      {currentConfig.departmentName}
+                    </span>
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <div className="text-right">
                     <div className="text-xs text-slate-500">เคสทั้งหมดในฝ่าย</div>
-                    <div className="text-sm font-bold text-slate-900">{currentDeptTicketsCount} เคส ({currentDeptPendingCount} รอดำเนินการ)</div>
+                    <div className="text-sm font-bold text-slate-900">
+                      {currentDeptTicketsCount} เคส ({currentDeptPendingCount} รอดำเนินการ)
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* SLA & Auto-Assign Settings Form */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+              <div className="grid grid-cols-1 gap-4 pt-1 sm:grid-cols-2">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-indigo-600" />
+                  <label className="mb-1.5 block flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+                    <Clock className="h-3.5 w-3.5 text-indigo-600" />
                     <span>เกณฑ์เวลาแก้ไขมาตรฐาน (SLA Target Hours)</span>
                   </label>
                   <div className="flex items-center gap-2">
@@ -603,41 +638,55 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
                       min="1"
                       max="720"
                       value={currentConfig.defaultSlaHours}
-                      onChange={(e) => handleUpdateConfig({ defaultSlaHours: parseInt(e.target.value) || 24 })}
-                      className="w-24 px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-slate-800"
+                      onChange={(e) =>
+                        handleUpdateConfig({ defaultSlaHours: parseInt(e.target.value) || 24 })
+                      }
+                      className="w-24 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                     />
-                    <span className="text-xs text-slate-500">ชั่วโมง ({Math.round((currentConfig.defaultSlaHours / 24) * 10) / 10} วันทำการ)</span>
+                    <span className="text-xs text-slate-500">
+                      ชั่วโมง ({Math.round((currentConfig.defaultSlaHours / 24) * 10) / 10}{' '}
+                      วันทำการ)
+                    </span>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                    <Zap className="w-3.5 h-3.5 text-amber-600" />
+                  <label className="mb-1.5 block flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+                    <Zap className="h-3.5 w-3.5 text-amber-600" />
                     <span>รูปแบบการจ่ายงานอัตโนมัติ (Auto-Assign Mode)</span>
                   </label>
                   <select
                     id="select-auto-assign-mode"
                     value={currentConfig.autoAssignMode}
-                    onChange={(e) => handleUpdateConfig({ autoAssignMode: e.target.value as any })}
-                    className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 font-medium"
+                    onChange={(e) =>
+                      handleUpdateConfig({
+                        autoAssignMode: e.target
+                          .value as DepartmentGatekeeperConfig['autoAssignMode'],
+                      })
+                    }
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   >
                     <option value="lead_manual">จ่ายให้ Lead คัดกรองก่อนเสมอ (แนะนำ)</option>
                     <option value="round_robin">จ่ายวนตามลำดับเจ้าหน้าที่ (Round-Robin)</option>
-                    <option value="workload_balanced">จ่ายตามภาระงานคงค้าง (Workload Balanced)</option>
+                    <option value="workload_balanced">
+                      จ่ายตามภาระงานคงค้าง (Workload Balanced)
+                    </option>
                   </select>
                 </div>
               </div>
             </div>
 
             {/* Officers Roster Table */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-              <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
+              <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/70 p-4">
                 <div>
-                  <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                    <Users className="w-4 h-4 text-indigo-600" />
-                    <span>รายชื่อ Gatekeeper ผู้ปฏิบัติงาน ({currentConfig.officers.length} ท่าน)</span>
+                  <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900">
+                    <Users className="h-4 w-4 text-indigo-600" />
+                    <span>
+                      รายชื่อ Gatekeeper ผู้ปฏิบัติงาน ({currentConfig.officers.length} ท่าน)
+                    </span>
                   </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="mt-0.5 text-xs text-slate-500">
                     เจ้าหน้าที่ที่มีสิทธิ์รับแจ้งเตือน และเปิดดูข้อมูลเคสของฝ่าย {selectedCategory}
                   </p>
                 </div>
@@ -646,65 +695,76 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
                   type="button"
                   id="btn-add-gatekeeper-toggle"
                   onClick={() => setIsAddingOfficer(!isAddingOfficer)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition shadow-xs"
+                  className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition hover:bg-indigo-700"
                 >
-                  <UserPlus className="w-3.5 h-3.5" />
+                  <UserPlus className="h-3.5 w-3.5" />
                   <span>{isAddingOfficer ? 'ยกเลิก' : 'เพิ่ม Gatekeeper'}</span>
                 </button>
               </div>
 
               {/* Add Officer Inline Form */}
               {isAddingOfficer && (
-                <form onSubmit={handleAddOfficerSubmit} className="p-4 bg-indigo-50/50 border-b border-indigo-100 space-y-3 animate-in fade-in">
-                  <div className="font-bold text-xs text-indigo-900 flex items-center gap-1.5">
-                    <UserPlus className="w-3.5 h-3.5 text-indigo-600" />
+                <form
+                  onSubmit={handleAddOfficerSubmit}
+                  className="animate-in fade-in space-y-3 border-b border-indigo-100 bg-indigo-50/50 p-4"
+                >
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-900">
+                    <UserPlus className="h-3.5 w-3.5 text-indigo-600" />
                     <span>กรอกข้อมูลเจ้าหน้าที่ Gatekeeper ท่านใหม่</span>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">ชื่อ - นามสกุล *</label>
+                      <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                        ชื่อ - นามสกุล *
+                      </label>
                       <input
                         type="text"
                         id="input-new-officer-name"
                         placeholder="เช่น คุณกิตติศักดิ์ ชัยชนะ"
                         value={newOfficerName}
                         onChange={(e) => setNewOfficerName(e.target.value)}
-                        className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                         required
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">อีเมลทางการองค์กร *</label>
+                      <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                        อีเมลทางการองค์กร *
+                      </label>
                       <input
                         type="email"
                         id="input-new-officer-email"
                         placeholder="เช่น kittisak.c@company.internal"
                         value={newOfficerEmail}
                         onChange={(e) => setNewOfficerEmail(e.target.value)}
-                        className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                         required
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">ตำแหน่งงาน / ความเชี่ยวชาญ</label>
+                      <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                        ตำแหน่งงาน / ความเชี่ยวชาญ
+                      </label>
                       <input
                         type="text"
                         id="input-new-officer-role"
                         placeholder="เช่น Senior Network Engineer"
                         value={newOfficerRole}
                         onChange={(e) => setNewOfficerRole(e.target.value)}
-                        className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">เบอร์โทรศัพท์ติดต่อภายใน</label>
+                      <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                        เบอร์โทรศัพท์ติดต่อภายใน
+                      </label>
                       <input
                         type="text"
                         id="input-new-officer-phone"
                         placeholder="เช่น 02-555-4011 หรือ ต่อ 1804"
                         value={newOfficerPhone}
                         onChange={(e) => setNewOfficerPhone(e.target.value)}
-                        className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                       />
                     </div>
                   </div>
@@ -712,14 +772,14 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
                     <button
                       type="button"
                       onClick={() => setIsAddingOfficer(false)}
-                      className="px-3 py-1.5 bg-white text-slate-600 hover:bg-slate-100 rounded-lg text-xs font-medium border border-slate-200"
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100"
                     >
                       ยกเลิก
                     </button>
                     <button
                       type="submit"
                       id="btn-submit-new-officer"
-                      className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs"
+                      className="rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-indigo-700"
                     >
                       บันทึก Gatekeeper
                     </button>
@@ -729,62 +789,64 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
 
               {/* Table */}
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
+                <table className="w-full border-collapse text-left text-xs">
                   <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50/50 text-slate-500 font-semibold uppercase tracking-wider text-[10px]">
-                      <th className="py-2.5 px-4">เจ้าหน้าที่ / อีเมล</th>
-                      <th className="py-2.5 px-4 hidden sm:table-cell">ตำแหน่ง</th>
-                      <th className="py-2.5 px-4 hidden md:table-cell">เบอร์ติดต่อ</th>
-                      <th className="py-2.5 px-4 text-center">บทบาท (Lead)</th>
-                      <th className="py-2.5 px-4 text-right">การจัดการ</th>
+                    <tr className="border-b border-slate-200 bg-slate-50/50 text-[10px] font-semibold tracking-wider text-slate-500 uppercase">
+                      <th className="px-4 py-2.5">เจ้าหน้าที่ / อีเมล</th>
+                      <th className="hidden px-4 py-2.5 sm:table-cell">ตำแหน่ง</th>
+                      <th className="hidden px-4 py-2.5 md:table-cell">เบอร์ติดต่อ</th>
+                      <th className="px-4 py-2.5 text-center">บทบาท (Lead)</th>
+                      <th className="px-4 py-2.5 text-right">การจัดการ</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {currentConfig.officers.map((officer) => {
                       const isLead = officer.isLead || currentConfig.leadOfficer?.id === officer.id;
                       return (
-                        <tr key={officer.id} className="hover:bg-slate-50/60 transition">
-                          <td className="py-3 px-4">
+                        <tr key={officer.id} className="transition hover:bg-slate-50/60">
+                          <td className="px-4 py-3">
                             <div className="flex items-center gap-3">
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${
-                                isLead ? 'bg-amber-100 text-amber-800 ring-2 ring-amber-300' : 'bg-slate-100 text-slate-600'
-                              }`}>
+                              <div
+                                className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${
+                                  isLead
+                                    ? 'bg-amber-100 text-amber-800 ring-2 ring-amber-300'
+                                    : 'bg-slate-100 text-slate-600'
+                                }`}
+                              >
                                 {officer.name.charAt(0)}
                               </div>
                               <div>
-                                <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                                <div className="flex items-center gap-1.5 font-bold text-slate-900">
                                   <span>{officer.name}</span>
                                   {isLead && (
-                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 bg-amber-100 text-amber-800 text-[10px] font-bold rounded border border-amber-200">
-                                      <Crown className="w-3 h-3 text-amber-600" />
+                                    <span className="py-0.2 inline-flex items-center gap-0.5 rounded border border-amber-200 bg-amber-100 px-1.5 text-[10px] font-bold text-amber-800">
+                                      <Crown className="h-3 w-3 text-amber-600" />
                                       <span>LEAD</span>
                                     </span>
                                   )}
                                 </div>
-                                <div className="text-[11px] text-slate-500 font-mono">
+                                <div className="font-mono text-[11px] text-slate-500">
                                   {officer.email}
                                 </div>
                               </div>
                             </div>
                           </td>
 
-                          <td className="py-3 px-4 hidden sm:table-cell">
-                            <div className="text-slate-700 font-medium">
-                              {officer.roleTitle}
-                            </div>
+                          <td className="hidden px-4 py-3 sm:table-cell">
+                            <div className="font-medium text-slate-700">{officer.roleTitle}</div>
                           </td>
 
-                          <td className="py-3 px-4 hidden md:table-cell">
-                            <div className="text-slate-600 text-[11px] flex items-center gap-1 font-mono">
-                              <Phone className="w-3 h-3 text-slate-400" />
+                          <td className="hidden px-4 py-3 md:table-cell">
+                            <div className="flex items-center gap-1 font-mono text-[11px] text-slate-600">
+                              <Phone className="h-3 w-3 text-slate-400" />
                               <span>{officer.phone || '-'}</span>
                             </div>
                           </td>
 
-                          <td className="py-3 px-4 text-center">
+                          <td className="px-4 py-3 text-center">
                             {isLead ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-200">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />
+                              <span className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-700">
+                                <CheckCircle2 className="h-3.5 w-3.5 text-indigo-600" />
                                 <span>ผู้รับผิดชอบหลัก</span>
                               </span>
                             ) : (
@@ -792,23 +854,23 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
                                 type="button"
                                 id={`btn-set-lead-${officer.id}`}
                                 onClick={() => handleSetLeadOfficer(officer)}
-                                className="px-2.5 py-1 rounded-full text-[11px] font-medium text-slate-600 hover:text-indigo-700 hover:bg-indigo-50 border border-slate-200 transition"
+                                className="rounded-full border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-indigo-50 hover:text-indigo-700"
                               >
                                 ตั้งเป็น Lead
                               </button>
                             )}
                           </td>
 
-                          <td className="py-3 px-4 text-right">
+                          <td className="px-4 py-3 text-right">
                             {!isLead && (
                               <button
                                 type="button"
                                 id={`btn-remove-officer-${officer.id}`}
                                 onClick={() => handleRemoveOfficer(officer.id)}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                                className="rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
                                 title="ลบออกจากรายชื่อ Gatekeeper"
                               >
-                                <Trash2 className="w-4 h-4" />
+                                <Trash2 className="h-4 w-4" />
                               </button>
                             )}
                           </td>
@@ -819,7 +881,6 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
                 </table>
               </div>
             </div>
-
           </div>
         </div>
       )}
@@ -828,19 +889,18 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
       {/* SUBTAB 2: EXECUTIVE MEMBERS MANAGEMENT                                    */}
       {/* ========================================================================= */}
       {activeSubTab === 'executives' && (
-        <div className="space-y-6 animate-in fade-in duration-200">
-          
+        <div className="animate-in fade-in space-y-6 duration-200">
           {/* Top Actions & Filters */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2 flex-1 max-w-md relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
+          <div className="flex flex-col justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-xs sm:flex-row sm:items-center">
+            <div className="relative flex max-w-md flex-1 items-center gap-2">
+              <Search className="pointer-events-none absolute left-3 h-4 w-4 text-slate-400" />
               <input
                 type="text"
                 id="search-executives"
                 placeholder="ค้นหารายชื่อ, ตำแหน่ง, ฝ่าย หรืออีเมลผู้บริหาร..."
                 value={execSearch}
                 onChange={(e) => setExecSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:bg-white text-slate-800"
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pr-3 pl-9 text-xs text-slate-800 focus:bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
               />
             </div>
 
@@ -849,10 +909,10 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
                 type="button"
                 id="btn-reset-execs"
                 onClick={handleResetExecsToDefault}
-                className="px-3 py-1.5 bg-white text-slate-600 hover:text-rose-600 rounded-lg text-xs font-medium border border-slate-200 transition flex items-center gap-1"
+                className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:text-rose-600"
                 title="รีเซ็ตเป็นค่าเริ่มต้น"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
+                <RotateCcw className="h-3.5 w-3.5" />
                 <span>รีเซ็ตรายชื่อเริ่มต้น</span>
               </button>
 
@@ -874,9 +934,9 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
                     setIsAddingExec(true);
                   }
                 }}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold transition shadow-xs"
+                className="flex items-center gap-1.5 rounded-lg bg-purple-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs transition hover:bg-purple-700"
               >
-                <UserPlus className="w-3.5 h-3.5" />
+                <UserPlus className="h-3.5 w-3.5" />
                 <span>{isAddingExec ? 'ปิดฟอร์ม' : 'เพิ่มรายชื่อผู้บริหาร'}</span>
               </button>
             </div>
@@ -884,157 +944,187 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
 
           {/* Add / Edit Executive Form Modal / Inline Box */}
           {isAddingExec && (
-            <div className="bg-purple-50/60 border border-purple-200 rounded-2xl p-5 shadow-xs animate-in fade-in slide-in-from-top-2">
-              <div className="flex items-center justify-between mb-3 pb-2 border-b border-purple-100">
+            <div className="animate-in fade-in slide-in-from-top-2 rounded-2xl border border-purple-200 bg-purple-50/60 p-5 shadow-xs">
+              <div className="mb-3 flex items-center justify-between border-b border-purple-100 pb-2">
                 <div className="flex items-center gap-2">
-                  <Crown className="w-4 h-4 text-purple-700" />
-                  <h3 className="font-bold text-sm text-purple-950">
-                    {editingExecId ? 'แก้ไขข้อมูลผู้บริหารระดับสูง' : 'ลงทะเบียนผู้บริหารระดับสูงท่านใหม่'}
+                  <Crown className="h-4 w-4 text-purple-700" />
+                  <h3 className="text-sm font-bold text-purple-950">
+                    {editingExecId
+                      ? 'แก้ไขข้อมูลผู้บริหารระดับสูง'
+                      : 'ลงทะเบียนผู้บริหารระดับสูงท่านใหม่'}
                   </h3>
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsAddingExec(false)}
-                  className="text-slate-400 hover:text-slate-600 p-1"
+                  className="p-1 text-slate-400 hover:text-slate-600"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="h-4 w-4" />
                 </button>
               </div>
 
               <form onSubmit={handleSaveExecutive} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">ชื่อ - นามสกุล *</label>
+                    <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                      ชื่อ - นามสกุล *
+                    </label>
                     <input
                       type="text"
                       id="exec-name"
                       placeholder="เช่น คุณประเสริฐ อัครเดชานนท์"
                       value={execName}
                       onChange={(e) => setExecName(e.target.value)}
-                      className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">ตำแหน่งทางการบริหาร *</label>
+                    <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                      ตำแหน่งทางการบริหาร *
+                    </label>
                     <input
                       type="text"
                       id="exec-position"
                       placeholder="เช่น ประธานเจ้าหน้าที่บริหาร (CEO)"
                       value={execPosition}
                       onChange={(e) => setExecPosition(e.target.value)}
-                      className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">สายงาน / สังกัด</label>
+                    <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                      สายงาน / สังกัด
+                    </label>
                     <input
                       type="text"
                       id="exec-department"
                       placeholder="เช่น Office of the CEO"
                       value={execDepartment}
                       onChange={(e) => setExecDepartment(e.target.value)}
-                      className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">อีเมลผู้บริหาร *</label>
+                    <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                      อีเมลผู้บริหาร *
+                    </label>
                     <input
                       type="email"
                       id="exec-email"
                       placeholder="เช่น prasert.ceo@enterprise.co.th"
                       value={execEmail}
                       onChange={(e) => setExecEmail(e.target.value)}
-                      className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">เบอร์ติดต่อด่วน</label>
+                    <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                      เบอร์ติดต่อด่วน
+                    </label>
                     <input
                       type="text"
                       id="exec-phone"
                       placeholder="เช่น 02-998-1001"
                       value={execPhone}
                       onChange={(e) => setExecPhone(e.target.value)}
-                      className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">ประเภทบทบาท (Role Classification)</label>
+                    <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                      ประเภทบทบาท (Role Classification)
+                    </label>
                     <select
                       id="exec-role-type"
                       value={execRoleType}
-                      onChange={(e) => setExecRoleType(e.target.value as any)}
-                      className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      onChange={(e) =>
+                        setExecRoleType(e.target.value as ExecutiveMember['roleType'])
+                      }
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
                     >
                       <option value="CEO">CEO (ประธานเจ้าหน้าที่บริหาร)</option>
                       <option value="EVP">EVP (รองกรรมการผู้จัดการใหญ่อาวุโส)</option>
                       <option value="GRC_Chair">ประธานกำกับดูแลบรรษัทภิบาล (GRC Chair)</option>
-                      <option value="Audit_Committee">ประธาน/กรรมการตรวจสอบ (Audit Committee)</option>
+                      <option value="Audit_Committee">
+                        ประธาน/กรรมการตรวจสอบ (Audit Committee)
+                      </option>
                       <option value="Board_Member">กรรมการบริษัท (Board Member)</option>
                     </select>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">คณะกรรมการที่สังกัด (คั่นด้วยจุลภาค ,)</label>
+                  <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                    คณะกรรมการที่สังกัด (คั่นด้วยจุลภาค ,)
+                  </label>
                   <input
                     type="text"
                     id="exec-committees"
                     placeholder="เช่น คณะกรรมการบริหารระดับสูง (ExCom), คณะกรรมการจริยธรรมองค์กร"
                     value={execCommittees}
                     onChange={(e) => setExecCommittees(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
                   />
                 </div>
 
                 {/* Privileges Switches */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-white rounded-xl border border-purple-100">
-                  <label className="flex items-center gap-2 cursor-pointer">
+                <div className="grid grid-cols-1 gap-3 rounded-xl border border-purple-100 bg-white p-3 sm:grid-cols-3">
+                  <label className="flex cursor-pointer items-center gap-2">
                     <input
                       type="checkbox"
                       id="exec-check-whistleblower"
                       checked={execIsWhistleblower}
                       onChange={(e) => setExecIsWhistleblower(e.target.checked)}
-                      className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+                      className="h-4 w-4 rounded text-purple-600 focus:ring-purple-500"
                     />
                     <div>
-                      <span className="text-xs font-semibold text-slate-900 block">รับเคสสายตรง Whistleblower</span>
-                      <span className="text-[10px] text-slate-500">เปิดสิทธิ์รับเคส Direct CEO/EVP</span>
+                      <span className="block text-xs font-semibold text-slate-900">
+                        รับเคสสายตรง Whistleblower
+                      </span>
+                      <span className="text-[10px] text-slate-500">
+                        เปิดสิทธิ์รับเคส Direct CEO/EVP
+                      </span>
                     </div>
                   </label>
 
-                  <label className="flex items-center gap-2 cursor-pointer">
+                  <label className="flex cursor-pointer items-center gap-2">
                     <input
                       type="checkbox"
                       id="exec-check-confidential"
                       checked={execCanViewConfidential}
                       onChange={(e) => setExecCanViewConfidential(e.target.checked)}
-                      className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+                      className="h-4 w-4 rounded text-purple-600 focus:ring-purple-500"
                     />
                     <div>
-                      <span className="text-xs font-semibold text-slate-900 block">สิทธิ์ดูชื่อเคสลับเฉพาะ</span>
-                      <span className="text-[10px] text-slate-500">ปลดล็อคข้อมูลตัวตนกรณีมีเหตุจำเป็น</span>
+                      <span className="block text-xs font-semibold text-slate-900">
+                        สิทธิ์ดูชื่อเคสลับเฉพาะ
+                      </span>
+                      <span className="text-[10px] text-slate-500">
+                        ปลดล็อคข้อมูลตัวตนกรณีมีเหตุจำเป็น
+                      </span>
                     </div>
                   </label>
 
-                  <label className="flex items-center gap-2 cursor-pointer">
+                  <label className="flex cursor-pointer items-center gap-2">
                     <input
                       type="checkbox"
                       id="exec-check-alerts"
                       checked={execReceiveAlerts}
                       onChange={(e) => setExecReceiveAlerts(e.target.checked)}
-                      className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+                      className="h-4 w-4 rounded text-purple-600 focus:ring-purple-500"
                     />
                     <div>
-                      <span className="text-xs font-semibold text-slate-900 block">รับแจ้งเตือนความเสี่ยงสูง</span>
+                      <span className="block text-xs font-semibold text-slate-900">
+                        รับแจ้งเตือนความเสี่ยงสูง
+                      </span>
                       <span className="text-[10px] text-slate-500">ส่ง Alert ทางอีเมลทันที</span>
                     </div>
                   </label>
@@ -1044,16 +1134,16 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
                   <button
                     type="button"
                     onClick={() => setIsAddingExec(false)}
-                    className="px-3.5 py-1.5 bg-white text-slate-600 hover:bg-slate-100 rounded-lg text-xs font-medium border border-slate-200"
+                    className="rounded-lg border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100"
                   >
                     ยกเลิก
                   </button>
                   <button
                     type="submit"
                     id="btn-save-exec"
-                    className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5"
+                    className="flex items-center gap-1.5 rounded-lg bg-purple-600 px-4 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-purple-700"
                   >
-                    <Check className="w-3.5 h-3.5" />
+                    <Check className="h-3.5 w-3.5" />
                     <span>{editingExecId ? 'บันทึกการแก้ไข' : 'บันทึกผู้บริหาร'}</span>
                   </button>
                 </div>
@@ -1062,37 +1152,47 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
           )}
 
           {/* Executive Roster Grid / Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {filteredExecutives.map((exec) => {
               const isActive = exec.status === 'active';
               return (
                 <div
                   key={exec.id}
-                  className={`bg-white rounded-2xl border transition shadow-xs p-5 flex flex-col justify-between ${
-                    isActive ? 'border-slate-200 hover:border-purple-300' : 'border-slate-200 bg-slate-50/70 opacity-75'
+                  className={`flex flex-col justify-between rounded-2xl border bg-white p-5 shadow-xs transition ${
+                    isActive
+                      ? 'border-slate-200 hover:border-purple-300'
+                      : 'border-slate-200 bg-slate-50/70 opacity-75'
                   }`}
                 >
                   <div>
                     {/* Header */}
-                    <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-100">
+                    <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
                       <div className="flex items-center gap-3">
-                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-bold text-sm shadow-xs ${
-                          exec.roleType === 'CEO' 
-                            ? 'bg-gradient-to-br from-purple-700 to-indigo-800 text-white shadow-purple-200' 
-                            : 'bg-purple-100 text-purple-800'
-                        }`}>
-                          <Crown className="w-5 h-5" />
+                        <div
+                          className={`flex h-11 w-11 items-center justify-center rounded-xl text-sm font-bold shadow-xs ${
+                            exec.roleType === 'CEO'
+                              ? 'bg-gradient-to-br from-purple-700 to-indigo-800 text-white shadow-purple-200'
+                              : 'bg-purple-100 text-purple-800'
+                          }`}
+                        >
+                          <Crown className="h-5 w-5" />
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <h4 className="font-bold text-sm text-slate-900">{exec.name}</h4>
-                            <span className={`px-2 py-0.2 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                              isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'
-                            }`}>
+                            <h4 className="text-sm font-bold text-slate-900">{exec.name}</h4>
+                            <span
+                              className={`py-0.2 rounded-full px-2 text-[10px] font-bold tracking-wider uppercase ${
+                                isActive
+                                  ? 'border border-emerald-200 bg-emerald-50 text-emerald-700'
+                                  : 'bg-slate-100 text-slate-500'
+                              }`}
+                            >
                               {isActive ? 'Active' : 'Inactive'}
                             </span>
                           </div>
-                          <div className="text-xs font-semibold text-purple-900 mt-0.5">{exec.position}</div>
+                          <div className="mt-0.5 text-xs font-semibold text-purple-900">
+                            {exec.position}
+                          </div>
                           <div className="text-[11px] text-slate-500">{exec.department}</div>
                         </div>
                       </div>
@@ -1101,49 +1201,54 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
                         <button
                           type="button"
                           onClick={() => handleEditExecClick(exec)}
-                          className="p-1.5 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition"
+                          className="rounded-lg p-1.5 text-slate-400 transition hover:bg-purple-50 hover:text-purple-600"
                           title="แก้ไขข้อมูล"
                         >
-                          <Edit2 className="w-3.5 h-3.5" />
+                          <Edit2 className="h-3.5 w-3.5" />
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDeleteExec(exec.id, exec.name)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                          className="rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
                           title="ลบรายชื่อ"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </div>
 
                     {/* Details & Contacts */}
-                    <div className="py-3 space-y-2 text-xs">
+                    <div className="space-y-2 py-3 text-xs">
                       <div className="flex items-center justify-between text-slate-600">
-                        <span className="flex items-center gap-1.5 text-[11px] text-slate-400 font-medium">
-                          <Mail className="w-3.5 h-3.5" />
+                        <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
+                          <Mail className="h-3.5 w-3.5" />
                           <span>อีเมลติดต่อ:</span>
                         </span>
                         <span className="font-mono text-[11px] text-slate-800">{exec.email}</span>
                       </div>
 
                       <div className="flex items-center justify-between text-slate-600">
-                        <span className="flex items-center gap-1.5 text-[11px] text-slate-400 font-medium">
-                          <Phone className="w-3.5 h-3.5" />
+                        <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
+                          <Phone className="h-3.5 w-3.5" />
                           <span>เบอร์โทรศัพท์:</span>
                         </span>
-                        <span className="font-mono text-[11px] text-slate-800">{exec.phone || '-'}</span>
+                        <span className="font-mono text-[11px] text-slate-800">
+                          {exec.phone || '-'}
+                        </span>
                       </div>
 
                       {/* Committees badges */}
                       {exec.assignedCommittees && exec.assignedCommittees.length > 0 && (
                         <div className="pt-2">
-                          <span className="text-[10px] text-slate-400 uppercase tracking-wider block mb-1 font-semibold">
+                          <span className="mb-1 block text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
                             คณะกรรมการกำกับดูแล:
                           </span>
                           <div className="flex flex-wrap gap-1">
                             {exec.assignedCommittees.map((comm, idx) => (
-                              <span key={idx} className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[10px] rounded-md font-medium">
+                              <span
+                                key={idx}
+                                className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700"
+                              >
                                 {comm}
                               </span>
                             ))}
@@ -1154,17 +1259,17 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
                   </div>
 
                   {/* Privileges Badges & Status Switch */}
-                  <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
                     <div className="flex flex-wrap gap-1.5">
                       {exec.isPrimaryWhistleblowerReceiver && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 rounded text-[10px] font-bold">
-                          <Shield className="w-3 h-3 text-purple-600" />
+                        <span className="inline-flex items-center gap-1 rounded border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-700">
+                          <Shield className="h-3 w-3 text-purple-600" />
                           <span>สายตรง Whistleblower</span>
                         </span>
                       )}
                       {exec.canViewConfidentialIdentities && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-[10px] font-bold">
-                          <Eye className="w-3 h-3 text-amber-600" />
+                        <span className="inline-flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                          <Eye className="h-3 w-3 text-amber-600" />
                           <span>ปลดล็อคตัวตน</span>
                         </span>
                       )}
@@ -1173,10 +1278,10 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
                     <button
                       type="button"
                       onClick={() => handleToggleExecStatus(exec)}
-                      className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition ${
-                        isActive 
-                          ? 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                          : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                      className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition ${
+                        isActive
+                          ? 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                          : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
                       }`}
                     >
                       {isActive ? 'พักสถานะ' : 'เปิดใช้งาน'}
@@ -1186,7 +1291,6 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
               );
             })}
           </div>
-
         </div>
       )}
 
@@ -1194,19 +1298,18 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
       {/* SUBTAB 3: HR ADMIN & GRC MANAGEMENT                                       */}
       {/* ========================================================================= */}
       {activeSubTab === 'hr_admins' && (
-        <div className="space-y-6 animate-in fade-in duration-200">
-          
+        <div className="animate-in fade-in space-y-6 duration-200">
           {/* Top Actions & Filters */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2 flex-1 max-w-md relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
+          <div className="flex flex-col justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-xs sm:flex-row sm:items-center">
+            <div className="relative flex max-w-md flex-1 items-center gap-2">
+              <Search className="pointer-events-none absolute left-3 h-4 w-4 text-slate-400" />
               <input
                 type="text"
                 id="search-admins"
                 placeholder="ค้นหารายชื่อ, ตำแหน่ง, ฝ่าย หรืออีเมล HR Admin..."
                 value={adminSearch}
                 onChange={(e) => setAdminSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:bg-white text-slate-800"
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pr-3 pl-9 text-xs text-slate-800 focus:bg-white focus:ring-2 focus:ring-rose-500 focus:outline-none"
               />
             </div>
 
@@ -1215,10 +1318,10 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
                 type="button"
                 id="btn-reset-admins"
                 onClick={handleResetAdminsToDefault}
-                className="px-3 py-1.5 bg-white text-slate-600 hover:text-rose-600 rounded-lg text-xs font-medium border border-slate-200 transition flex items-center gap-1"
+                className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:text-rose-600"
                 title="รีเซ็ตเป็นค่าเริ่มต้น"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
+                <RotateCcw className="h-3.5 w-3.5" />
                 <span>รีเซ็ตรายชื่อเริ่มต้น</span>
               </button>
 
@@ -1239,9 +1342,9 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
                     setIsAddingAdmin(true);
                   }
                 }}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold transition shadow-xs"
+                className="flex items-center gap-1.5 rounded-lg bg-rose-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs transition hover:bg-rose-700"
               >
-                <UserPlus className="w-3.5 h-3.5" />
+                <UserPlus className="h-3.5 w-3.5" />
                 <span>{isAddingAdmin ? 'ปิดฟอร์ม' : 'เพิ่มเจ้าหน้าที่ HR Admin'}</span>
               </button>
             </div>
@@ -1249,95 +1352,111 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
 
           {/* Add / Edit HR Admin Form */}
           {isAddingAdmin && (
-            <div className="bg-rose-50/60 border border-rose-200 rounded-2xl p-5 shadow-xs animate-in fade-in slide-in-from-top-2">
-              <div className="flex items-center justify-between mb-3 pb-2 border-b border-rose-100">
+            <div className="animate-in fade-in slide-in-from-top-2 rounded-2xl border border-rose-200 bg-rose-50/60 p-5 shadow-xs">
+              <div className="mb-3 flex items-center justify-between border-b border-rose-100 pb-2">
                 <div className="flex items-center gap-2">
-                  <SlidersHorizontal className="w-4 h-4 text-rose-700" />
-                  <h3 className="font-bold text-sm text-rose-950">
-                    {editingAdminId ? 'แก้ไขข้อมูลเจ้าหน้าที่ HR Admin' : 'ลงทะเบียนเจ้าหน้าที่ HR Admin ท่านใหม่'}
+                  <SlidersHorizontal className="h-4 w-4 text-rose-700" />
+                  <h3 className="text-sm font-bold text-rose-950">
+                    {editingAdminId
+                      ? 'แก้ไขข้อมูลเจ้าหน้าที่ HR Admin'
+                      : 'ลงทะเบียนเจ้าหน้าที่ HR Admin ท่านใหม่'}
                   </h3>
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsAddingAdmin(false)}
-                  className="text-slate-400 hover:text-slate-600 p-1"
+                  className="p-1 text-slate-400 hover:text-slate-600"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="h-4 w-4" />
                 </button>
               </div>
 
               <form onSubmit={handleSaveHrAdmin} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">ชื่อ - นามสกุล *</label>
+                    <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                      ชื่อ - นามสกุล *
+                    </label>
                     <input
                       type="text"
                       id="admin-name"
                       placeholder="เช่น คุณชิดชนก วงศ์ประเสริฐ"
                       value={adminName}
                       onChange={(e) => setAdminName(e.target.value)}
-                      className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs focus:ring-2 focus:ring-rose-500 focus:outline-none"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">ตำแหน่งงาน *</label>
+                    <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                      ตำแหน่งงาน *
+                    </label>
                     <input
                       type="text"
                       id="admin-position"
                       placeholder="เช่น HR Director & Executive Representative"
                       value={adminPosition}
                       onChange={(e) => setAdminPosition(e.target.value)}
-                      className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs focus:ring-2 focus:ring-rose-500 focus:outline-none"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">ฝ่าย / แผนก</label>
+                    <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                      ฝ่าย / แผนก
+                    </label>
                     <input
                       type="text"
                       id="admin-department"
                       placeholder="เช่น People & Organization Strategy Division"
                       value={adminDepartment}
                       onChange={(e) => setAdminDepartment(e.target.value)}
-                      className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs focus:ring-2 focus:ring-rose-500 focus:outline-none"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">อีเมลทางการ *</label>
+                    <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                      อีเมลทางการ *
+                    </label>
                     <input
                       type="email"
                       id="admin-email"
                       placeholder="เช่น chidchanok.w@enterprise.co.th"
                       value={adminEmail}
                       onChange={(e) => setAdminEmail(e.target.value)}
-                      className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs focus:ring-2 focus:ring-rose-500 focus:outline-none"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">เบอร์ติดต่อภายใน</label>
+                    <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                      เบอร์ติดต่อภายใน
+                    </label>
                     <input
                       type="text"
                       id="admin-phone"
                       placeholder="เช่น 02-998-2001"
                       value={adminPhone}
                       onChange={(e) => setAdminPhone(e.target.value)}
-                      className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs focus:ring-2 focus:ring-rose-500 focus:outline-none"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">ระดับสิทธิ์ดูแลระบบ (Role Level)</label>
+                    <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                      ระดับสิทธิ์ดูแลระบบ (Role Level)
+                    </label>
                     <select
                       id="admin-role-level"
                       value={adminRoleLevel}
-                      onChange={(e) => setAdminRoleLevel(e.target.value as any)}
-                      className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500"
+                      onChange={(e) =>
+                        setAdminRoleLevel(e.target.value as HrAdminMember['roleLevel'])
+                      }
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs focus:ring-2 focus:ring-rose-500 focus:outline-none"
                     >
                       <option value="super_admin">Super Admin (สิทธิ์สูงสุดทุกส่วน)</option>
                       <option value="hr_manager">HR Manager (จัดการ Gatekeeper & เคส)</option>
@@ -1347,46 +1466,56 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
                 </div>
 
                 {/* Privileges Switches */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-white rounded-xl border border-rose-100">
-                  <label className="flex items-center gap-2 cursor-pointer">
+                <div className="grid grid-cols-1 gap-3 rounded-xl border border-rose-100 bg-white p-3 sm:grid-cols-3">
+                  <label className="flex cursor-pointer items-center gap-2">
                     <input
                       type="checkbox"
                       id="admin-check-rbac"
                       checked={adminCanManageRbac}
                       onChange={(e) => setAdminCanManageRbac(e.target.checked)}
-                      className="w-4 h-4 text-rose-600 rounded focus:ring-rose-500"
+                      className="h-4 w-4 rounded text-rose-600 focus:ring-rose-500"
                     />
                     <div>
-                      <span className="text-xs font-semibold text-slate-900 block">สิทธิ์ปรับแก้ RBAC Matrix</span>
-                      <span className="text-[10px] text-slate-500">กำหนดแท็บและสิทธิ์ของแต่ละบทบาท</span>
+                      <span className="block text-xs font-semibold text-slate-900">
+                        สิทธิ์ปรับแก้ RBAC Matrix
+                      </span>
+                      <span className="text-[10px] text-slate-500">
+                        กำหนดแท็บและสิทธิ์ของแต่ละบทบาท
+                      </span>
                     </div>
                   </label>
 
-                  <label className="flex items-center gap-2 cursor-pointer">
+                  <label className="flex cursor-pointer items-center gap-2">
                     <input
                       type="checkbox"
                       id="admin-check-gatekeeper"
                       checked={adminCanManageGatekeepers}
                       onChange={(e) => setAdminCanManageGatekeepers(e.target.checked)}
-                      className="w-4 h-4 text-rose-600 rounded focus:ring-rose-500"
+                      className="h-4 w-4 rounded text-rose-600 focus:ring-rose-500"
                     />
                     <div>
-                      <span className="text-xs font-semibold text-slate-900 block">สิทธิ์แต่งตั้ง Gatekeeper</span>
+                      <span className="block text-xs font-semibold text-slate-900">
+                        สิทธิ์แต่งตั้ง Gatekeeper
+                      </span>
                       <span className="text-[10px] text-slate-500">กำหนด Lead ประจำ 9 ฝ่าย</span>
                     </div>
                   </label>
 
-                  <label className="flex items-center gap-2 cursor-pointer">
+                  <label className="flex cursor-pointer items-center gap-2">
                     <input
                       type="checkbox"
                       id="admin-check-execs"
                       checked={adminCanManageExecutives}
                       onChange={(e) => setAdminCanManageExecutives(e.target.checked)}
-                      className="w-4 h-4 text-rose-600 rounded focus:ring-rose-500"
+                      className="h-4 w-4 rounded text-rose-600 focus:ring-rose-500"
                     />
                     <div>
-                      <span className="text-xs font-semibold text-slate-900 block">สิทธิ์จัดการรายชื่อผู้บริหาร</span>
-                      <span className="text-[10px] text-slate-500">Maintain Executive Directory</span>
+                      <span className="block text-xs font-semibold text-slate-900">
+                        สิทธิ์จัดการรายชื่อผู้บริหาร
+                      </span>
+                      <span className="text-[10px] text-slate-500">
+                        Maintain Executive Directory
+                      </span>
                     </div>
                   </label>
                 </div>
@@ -1395,16 +1524,16 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
                   <button
                     type="button"
                     onClick={() => setIsAddingAdmin(false)}
-                    className="px-3.5 py-1.5 bg-white text-slate-600 hover:bg-slate-100 rounded-lg text-xs font-medium border border-slate-200"
+                    className="rounded-lg border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100"
                   >
                     ยกเลิก
                   </button>
                   <button
                     type="submit"
                     id="btn-save-admin"
-                    className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5"
+                    className="flex items-center gap-1.5 rounded-lg bg-rose-600 px-4 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-rose-700"
                   >
-                    <Check className="w-3.5 h-3.5" />
+                    <Check className="h-3.5 w-3.5" />
                     <span>{editingAdminId ? 'บันทึกการแก้ไข' : 'บันทึกเจ้าหน้าที่ HR Admin'}</span>
                   </button>
                 </div>
@@ -1413,39 +1542,47 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
           )}
 
           {/* Admin Roster Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {filteredAdmins.map((admin) => {
               const isActive = admin.status === 'active';
               return (
                 <div
                   key={admin.id}
-                  className={`bg-white rounded-2xl border transition shadow-xs p-5 flex flex-col justify-between ${
-                    isActive ? 'border-slate-200 hover:border-rose-300' : 'border-slate-200 bg-slate-50/70 opacity-75'
+                  className={`flex flex-col justify-between rounded-2xl border bg-white p-5 shadow-xs transition ${
+                    isActive
+                      ? 'border-slate-200 hover:border-rose-300'
+                      : 'border-slate-200 bg-slate-50/70 opacity-75'
                   }`}
                 >
                   <div>
                     {/* Header */}
-                    <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-100">
+                    <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
                       <div className="flex items-center gap-3">
-                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-bold text-sm shadow-xs ${
-                          admin.roleLevel === 'super_admin'
-                            ? 'bg-rose-100 text-rose-800'
-                            : 'bg-slate-100 text-slate-700'
-                        }`}>
-                          <SlidersHorizontal className="w-5 h-5" />
+                        <div
+                          className={`flex h-11 w-11 items-center justify-center rounded-xl text-sm font-bold shadow-xs ${
+                            admin.roleLevel === 'super_admin'
+                              ? 'bg-rose-100 text-rose-800'
+                              : 'bg-slate-100 text-slate-700'
+                          }`}
+                        >
+                          <SlidersHorizontal className="h-5 w-5" />
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <h4 className="font-bold text-sm text-slate-900">{admin.name}</h4>
-                            <span className={`px-2 py-0.2 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                              admin.roleLevel === 'super_admin'
-                                ? 'bg-rose-100 text-rose-800 border border-rose-200'
-                                : 'bg-slate-100 text-slate-600'
-                            }`}>
+                            <h4 className="text-sm font-bold text-slate-900">{admin.name}</h4>
+                            <span
+                              className={`py-0.2 rounded-full px-2 text-[10px] font-bold tracking-wider uppercase ${
+                                admin.roleLevel === 'super_admin'
+                                  ? 'border border-rose-200 bg-rose-100 text-rose-800'
+                                  : 'bg-slate-100 text-slate-600'
+                              }`}
+                            >
                               {admin.roleLevel.replace('_', ' ')}
                             </span>
                           </div>
-                          <div className="text-xs font-semibold text-rose-900 mt-0.5">{admin.position}</div>
+                          <div className="mt-0.5 text-xs font-semibold text-rose-900">
+                            {admin.position}
+                          </div>
                           <div className="text-[11px] text-slate-500">{admin.department}</div>
                         </div>
                       </div>
@@ -1454,60 +1591,62 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
                         <button
                           type="button"
                           onClick={() => handleEditAdminClick(admin)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                          className="rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
                           title="แก้ไขข้อมูล"
                         >
-                          <Edit2 className="w-3.5 h-3.5" />
+                          <Edit2 className="h-3.5 w-3.5" />
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDeleteAdmin(admin.id, admin.name)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                          className="rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
                           title="ลบรายชื่อ"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </div>
 
                     {/* Contacts */}
-                    <div className="py-3 space-y-2 text-xs">
+                    <div className="space-y-2 py-3 text-xs">
                       <div className="flex items-center justify-between text-slate-600">
-                        <span className="flex items-center gap-1.5 text-[11px] text-slate-400 font-medium">
-                          <Mail className="w-3.5 h-3.5" />
+                        <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
+                          <Mail className="h-3.5 w-3.5" />
                           <span>อีเมลทางการ:</span>
                         </span>
                         <span className="font-mono text-[11px] text-slate-800">{admin.email}</span>
                       </div>
 
                       <div className="flex items-center justify-between text-slate-600">
-                        <span className="flex items-center gap-1.5 text-[11px] text-slate-400 font-medium">
-                          <Phone className="w-3.5 h-3.5" />
+                        <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
+                          <Phone className="h-3.5 w-3.5" />
                           <span>เบอร์โทรศัพท์:</span>
                         </span>
-                        <span className="font-mono text-[11px] text-slate-800">{admin.phone || '-'}</span>
+                        <span className="font-mono text-[11px] text-slate-800">
+                          {admin.phone || '-'}
+                        </span>
                       </div>
                     </div>
                   </div>
 
                   {/* Privileges Badges */}
-                  <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
                     <div className="flex flex-wrap gap-1.5">
                       {admin.canManageRbac && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 rounded text-[10px] font-bold">
-                          <Lock className="w-3 h-3 text-rose-600" />
+                        <span className="inline-flex items-center gap-1 rounded border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700">
+                          <Lock className="h-3 w-3 text-rose-600" />
                           <span>จัดการ RBAC</span>
                         </span>
                       )}
                       {admin.canManageGatekeepers && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded text-[10px] font-bold">
-                          <Shield className="w-3 h-3 text-indigo-600" />
+                        <span className="inline-flex items-center gap-1 rounded border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
+                          <Shield className="h-3 w-3 text-indigo-600" />
                           <span>แต่งตั้ง Gatekeeper</span>
                         </span>
                       )}
                       {admin.canManageExecutives && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 rounded text-[10px] font-bold">
-                          <Crown className="w-3 h-3 text-purple-600" />
+                        <span className="inline-flex items-center gap-1 rounded border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-700">
+                          <Crown className="h-3 w-3 text-purple-600" />
                           <span>จัดการผู้บริหาร</span>
                         </span>
                       )}
@@ -1516,10 +1655,10 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
                     <button
                       type="button"
                       onClick={() => handleToggleAdminStatus(admin)}
-                      className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition ${
-                        isActive 
-                          ? 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                          : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                      className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition ${
+                        isActive
+                          ? 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                          : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
                       }`}
                     >
                       {isActive ? 'พักสถานะ' : 'เปิดใช้งาน'}
@@ -1529,23 +1668,25 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
               );
             })}
           </div>
-
         </div>
       )}
 
       {/* Global Guidance Note */}
-      <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex items-start gap-3 text-xs text-slate-600">
-        <Info className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
+      <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
+        <Info className="mt-0.5 h-5 w-5 shrink-0 text-indigo-600" />
         <div>
-          <span className="font-bold text-slate-800 block mb-0.5">
-            หลักการกำกับดูแลความปลอดภัยและการคุ้มครองข้อมูล (Corporate Governance & Whistleblower Directory):
+          <span className="mb-0.5 block font-bold text-slate-800">
+            หลักการกำกับดูแลความปลอดภัยและการคุ้มครองข้อมูล (Corporate Governance & Whistleblower
+            Directory):
           </span>
-          <p className="text-[11px] text-slate-500 leading-relaxed">
-            ข้อมูลรายชื่อคณะผู้บริหาร, HR Admin และ Gatekeeper ในหน้านี้เชื่อมโยงกับระบบแจ้งเตือนอัตโนมัติ (Automated Notification System) และระบบคัดกรองคำร้องสายตรง (CEO Direct Whistleblower Channel) โดยมีระบบสำรองข้อมูลในเครื่องแบบเรียลไทม์ และสามารถแก้ไขหรือเพิ่มบุคลากรได้ตลอดเวลา
+          <p className="text-[11px] leading-relaxed text-slate-500">
+            ข้อมูลรายชื่อคณะผู้บริหาร, HR Admin และ Gatekeeper
+            ในหน้านี้เชื่อมโยงกับระบบแจ้งเตือนอัตโนมัติ (Automated Notification System)
+            และระบบคัดกรองคำร้องสายตรง (CEO Direct Whistleblower Channel)
+            โดยมีระบบสำรองข้อมูลในเครื่องแบบเรียลไทม์ และสามารถแก้ไขหรือเพิ่มบุคลากรได้ตลอดเวลา
           </p>
         </div>
       </div>
-
     </div>
   );
 };

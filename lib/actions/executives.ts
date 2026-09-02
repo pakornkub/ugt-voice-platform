@@ -16,7 +16,9 @@ export async function getExecutives(): Promise<ExecutiveMember[]> {
   return rows.map(mapExecutive);
 }
 
-export async function addExecutiveMember(newExec: Omit<ExecutiveMember, 'id' | 'updatedAt'>): Promise<ExecutiveMember[]> {
+export async function addExecutiveMember(
+  newExec: Omit<ExecutiveMember, 'id' | 'updatedAt'>
+): Promise<ExecutiveMember[]> {
   await prisma.executiveMember.create({
     data: {
       name: newExec.name,
@@ -35,7 +37,10 @@ export async function addExecutiveMember(newExec: Omit<ExecutiveMember, 'id' | '
   return getExecutives();
 }
 
-export async function updateExecutiveMember(id: string, updates: Partial<ExecutiveMember>): Promise<ExecutiveMember[]> {
+export async function updateExecutiveMember(
+  id: string,
+  updates: Partial<ExecutiveMember>
+): Promise<ExecutiveMember[]> {
   const { id: _ignoredId, updatedAt: _ignoredUpdatedAt, assignedCommittees, ...rest } = updates;
   await prisma.executiveMember.update({
     where: { id },
@@ -48,6 +53,9 @@ export async function updateExecutiveMember(id: string, updates: Partial<Executi
 }
 
 export async function deleteExecutiveMember(id: string): Promise<ExecutiveMember[]> {
-  await prisma.executiveMember.update({ where: { id }, data: { isDeleted: true, isActive: false } });
+  await prisma.executiveMember.update({
+    where: { id },
+    data: { isDeleted: true, isActive: false },
+  });
   return getExecutives();
 }

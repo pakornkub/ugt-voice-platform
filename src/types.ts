@@ -12,11 +12,7 @@ export type GrievanceCategory =
 export type SubmissionType = 'complaint' | 'suggestion';
 
 export type TicketStatus =
-  | 'submitted'
-  | 'gatekeeper_triaged'
-  | 'in_progress'
-  | 'resolved'
-  | 'closed';
+  'submitted' | 'gatekeeper_triaged' | 'in_progress' | 'resolved' | 'closed';
 
 export type UrgencyLevel = 'Low' | 'Medium' | 'High' | 'Critical';
 
@@ -104,10 +100,10 @@ export interface ComplaintTicket {
   title: string;
   description: string;
   locationOrUnit?: string;
-  
+
   // High-priority executive channel
   isDirectToExecutive: boolean;
-  
+
   // Privacy & Confidentiality
   confidentiality: ConfidentialityLevel;
   submitterName?: string;
@@ -129,10 +125,11 @@ export interface ComplaintTicket {
   urgency: UrgencyLevel;
   riskSeverity: 'Low' | 'Moderate' | 'High' | 'Severe';
   sentiment?: string;
-  
+
   // Root cause analysis & clustering
   clusterGroup?: string;
-  rootCauseCategory?: 'Process' | 'People' | 'Equipment/Tools' | 'Policy/Governance' | 'Environment';
+  rootCauseCategory?:
+    'Process' | 'People' | 'Equipment/Tools' | 'Policy/Governance' | 'Environment';
   rootCauseSummary?: string;
   preventiveActionPlan?: string;
 
@@ -163,7 +160,8 @@ export interface NotificationItem {
   message: string;
   timestamp: string;
   read: boolean;
-  type: 'status_update' | 'new_ticket' | 'direct_ceo_alert' | 'satisfaction_pending' | 'sla_warning';
+  type:
+    'status_update' | 'new_ticket' | 'direct_ceo_alert' | 'satisfaction_pending' | 'sla_warning';
   recipientRole?: UserRole;
   recipientEmail?: string;
 }
@@ -243,4 +241,35 @@ export interface ExecutiveMetrics {
   avgCsatScore: number; // 1-5 (e.g. 4.6)
   complaintCount: number;
   suggestionCount: number;
+}
+
+// Shape returned by POST /api/ai/analyze-complaint (both the Gemini-backed
+// branch and the no-API-key static-heuristics fallback — see route.ts).
+export interface AiTriageSuggestion {
+  suggestedCategory: GrievanceCategory | string;
+  urgencyScore: UrgencyLevel | string;
+  sentiment: string;
+  riskLevel: string;
+  suggestedDepartment: string;
+  keyKeywords: string[];
+  summary: string;
+  recommendedActions: string[];
+  isDirectExecutiveWorthy?: boolean;
+}
+
+// Shape returned by POST /api/ai/cluster-insights (both the Gemini-backed
+// branch and the no-API-key static fallback — see route.ts).
+export interface AiRiskCluster {
+  clusterName: string;
+  category: GrievanceCategory | string;
+  count: number;
+  rootCause: string;
+  preventiveAction: string;
+  severity: string;
+}
+
+export interface AiClusterInsights {
+  topRiskClusters: AiRiskCluster[];
+  executiveSummary: string;
+  strategicRecommendations: string[];
 }

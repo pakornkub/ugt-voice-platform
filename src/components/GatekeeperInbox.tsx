@@ -1,35 +1,35 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { 
-  Shield, 
-  Search, 
-  Filter, 
-  Crown, 
-  CheckCircle2, 
-  Clock, 
-  UserCheck, 
-  ArrowUpRight, 
-  AlertCircle, 
-  Layers, 
-  FileText, 
-  Paperclip, 
-  Edit3, 
+import {
+  Shield,
+  Search,
+  Filter,
+  Crown,
+  CheckCircle2,
+  Clock,
+  UserCheck,
+  ArrowUpRight,
+  AlertCircle,
+  Layers,
+  FileText,
+  Paperclip,
+  Edit3,
   ChevronRight,
   Sparkles,
   Send,
-  AlertTriangle
+  AlertTriangle,
 } from 'lucide-react';
 import { ComplaintTicket, GrievanceCategory, TicketStatus, UserRole } from '../types';
 import { CATEGORY_DEFINITIONS } from '../mockData';
-import { 
-  getStatusBadgeText, 
-  getStatusColor, 
-  updateTicketWorkflow, 
+import {
+  getStatusBadgeText,
+  getStatusColor,
+  updateTicketWorkflow,
   getStoredGatekeeperConfigs,
   getStoredRolePermissions,
   getActiveGatekeeperDepartment,
-  setActiveGatekeeperDepartment
+  setActiveGatekeeperDepartment,
 } from '../services/api';
 
 interface GatekeeperInboxProps {
@@ -48,12 +48,15 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
   const rolePermissions = getStoredRolePermissions();
   const gkConfig = rolePermissions.gatekeeper;
   const isStrictGatekeeper = currentRole === 'gatekeeper';
-  const assignedDepts = gkConfig?.assignedDepartments && gkConfig.assignedDepartments.length > 0
-    ? gkConfig.assignedDepartments
-    : (['IT'] as GrievanceCategory[]);
+  const assignedDepts =
+    gkConfig?.assignedDepartments && gkConfig.assignedDepartments.length > 0
+      ? gkConfig.assignedDepartments
+      : (['IT'] as GrievanceCategory[]);
 
   const defaultDept = isStrictGatekeeper
-    ? (assignedDepts.length === 1 ? assignedDepts[0] : 'ALL')
+    ? assignedDepts.length === 1
+      ? assignedDepts[0]
+      : 'ALL'
     : 'ALL';
 
   const [selectedDeptFilter, setSelectedDeptFilter] = useState<string>(defaultDept);
@@ -63,7 +66,10 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
 
   useEffect(() => {
     if (isStrictGatekeeper && assignedDepts.length > 0) {
-      if (selectedDeptFilter !== 'ALL' && !assignedDepts.includes(selectedDeptFilter as GrievanceCategory)) {
+      if (
+        selectedDeptFilter !== 'ALL' &&
+        !assignedDepts.includes(selectedDeptFilter as GrievanceCategory)
+      ) {
         setSelectedDeptFilter(assignedDepts.length === 1 ? assignedDepts[0] : 'ALL');
       }
     }
@@ -89,7 +95,9 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
   });
 
   // Dynamic counts according to current department scope
-  const receivedCount = deptScopedTickets.filter((t) => t.status === 'submitted' || t.status === 'gatekeeper_triaged').length;
+  const receivedCount = deptScopedTickets.filter(
+    (t) => t.status === 'submitted' || t.status === 'gatekeeper_triaged'
+  ).length;
   const inProgressOnlyCount = deptScopedTickets.filter((t) => t.status === 'in_progress').length;
   const resolvedOnlyCount = deptScopedTickets.filter((t) => t.status === 'resolved').length;
   const closedOnlyCount = deptScopedTickets.filter((t) => t.status === 'closed').length;
@@ -102,7 +110,8 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
   const [targetStatus, setTargetStatus] = useState<TicketStatus>('in_progress');
   const [actionNote, setActionNote] = useState('');
   const [resolutionSummary, setResolutionSummary] = useState('');
-  const [rootCauseCategory, setRootCauseCategory] = useState<ComplaintTicket['rootCauseCategory']>('Process');
+  const [rootCauseCategory, setRootCauseCategory] =
+    useState<ComplaintTicket['rootCauseCategory']>('Process');
   const [preventivePlan, setPreventivePlan] = useState('');
 
   // Filtered tickets from deptScopedTickets
@@ -146,8 +155,16 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
     const defaultOfficer = deptConfig?.leadOfficer || deptConfig?.officers?.[0];
 
     setOfficerName(ticket.assignedOfficerName || defaultOfficer?.name || 'เจ้าหน้าที่ผู้รับผิดชอบ');
-    setOfficerEmail(ticket.assignedOfficerEmail || defaultOfficer?.email || 'officer.lead@company.internal');
-    setTargetStatus(ticket.status === 'submitted' ? 'gatekeeper_triaged' : ticket.status === 'gatekeeper_triaged' ? 'in_progress' : ticket.status);
+    setOfficerEmail(
+      ticket.assignedOfficerEmail || defaultOfficer?.email || 'officer.lead@company.internal'
+    );
+    setTargetStatus(
+      ticket.status === 'submitted'
+        ? 'gatekeeper_triaged'
+        : ticket.status === 'gatekeeper_triaged'
+          ? 'in_progress'
+          : ticket.status
+    );
     setActionNote('');
     setResolutionSummary(ticket.resolutionSummary || '');
     setRootCauseCategory(ticket.rootCauseCategory || 'Process');
@@ -162,8 +179,13 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
       status: targetStatus,
       assignedOfficerName: officerName,
       assignedOfficerEmail: officerEmail,
-      actionNote: actionNote || (targetStatus === 'resolved' ? 'แก้ไขปัญหาเสร็จสิ้น พร้อมส่งมอบให้พนักงานประเมิน' : 'Gatekeeper รับเรื่องและมอบหมายผู้รับผิดชอบ'),
-      resolutionSummary: targetStatus === 'resolved' ? resolutionSummary : triageTicket.resolutionSummary,
+      actionNote:
+        actionNote ||
+        (targetStatus === 'resolved'
+          ? 'แก้ไขปัญหาเสร็จสิ้น พร้อมส่งมอบให้พนักงานประเมิน'
+          : 'Gatekeeper รับเรื่องและมอบหมายผู้รับผิดชอบ'),
+      resolutionSummary:
+        targetStatus === 'resolved' ? resolutionSummary : triageTicket.resolutionSummary,
       rootCauseCategory,
       preventiveActionPlan: preventivePlan,
       actorName: 'Gatekeeper Supervisor',
@@ -177,12 +199,17 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
   };
 
   // If strict gatekeeper and assigned departments are configured, only allow access to those assigned departments
-  const availableCategories = isStrictGatekeeper && assignedDepts.length > 0 && assignedDepts.length < Object.keys(CATEGORY_DEFINITIONS).length
-    ? assignedDepts
-    : (Object.keys(CATEGORY_DEFINITIONS) as GrievanceCategory[]);
+  const availableCategories =
+    isStrictGatekeeper &&
+    assignedDepts.length > 0 &&
+    assignedDepts.length < Object.keys(CATEGORY_DEFINITIONS).length
+      ? assignedDepts
+      : (Object.keys(CATEGORY_DEFINITIONS) as GrievanceCategory[]);
 
   const departmentsList = [
-    ...(availableCategories.length > 1 ? [{ key: 'ALL', label: 'ทุกหน่วยงานที่ได้รับมอบหมาย' }] : []),
+    ...(availableCategories.length > 1
+      ? [{ key: 'ALL', label: 'ทุกหน่วยงานที่ได้รับมอบหมาย' }]
+      : []),
     ...availableCategories.map((k) => ({
       key: k,
       label: `${k} - ${CATEGORY_DEFINITIONS[k]?.nameTh.split('(')[0].trim()}`,
@@ -190,36 +217,33 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
   ];
 
   return (
-    <div className="max-w-7xl mx-auto py-6 px-4 space-y-6">
-      
+    <div className="mx-auto max-w-7xl space-y-6 px-4 py-6">
       {/* Top Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-950 text-white rounded-2xl p-6 shadow-sm border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col justify-between gap-4 rounded-2xl border border-slate-800 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-950 p-6 text-white shadow-sm md:flex-row md:items-center">
         <div>
-          <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <span className="p-1.5 bg-indigo-600 rounded-lg text-white">
-              <Shield className="w-5 h-5" />
+          <div className="mb-1 flex flex-wrap items-center gap-2">
+            <span className="rounded-lg bg-indigo-600 p-1.5 text-white">
+              <Shield className="h-5 w-5" />
             </span>
-            <h1 className="text-xl font-bold">
-              Gatekeeper Triage & Resolution Hub
-            </h1>
-            <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs font-semibold rounded-md">
+            <h1 className="text-xl font-bold">Gatekeeper Triage & Resolution Hub</h1>
+            <span className="rounded-md border border-indigo-500/30 bg-indigo-500/20 px-2 py-0.5 text-xs font-semibold text-indigo-300">
               ศูนย์คัดกรองข้อร้องเรียน
             </span>
             {isStrictGatekeeper && (
-              <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold rounded-md">
+              <span className="rounded-md border border-emerald-500/30 bg-emerald-500/20 px-2 py-0.5 text-xs font-bold text-emerald-300">
                 หน่วยงานที่รับผิดชอบ: {assignedDepts.join(', ')}
               </span>
             )}
           </div>
-          <p className="text-xs sm:text-sm text-slate-300">
-            {isStrictGatekeeper 
-              ? `ระบบคัดกรองและดำเนินการเฉพาะคำร้องที่ส่งมายังหน่วยงาน ${assignedDepts.map(d => CATEGORY_DEFINITIONS[d]?.nameTh.split('(')[0]).join(', ')} ตามสิทธิ์ RBAC`
+          <p className="text-xs text-slate-300 sm:text-sm">
+            {isStrictGatekeeper
+              ? `ระบบคัดกรองและดำเนินการเฉพาะคำร้องที่ส่งมายังหน่วยงาน ${assignedDepts.map((d) => CATEGORY_DEFINITIONS[d]?.nameTh.split('(')[0]).join(', ')} ตามสิทธิ์ RBAC`
               : 'ระบบคัดกรอง มอบหมายเจ้าหน้าที่ผู้รับผิดชอบ กำหนดระยะเวลา SLA และบันทึกผลการแก้ไขปัญหาตามหมวดหมู่'}
           </p>
         </div>
 
         {/* Dynamic & Clickable Counter Pills: 5 Buttons (4 Operational Statuses + 1 Direct to CEO) */}
-        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           {/* Button 1: รับเรื่อง */}
           <button
             type="button"
@@ -232,27 +256,27 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
                 setOnlyCeoDirect(false);
               }
             }}
-            className={`px-3 py-2 rounded-xl text-center transition cursor-pointer border text-left group ${
+            className={`group cursor-pointer rounded-xl border px-3 py-2 text-center text-left transition ${
               selectedStatusFilter === 'received' && !onlyCeoDirect
-                ? 'bg-amber-500/30 border-amber-400 ring-2 ring-amber-400/50 shadow-md'
-                : 'bg-white/10 hover:bg-white/15 border-white/10'
+                ? 'border-amber-400 bg-amber-500/30 shadow-md ring-2 ring-amber-400/50'
+                : 'border-white/10 bg-white/10 hover:bg-white/15'
             }`}
             title="คลิกเพื่อกรองเฉพาะรายการ 'รับเรื่อง' ตามหน่วยงานที่เลือก"
           >
             <div className="flex items-center justify-between gap-1.5">
-              <span className="block text-[10px] text-amber-200 font-bold uppercase tracking-wider flex items-center gap-1">
-                <FileText className="w-3 h-3 text-amber-300 inline" />
+              <span className="block flex items-center gap-1 text-[10px] font-bold tracking-wider text-amber-200 uppercase">
+                <FileText className="inline h-3 w-3 text-amber-300" />
                 รับเรื่อง
               </span>
               {selectedStatusFilter === 'received' && !onlyCeoDirect && (
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
               )}
             </div>
-            <div className="flex items-baseline gap-1 mt-0.5">
-              <span className="text-lg font-black text-amber-400 group-hover:scale-105 transition-transform">
+            <div className="mt-0.5 flex items-baseline gap-1">
+              <span className="text-lg font-black text-amber-400 transition-transform group-hover:scale-105">
                 {receivedCount}
               </span>
-              <span className="text-[10px] text-slate-300 font-normal">เคส</span>
+              <span className="text-[10px] font-normal text-slate-300">เคส</span>
             </div>
           </button>
 
@@ -268,27 +292,27 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
                 setOnlyCeoDirect(false);
               }
             }}
-            className={`px-3 py-2 rounded-xl text-center transition cursor-pointer border text-left group ${
+            className={`group cursor-pointer rounded-xl border px-3 py-2 text-center text-left transition ${
               selectedStatusFilter === 'in_progress' && !onlyCeoDirect
-                ? 'bg-blue-500/30 border-blue-400 ring-2 ring-blue-400/50 shadow-md'
-                : 'bg-white/10 hover:bg-white/15 border-white/10'
+                ? 'border-blue-400 bg-blue-500/30 shadow-md ring-2 ring-blue-400/50'
+                : 'border-white/10 bg-white/10 hover:bg-white/15'
             }`}
             title="คลิกเพื่อกรองเฉพาะรายการ 'กำลังแก้ไข' ตามหน่วยงานที่เลือก"
           >
             <div className="flex items-center justify-between gap-1.5">
-              <span className="block text-[10px] text-blue-200 font-bold uppercase tracking-wider flex items-center gap-1">
-                <Clock className="w-3 h-3 text-blue-300 inline" />
+              <span className="block flex items-center gap-1 text-[10px] font-bold tracking-wider text-blue-200 uppercase">
+                <Clock className="inline h-3 w-3 text-blue-300" />
                 กำลังแก้ไข
               </span>
               {selectedStatusFilter === 'in_progress' && !onlyCeoDirect && (
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-400" />
               )}
             </div>
-            <div className="flex items-baseline gap-1 mt-0.5">
-              <span className="text-lg font-black text-blue-400 group-hover:scale-105 transition-transform">
+            <div className="mt-0.5 flex items-baseline gap-1">
+              <span className="text-lg font-black text-blue-400 transition-transform group-hover:scale-105">
                 {inProgressOnlyCount}
               </span>
-              <span className="text-[10px] text-slate-300 font-normal">เคส</span>
+              <span className="text-[10px] font-normal text-slate-300">เคส</span>
             </div>
           </button>
 
@@ -304,27 +328,27 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
                 setOnlyCeoDirect(false);
               }
             }}
-            className={`px-3 py-2 rounded-xl text-center transition cursor-pointer border text-left group ${
+            className={`group cursor-pointer rounded-xl border px-3 py-2 text-center text-left transition ${
               selectedStatusFilter === 'resolved' && !onlyCeoDirect
-                ? 'bg-emerald-500/30 border-emerald-400 ring-2 ring-emerald-400/50 shadow-md'
-                : 'bg-white/10 hover:bg-white/15 border-white/10'
+                ? 'border-emerald-400 bg-emerald-500/30 shadow-md ring-2 ring-emerald-400/50'
+                : 'border-white/10 bg-white/10 hover:bg-white/15'
             }`}
             title="คลิกเพื่อกรองเฉพาะรายการ 'แก้ไขเสร็จ' ตามหน่วยงานที่เลือก"
           >
             <div className="flex items-center justify-between gap-1.5">
-              <span className="block text-[10px] text-emerald-200 font-bold uppercase tracking-wider flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3 text-emerald-300 inline" />
+              <span className="block flex items-center gap-1 text-[10px] font-bold tracking-wider text-emerald-200 uppercase">
+                <CheckCircle2 className="inline h-3 w-3 text-emerald-300" />
                 แก้ไขเสร็จ
               </span>
               {selectedStatusFilter === 'resolved' && !onlyCeoDirect && (
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
               )}
             </div>
-            <div className="flex items-baseline gap-1 mt-0.5">
-              <span className="text-lg font-black text-emerald-400 group-hover:scale-105 transition-transform">
+            <div className="mt-0.5 flex items-baseline gap-1">
+              <span className="text-lg font-black text-emerald-400 transition-transform group-hover:scale-105">
                 {resolvedOnlyCount}
               </span>
-              <span className="text-[10px] text-slate-300 font-normal">เคส</span>
+              <span className="text-[10px] font-normal text-slate-300">เคส</span>
             </div>
           </button>
 
@@ -340,27 +364,27 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
                 setOnlyCeoDirect(false);
               }
             }}
-            className={`px-3 py-2 rounded-xl text-center transition cursor-pointer border text-left group ${
+            className={`group cursor-pointer rounded-xl border px-3 py-2 text-center text-left transition ${
               selectedStatusFilter === 'closed' && !onlyCeoDirect
-                ? 'bg-teal-500/30 border-teal-300 ring-2 ring-teal-400/50 shadow-md'
-                : 'bg-white/10 hover:bg-white/15 border-white/10'
+                ? 'border-teal-300 bg-teal-500/30 shadow-md ring-2 ring-teal-400/50'
+                : 'border-white/10 bg-white/10 hover:bg-white/15'
             }`}
             title="คลิกเพื่อกรองเฉพาะรายการ 'ปิดเรื่อง' ตามหน่วยงานที่เลือก"
           >
             <div className="flex items-center justify-between gap-1.5">
-              <span className="block text-[10px] text-teal-200 font-bold uppercase tracking-wider flex items-center gap-1">
-                <UserCheck className="w-3 h-3 text-teal-300 inline" />
+              <span className="block flex items-center gap-1 text-[10px] font-bold tracking-wider text-teal-200 uppercase">
+                <UserCheck className="inline h-3 w-3 text-teal-300" />
                 ปิดเรื่อง
               </span>
               {selectedStatusFilter === 'closed' && !onlyCeoDirect && (
-                <span className="w-1.5 h-1.5 rounded-full bg-teal-300 animate-pulse" />
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-teal-300" />
               )}
             </div>
-            <div className="flex items-baseline gap-1 mt-0.5">
-              <span className="text-lg font-black text-teal-300 group-hover:scale-105 transition-transform">
+            <div className="mt-0.5 flex items-baseline gap-1">
+              <span className="text-lg font-black text-teal-300 transition-transform group-hover:scale-105">
                 {closedOnlyCount}
               </span>
-              <span className="text-[10px] text-slate-300 font-normal">เคส</span>
+              <span className="text-[10px] font-normal text-slate-300">เคส</span>
             </div>
           </button>
 
@@ -376,46 +400,45 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
                 setSelectedStatusFilter('ALL');
               }
             }}
-            className={`px-3 py-2 rounded-xl text-center transition cursor-pointer border text-left group ${
+            className={`group cursor-pointer rounded-xl border px-3 py-2 text-center text-left transition ${
               onlyCeoDirect
-                ? 'bg-purple-500/35 border-purple-300 ring-2 ring-purple-400/50 shadow-md'
-                : 'bg-white/10 hover:bg-white/15 border-white/10'
+                ? 'border-purple-300 bg-purple-500/35 shadow-md ring-2 ring-purple-400/50'
+                : 'border-white/10 bg-white/10 hover:bg-white/15'
             }`}
             title="คลิกเพื่อกรองเฉพาะเคส 'ส่งตรง CEO / EVP' ตามหน่วยงานที่เลือก"
           >
             <div className="flex items-center justify-between gap-1.5">
-              <span className="block text-[10px] text-purple-200 font-bold uppercase tracking-wider flex items-center gap-1">
-                <Crown className="w-3 h-3 text-yellow-300 inline" />
+              <span className="block flex items-center gap-1 text-[10px] font-bold tracking-wider text-purple-200 uppercase">
+                <Crown className="inline h-3 w-3 text-yellow-300" />
                 ส่งตรง CEO
               </span>
               {onlyCeoDirect && (
-                <span className="w-1.5 h-1.5 rounded-full bg-purple-300 animate-pulse" />
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-purple-300" />
               )}
             </div>
-            <div className="flex items-baseline gap-1 mt-0.5">
-              <span className="text-lg font-black text-purple-300 group-hover:scale-105 transition-transform">
+            <div className="mt-0.5 flex items-baseline gap-1">
+              <span className="text-lg font-black text-purple-300 transition-transform group-hover:scale-105">
                 {ceoDirectCount}
               </span>
-              <span className="text-[10px] text-slate-300 font-normal">เคส</span>
+              <span className="text-[10px] font-normal text-slate-300">เคส</span>
             </div>
           </button>
         </div>
       </div>
 
       {/* Filter Toolbar */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs space-y-3">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-          
+      <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+        <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
           {/* Search Box */}
           <div className="relative w-full sm:w-80">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+            <Search className="absolute top-2.5 left-3 h-4 w-4 text-slate-400" />
             <input
               type="text"
               id="gatekeeper-search"
               placeholder="ค้นหา Tracking Code, ชื่อเรื่อง, ผู้ยื่น..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-slate-200 py-2 pr-3 pl-9 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
 
@@ -431,33 +454,40 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
                 setSelectedStatusFilter('ALL');
               }
             }}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border transition ${
+            className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition ${
               onlyCeoDirect
-                ? 'bg-purple-600 text-white border-purple-600 shadow-xs ring-2 ring-purple-400/50'
-                : 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100'
+                ? 'border-purple-600 bg-purple-600 text-white shadow-xs ring-2 ring-purple-400/50'
+                : 'border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100'
             }`}
             title="กรองเฉพาะข้อร้องเรียนส่งตรง CEO/EVP ตามหน่วยงานที่เลือก"
           >
-            <Crown className="w-3.5 h-3.5 text-yellow-500" />
+            <Crown className="h-3.5 w-3.5 text-yellow-500" />
             <span>เฉพาะข้อร้องเรียนส่งตรง CEO/EVP</span>
-            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-              onlyCeoDirect ? 'bg-white/20 text-white' : 'bg-purple-200 text-purple-900'
-            }`}>
+            <span
+              className={`py-0.2 rounded-full px-1.5 text-[10px] font-bold ${
+                onlyCeoDirect ? 'bg-white/20 text-white' : 'bg-purple-200 text-purple-900'
+              }`}
+            >
               {ceoDirectCount}
             </span>
           </button>
         </div>
 
         {/* Department Chips */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
-          <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">หน่วยงาน (รับเรื่อง + กำลังแก้ไข):</span>
+        <div className="no-scrollbar flex items-center gap-1.5 overflow-x-auto py-1">
+          <span className="text-xs font-semibold whitespace-nowrap text-slate-500">
+            หน่วยงาน (รับเรื่อง + กำลังแก้ไข):
+          </span>
           {departmentsList.map((d) => {
-            const isTargetTicket = (t: ComplaintTicket) => 
-              t.status === 'submitted' || t.status === 'gatekeeper_triaged' || t.status === 'in_progress';
+            const isTargetTicket = (t: ComplaintTicket) =>
+              t.status === 'submitted' ||
+              t.status === 'gatekeeper_triaged' ||
+              t.status === 'in_progress';
 
-            const count = d.key === 'ALL'
-              ? scopedTickets.filter(isTargetTicket).length
-              : scopedTickets.filter((t) => t.category === d.key && isTargetTicket(t)).length;
+            const count =
+              d.key === 'ALL'
+                ? scopedTickets.filter(isTargetTicket).length
+                : scopedTickets.filter((t) => t.category === d.key && isTargetTicket(t)).length;
 
             return (
               <button
@@ -465,16 +495,22 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
                 type="button"
                 id={`filter-dept-${d.key}`}
                 onClick={() => setSelectedDeptFilter(d.key)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap border transition flex items-center gap-1.5 ${
+                className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium whitespace-nowrap transition ${
                   selectedDeptFilter === d.key
-                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    ? 'border-indigo-600 bg-indigo-600 text-white shadow-xs'
+                    : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
                 }`}
               >
                 <span>{d.label}</span>
-                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                  selectedDeptFilter === d.key ? 'bg-white/20 text-white' : count > 0 ? 'bg-blue-100 text-blue-800' : 'bg-slate-200 text-slate-600'
-                }`}>
+                <span
+                  className={`py-0.2 rounded-full px-1.5 text-[10px] font-bold ${
+                    selectedDeptFilter === d.key
+                      ? 'bg-white/20 text-white'
+                      : count > 0
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-slate-200 text-slate-600'
+                  }`}
+                >
                   {count}
                 </span>
               </button>
@@ -483,14 +519,39 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
         </div>
 
         {/* Status Chips */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1 border-t border-slate-100">
-          <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">สถานะ:</span>
+        <div className="no-scrollbar flex items-center gap-1.5 overflow-x-auto border-t border-slate-100 pt-1">
+          <span className="text-xs font-semibold whitespace-nowrap text-slate-500">สถานะ:</span>
           {[
-            { key: 'ALL', label: 'ทั้งหมด', count: deptScopedTickets.length, badge: 'bg-slate-200 text-slate-700' },
-            { key: 'received', label: 'รับเรื่อง (รอคัดกรอง)', count: receivedCount, badge: 'bg-amber-100 text-amber-800' },
-            { key: 'in_progress', label: 'กำลังแก้ไข', count: inProgressOnlyCount, badge: 'bg-blue-100 text-blue-800' },
-            { key: 'resolved', label: 'แก้ไขเสร็จ', count: resolvedOnlyCount, badge: 'bg-emerald-100 text-emerald-800' },
-            { key: 'closed', label: 'ปิดเรื่อง', count: closedOnlyCount, badge: 'bg-teal-100 text-teal-800' },
+            {
+              key: 'ALL',
+              label: 'ทั้งหมด',
+              count: deptScopedTickets.length,
+              badge: 'bg-slate-200 text-slate-700',
+            },
+            {
+              key: 'received',
+              label: 'รับเรื่อง (รอคัดกรอง)',
+              count: receivedCount,
+              badge: 'bg-amber-100 text-amber-800',
+            },
+            {
+              key: 'in_progress',
+              label: 'กำลังแก้ไข',
+              count: inProgressOnlyCount,
+              badge: 'bg-blue-100 text-blue-800',
+            },
+            {
+              key: 'resolved',
+              label: 'แก้ไขเสร็จ',
+              count: resolvedOnlyCount,
+              badge: 'bg-emerald-100 text-emerald-800',
+            },
+            {
+              key: 'closed',
+              label: 'ปิดเรื่อง',
+              count: closedOnlyCount,
+              badge: 'bg-teal-100 text-teal-800',
+            },
           ].map((st) => {
             const isActive = selectedStatusFilter === st.key && !onlyCeoDirect;
             return (
@@ -502,16 +563,18 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
                   setSelectedStatusFilter(st.key);
                   if (st.key !== 'ALL') setOnlyCeoDirect(false);
                 }}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition flex items-center gap-1.5 border ${
+                className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium whitespace-nowrap transition ${
                   isActive
-                    ? 'bg-slate-900 text-white border-slate-900 font-semibold shadow-xs'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                    ? 'border-slate-900 bg-slate-900 font-semibold text-white shadow-xs'
+                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                 }`}
               >
                 <span>{st.label}</span>
-                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                  isActive ? 'bg-white/20 text-white' : st.badge
-                }`}>
+                <span
+                  className={`py-0.2 rounded-full px-1.5 text-[10px] font-bold ${
+                    isActive ? 'bg-white/20 text-white' : st.badge
+                  }`}
+                >
                   {st.count}
                 </span>
               </button>
@@ -521,16 +584,16 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
       </div>
 
       {/* Tickets Table / List */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-        <div className="px-5 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-          <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
+        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-5 py-3">
+          <span className="text-xs font-bold tracking-wider text-slate-700 uppercase">
             รายการเคสในความรับผิดชอบ ({filteredTickets.length} รายการ)
           </span>
           <span className="text-xs text-slate-500">คลิกที่รายการเพื่อดูรายละเอียดไทม์ไลน์</span>
         </div>
 
         {filteredTickets.length === 0 ? (
-          <div className="p-12 text-center text-slate-500 text-xs">
+          <div className="p-12 text-center text-xs text-slate-500">
             ไม่พบข้อร้องเรียนตามเงื่อนไขที่เลือก
           </div>
         ) : (
@@ -542,62 +605,78 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
                   key={t.id}
                   id={`ticket-row-${t.id}`}
                   onClick={() => onSelectTicket(t)}
-                  className="p-4 sm:p-5 hover:bg-slate-50/80 transition cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  className="flex cursor-pointer flex-col justify-between gap-3 p-4 transition hover:bg-slate-50/80 sm:flex-row sm:items-center sm:p-5"
                 >
-                  <div className="space-y-1.5 flex-1">
+                  <div className="flex-1 space-y-1.5">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono font-bold text-xs text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                      <span className="rounded border border-indigo-100 bg-indigo-50 px-2 py-0.5 font-mono text-xs font-bold text-indigo-700">
                         {t.trackingCode}
                       </span>
-                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${getStatusColor(t.status)}`}>
+                      <span
+                        className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${getStatusColor(t.status)}`}
+                      >
                         {getStatusBadgeText(t.status)}
                       </span>
-                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded border ${catInfo?.badgeColor}`}>
+                      <span
+                        className={`rounded border px-2 py-0.5 text-[11px] font-medium ${catInfo?.badgeColor}`}
+                      >
                         {catInfo?.nameEn}
                       </span>
                       {t.isDirectToExecutive && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">
-                          <Crown className="w-3 h-3 text-purple-600" />
+                        <span className="inline-flex items-center gap-1 rounded border border-purple-200 bg-purple-50 px-1.5 py-0.5 text-[10px] font-bold text-purple-700">
+                          <Crown className="h-3 w-3 text-purple-600" />
                           CEO/EVP
                         </span>
                       )}
-                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
-                        t.urgency === 'Critical' ? 'bg-red-100 text-red-800' :
-                        t.urgency === 'High' ? 'bg-orange-100 text-orange-800' : 'bg-slate-100 text-slate-700'
-                      }`}>
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                          t.urgency === 'Critical'
+                            ? 'bg-red-100 text-red-800'
+                            : t.urgency === 'High'
+                              ? 'bg-orange-100 text-orange-800'
+                              : 'bg-slate-100 text-slate-700'
+                        }`}
+                      >
                         {t.urgency} Urgency
                       </span>
                     </div>
 
-                    <h3 className="text-xs sm:text-sm font-bold text-slate-900 line-clamp-1">
+                    <h3 className="line-clamp-1 text-xs font-bold text-slate-900 sm:text-sm">
                       {t.title}
                     </h3>
-                    <p className="text-xs text-slate-500 line-clamp-1">
-                      {t.description}
-                    </p>
+                    <p className="line-clamp-1 text-xs text-slate-500">{t.description}</p>
 
-                    <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500 pt-1">
-                      <span>หน่วยงาน: <strong className="text-slate-700">{t.gatekeeperDepartment}</strong></span>
-                      <span>ผู้รับผิดชอบ: <strong className="text-slate-700">{t.assignedOfficerName || 'ยังไม่มอบหมาย'}</strong></span>
+                    <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-slate-500">
+                      <span>
+                        หน่วยงาน:{' '}
+                        <strong className="text-slate-700">{t.gatekeeperDepartment}</strong>
+                      </span>
+                      <span>
+                        ผู้รับผิดชอบ:{' '}
+                        <strong className="text-slate-700">
+                          {t.assignedOfficerName || 'ยังไม่มอบหมาย'}
+                        </strong>
+                      </span>
                       <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-slate-400" />
-                        SLA: {t.slaTargetHours} ชม. ({new Date(t.slaDueDate).toLocaleDateString('th-TH')})
+                        <Clock className="h-3 w-3 text-slate-400" />
+                        SLA: {t.slaTargetHours} ชม. (
+                        {new Date(t.slaDueDate).toLocaleDateString('th-TH')})
                       </span>
                     </div>
                   </div>
 
                   {/* Actions Right */}
-                  <div className="flex items-center gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                  <div className="flex shrink-0 items-center gap-2 border-t border-slate-100 pt-2 sm:border-t-0 sm:pt-0">
                     <button
                       type="button"
                       id={`btn-triage-${t.id}`}
                       onClick={(e) => openTriageModal(t, e)}
-                      className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-semibold text-xs rounded-lg transition flex items-center gap-1"
+                      className="flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100"
                     >
-                      <Edit3 className="w-3.5 h-3.5" />
+                      <Edit3 className="h-3.5 w-3.5" />
                       <span>จัดการ / อัปเดตสถานะ</span>
                     </button>
-                    <ChevronRight className="w-4 h-4 text-slate-400" />
+                    <ChevronRight className="h-4 w-4 text-slate-400" />
                   </div>
                 </div>
               );
@@ -608,34 +687,33 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
 
       {/* Triage & Management Action Modal */}
       {triageTicket && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95">
-            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/60 p-4 backdrop-blur-xs">
+          <div className="animate-in fade-in zoom-in-95 w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-4">
               <div>
-                <span className="text-xs font-mono font-bold text-indigo-700">
+                <span className="font-mono text-xs font-bold text-indigo-700">
                   {triageTicket.trackingCode}
                 </span>
-                <h3 className="text-sm sm:text-base font-bold text-slate-900 mt-0.5">
+                <h3 className="mt-0.5 text-sm font-bold text-slate-900 sm:text-base">
                   จัดการเคสและอัปเดตความคืบหน้า (Gatekeeper Action)
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setTriageTicket(null)}
-                className="text-slate-400 hover:text-slate-700 text-xs font-medium"
+                className="text-xs font-medium text-slate-400 hover:text-slate-700"
               >
                 ปิด
               </button>
             </div>
 
-            <form onSubmit={handleSaveTriage} className="p-6 space-y-4">
-              
+            <form onSubmit={handleSaveTriage} className="space-y-4 p-6">
               {/* Status Selector */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="mb-1 block text-xs font-bold text-slate-700">
                   ปรับเปลี่ยนสถานะการดำเนินงาน (Workflow Status):
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {[
                     { key: 'gatekeeper_triaged', label: 'รับเรื่อง (Triaged)' },
                     { key: 'in_progress', label: 'กำลังแก้ไข (In Progress)' },
@@ -646,10 +724,10 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
                       key={s.key}
                       type="button"
                       onClick={() => setTargetStatus(s.key as TicketStatus)}
-                      className={`p-2 rounded-lg text-xs font-bold border text-center transition ${
+                      className={`rounded-lg border p-2 text-center text-xs font-bold transition ${
                         targetStatus === s.key
-                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                          ? 'border-indigo-600 bg-indigo-600 text-white shadow-xs'
+                          : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
                       }`}
                     >
                       {s.label}
@@ -667,10 +745,10 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
                   if (officers.length > 0) {
                     return (
                       <div>
-                        <span className="block text-[11px] font-semibold text-slate-500 mb-1">
+                        <span className="mb-1 block text-[11px] font-semibold text-slate-500">
                           เลือกจากรายชื่อ Gatekeeper ประจำหน่วยงาน {triageTicket.category}:
                         </span>
-                        <div className="flex flex-wrap gap-1.5 mb-2">
+                        <div className="mb-2 flex flex-wrap gap-1.5">
                           {officers.map((o) => {
                             const isSelected = officerName === o.name;
                             return (
@@ -681,14 +759,18 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
                                   setOfficerName(o.name);
                                   setOfficerEmail(o.email);
                                 }}
-                                className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium transition flex items-center gap-1.5 ${
+                                className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition ${
                                   isSelected
-                                    ? 'bg-indigo-50 border-indigo-300 text-indigo-700 font-bold'
-                                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                                    ? 'border-indigo-300 bg-indigo-50 font-bold text-indigo-700'
+                                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                                 }`}
                               >
                                 <span>{o.name}</span>
-                                {o.isLead && <span className="text-[9px] bg-amber-100 text-amber-800 px-1 rounded font-bold">LEAD</span>}
+                                {o.isLead && (
+                                  <span className="rounded bg-amber-100 px-1 text-[9px] font-bold text-amber-800">
+                                    LEAD
+                                  </span>
+                                )}
                               </button>
                             );
                           })}
@@ -699,9 +781,9 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
                   return null;
                 })()}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="block text-slate-700 font-semibold mb-1">
+                    <label className="mb-1 block font-semibold text-slate-700">
                       เจ้าหน้าที่ผู้รับผิดชอบหลัก (Assigned Officer):
                     </label>
                     <input
@@ -710,11 +792,11 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
                       value={officerName}
                       onChange={(e) => setOfficerName(e.target.value)}
                       placeholder="เช่น กิตติศักดิ์ ชัยชนะ (Lead Engineer)"
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-700 font-semibold mb-1">
+                    <label className="mb-1 block font-semibold text-slate-700">
                       อีเมลติดต่อเจ้าหน้าที่:
                     </label>
                     <input
@@ -723,32 +805,40 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
                       value={officerEmail}
                       onChange={(e) => setOfficerEmail(e.target.value)}
                       placeholder="officer@company.internal"
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono text-[11px]"
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-[11px] focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Root Cause Classification */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
                 <div>
-                  <label className="block text-slate-700 font-semibold mb-1">
+                  <label className="mb-1 block font-semibold text-slate-700">
                     การจัดกลุ่มหมวดหมู่สาเหตุหลัก (Root Cause Category):
                   </label>
                   <select
                     value={rootCauseCategory}
-                    onChange={(e) => setRootCauseCategory(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white"
+                    onChange={(e) =>
+                      setRootCauseCategory(e.target.value as ComplaintTicket['rootCauseCategory'])
+                    }
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   >
                     <option value="Process">กระบวนการ / ขั้นตอนการทำงาน (Process)</option>
                     <option value="People">บุคคลากร / พฤติกรรม / การสื่อสาร (People)</option>
-                    <option value="Equipment/Tools">อุปกรณ์ / เครื่องจักร / ซอฟต์แวร์ (Equipment/Tools)</option>
-                    <option value="Policy/Governance">นโยบาย / กฎระเบียบบริษัท (Policy/Governance)</option>
-                    <option value="Environment">สิ่งแวดล้อม / สถานที่ทางกายภาพ (Environment)</option>
+                    <option value="Equipment/Tools">
+                      อุปกรณ์ / เครื่องจักร / ซอฟต์แวร์ (Equipment/Tools)
+                    </option>
+                    <option value="Policy/Governance">
+                      นโยบาย / กฎระเบียบบริษัท (Policy/Governance)
+                    </option>
+                    <option value="Environment">
+                      สิ่งแวดล้อม / สถานที่ทางกายภาพ (Environment)
+                    </option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-slate-700 font-semibold mb-1">
+                  <label className="mb-1 block font-semibold text-slate-700">
                     มาตรการป้องกันไม่ให้เกิดซ้ำ (Preventive Action Plan):
                   </label>
                   <input
@@ -756,14 +846,14 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
                     value={preventivePlan}
                     onChange={(e) => setPreventivePlan(e.target.value)}
                     placeholder="เช่น อัปเกรดเครื่องมือ, เพิ่มระบบตรวจสอบอัตโนมัติ"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   />
                 </div>
               </div>
 
               {/* Action Note to Timeline */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="mb-1 block text-xs font-semibold text-slate-700">
                   บันทึกความคืบหน้าแจ้งพนักงาน (Action Note for Timeline):
                 </label>
                 <textarea
@@ -771,13 +861,13 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
                   value={actionNote}
                   onChange={(e) => setActionNote(e.target.value)}
                   placeholder="อธิบายการกระทำ เช่น ลงพื้นที่ตรวจสอบแล้ว พบสาเหตุคือ..."
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 />
               </div>
 
               {/* Resolution Summary (If marking resolved) */}
               {targetStatus === 'resolved' && (
-                <div className="bg-emerald-50 border border-emerald-200 p-3.5 rounded-xl space-y-1.5 text-xs">
+                <div className="space-y-1.5 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs">
                   <label className="block font-bold text-emerald-900">
                     สรุปผลการแก้ไขปัญหาฉบับสมบูรณ์ (Resolution Statement):
                   </label>
@@ -787,38 +877,37 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
                     value={resolutionSummary}
                     onChange={(e) => setResolutionSummary(e.target.value)}
                     placeholder="สรุปผลการแก้ปัญหาอย่างละเอียด เช่น ซ่อมแซมเสร็จสิ้น ตรวจสอบมาตรฐาน 100%..."
-                    className="w-full px-3 py-2 border border-emerald-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
+                    className="w-full rounded-lg border border-emerald-300 bg-white px-3 py-2 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />
                   <p className="text-[11px] text-emerald-700">
-                    * เมื่อบันทึกสถานะ Resolved ระบบจะส่งการแจ้งเตือนอัตโนมัติให้พนักงานเข้าประเมินความพึงพอใจ (CSAT)
+                    * เมื่อบันทึกสถานะ Resolved
+                    ระบบจะส่งการแจ้งเตือนอัตโนมัติให้พนักงานเข้าประเมินความพึงพอใจ (CSAT)
                   </p>
                 </div>
               )}
 
               {/* Modal Action Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-3">
                 <button
                   type="button"
                   onClick={() => setTriageTicket(null)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium transition"
+                  className="rounded-lg bg-slate-100 px-4 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-200"
                 >
                   ยกเลิก
                 </button>
                 <button
                   type="submit"
                   id="btn-save-triage-confirm"
-                  className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1.5"
+                  className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-6 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-indigo-700"
                 >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <CheckCircle2 className="h-3.5 w-3.5" />
                   <span>บันทึกการอัปเดต (Save & Dispatch)</span>
                 </button>
               </div>
-
             </form>
           </div>
         </div>
       )}
-
     </div>
   );
 };

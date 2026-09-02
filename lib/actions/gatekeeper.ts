@@ -29,7 +29,12 @@ export async function updateDepartmentGatekeeperConfig(
   updates: Partial<
     Pick<
       DepartmentGatekeeperConfig,
-      'departmentName' | 'departmentCode' | 'defaultSlaHours' | 'autoAssignMode' | 'escalationEmail' | 'notificationWebhookUrl'
+      | 'departmentName'
+      | 'departmentCode'
+      | 'defaultSlaHours'
+      | 'autoAssignMode'
+      | 'escalationEmail'
+      | 'notificationWebhookUrl'
     >
   >
 ): Promise<DepartmentGatekeeperConfig> {
@@ -68,5 +73,8 @@ export async function updateGatekeeperOfficer(
 }
 
 export async function deleteGatekeeperOfficer(id: string): Promise<void> {
-  await prisma.gatekeeperOfficer.update({ where: { id }, data: { isDeleted: true, isActive: false } });
+  await prisma.gatekeeperOfficer.update({
+    where: { id },
+    data: { isDeleted: true, isActive: false },
+  });
 }

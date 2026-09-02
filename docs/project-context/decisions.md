@@ -67,7 +67,7 @@
   to proceed with placeholders now rather than block the chunk on Admin/DBA turnaround ·
   the full schema, offline-generated initial migration, and seed script are built exactly as
   if the connection were real, so going live is `npx prisma migrate resolve --applied
-  20260902000000_init && npx prisma generate && npx prisma db seed` once real values land
+20260902000000_init && npx prisma generate && npx prisma db seed` once real values land
   (tracked in `docs/admin-handoff.md` and `.claude/state/handoff.md`) · rejected: leaving the
   database chunk entirely undone until real infra exists (would block every later chunk that
   depends on the schema being in place, e.g. auth's session tables referencing app data).
@@ -76,3 +76,28 @@
   there is no real authentication yet, so no session user id exists to stamp · deferred:
   tighten to required (or default to a system actor) once `ugt-nextjs-auth-setup` lands and
   every Server Action in `src/lib/actions/` can receive a real user id.
+- 2026-09-02 `eslint-config-next` is pinned to `^15.5.0` (not npm's default-latest 16.x) and
+  `eslint.config.mjs` uses `@eslint/eslintrc`'s `FlatCompat` shim instead of the
+  `ugt-nextjs-test-lint-setup` asset's default direct flat-config import — **because** this
+  project pins `next@^15.5.0` (Phase A migration), and `eslint-config-next` only ships native
+  flat config from the 16.x line; the 15.x line resolved by that pin still exports legacy
+  eslintrc-style config objects, which flat ESLint 9 cannot spread directly · rejected: letting
+  npm install the newest `eslint-config-next` (16.x) — its Next-16-only ESLint rules would be
+  out of sync with the actually-installed Next 15 APIs · rejected: downgrading to ESLint 8 to
+  match the legacy config shape natively — moves backward on an org-standard tool for a
+  one-file workaround. Revisit when `next` is bumped to 16.x — the `FlatCompat` shim should
+  come out then, not be kept as permanent scaffolding.
+- 2026-09-02 Ran a one-time repo-wide `prettier --write .` and fixed all 21 pre-existing
+  ESLint **errors** (`@typescript-eslint/no-explicit-any`, `react/no-unescaped-entities`) across
+  the 11 components + both AI routes + `sqliteDb.ts` as part of installing the tooling, rather
+  than leaving `npm run lint`/`npm run format:check` red — **because** the org standard
+  (`ugt-nextjs-test-lint-setup`'s own Verification Checklist) requires both to pass, and this
+  codebase (ported from a Vite scaffold, then hand-written further) had never been run through
+  either tool · added `AiTriageSuggestion`/`AiClusterInsights`/`AiRiskCluster` to `src/types.ts`
+  to replace several of the `any`s with real shapes matching what `/api/ai/*` actually returns
+  · rejected: disabling the two ESLint rules project-wide (masks real type-safety and JSX-escape
+  issues instead of fixing them) · rejected: fixing only the files this chunk happened to touch
+  and leaving the rest red (defeats the point of `npm run lint` gating the pipeline) ·
+  confirmed no behavior change: `tsc --noEmit` and `next build` both clean before and after,
+  110 ESLint **warnings** (mostly unused icon imports) deliberately left as-is — warnings don't
+  fail the pipeline and fixing them is unrelated cleanup outside this chunk's scope.

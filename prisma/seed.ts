@@ -15,8 +15,18 @@
 // DATABASE_URL) instead of `new PrismaClient()` — a bare client has no
 // adapter and throws immediately (Prisma 7 requires one for every driver).
 import { prisma } from '../lib/prisma';
-import { INITIAL_COMPLAINTS, INITIAL_GATEKEEPER_CONFIGS, INITIAL_NOTIFICATIONS } from '../src/mockData';
-import type { AppTabId, ExecutiveMember, GrievanceCategory, HrAdminMember, UserRole } from '../src/types';
+import {
+  INITIAL_COMPLAINTS,
+  INITIAL_GATEKEEPER_CONFIGS,
+  INITIAL_NOTIFICATIONS,
+} from '../src/mockData';
+import type {
+  AppTabId,
+  ExecutiveMember,
+  GrievanceCategory,
+  HrAdminMember,
+  UserRole,
+} from '../src/types';
 
 // ── Executives — mirrors src/services/api.ts:INITIAL_EXECUTIVES ───────────
 const EXECUTIVES: ExecutiveMember[] = [
@@ -38,7 +48,8 @@ const EXECUTIVES: ExecutiveMember[] = [
   {
     id: 'exec-2',
     name: 'ดร.กานดา รัตนพาณิชย์',
-    position: 'รองกรรมการผู้จัดการใหญ่อาวุโส สายงานบรรษัทภิบาลและความยั่งยืน (Senior EVP Governance & GRC)',
+    position:
+      'รองกรรมการผู้จัดการใหญ่อาวุโส สายงานบรรษัทภิบาลและความยั่งยืน (Senior EVP Governance & GRC)',
     department: 'Corporate Governance & Risk Oversight Group',
     email: 'kanda.r@enterprise.co.th',
     phone: '02-998-1002',
@@ -76,7 +87,10 @@ const EXECUTIVES: ExecutiveMember[] = [
     isPrimaryWhistleblowerReceiver: false,
     canViewConfidentialIdentities: false,
     receiveAlertNotifications: true,
-    assignedCommittees: ['คณะกรรมการบริหารระดับสูง (ExCom)', 'คณะกรรมการแรงงานสัมพันธ์และสวัสดิการ'],
+    assignedCommittees: [
+      'คณะกรรมการบริหารระดับสูง (ExCom)',
+      'คณะกรรมการแรงงานสัมพันธ์และสวัสดิการ',
+    ],
     status: 'active',
     updatedAt: '2026-08-28T08:00:00.000Z',
   },
@@ -87,7 +101,8 @@ const HR_ADMINS: HrAdminMember[] = [
   {
     id: 'admin-1',
     name: 'คุณชิดชนก วงศ์ประเสริฐ',
-    position: 'ผู้อำนวยการฝ่ายทรัพยากรบุคคลและตัวแทนผู้บริหาร (HR Director & Executive Representative)',
+    position:
+      'ผู้อำนวยการฝ่ายทรัพยากรบุคคลและตัวแทนผู้บริหาร (HR Director & Executive Representative)',
     department: 'People & Organization Strategy Division',
     email: 'chidchanok.w@enterprise.co.th',
     phone: '02-998-2001',
@@ -102,7 +117,8 @@ const HR_ADMINS: HrAdminMember[] = [
   {
     id: 'admin-2',
     name: 'คุณเอกชัย ศิริสมบัติ',
-    position: 'ผู้จัดการฝ่ายแรงงานสัมพันธ์และข้อร้องเรียนพนักงาน (Employee Relations & Grievance Manager)',
+    position:
+      'ผู้จัดการฝ่ายแรงงานสัมพันธ์และข้อร้องเรียนพนักงาน (Employee Relations & Grievance Manager)',
     department: 'Employee Relations & Staff Engagement Unit',
     email: 'ekachai.s@enterprise.co.th',
     phone: '02-998-2002',
@@ -187,7 +203,17 @@ const ROLE_ACCESS_CONFIGS: Array<{
     badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     allowedTabs: ['gatekeeper', 'my_tickets', 'workflow'],
     canViewAllDepartments: true,
-    assignedDepartments: ['IT', 'HR', 'Safety', 'Compliance', 'Ethics', 'Harassment', 'Fraud', 'Quality', 'Environment'],
+    assignedDepartments: [
+      'IT',
+      'HR',
+      'Safety',
+      'Compliance',
+      'Ethics',
+      'Harassment',
+      'Fraud',
+      'Quality',
+      'Environment',
+    ],
     canViewDirectCeoTickets: false,
     canViewConfidentialIdentities: false,
     canEditRootCauseAndCapa: true,

@@ -137,7 +137,9 @@ export function mapOfficer(row: OfficerRow): GatekeeperOfficer {
   };
 }
 
-export function mapDepartmentConfig(row: DeptConfigRow & { officers: OfficerRow[] }): DepartmentGatekeeperConfig {
+export function mapDepartmentConfig(
+  row: DeptConfigRow & { officers: OfficerRow[] }
+): DepartmentGatekeeperConfig {
   const officers = row.officers.map(mapOfficer);
   const lead = officers.find((o) => o.isLead) ?? officers[0];
   return {

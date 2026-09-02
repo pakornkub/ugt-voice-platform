@@ -1,12 +1,12 @@
 import initSqlJs, { Database, SqlJsStatic } from 'sql.js';
-import { 
-  ComplaintTicket, 
-  ExecutiveMember, 
-  GatekeeperOfficer, 
-  HrAdminMember, 
+import {
+  ComplaintTicket,
+  ExecutiveMember,
+  GatekeeperOfficer,
+  HrAdminMember,
   NotificationItem,
   DepartmentGatekeeperConfig,
-  GrievanceCategory
+  GrievanceCategory,
 } from '../types';
 import { INITIAL_COMPLAINTS, INITIAL_GATEKEEPER_CONFIGS, INITIAL_NOTIFICATIONS } from '../mockData';
 import { INITIAL_EXECUTIVES, INITIAL_HR_ADMINS } from './api';
@@ -70,7 +70,9 @@ export async function getSqliteDb(): Promise<Database> {
       try {
         sqliteDbInstance = new SQL_ENGINE.Database(savedBinary);
         // Verify tables exist
-        const res = sqliteDbInstance.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='tickets'");
+        const res = sqliteDbInstance.exec(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='tickets'"
+        );
         if (res.length === 0) {
           bootstrapSchema(sqliteDbInstance);
           seedInitialData(sqliteDbInstance);
@@ -471,7 +473,7 @@ export async function syncAllTicketsToSqlite(tickets: ComplaintTicket[]) {
  */
 export async function getAllTicketsFromSqlite(): Promise<ComplaintTicket[]> {
   const db = await getSqliteDb();
-  const results = db.exec("SELECT raw_json FROM tickets ORDER BY created_at DESC");
+  const results = db.exec('SELECT raw_json FROM tickets ORDER BY created_at DESC');
   if (results.length === 0 || !results[0].values) {
     return [];
   }
@@ -506,11 +508,11 @@ export async function importSqliteDatabaseFile(file: File): Promise<number> {
   const arrayBuffer = await file.arrayBuffer();
   const uint8 = new Uint8Array(arrayBuffer);
   sqliteDbInstance = new SQL_ENGINE!.Database(uint8);
-  
+
   persistSqliteToStorage(sqliteDbInstance);
-  
+
   // Count imported tickets
-  const res = sqliteDbInstance.exec("SELECT count(*) FROM tickets");
+  const res = sqliteDbInstance.exec('SELECT count(*) FROM tickets');
   const count = (res[0]?.values[0]?.[0] as number) || 0;
   return count;
 }
@@ -520,13 +522,13 @@ export async function importSqliteDatabaseFile(file: File): Promise<number> {
  */
 export async function executeSqlAnalyticsQuery(
   sqlQuery: string
-): Promise<{ columns: string[]; rows: any[][]; executionTimeMs: number; error?: string }> {
+): Promise<{ columns: string[]; rows: unknown[][]; executionTimeMs: number; error?: string }> {
   const start = performance.now();
   try {
     const db = await getSqliteDb();
     const results = db.exec(sqlQuery);
     const end = performance.now();
-    
+
     if (results.length === 0) {
       return {
         columns: [],
@@ -540,13 +542,13 @@ export async function executeSqlAnalyticsQuery(
       rows: results[0].values,
       executionTimeMs: Math.round((end - start) * 10) / 10,
     };
-  } catch (err: any) {
+  } catch (err) {
     const end = performance.now();
     return {
       columns: [],
       rows: [],
       executionTimeMs: Math.round(end - start),
-      error: err.message || String(err),
+      error: err instanceof Error ? err.message : String(err),
     };
   }
 }

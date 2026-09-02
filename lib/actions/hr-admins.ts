@@ -16,7 +16,9 @@ export async function getHrAdmins(): Promise<HrAdminMember[]> {
   return rows.map(mapHrAdmin);
 }
 
-export async function addHrAdminMember(newAdmin: Omit<HrAdminMember, 'id' | 'updatedAt'>): Promise<HrAdminMember[]> {
+export async function addHrAdminMember(
+  newAdmin: Omit<HrAdminMember, 'id' | 'updatedAt'>
+): Promise<HrAdminMember[]> {
   await prisma.hrAdminMember.create({
     data: {
       name: newAdmin.name,
@@ -35,7 +37,10 @@ export async function addHrAdminMember(newAdmin: Omit<HrAdminMember, 'id' | 'upd
   return getHrAdmins();
 }
 
-export async function updateHrAdminMember(id: string, updates: Partial<HrAdminMember>): Promise<HrAdminMember[]> {
+export async function updateHrAdminMember(
+  id: string,
+  updates: Partial<HrAdminMember>
+): Promise<HrAdminMember[]> {
   const { id: _ignoredId, updatedAt: _ignoredUpdatedAt, ...rest } = updates;
   await prisma.hrAdminMember.update({ where: { id }, data: rest });
   return getHrAdmins();

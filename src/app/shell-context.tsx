@@ -15,7 +15,7 @@ export const TAB_TO_PATH: Record<AppTabId, string> = {
 };
 
 export const PATH_TO_TAB: Record<string, AppTabId> = Object.fromEntries(
-  Object.entries(TAB_TO_PATH).map(([tab, path]) => [path, tab as AppTabId]),
+  Object.entries(TAB_TO_PATH).map(([tab, path]) => [path, tab as AppTabId])
 );
 
 export interface ShellContextValue {

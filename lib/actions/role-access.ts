@@ -28,7 +28,9 @@ export async function updateRoleAccessConfig(
     data: {
       ...rest,
       allowedTabsJson: allowedTabs ? JSON.stringify(allowedTabs) : undefined,
-      assignedDepartmentsJson: assignedDepartments ? JSON.stringify(assignedDepartments) : undefined,
+      assignedDepartmentsJson: assignedDepartments
+        ? JSON.stringify(assignedDepartments)
+        : undefined,
     },
   });
   return mapRoleAccessConfig(updated);

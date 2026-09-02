@@ -6,6 +6,7 @@ out/
 build/
 dist/
 coverage/
+test-results/
 .DS_Store
 *.pem
 *.log

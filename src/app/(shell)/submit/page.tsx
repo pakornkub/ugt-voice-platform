@@ -5,5 +5,7 @@ import { useShell } from '../../shell-context';
 
 export default function SubmitPage() {
   const { handleTicketCreated, openTrackingByCode } = useShell();
-  return <EmployeeSubmitForm onTicketCreated={handleTicketCreated} onOpenTracking={openTrackingByCode} />;
+  return (
+    <EmployeeSubmitForm onTicketCreated={handleTicketCreated} onOpenTracking={openTrackingByCode} />
+  );
 }

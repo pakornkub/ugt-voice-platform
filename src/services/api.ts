@@ -1,23 +1,23 @@
-import { 
+import {
   AppTabId,
-  ComplaintTicket, 
-  DepartmentGatekeeperConfig, 
-  GatekeeperOfficer, 
+  ComplaintTicket,
+  DepartmentGatekeeperConfig,
+  GatekeeperOfficer,
   ExecutiveMember,
   HrAdminMember,
-  GrievanceCategory, 
-  NotificationItem, 
+  GrievanceCategory,
+  NotificationItem,
   RolePermissionConfig,
-  SatisfactionEvaluation, 
+  SatisfactionEvaluation,
   TabDefinition,
-  TicketStatus, 
-  UserRole 
+  TicketStatus,
+  UserRole,
 } from '../types';
-import { 
-  INITIAL_COMPLAINTS, 
-  INITIAL_NOTIFICATIONS, 
-  CATEGORY_DEFINITIONS, 
-  INITIAL_GATEKEEPER_CONFIGS 
+import {
+  INITIAL_COMPLAINTS,
+  INITIAL_NOTIFICATIONS,
+  CATEGORY_DEFINITIONS,
+  INITIAL_GATEKEEPER_CONFIGS,
 } from '../mockData';
 import { syncAllTicketsToSqlite } from './sqliteDb';
 import { safeStorage } from './safeStorage';
@@ -49,7 +49,8 @@ export const INITIAL_EXECUTIVES: ExecutiveMember[] = [
   {
     id: 'exec-2',
     name: 'ดร.กานดา รัตนพาณิชย์',
-    position: 'รองกรรมการผู้จัดการใหญ่อาวุโส สายงานบรรษัทภิบาลและความยั่งยืน (Senior EVP Governance & GRC)',
+    position:
+      'รองกรรมการผู้จัดการใหญ่อาวุโส สายงานบรรษัทภิบาลและความยั่งยืน (Senior EVP Governance & GRC)',
     department: 'Corporate Governance & Risk Oversight Group',
     email: 'kanda.r@enterprise.co.th',
     phone: '02-998-1002',
@@ -87,7 +88,10 @@ export const INITIAL_EXECUTIVES: ExecutiveMember[] = [
     isPrimaryWhistleblowerReceiver: false,
     canViewConfidentialIdentities: false,
     receiveAlertNotifications: true,
-    assignedCommittees: ['คณะกรรมการบริหารระดับสูง (ExCom)', 'คณะกรรมการแรงงานสัมพันธ์และสวัสดิการ'],
+    assignedCommittees: [
+      'คณะกรรมการบริหารระดับสูง (ExCom)',
+      'คณะกรรมการแรงงานสัมพันธ์และสวัสดิการ',
+    ],
     status: 'active',
     updatedAt: '2026-08-28T08:00:00.000Z',
   },
@@ -97,7 +101,8 @@ export const INITIAL_HR_ADMINS: HrAdminMember[] = [
   {
     id: 'admin-1',
     name: 'คุณชิดชนก วงศ์ประเสริฐ',
-    position: 'ผู้อำนวยการฝ่ายทรัพยากรบุคคลและตัวแทนผู้บริหาร (HR Director & Executive Representative)',
+    position:
+      'ผู้อำนวยการฝ่ายทรัพยากรบุคคลและตัวแทนผู้บริหาร (HR Director & Executive Representative)',
     department: 'People & Organization Strategy Division',
     email: 'chidchanok.w@enterprise.co.th',
     phone: '02-998-2001',
@@ -112,7 +117,8 @@ export const INITIAL_HR_ADMINS: HrAdminMember[] = [
   {
     id: 'admin-2',
     name: 'คุณเอกชัย ศิริสมบัติ',
-    position: 'ผู้จัดการฝ่ายแรงงานสัมพันธ์และข้อร้องเรียนพนักงาน (Employee Relations & Grievance Manager)',
+    position:
+      'ผู้จัดการฝ่ายแรงงานสัมพันธ์และข้อร้องเรียนพนักงาน (Employee Relations & Grievance Manager)',
     department: 'Employee Relations & Staff Engagement Unit',
     email: 'ekachai.s@enterprise.co.th',
     phone: '02-998-2002',
@@ -197,7 +203,8 @@ export const APP_TABS: TabDefinition[] = [
     id: 'executive',
     nameTh: 'Dashboard',
     nameEn: 'Executive Dashboard & Whistleblower',
-    descriptionTh: 'แดชบอร์ดสรุปผลเชิงวิเคราะห์ระดับผู้บริหาร (CEO/EVP) ตัวชี้วัด SLA, CSAT และสายตรง',
+    descriptionTh:
+      'แดชบอร์ดสรุปผลเชิงวิเคราะห์ระดับผู้บริหาร (CEO/EVP) ตัวชี้วัด SLA, CSAT และสายตรง',
     category: 'executive',
     iconName: 'Crown',
     defaultRoles: ['executive', 'admin'],
@@ -206,7 +213,8 @@ export const APP_TABS: TabDefinition[] = [
     id: 'clustering',
     nameTh: 'วิเคราะห์สาเหตุ CAPA',
     nameEn: 'Root Cause & CAPA Clustering',
-    descriptionTh: 'การจัดกลุ่มปัญหาซ้ำซ้อน วิเคราะห์สาเหตุเชิงลึก (Root Cause) และมาตรการป้องกันเชิงรุก',
+    descriptionTh:
+      'การจัดกลุ่มปัญหาซ้ำซ้อน วิเคราะห์สาเหตุเชิงลึก (Root Cause) และมาตรการป้องกันเชิงรุก',
     category: 'executive',
     iconName: 'Layers',
     defaultRoles: ['executive', 'admin'],
@@ -215,7 +223,8 @@ export const APP_TABS: TabDefinition[] = [
     id: 'admin_gatekeeper',
     nameTh: 'จัดการผู้บริหาร, Admin & Gatekeeper',
     nameEn: 'Personnel & Governance Directory',
-    descriptionTh: 'Maintain รายชื่อคณะผู้บริหารระดับสูง (CEO/EVP Whistleblower Channel), ทีมงาน HR Admin และผู้รับผิดชอบ 9 ฝ่ายงาน',
+    descriptionTh:
+      'Maintain รายชื่อคณะผู้บริหารระดับสูง (CEO/EVP Whistleblower Channel), ทีมงาน HR Admin และผู้รับผิดชอบ 9 ฝ่ายงาน',
     category: 'administration',
     iconName: 'Users',
     defaultRoles: ['admin'],
@@ -224,7 +233,8 @@ export const APP_TABS: TabDefinition[] = [
     id: 'rbac_management',
     nameTh: 'กำหนดสิทธิ์การเข้าถึง (RBAC)',
     nameEn: 'Role-Based Access Management',
-    descriptionTh: 'ศูนย์ควบคุมสิทธิ์ (HR Admin & ตัวแทนผู้บริหาร) กำหนดสิทธิ์การมองเห็นและขอบเขตหน่วยงานของแต่ละ Role',
+    descriptionTh:
+      'ศูนย์ควบคุมสิทธิ์ (HR Admin & ตัวแทนผู้บริหาร) กำหนดสิทธิ์การมองเห็นและขอบเขตหน่วยงานของแต่ละ Role',
     category: 'administration',
     iconName: 'SlidersHorizontal',
     defaultRoles: ['admin'],
@@ -236,7 +246,8 @@ export const INITIAL_ROLE_PERMISSIONS: Record<UserRole, RolePermissionConfig> = 
     role: 'employee',
     roleTitleTh: 'พนักงานทั่วไป (General Employee)',
     roleTitleEn: 'General Employee',
-    descriptionTh: 'ผู้ใช้งานทั่วไป สามารถยื่นข้อร้องเรียน/ข้อเสนอแนะ ติดตามสถานะคำร้องของตนเอง และศึกษาคู่มือเกณฑ์มาตรฐาน',
+    descriptionTh:
+      'ผู้ใช้งานทั่วไป สามารถยื่นข้อร้องเรียน/ข้อเสนอแนะ ติดตามสถานะคำร้องของตนเอง และศึกษาคู่มือเกณฑ์มาตรฐาน',
     badgeColor: 'bg-blue-50 text-blue-700 border-blue-200',
     allowedTabs: ['submit', 'my_tickets', 'workflow'],
     canViewAllDepartments: false,
@@ -251,11 +262,22 @@ export const INITIAL_ROLE_PERMISSIONS: Record<UserRole, RolePermissionConfig> = 
     role: 'gatekeeper',
     roleTitleTh: 'ผู้ประสานงานหน่วยงาน (Gatekeeper)',
     roleTitleEn: 'Department Gatekeeper',
-    descriptionTh: 'เจ้าหน้าที่ผู้รับผิดชอบประจำหน่วยงาน คัดกรอง สืบสวน และส่งต่อแก้ไขตามสายงานที่เกี่ยวข้อง',
+    descriptionTh:
+      'เจ้าหน้าที่ผู้รับผิดชอบประจำหน่วยงาน คัดกรอง สืบสวน และส่งต่อแก้ไขตามสายงานที่เกี่ยวข้อง',
     badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     allowedTabs: ['gatekeeper', 'my_tickets', 'workflow'],
     canViewAllDepartments: true,
-    assignedDepartments: ['IT', 'HR', 'Safety', 'Compliance', 'Ethics', 'Harassment', 'Fraud', 'Quality', 'Environment'],
+    assignedDepartments: [
+      'IT',
+      'HR',
+      'Safety',
+      'Compliance',
+      'Ethics',
+      'Harassment',
+      'Fraud',
+      'Quality',
+      'Environment',
+    ],
     canViewDirectCeoTickets: false,
     canViewConfidentialIdentities: false,
     canEditRootCauseAndCapa: true,
@@ -266,7 +288,8 @@ export const INITIAL_ROLE_PERMISSIONS: Record<UserRole, RolePermissionConfig> = 
     role: 'executive',
     roleTitleTh: 'ผู้บริหารระดับสูง (CEO / EVP / GRC)',
     roleTitleEn: 'Executive & Governance Board',
-    descriptionTh: 'ผู้บริหารและคณะกรรมการกำกับดูแล เข้าถึงแดชบอร์ดภาพรวม กล่องข้อร้องเรียนสายตรง Whistleblower และการวิเคราะห์ CAPA',
+    descriptionTh:
+      'ผู้บริหารและคณะกรรมการกำกับดูแล เข้าถึงแดชบอร์ดภาพรวม กล่องข้อร้องเรียนสายตรง Whistleblower และการวิเคราะห์ CAPA',
     badgeColor: 'bg-purple-50 text-purple-700 border-purple-200',
     allowedTabs: ['executive', 'clustering', 'workflow'],
     canViewAllDepartments: true,
@@ -281,9 +304,19 @@ export const INITIAL_ROLE_PERMISSIONS: Record<UserRole, RolePermissionConfig> = 
     role: 'admin',
     roleTitleTh: 'HR Administrator & ตัวแทนผู้บริหาร',
     roleTitleEn: 'HR Admin & Executive Representative',
-    descriptionTh: 'ผู้ดูแลระบบสูงสุดและตัวแทนฝ่ายบริหาร มีสิทธิ์เข้าถึงทุกฟังก์ชัน กำหนดสิทธิ์ RBAC และจัดสรรผู้รับผิดชอบหน่วยงาน',
+    descriptionTh:
+      'ผู้ดูแลระบบสูงสุดและตัวแทนฝ่ายบริหาร มีสิทธิ์เข้าถึงทุกฟังก์ชัน กำหนดสิทธิ์ RBAC และจัดสรรผู้รับผิดชอบหน่วยงาน',
     badgeColor: 'bg-rose-50 text-rose-700 border-rose-200',
-    allowedTabs: ['submit', 'my_tickets', 'workflow', 'gatekeeper', 'executive', 'clustering', 'admin_gatekeeper', 'rbac_management'],
+    allowedTabs: [
+      'submit',
+      'my_tickets',
+      'workflow',
+      'gatekeeper',
+      'executive',
+      'clustering',
+      'admin_gatekeeper',
+      'rbac_management',
+    ],
     canViewAllDepartments: true,
     assignedDepartments: [],
     canViewDirectCeoTickets: true,
@@ -326,7 +359,7 @@ export function updateRolePermissionConfig(
 ): Record<UserRole, RolePermissionConfig> {
   const current = getStoredRolePermissions();
   const target = current[role] || INITIAL_ROLE_PERMISSIONS[role];
-  
+
   const merged: RolePermissionConfig = {
     ...target,
     ...updatedConfig,
@@ -366,7 +399,10 @@ export function setActiveGatekeeperDepartment(cat: GrievanceCategory) {
   }
 }
 
-export function getStoredGatekeeperConfigs(): Record<GrievanceCategory, DepartmentGatekeeperConfig> {
+export function getStoredGatekeeperConfigs(): Record<
+  GrievanceCategory,
+  DepartmentGatekeeperConfig
+> {
   try {
     const data = safeStorage.getItem(STORAGE_KEY_GATEKEEPERS);
     if (data) {
@@ -379,7 +415,9 @@ export function getStoredGatekeeperConfigs(): Record<GrievanceCategory, Departme
   return INITIAL_GATEKEEPER_CONFIGS;
 }
 
-export function saveStoredGatekeeperConfigs(configs: Record<GrievanceCategory, DepartmentGatekeeperConfig>) {
+export function saveStoredGatekeeperConfigs(
+  configs: Record<GrievanceCategory, DepartmentGatekeeperConfig>
+) {
   try {
     safeStorage.setItem(STORAGE_KEY_GATEKEEPERS, JSON.stringify(configs));
   } catch (e) {
@@ -388,12 +426,12 @@ export function saveStoredGatekeeperConfigs(configs: Record<GrievanceCategory, D
 }
 
 export function updateDepartmentGatekeeperConfig(
-  category: GrievanceCategory, 
+  category: GrievanceCategory,
   updatedConfig: Partial<DepartmentGatekeeperConfig>
 ): Record<GrievanceCategory, DepartmentGatekeeperConfig> {
   const current = getStoredGatekeeperConfigs();
   const target = current[category] || INITIAL_GATEKEEPER_CONFIGS[category];
-  
+
   const merged: DepartmentGatekeeperConfig = {
     ...target,
     ...updatedConfig,
@@ -409,7 +447,10 @@ export function updateDepartmentGatekeeperConfig(
   return updated;
 }
 
-export function resetGatekeeperConfigsToDefault(): Record<GrievanceCategory, DepartmentGatekeeperConfig> {
+export function resetGatekeeperConfigsToDefault(): Record<
+  GrievanceCategory,
+  DepartmentGatekeeperConfig
+> {
   saveStoredGatekeeperConfigs(INITIAL_GATEKEEPER_CONFIGS);
   return INITIAL_GATEKEEPER_CONFIGS;
 }
@@ -436,7 +477,9 @@ export function saveStoredExecutives(executives: ExecutiveMember[]) {
   }
 }
 
-export function addExecutiveMember(newExec: Omit<ExecutiveMember, 'id' | 'updatedAt'>): ExecutiveMember[] {
+export function addExecutiveMember(
+  newExec: Omit<ExecutiveMember, 'id' | 'updatedAt'>
+): ExecutiveMember[] {
   const current = getStoredExecutives();
   const created: ExecutiveMember = {
     ...newExec,
@@ -448,12 +491,13 @@ export function addExecutiveMember(newExec: Omit<ExecutiveMember, 'id' | 'update
   return updated;
 }
 
-export function updateExecutiveMember(id: string, updates: Partial<ExecutiveMember>): ExecutiveMember[] {
+export function updateExecutiveMember(
+  id: string,
+  updates: Partial<ExecutiveMember>
+): ExecutiveMember[] {
   const current = getStoredExecutives();
   const updated = current.map((item) =>
-    item.id === id
-      ? { ...item, ...updates, updatedAt: new Date().toISOString() }
-      : item
+    item.id === id ? { ...item, ...updates, updatedAt: new Date().toISOString() } : item
   );
   saveStoredExecutives(updated);
   return updated;
@@ -493,7 +537,9 @@ export function saveStoredHrAdmins(admins: HrAdminMember[]) {
   }
 }
 
-export function addHrAdminMember(newAdmin: Omit<HrAdminMember, 'id' | 'updatedAt'>): HrAdminMember[] {
+export function addHrAdminMember(
+  newAdmin: Omit<HrAdminMember, 'id' | 'updatedAt'>
+): HrAdminMember[] {
   const current = getStoredHrAdmins();
   const created: HrAdminMember = {
     ...newAdmin,
@@ -508,9 +554,7 @@ export function addHrAdminMember(newAdmin: Omit<HrAdminMember, 'id' | 'updatedAt
 export function updateHrAdminMember(id: string, updates: Partial<HrAdminMember>): HrAdminMember[] {
   const current = getStoredHrAdmins();
   const updated = current.map((item) =>
-    item.id === id
-      ? { ...item, ...updates, updatedAt: new Date().toISOString() }
-      : item
+    item.id === id ? { ...item, ...updates, updatedAt: new Date().toISOString() } : item
   );
   saveStoredHrAdmins(updated);
   return updated;
@@ -545,9 +589,7 @@ export const getTickets = getStoredTickets;
 
 export function getTicketByTrackingCode(trackingCode: string): ComplaintTicket | undefined {
   const tickets = getStoredTickets();
-  return tickets.find(
-    (t) => t.trackingCode.toLowerCase() === trackingCode.trim().toLowerCase()
-  );
+  return tickets.find((t) => t.trackingCode.toLowerCase() === trackingCode.trim().toLowerCase());
 }
 
 export function saveStoredTickets(tickets: ComplaintTicket[]) {
@@ -616,7 +658,9 @@ export async function analyzeGrievanceWithAI(params: {
   } catch (err) {
     console.warn('AI offline or fallback mode', err);
     const cat = params.category || 'HR';
-    const dept = CATEGORY_DEFINITIONS[cat as keyof typeof CATEGORY_DEFINITIONS]?.responsibleDept || 'People & Culture Department';
+    const dept =
+      CATEGORY_DEFINITIONS[cat as keyof typeof CATEGORY_DEFINITIONS]?.responsibleDept ||
+      'People & Culture Department';
     return {
       suggestedCategory: cat,
       urgencyScore: 'Medium',
@@ -662,19 +706,22 @@ export async function getClusterInsightsWithAI(tickets: ComplaintTicket[]) {
           category: 'Harassment',
           count: 2,
           rootCause: 'ช่องว่างการสื่อสารของหัวหน้างานระดับกลางและขาดการอบรม Respectful Workplace',
-          preventiveAction: 'จัดหลักสูตร Mandatory Respectful Leadership และเปิดสายด่วนรับฟังความปลอดภัยทางใจ',
+          preventiveAction:
+            'จัดหลักสูตร Mandatory Respectful Leadership และเปิดสายด่วนรับฟังความปลอดภัยทางใจ',
           severity: 'High',
         },
         {
           clusterName: 'Factory & Warehouse EHS Compliance',
           category: 'Safety',
           count: 2,
-          rootCause: 'ผู้รับเหมาภายนอกวางของกีดขวางจุดหนีไฟเนื่องจากพื้นที่พักของชั่วคราวไม่เพียงพอ',
+          rootCause:
+            'ผู้รับเหมาภายนอกวางของกีดขวางจุดหนีไฟเนื่องจากพื้นที่พักของชั่วคราวไม่เพียงพอ',
           preventiveAction: 'ตีเส้น Safety Yellow Zone และสุ่มตรวจโดย EHS Officer ประจำกะ',
           severity: 'High',
         },
       ],
-      executiveSummary: 'ภาพรวมขององค์กรมีการตอบสนองต่อข้อร้องเรียนอยู่ในเกณฑ์ดี SLA Compliance อยู่ที่ 94.2% มีจุดที่ต้องเฝ้าระวังเรื่องการจัดซื้อและสภาพแวดล้อมความปลอดภัยในโกดังสินค้า',
+      executiveSummary:
+        'ภาพรวมขององค์กรมีการตอบสนองต่อข้อร้องเรียนอยู่ในเกณฑ์ดี SLA Compliance อยู่ที่ 94.2% มีจุดที่ต้องเฝ้าระวังเรื่องการจัดซื้อและสภาพแวดล้อมความปลอดภัยในโกดังสินค้า',
       strategicRecommendations: [
         'เร่งการปฏิรูปเครื่องมือไอทีสำหรับ Hybrid Workplace',
         'เพิ่มมาตรการตรวจสอบความโปร่งใสของฝ่ายจัดซื้อด้วยระบบตรวจเช็คอัตโนมัติ',
@@ -686,7 +733,17 @@ export async function getClusterInsightsWithAI(tickets: ComplaintTicket[]) {
 
 // Create new ticket with auto-generated tracking code & notifications
 export function submitTicket(
-  payload: Omit<ComplaintTicket, 'id' | 'trackingCode' | 'createdAt' | 'updatedAt' | 'timeline' | 'status' | 'slaDueDate' | 'slaStatus'>
+  payload: Omit<
+    ComplaintTicket,
+    | 'id'
+    | 'trackingCode'
+    | 'createdAt'
+    | 'updatedAt'
+    | 'timeline'
+    | 'status'
+    | 'slaDueDate'
+    | 'slaStatus'
+  >
 ): ComplaintTicket {
   const tickets = getStoredTickets();
   const notifs = getStoredNotifications();
@@ -710,9 +767,13 @@ export function submitTicket(
         timestamp: now,
         actor: payload.submitterName || 'พนักงานผู้ยื่นเรื่อง',
         actorRole: 'Employee',
-        action: payload.isDirectToExecutive ? 'ยื่นเรื่องส่งตรงถึงผู้บริหารระดับสูง (CEO/EVP Whistleblower Channel)' : 'ยื่นเรื่องเข้าระบบสำเร็จ',
+        action: payload.isDirectToExecutive
+          ? 'ยื่นเรื่องส่งตรงถึงผู้บริหารระดับสูง (CEO/EVP Whistleblower Channel)'
+          : 'ยื่นเรื่องเข้าระบบสำเร็จ',
         status: 'submitted',
-        notes: payload.isDirectToExecutive ? 'ติดแท็กสำคัญพิเศษ: ส่งตรงถึงโต๊ะทำงานผู้บริหารระดับสูง' : 'ระบบได้รับเรื่องและเข้าสู่คิวคัดกรองของ Gatekeeper',
+        notes: payload.isDirectToExecutive
+          ? 'ติดแท็กสำคัญพิเศษ: ส่งตรงถึงโต๊ะทำงานผู้บริหารระดับสูง'
+          : 'ระบบได้รับเรื่องและเข้าสู่คิวคัดกรองของ Gatekeeper',
       },
     ],
   };
@@ -856,7 +917,10 @@ export function submitEvaluation(
   const newLog = {
     id: `tl-${Date.now()}`,
     timestamp: now,
-    actor: current.confidentiality === 'anonymous' ? 'พนักงานผู้แจ้ง' : (current.submitterName || 'พนักงาน'),
+    actor:
+      current.confidentiality === 'anonymous'
+        ? 'พนักงานผู้แจ้ง'
+        : current.submitterName || 'พนักงาน',
     actorRole: 'Employee',
     action: `ประเมินความพึงพอใจ ${evaluationData.overallScore} ดาว และปิดเรื่อง (Closed)`,
     status: 'closed' as TicketStatus,

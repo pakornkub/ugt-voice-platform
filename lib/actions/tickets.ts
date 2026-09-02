@@ -13,7 +13,12 @@
 // references/raw-sql-and-sp.md's Server Action frame.
 import { prisma } from '@/lib/prisma';
 import { mapTicket } from './mappers';
-import type { ComplaintTicket, NotificationItem, SatisfactionEvaluation, TicketStatus } from '@/types';
+import type {
+  ComplaintTicket,
+  NotificationItem,
+  SatisfactionEvaluation,
+  TicketStatus,
+} from '@/types';
 
 const TICKET_INCLUDE = {
   timeline: { orderBy: { createdAt: 'asc' as const } },
@@ -61,7 +66,9 @@ export async function getTickets(): Promise<ComplaintTicket[]> {
   return rows.map(mapTicket);
 }
 
-export async function getTicketByTrackingCode(trackingCode: string): Promise<ComplaintTicket | null> {
+export async function getTicketByTrackingCode(
+  trackingCode: string
+): Promise<ComplaintTicket | null> {
   const row = await prisma.ticket.findFirst({
     where: { trackingCode: trackingCode.trim() },
     include: TICKET_INCLUDE,
@@ -72,7 +79,14 @@ export async function getTicketByTrackingCode(trackingCode: string): Promise<Com
 export async function submitTicket(
   payload: Omit<
     ComplaintTicket,
-    'id' | 'trackingCode' | 'createdAt' | 'updatedAt' | 'timeline' | 'status' | 'slaDueDate' | 'slaStatus'
+    | 'id'
+    | 'trackingCode'
+    | 'createdAt'
+    | 'updatedAt'
+    | 'timeline'
+    | 'status'
+    | 'slaDueDate'
+    | 'slaStatus'
   >
 ): Promise<ComplaintTicket> {
   const year = new Date().getFullYear();
@@ -214,7 +228,8 @@ export async function updateTicketWorkflow(
   if (newStatus === 'resolved') {
     notifType = 'satisfaction_pending';
     notifTitle = `แก้ไขเสร็จสิ้น: รหัส ${updated.trackingCode}`;
-    notifMsg = 'หน่วยงานได้ดำเนินการแก้ไขปัญหาเรียบร้อยแล้ว กรุณาให้คะแนนประเมินความพึงพอใจเพื่อพัฒนาองค์กร';
+    notifMsg =
+      'หน่วยงานได้ดำเนินการแก้ไขปัญหาเรียบร้อยแล้ว กรุณาให้คะแนนประเมินความพึงพอใจเพื่อพัฒนาองค์กร';
   }
   await prisma.notification.create({
     data: {
@@ -260,7 +275,10 @@ export async function submitEvaluation(
         create: {
           status: 'closed',
           action: `ประเมินความพึงพอใจ ${evaluationData.overallScore} ดาว และปิดเรื่อง (Closed)`,
-          actor: current.confidentiality === 'anonymous' ? 'พนักงานผู้แจ้ง' : current.submitterName || 'พนักงาน',
+          actor:
+            current.confidentiality === 'anonymous'
+              ? 'พนักงานผู้แจ้ง'
+              : current.submitterName || 'พนักงาน',
           actorRole: 'Employee',
           notes: evaluationData.feedbackComment || 'ส่งผลประเมินความพึงพอใจเสร็จสิ้น',
         },

@@ -1,10 +1,10 @@
 ---
 paths:
-  - "prisma/**"
-  - "prisma.config.ts"
-  - "lib/prisma.ts"
-  - "lib/env.ts"
-  - "lib/actions/**"
+  - 'prisma/**'
+  - 'prisma.config.ts'
+  - 'lib/prisma.ts'
+  - 'lib/env.ts'
+  - 'lib/actions/**'
 ---
 
 <!-- Owned by ugt-nextjs-database-setup — may be overwritten wholesale on /plugin update.
@@ -25,12 +25,12 @@ paths:
 
 ## Naming (machine-checked by ugt-nextjs-database-setup's `verify.mjs`)
 
-| Object | Convention |
-| --- | --- |
-| App-owned table | PascalCase **plural** — `@@map("Items")` |
-| Column | PascalCase — `@map("CreatedAt")` |
+| Object           | Convention                                                                  |
+| ---------------- | --------------------------------------------------------------------------- |
+| App-owned table  | PascalCase **plural** — `@@map("Items")`                                    |
+| Column           | PascalCase — `@map("CreatedAt")`                                            |
 | Stored procedure | `usp_PascalCase` (never `sp_` — collides with SQL Server system procedures) |
-| Function / View | `fn*` / `vw*` |
+| Function / View  | `fn*` / `vw*`                                                               |
 
 **Single exception**: the auth/RBAC tables installed by `ugt-nextjs-auth-setup` map to
 **singular** names (`User`, `Session`, `Account`, `Verification`, `RateLimit`,

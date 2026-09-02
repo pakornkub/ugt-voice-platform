@@ -1,6 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { NextRequest, NextResponse } from 'next/server';
 import { env } from '@/lib/env';
+import type { ComplaintTicket } from '@/types';
 
 function getGeminiClient(): GoogleGenAI | null {
   const apiKey = env.GEMINI_API_KEY;
@@ -30,15 +31,18 @@ export async function POST(request: NextRequest) {
             category: 'IT',
             count: 14,
             rootCause: 'Aging laptop hardware and VPN bandwidth constraints during hybrid days',
-            preventiveAction: 'Procure upgraded hardware batches and boost corporate gateway bandwidth',
+            preventiveAction:
+              'Procure upgraded hardware batches and boost corporate gateway bandwidth',
             severity: 'Medium',
           },
           {
             clusterName: 'Workplace Harassment & Psychological Safety',
             category: 'Harassment',
             count: 6,
-            rootCause: 'Middle management communication gap and lack of clear anti-harassment escalation workshop',
-            preventiveAction: 'Mandatory respectful workplace training and anonymous counseling hotline',
+            rootCause:
+              'Middle management communication gap and lack of clear anti-harassment escalation workshop',
+            preventiveAction:
+              'Mandatory respectful workplace training and anonymous counseling hotline',
             severity: 'High',
           },
           {
@@ -46,7 +50,8 @@ export async function POST(request: NextRequest) {
             category: 'Safety',
             count: 8,
             rootCause: 'PPE inspection gaps during night shifts',
-            preventiveAction: 'Enforce bi-weekly safety audit and automated shift checklist sign-off',
+            preventiveAction:
+              'Enforce bi-weekly safety audit and automated shift checklist sign-off',
             severity: 'High',
           },
         ],
@@ -60,7 +65,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const sampleSummary = complaints.slice(0, 15).map((c: any) => ({
+    const sampleSummary = (complaints as ComplaintTicket[]).slice(0, 15).map((c) => ({
       id: c.trackingCode,
       category: c.category,
       title: c.title,
@@ -99,7 +104,7 @@ Return valid JSON with schema:
 
     const result = JSON.parse(response.text || '{}');
     return NextResponse.json(result);
-  } catch (error: any) {
+  } catch (error) {
     console.error('AI Cluster Insights Error:', error);
     return NextResponse.json({ error: 'Failed to generate cluster insights' }, { status: 500 });
   }

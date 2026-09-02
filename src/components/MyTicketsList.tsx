@@ -1,19 +1,19 @@
 'use client';
 
 import React, { useState } from 'react';
-import { 
-  Search, 
-  Clock, 
-  CheckCircle2, 
-  Star, 
-  Crown, 
-  ArrowRight, 
-  Filter, 
-  ShieldAlert, 
-  Lightbulb, 
-  EyeOff, 
+import {
+  Search,
+  Clock,
+  CheckCircle2,
+  Star,
+  Crown,
+  ArrowRight,
+  Filter,
+  ShieldAlert,
+  Lightbulb,
+  EyeOff,
   User,
-  Plus
+  Plus,
 } from 'lucide-react';
 import { ComplaintTicket, TicketStatus } from '../types';
 import { CATEGORY_DEFINITIONS } from '../mockData';
@@ -38,7 +38,8 @@ export const MyTicketsList: React.FC<MyTicketsListProps> = ({
   const safeTickets = tickets || [];
 
   const filteredTickets = safeTickets.filter((t) => {
-    if (statusFilter === 'ACTIVE' && (t.status === 'resolved' || t.status === 'closed')) return false;
+    if (statusFilter === 'ACTIVE' && (t.status === 'resolved' || t.status === 'closed'))
+      return false;
     if (statusFilter === 'RESOLVED' && t.status !== 'resolved') return false;
     if (statusFilter === 'CLOSED' && t.status !== 'closed') return false;
 
@@ -55,15 +56,14 @@ export const MyTicketsList: React.FC<MyTicketsListProps> = ({
   });
 
   return (
-    <div className="max-w-5xl mx-auto py-6 px-4 space-y-6">
-      
+    <div className="mx-auto max-w-5xl space-y-6 px-4 py-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
+          <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">
             รายการคำร้องของฉัน (My Grievance & Suggestion History)
           </h1>
-          <p className="text-xs sm:text-sm text-slate-600">
+          <p className="text-xs text-slate-600 sm:text-sm">
             ติดตามสถานะการดำเนินการ ตรวจสอบประวัติการตอบกลับ และประเมินความพึงพอใจ
           </p>
         </div>
@@ -71,27 +71,27 @@ export const MyTicketsList: React.FC<MyTicketsListProps> = ({
         <button
           type="button"
           onClick={onNavigateToSubmit}
-          className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center gap-1.5 self-start sm:self-auto"
+          className="flex items-center gap-1.5 self-start rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-indigo-700 sm:self-auto"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="h-4 w-4" />
           <span>ยื่นเรื่องใหม่</span>
         </button>
       </div>
 
       {/* Filter and Search */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div className="flex flex-col items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-xs sm:flex-row">
         <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+          <Search className="absolute top-2.5 left-3 h-4 w-4 text-slate-400" />
           <input
             type="text"
             placeholder="ค้นหาด้วย Tracking Code หรือชื่อเรื่อง..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="w-full rounded-lg border border-slate-200 py-2 pr-3 pl-9 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
           />
         </div>
 
-        <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto no-scrollbar">
+        <div className="no-scrollbar flex w-full items-center gap-1.5 overflow-x-auto sm:w-auto">
           {[
             { key: 'ALL', label: 'ทั้งหมด' },
             { key: 'ACTIVE', label: 'อยู่ระหว่างดำเนินการ' },
@@ -101,11 +101,11 @@ export const MyTicketsList: React.FC<MyTicketsListProps> = ({
             <button
               key={tab.key}
               type="button"
-              onClick={() => setStatusFilter(tab.key as any)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition ${
+              onClick={() => setStatusFilter(tab.key as 'ALL' | 'ACTIVE' | 'RESOLVED' | 'CLOSED')}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium whitespace-nowrap transition ${
                 statusFilter === tab.key
-                  ? 'bg-indigo-600 text-white font-bold shadow-xs'
-                  : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
+                  ? 'bg-indigo-600 font-bold text-white shadow-xs'
+                  : 'border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
               }`}
             >
               {tab.label}
@@ -117,7 +117,7 @@ export const MyTicketsList: React.FC<MyTicketsListProps> = ({
       {/* Cards list */}
       <div className="space-y-3">
         {filteredTickets.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-500 text-xs">
+          <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-xs text-slate-500">
             ไม่พบรายการคำร้องที่ค้นหา
           </div>
         ) : (
@@ -129,67 +129,75 @@ export const MyTicketsList: React.FC<MyTicketsListProps> = ({
               <div
                 key={t.id}
                 id={`my-ticket-${t.id}`}
-                className={`bg-white rounded-2xl border transition p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                className={`flex flex-col justify-between gap-4 rounded-2xl border bg-white p-4 shadow-xs transition sm:flex-row sm:items-center sm:p-5 ${
                   isResolved
-                    ? 'border-amber-300 ring-2 ring-amber-400/20 bg-amber-50/10'
+                    ? 'border-amber-300 bg-amber-50/10 ring-2 ring-amber-400/20'
                     : 'border-slate-200 hover:border-indigo-300'
                 }`}
               >
-                <div className="space-y-2 flex-1">
+                <div className="flex-1 space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono font-bold text-xs text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                    <span className="rounded border border-indigo-100 bg-indigo-50 px-2 py-0.5 font-mono text-xs font-bold text-indigo-700">
                       {t.trackingCode}
                     </span>
-                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${getStatusColor(t.status)}`}>
+                    <span
+                      className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${getStatusColor(t.status)}`}
+                    >
                       {getStatusBadgeText(t.status)}
                     </span>
-                    <span className={`text-[11px] font-medium px-2 py-0.5 rounded border ${catInfo?.badgeColor}`}>
+                    <span
+                      className={`rounded border px-2 py-0.5 text-[11px] font-medium ${catInfo?.badgeColor}`}
+                    >
                       {catInfo?.nameEn}
                     </span>
                     {t.isDirectToExecutive && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">
-                        <Crown className="w-3 h-3 text-purple-600" />
+                      <span className="inline-flex items-center gap-1 rounded border border-purple-200 bg-purple-50 px-1.5 py-0.5 text-[10px] font-bold text-purple-700">
+                        <Crown className="h-3 w-3 text-purple-600" />
                         สายตรงผู้บริหาร
                       </span>
                     )}
                     {t.type === 'suggestion' ? (
-                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                      <span className="rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
                         💡 ข้อเสนอแนะ
                       </span>
                     ) : (
-                      <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                      <span className="rounded border border-rose-200 bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-700">
                         ⚠️ ข้อร้องเรียน
                       </span>
                     )}
                   </div>
 
-                  <h3 className="text-sm sm:text-base font-bold text-slate-900">
-                    {t.title}
-                  </h3>
-                  <p className="text-xs text-slate-600 line-clamp-2">
-                    {t.description}
-                  </p>
+                  <h3 className="text-sm font-bold text-slate-900 sm:text-base">{t.title}</h3>
+                  <p className="line-clamp-2 text-xs text-slate-600">{t.description}</p>
 
-                  <div className="flex flex-wrap items-center gap-4 text-[11px] text-slate-500 pt-1">
-                    <span>หน่วยงานรับเรื่อง: <strong className="text-slate-800">{t.gatekeeperDepartment}</strong></span>
-                    <span>ผู้รับผิดชอบ: <strong className="text-slate-800">{t.assignedOfficerName || 'อยู่ระหว่างมอบหมาย'}</strong></span>
+                  <div className="flex flex-wrap items-center gap-4 pt-1 text-[11px] text-slate-500">
+                    <span>
+                      หน่วยงานรับเรื่อง:{' '}
+                      <strong className="text-slate-800">{t.gatekeeperDepartment}</strong>
+                    </span>
+                    <span>
+                      ผู้รับผิดชอบ:{' '}
+                      <strong className="text-slate-800">
+                        {t.assignedOfficerName || 'อยู่ระหว่างมอบหมาย'}
+                      </strong>
+                    </span>
                     <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-slate-400" />
+                      <Clock className="h-3 w-3 text-slate-400" />
                       ยื่นเมื่อ: {new Date(t.createdAt).toLocaleDateString('th-TH')}
                     </span>
                   </div>
                 </div>
 
                 {/* Right Action buttons */}
-                <div className="flex flex-row sm:flex-col items-center sm:items-end gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                <div className="flex shrink-0 flex-row items-center gap-2 border-t border-slate-100 pt-2 sm:flex-col sm:items-end sm:border-t-0 sm:pt-0">
                   {isResolved && (
                     <button
                       type="button"
                       id={`btn-csat-${t.id}`}
                       onClick={() => onOpenSatisfaction(t)}
-                      className="w-full sm:w-auto px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 animate-pulse"
+                      className="flex w-full animate-pulse items-center justify-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-amber-600 sm:w-auto"
                     >
-                      <Star className="w-3.5 h-3.5 fill-white" />
+                      <Star className="h-3.5 w-3.5 fill-white" />
                       <span>ประเมินความพึงพอใจ (CSAT)</span>
                     </button>
                   )}
@@ -198,10 +206,10 @@ export const MyTicketsList: React.FC<MyTicketsListProps> = ({
                     type="button"
                     id={`btn-view-timeline-${t.id}`}
                     onClick={() => onOpenTracking(t.trackingCode)}
-                    className="w-full sm:w-auto px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-semibold rounded-xl transition flex items-center justify-center gap-1.5"
+                    className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100 sm:w-auto"
                   >
                     <span>ติดตามความคืบหน้า</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
+                    <ArrowRight className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </div>
@@ -209,7 +217,6 @@ export const MyTicketsList: React.FC<MyTicketsListProps> = ({
           })
         )}
       </div>
-
     </div>
   );
 };

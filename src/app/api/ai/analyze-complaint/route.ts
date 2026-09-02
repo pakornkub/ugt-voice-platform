@@ -32,7 +32,11 @@ export async function POST(request: NextRequest) {
         suggestedDepartment: 'HR Operations',
         keyKeywords: ['Employee Relations', 'Process'],
         summary: title || 'Grievance submitted',
-        recommendedActions: ['Acknowledge within 24 hours', 'Assign designated officer', 'Schedule initial inquiry'],
+        recommendedActions: [
+          'Acknowledge within 24 hours',
+          'Assign designated officer',
+          'Schedule initial inquiry',
+        ],
       });
     }
 
@@ -65,8 +69,12 @@ Return a valid JSON object with the following fields:
 
     const result = JSON.parse(response.text || '{}');
     return NextResponse.json(result);
-  } catch (error: any) {
+  } catch (error) {
     console.error('AI Analysis Error:', error);
-    return NextResponse.json({ error: 'Failed to analyze grievance', details: error.message, fallback: true }, { status: 500 });
+    const details = error instanceof Error ? error.message : String(error);
+    return NextResponse.json(
+      { error: 'Failed to analyze grievance', details, fallback: true },
+      { status: 500 }
+    );
   }
 }

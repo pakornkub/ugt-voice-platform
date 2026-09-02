@@ -46,8 +46,8 @@
   - `src/lib/actions/*` — Prisma-backed Server Actions mirroring `src/services/api.ts`'s
     function signatures (see `api.md` → Server Actions). Not called by any component yet.
   - `prisma/migrations/20260902000000_init/` — generated **offline** (`prisma migrate diff
-    --from-empty`, no live SQL Server at authoring time); apply via `prisma migrate resolve
-    --applied` once real DB values land, not by replaying `migrate dev` — see
+--from-empty`, no live SQL Server at authoring time); apply via `prisma migrate resolve
+--applied` once real DB values land, not by replaying `migrate dev` — see
     `docs/admin-handoff.md`.
   - `prisma/seed.ts` — mirrors `src/mockData.ts` (tickets/timeline/evaluations/gatekeeper
     configs & officers/notifications) plus a hand-mirrored copy of `src/services/api.ts`'s
@@ -71,19 +71,20 @@
 
 ## ตารางหลัก → feature
 
-| ตาราง (Prisma `@@map`) | feature |
-| --- | --- |
+| ตาราง (Prisma `@@map`)                                 | feature                                                                                      |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
 | `Tickets` / `TicketTimelineLogs` / `TicketEvaluations` | ยื่นคำร้อง, ติดตามสถานะ, CSAT — `EmployeeSubmitForm`, `GatekeeperInbox`, `SatisfactionModal` |
-| `DepartmentGatekeeperConfigs` / `GatekeeperOfficers` | จัดการผู้รับผิดชอบ 9 หน่วยงาน — `admin_gatekeeper` tab |
-| `ExecutiveMembers` | CEO/EVP whistleblower directory — `admin_gatekeeper` tab |
-| `HrAdminMembers` | HR admin directory — `admin_gatekeeper` tab |
-| `Notifications` | in-app notification drawer |
-| `RoleAccessConfigs` | `RoleBasedAccessManagement` (`rbac_management` tab) |
+| `DepartmentGatekeeperConfigs` / `GatekeeperOfficers`   | จัดการผู้รับผิดชอบ 9 หน่วยงาน — `admin_gatekeeper` tab                                       |
+| `ExecutiveMembers`                                     | CEO/EVP whistleblower directory — `admin_gatekeeper` tab                                     |
+| `HrAdminMembers`                                       | HR admin directory — `admin_gatekeeper` tab                                                  |
+| `Notifications`                                        | in-app notification drawer                                                                   |
+| `RoleAccessConfigs`                                    | `RoleBasedAccessManagement` (`rbac_management` tab)                                          |
 
 ยังไม่ใช่ live source — ดู ⚠ deviation ด้านล่าง (schema/migration/seed พร้อมใช้แล้ว แต่
 component ทั้งหมดยังอ่าน/เขียน `localStorage` ผ่าน `src/services/api.ts` เหมือนเดิม)
 
 ## ⚠ Deviations (2026-09-02, ทั้งหมดเป็นผลจากการ migrate Phase A ที่จงใจคงพฤติกรรมเดิมไว้ก่อน
+
 เว้นแต่ระบุวันที่อื่น)
 
 - ⚠ deviation (2026-09-02): มี schema/migration/seed/Server Actions (Prisma + SQL Server)
@@ -117,4 +118,20 @@ component ทั้งหมดยังอ่าน/เขียน `localStora
 
 ## Testing map
 
-_(ยังไม่มี test runner ติดตั้ง — แผนอยู่ใน chunk `ugt-nextjs-test-lint-setup`)_
+- Vitest (`vitest.config.ts`, jsdom environment) + Testing Library + ESLint (flat config,
+  `eslint.config.mjs`) + Prettier (`.prettierrc`) + husky/lint-staged pre-commit — installed
+  2026-09-02 (`ugt-nextjs-test-lint-setup`). Scripts: `npm run lint` / `format:check` /
+  `test:coverage` / `build` (the four the Jenkins pipeline will call by exact name once
+  `ugt-nextjs-cicd-setup` lands).
+- `coverage.include` = `src/app/**`, `src/components/**`, `src/services/**`, `lib/**` (this
+  project's real source layout — `app`/`components`/`hooks` do **not** exist at repo root, only
+  under `src/`, plus the root-level `lib/` from the database chunk).
+- vitest's `resolve.alias` mirrors `tsconfig.json`'s two-entry `paths` exactly (`@/lib/*` →
+  root `./lib`, matched first; `@/*` → `./src`, matched second) — copying only the general `@`
+  alias (the skill asset's single-entry default) resolves every `@/lib/*` import to the wrong
+  place.
+- Only 2 smoke tests exist so far, proving the pipeline (not coverage) — see
+  `src/components/Navbar.test.tsx` and `src/app/api/ai/analyze-complaint/route.test.ts`
+  (exercises the no-`GEMINI_API_KEY` static-fallback branch). Real coverage growth is expected
+  to come from tests written alongside future feature work, per the org "tests ship with the
+  feature" rule.
