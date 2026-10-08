@@ -34,6 +34,8 @@ import type {
   NotificationItem,
   SatisfactionEvaluation,
   TicketStatus,
+  UrgencyLevel,
+  UserRole,
 } from '@/types';
 
 const APP_NAME = env.NEXT_PUBLIC_APP_NAME ?? 'UGT VoiceCare';
@@ -89,9 +91,7 @@ async function sendNotificationMail(
           ? ('ticket.satisfaction_pending' as const)
           : notif.type === 'direct_ceo_alert'
             ? ('ticket.direct_ceo_alert' as const)
-            : notif.type === 'sla_warning'
-              ? ('ticket.sla_warning' as const)
-              : null;
+            : null;
   if (!templateKey) return;
 
   try {
@@ -122,6 +122,7 @@ const TICKET_INCLUDE = {
   // them; TrackingTimelineModal can filter by attachment.url's id against a
   // given TimelineLog if that split view is ever needed).
   attachments: { where: { isDeleted: false }, orderBy: { createdAt: 'asc' as const } },
+  anonymousMessages: { where: { isDeleted: false }, orderBy: { createdAt: 'asc' as const } },
 } as const;
 
 function actionLabelForStatus(status: TicketStatus, note?: string): string {
@@ -178,21 +179,12 @@ export async function getTicketByTrackingCode(
 export async function submitTicket(
   payload: Omit<
     ComplaintTicket,
-    | 'id'
-    | 'trackingCode'
-    | 'createdAt'
-    | 'updatedAt'
-    | 'timeline'
-    | 'status'
-    | 'slaDueDate'
-    | 'slaStatus'
+    'id' | 'trackingCode' | 'createdAt' | 'updatedAt' | 'timeline' | 'status' | 'anonymousMessages'
   >
 ): Promise<ComplaintTicket> {
   const year = new Date().getFullYear();
   const randomCode = Math.floor(1000 + Math.random() * 9000);
   const trackingCode = `TK-${year}-${randomCode}`;
-  const now = new Date();
-  const slaDueDate = new Date(now.getTime() + payload.slaTargetHours * 60 * 60 * 1000);
 
   const created = await prisma.ticket.create({
     data: {
@@ -209,12 +201,14 @@ export async function submitTicket(
       submitterDepartment: payload.submitterDepartment,
       submitterEmail: payload.submitterEmail,
       submitterPhone: payload.submitterPhone,
+      // Mapped from the employee directory by the caller (upstream
+      // mapLoginEmailForTicket) — falls back to the submitter's own email.
+      loginEmail: payload.loginEmail ?? payload.submitterEmail,
+      isAnonymousMapped:
+        payload.confidentiality === 'anonymous' ? true : !!payload.isAnonymousMapped,
       gatekeeperDepartment: payload.gatekeeperDepartment,
       assignedOfficerName: payload.assignedOfficerName,
       assignedOfficerEmail: payload.assignedOfficerEmail,
-      slaTargetHours: payload.slaTargetHours,
-      slaDueDate,
-      slaStatus: 'on_track',
       status: 'submitted',
       urgency: payload.urgency,
       riskSeverity: payload.riskSeverity,
@@ -255,7 +249,7 @@ export async function submitTicket(
       ticketId: created.id,
       trackingCode: created.trackingCode,
       title: `ยื่นเรื่องสำเร็จ: ${created.title.substring(0, 40)}...`,
-      message: `รหัสติดตามของคุณคือ ${created.trackingCode} หน่วยงาน ${created.gatekeeperDepartment} จะคัดกรองภายใน SLA ${created.slaTargetHours} ชม.`,
+      message: `รหัสติดตามของคุณคือ ${created.trackingCode} หน่วยงาน ${created.gatekeeperDepartment} ได้รับเรื่องเข้าสู่ระบบเรียบร้อยแล้ว`,
       type: 'new_ticket',
       recipientRole: 'employee',
       recipientEmail: created.submitterEmail,
@@ -306,6 +300,8 @@ export async function updateTicketWorkflow(
     actorName: string;
     actorRole: string;
     attachmentName?: string;
+    urgency?: UrgencyLevel;
+    riskSeverity?: ComplaintTicket['riskSeverity'];
     rootCauseCategory?: ComplaintTicket['rootCauseCategory'];
     preventiveActionPlan?: string;
     clusterGroup?: string;
@@ -325,6 +321,8 @@ export async function updateTicketWorkflow(
       assignedOfficerEmail: updates.assignedOfficerEmail,
       gatekeeperDepartment: updates.gatekeeperDepartment,
       resolutionSummary: updates.resolutionSummary,
+      urgency: updates.urgency,
+      riskSeverity: updates.riskSeverity,
       rootCauseCategory: updates.rootCauseCategory,
       preventiveActionPlan: updates.preventiveActionPlan,
       clusterGroup: updates.clusterGroup,
@@ -369,6 +367,89 @@ export async function updateTicketWorkflow(
     { trackingCode: updated.trackingCode, title: notifTitle, message: notifMsg, type: notifType },
     { to: updated.submitterEmail, recipientName: updated.submitterName }
   );
+
+  return mapTicket(updated);
+}
+
+// Anonymous 2-way chat (Complainant <-> Gatekeeper/Executive) — port of
+// src/services/api.ts sendAnonymousChatMessage. Appends the message, a
+// timeline entry and a counterpart notification in one transaction.
+export async function sendAnonymousChatMessage(
+  ticketId: string,
+  messageText: string,
+  senderRole: UserRole,
+  senderDisplayName?: string
+): Promise<ComplaintTicket | null> {
+  const current = await prisma.ticket.findUnique({ where: { id: ticketId } });
+  if (!current) return null;
+
+  const isStaff =
+    senderRole === 'gatekeeper' || senderRole === 'executive' || senderRole === 'admin';
+  const text = messageText.trim();
+
+  let defaultName: string;
+  if (senderRole === 'employee') {
+    defaultName =
+      current.confidentiality === 'anonymous' ||
+      current.confidentiality === 'confidential_restricted'
+        ? 'ผู้ยื่นเรื่อง (ไม่เปิดเผยตัวตน / Anonymous)'
+        : current.submitterName || 'ผู้ยื่นเรื่อง (Employee)';
+  } else if (senderRole === 'gatekeeper') {
+    defaultName = current.assignedOfficerName
+      ? `Gatekeeper (${current.assignedOfficerName})`
+      : `Gatekeeper ประจำฝ่าย ${current.gatekeeperDepartment || current.category}`;
+  } else if (senderRole === 'executive') {
+    defaultName = 'คณะกรรมการตรวจสอบ / ผู้บริหารระดับสูง (Audit Committee)';
+  } else {
+    defaultName = 'เจ้าหน้าที่ผู้ดูแลระบบ (System Admin)';
+  }
+  const finalSenderName = senderDisplayName || defaultName;
+
+  let actorRole = 'Gatekeeper';
+  if (senderRole === 'employee') actorRole = 'Employee';
+  else if (senderRole === 'executive') actorRole = 'Executive';
+
+  const updated = await prisma.ticket.update({
+    where: { id: ticketId },
+    data: {
+      anonymousMessages: {
+        create: {
+          senderRole,
+          senderDisplayName: finalSenderName,
+          message: text,
+          isStaff,
+          isReadByEmployee: !isStaff,
+          isReadByStaff: isStaff,
+        },
+      },
+      timeline: {
+        create: {
+          status: current.status,
+          action: isStaff
+            ? 'เจ้าหน้าที่ส่งข้อความสอบถาม/ชี้แจงผ่านช่องทางนิรนาม'
+            : 'ผู้ยื่นเรื่องตอบกลับผ่านช่องทางสื่อสารนิรนาม',
+          actor: finalSenderName,
+          actorRole,
+          notes: `[Anonymous Q&A] ${text.length > 80 ? text.substring(0, 80) + '...' : text}`,
+        },
+      },
+    },
+    include: TICKET_INCLUDE,
+  });
+
+  await prisma.notification.create({
+    data: {
+      ticketId: updated.id,
+      trackingCode: updated.trackingCode,
+      title: isStaff
+        ? `[ข้อความใหม่จากเจ้าหน้าที่] ${updated.trackingCode}`
+        : `[ข้อความใหม่จากผู้ร้องเรียน] ${updated.trackingCode}`,
+      message: `${finalSenderName}: ${text.substring(0, 75)}${text.length > 75 ? '...' : ''}`,
+      type: 'status_update',
+      recipientRole: isStaff ? 'employee' : 'gatekeeper',
+      recipientEmail: isStaff ? updated.submitterEmail : null,
+    },
+  });
 
   return mapTicket(updated);
 }

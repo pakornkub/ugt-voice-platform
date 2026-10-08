@@ -23,8 +23,8 @@ Every workflow email goes through **`sendTemplatedMail`** — never
 
 Template keys ในโปรเจคนี้ตรงกับ `NotificationItem['type']` (src/types.ts) แบบ
 1:1 — `ticket.new_ticket` / `ticket.status_update` /
-`ticket.satisfaction_pending` / `ticket.direct_ceo_alert` /
-`ticket.sla_warning`. ไม่มี `auth.password-reset` — โปรเจคนี้ใช้ SSO
+`ticket.satisfaction_pending` / `ticket.direct_ceo_alert`
+(`ticket.sla_warning` ถูกตัด 2026-10-08 พร้อม SLA). ไม่มี `auth.password-reset` — โปรเจคนี้ใช้ SSO
 (Keycloak) เท่านั้น ไม่มีบัญชี local ให้ตั้งรหัสผ่าน.
 
 จุดเรียกจริง: `lib/actions/tickets.ts`'s `submitTicket`/`updateTicketWorkflow`

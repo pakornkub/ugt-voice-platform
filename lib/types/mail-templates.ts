@@ -2,7 +2,7 @@
 // Adapted from the skill's generic request/approve/reject example to this
 // project's actual domain: NotificationItem['type'] in src/types.ts
 // ('new_ticket' | 'status_update' | 'satisfaction_pending' |
-// 'direct_ceo_alert' | 'sla_warning') — one mail template per in-app
+// 'direct_ceo_alert') — one mail template per in-app
 // notification type, so every notification the app already generates can
 // also go out by email. No 'auth.password-reset' key: this project is
 // SSO-only (Keycloak), no local accounts to reset a password for — see
@@ -29,7 +29,6 @@ export const MAIL_TEMPLATE_KEYS = [
   'ticket.status_update',
   'ticket.satisfaction_pending',
   'ticket.direct_ceo_alert',
-  'ticket.sla_warning',
 ] as const;
 
 export type MailTemplateKey = (typeof MAIL_TEMPLATE_KEYS)[number];
@@ -160,29 +159,6 @@ export const MAIL_TEMPLATE_DEFINITIONS: MailTemplateDefinition[] = [
     banner: { token: 'notificationTitle', tone: 'danger' },
     cta: { label: 'เปิด Dashboard ผู้บริหาร →', urlToken: 'detailUrl' },
   },
-  {
-    key: 'ticket.sla_warning',
-    menu: 'คำร้อง (Ticket)',
-    label: 'ใกล้ครบกำหนด SLA',
-    // ยังไม่มีจุดในโค้ดที่สร้างการแจ้งเตือนประเภทนี้จริง (ไม่มี SLA
-    // watcher/cron ในโปรเจคนี้) — เทมเพลตเตรียมไว้ล่วงหน้าให้ตรงกับ
-    // NotificationItem['type'] ที่ประกาศไว้แล้วใน src/types.ts เพื่อให้พร้อม
-    // ใช้ทันทีที่มีจุดสร้างการแจ้งเตือนนี้จริงในอนาคต — ดู
-    // docs/project-context/decisions.md
-    description:
-      'สำหรับคำร้องที่ใกล้ครบกำหนด SLA (ยังไม่มี SLA watcher ที่สร้างการแจ้งเตือนนี้จริงในโค้ด — เทมเพลตเตรียมไว้ล่วงหน้า)',
-    heading: 'แจ้งเตือน SLA ใกล้ครบกำหนด',
-    variables: [
-      'appName',
-      'recipientName',
-      'trackingCode',
-      'notificationTitle',
-      'notificationMessage',
-      'detailUrl',
-    ],
-    banner: { token: 'notificationTitle', tone: 'danger' },
-    cta: { label: 'เปิดดูคำร้อง →', urlToken: 'detailUrl' },
-  },
 ];
 
 export const MAIL_TEMPLATE_DEFINITION_BY_KEY: Record<MailTemplateKey, MailTemplateDefinition> =
@@ -311,14 +287,6 @@ export const DEFAULT_MAIL_TEMPLATES: Record<MailTemplateKey, MailTemplate> = {
     html: [
       '<p>{{notificationMessage}}</p>',
       '<p>คำร้องนี้ถูกจัดประเภทเป็นช่องทางส่งตรงถึงผู้บริหาร (CEO/EVP Whistleblower Channel) กรุณาตรวจสอบโดยเร็ว</p>',
-    ].join(''),
-  },
-
-  'ticket.sla_warning': {
-    subject: '[{{appName}}] ใกล้ครบกำหนด SLA — {{trackingCode}}',
-    html: [
-      '<p>{{notificationMessage}}</p>',
-      '<p>กรุณาดำเนินการก่อนครบกำหนดเวลาที่ตกลงไว้ (SLA)</p>',
     ].join(''),
   },
 };
