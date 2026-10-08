@@ -151,7 +151,7 @@
   any other client-side data-fetching layer that could receive a 401 while the page stays open
   (every page reads `localStorage` directly, and the only session-gated calls are the new admin
   Server Actions, which already return a `{success:false, code:'UNAUTHORIZED'}` result the calling
-  component surfaces itself) — `middleware.ts` + the `(shell)` layout's server-side session check
+  component surfaces itself) — `middleware.ts` (now `src/proxy.ts`, 2026-10-08) + the `(shell)` layout's server-side session check
   on every navigation cover the real case (an expired cookie on the next page load) · revisit if a
   later chunk adds client-side data fetching that can 401 while a page stays open.
 - **[superseded 2026-10-08 — Next 16 upgrade, see below]** 2026-09-02 This project pins `next@^15.5.0` (not 16.x), so the auth-setup skill's `proxy.ts`
@@ -476,3 +476,41 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   (Next 16 convention; nodejs runtime only; lives under `src/` beside `src/app`, not the repo
   root, because this project uses the `src/` layout) · rejected: staying on 15.x with security
   backports — no blocker to upgrading existed and the gap only grows.
+- 2026-10-08 **Port upstream (`pisanu90853-cmd/UGTVoice-platform`, commits `8d885a3` +
+  `d20ca0b`) into this Next.js app** — `origin` is a GitHub fork of that repo, now added as
+  git remote `upstream`; the original author keeps developing the AI Studio app, and this
+  project must stay functionally (logic + UX/UI) equal to it. Ported by hand, not
+  `git merge`: Phase A reformatted every file and `App.tsx`/`server.ts`/`main.tsx` no longer
+  exist here. Order: (1) shared layer — 9→6 categories, SLA removed system-wide, new ticket
+  fields, `LanguageContext`, `employeeDirectory`, AI `suggest-category` + model fallback,
+  shell — plus matching Prisma schema / `lib/actions` changes so the build stays green;
+  (2) employee UI, gatekeeper/executive UI, admin UI in parallel. Our recorded deviations
+  stay (SSO identity instead of the role switcher, admin RBAC tabs, `src/app/api/*` routes,
+  lint/Sonar typing, `safeStorage`). Every upstream behaviour change is taken as-is unless
+  one of the three decisions below says otherwise.
+- 2026-10-08 **UI becomes bilingual TH/EN** (user decision, reverses DESIGN.md §10
+  "ไทยล้วน" 2026-09-02) — port upstream's hand-rolled `src/context/LanguageContext.tsx`
+  (`useLanguage()`, `t()`, `lang === 'en' ? … : …`, default `th`, preference in
+  localStorage) as-is — **because** parity with upstream is the goal and a second
+  translation substrate would make every future upstream port a rewrite · rejected:
+  `next-intl` (org default) — would diverge from upstream's code shape on every string.
+  Revisit only if upstream itself moves to a catalog.
+- 2026-10-08 **Employee directory = HR view (target), upstream mock (now)** (user
+  decision) — port upstream's `src/services/employeeDirectory.ts` API
+  (`mapLoginEmailForTicket`, `getCurrentLoginEmployee`, `EMPLOYEE_DATABASE`) unchanged for
+  parity; its data source is to be replaced by a read-only HR employee view (linked server /
+  view, via `ugt-nextjs-database-setup`'s linked-server pattern) once DBA provides it —
+  requested in `docs/admin-handoff.md` §1.4. Supersedes the 2026-09-02 "no central employee
+  directory" stance and the earlier review suggestion to use `session.user.email` only.
+- 2026-10-08 **Email notification settings follow upstream's `AdminEmailNotificationSettings`**
+  (user decision: "make ours like the original") — the admin email page becomes upstream's
+  UX: sub-tab `email_notifications` inside Gatekeeper management, `masterEnabled`, two
+  triggers `onTicketSubmitted` (→ category Lead Gatekeeper `leadOfficer.email` /
+  `escalationEmail`) and `onTicketResolved` (→ submitter), each `{enabled, subject, body}`
+  with single-brace `{token}`s, live preview, test send, dispatch log. Ported first with
+  upstream's localStorage storage (same as every other page until the DB rewiring); at the
+  rewiring, settings move to `AppSettings`, dispatch goes through `lib/email.ts` SMTP from
+  `lib/actions/tickets.ts` (the 2026-09-02 "mail hook lives in Server Actions" rule still
+  holds), and `/admin/mail-templates` + the 5 `NotificationItem['type']`-keyed templates are
+  retired in favour of this page · rejected: keeping our template editor and only borrowing
+  ideas (user wants upstream's behaviour).

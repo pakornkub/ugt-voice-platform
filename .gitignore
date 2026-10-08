@@ -15,3 +15,6 @@ test-results/
 *.tsbuildinfo
 .claude/logs/
 .vercel
+
+# Next 16 rewrites this per command (dev vs build differ) — generated, not source
+next-env.d.ts
