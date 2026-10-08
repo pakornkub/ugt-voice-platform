@@ -8,6 +8,9 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: 'jsdom',
+    // user-event-heavy component tests (tab switching through large ported
+    // upstream screens) can exceed vitest's 5s default on a loaded CI agent.
+    testTimeout: 20_000,
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
     // Tests must run without a real .env — otherwise CI has to hold secrets
