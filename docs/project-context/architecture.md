@@ -182,7 +182,7 @@ resolve --applied` once real DB values land, see `docs/admin-handoff.md`.
     entry below and `docs/project-context/decisions.md`.
 
 - **CI/CD (added 2026-09-03, `ugt-nextjs-cicd-setup`) — the last module in the fixed
-  pipeline order, standalone deploy (no basePath), no Sentry:**
+  pipeline order, basePath `/ugt-voice-platform[-dev]` on ugtweb.ube.co.th (2026-10-09), no Sentry:**
   - `Jenkinsfile` — 10-stage declarative pipeline (Checkout → Install → Code Quality
     (lint/format:check/tsc, parallel) → Unit Tests → Build → OWASP Dependency Check →
     SonarQube Analysis → Quality Gate → Docker Build → Deploy), branch-resolved
