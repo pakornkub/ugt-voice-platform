@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { NextRequest } from 'next/server';
 import { POST } from './route';
-import { analyzeWithHeuristics } from '@/services/categoryHeuristics';
+import { analyzeWithClientHeuristics, analyzeWithHeuristics } from '@/services/categoryHeuristics';
 
 function post(payload: unknown) {
   return POST(
@@ -31,6 +31,14 @@ describe('POST /api/ai/suggest-category (fallback path, no GEMINI_API_KEY)', () 
     expect(Array.isArray(body.keywords)).toBe(true);
   });
 
+  it('survives a JSON null body', async () => {
+    const response = await POST(
+      new NextRequest('http://localhost/api/ai/suggest-category', { method: 'POST', body: 'null' })
+    );
+    expect(response.status).toBe(200);
+    expect((await response.json()).suggestedCategory).toBe('HR');
+  });
+
   it('survives a non-JSON body', async () => {
     const response = await POST(
       new NextRequest('http://localhost/api/ai/suggest-category', { method: 'POST', body: 'x' })
@@ -42,6 +50,25 @@ describe('POST /api/ai/suggest-category (fallback path, no GEMINI_API_KEY)', () 
 describe('analyzeWithHeuristics', () => {
   it('lets the earlier fraud rule win over later harassment keywords', () => {
     expect(analyzeWithHeuristics('ทุจริต', 'และสิทธิมนุษยชน').suggestedCategory).toBe('Fraud');
+  });
+
+  it('recognises server-only keywords that the client list does not', () => {
+    expect(analyzeWithHeuristics('พูดจาดูถูกลูกน้อง').suggestedCategory).toBe('Harassment');
+    expect(analyzeWithHeuristics('ฮั้วประมูล').suggestedCategory).toBe('Fraud');
+  });
+
+  it('client fallback mirrors upstream api.ts (no server-only rules)', () => {
+    expect(analyzeWithClientHeuristics('พูดจาดูถูกลูกน้อง').suggestedCategory).toBe('HR');
+    expect(analyzeWithClientHeuristics('ฮั้วประมูล').suggestedCategory).toBe('HR');
+    expect(analyzeWithClientHeuristics('bullying at work')).toMatchObject({
+      suggestedCategory: 'Harassment',
+      confidence: 96,
+    });
+    expect(analyzeWithClientHeuristics('ทุจริต')).toMatchObject({
+      suggestedCategory: 'Fraud',
+      secondaryCategory: 'Ethics',
+      keywords: ['การทุจริต', 'การฉ้อโกง', 'สินบน'],
+    });
   });
 
   it('does not leak the internal terms list', () => {

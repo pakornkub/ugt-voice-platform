@@ -58,6 +58,7 @@ Return a valid JSON object with the following fields:
     return NextResponse.json(result);
   } catch (error) {
     console.warn(
+      // NOSONAR typescript:S106
       'AI Analysis unavailable, returning standard triage fallback:',
       error instanceof Error ? error.message : error
     );

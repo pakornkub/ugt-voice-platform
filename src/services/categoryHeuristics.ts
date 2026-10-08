@@ -9,32 +9,43 @@ export interface CategorySuggestion {
   keywords: string[];
 }
 
-interface HeuristicRule extends CategorySuggestion {
+interface HeuristicRule {
   terms: string[];
+  result: CategorySuggestion;
 }
 
-// Evaluated top-to-bottom, first match wins — the order (and the repeated
-// harassment/fraud rows, the second being a superset of the first) mirrors
-// upstream's server.ts so results stay identical.
-const RULES: HeuristicRule[] = [
+// Evaluated top-to-bottom, first match wins. Two lists because upstream keeps two:
+//  - server.ts (POST /api/ai/suggest-category fallback) = SERVER_ONLY_RULES + SHARED_RULES
+//  - src/services/api.ts catch-path (client fallback)    = SHARED_RULES only
+// i.e. 'พูดจาดูถูก' and 'ฮั้ว' are only recognised server-side; on the client they fall through
+// (the latter to the HR default), exactly like upstream.
+const SERVER_ONLY_RULES: HeuristicRule[] = [
   {
     terms: ['ลวนลาม', 'คุกคาม', 'ข่มขู่', 'harass', 'ล่วงละเมิด', 'กลั่นแกล้ง', 'พูดจาดูถูก'],
-    suggestedCategory: 'Harassment',
-    confidence: 95,
-    reasoning: 'ตรวจพบคำที่เกี่ยวข้องกับพฤติกรรมคุกคาม ข่มขู่ หรือการเลือกปฏิบัติในสถานที่ทำงาน',
-    secondaryCategory: 'Ethics',
-    suggestedUrgency: 'High',
-    keywords: ['การคุกคาม', 'ล่วงละเมิด', 'ความปลอดภัย'],
+    result: {
+      suggestedCategory: 'Harassment',
+      confidence: 95,
+      reasoning: 'ตรวจพบคำที่เกี่ยวข้องกับพฤติกรรมคุกคาม ข่มขู่ หรือการเลือกปฏิบัติในสถานที่ทำงาน',
+      secondaryCategory: 'Ethics',
+      suggestedUrgency: 'High',
+      keywords: ['การคุกคาม', 'ล่วงละเมิด', 'ความปลอดภัย'],
+    },
   },
   {
     terms: ['โกง', 'ทุจริต', 'สินบน', 'ยักยอก', 'fraud', 'เงินทอน', 'ปลอมเอกสาร', 'ฮั้ว'],
-    suggestedCategory: 'Fraud',
-    confidence: 96,
-    reasoning: 'ตรวจพบข้อความบ่งชี้พฤติกรรมต้องสงสัยเกี่ยวกับการเงิน การปลอมแปลงเอกสาร หรือทุจริต',
-    secondaryCategory: 'Compliance',
-    suggestedUrgency: 'Critical',
-    keywords: ['ทุจริต', 'การเงิน', 'การตรวจสอบ'],
+    result: {
+      suggestedCategory: 'Fraud',
+      confidence: 96,
+      reasoning:
+        'ตรวจพบข้อความบ่งชี้พฤติกรรมต้องสงสัยเกี่ยวกับการเงิน การปลอมแปลงเอกสาร หรือทุจริต',
+      secondaryCategory: 'Compliance',
+      suggestedUrgency: 'Critical',
+      keywords: ['ทุจริต', 'การเงิน', 'การตรวจสอบ'],
+    },
   },
+];
+
+const SHARED_RULES: HeuristicRule[] = [
   {
     terms: [
       'ลวนลาม',
@@ -47,13 +58,15 @@ const RULES: HeuristicRule[] = [
       'human right',
       'bullying',
     ],
-    suggestedCategory: 'Harassment',
-    confidence: 96,
-    reasoning:
-      'ตรวจพบประเด็นเกี่ยวกับสิทธิมนุษยชน การล่วงละเมิด พฤติกรรมคุกคาม หรือการกลั่นแกล้งในสถานที่ทำงาน',
-    secondaryCategory: 'Ethics',
-    suggestedUrgency: 'High',
-    keywords: ['สิทธิมนุษยชน', 'การล่วงละเมิด', 'การคุกคาม'],
+    result: {
+      suggestedCategory: 'Harassment',
+      confidence: 96,
+      reasoning:
+        'ตรวจพบประเด็นเกี่ยวกับสิทธิมนุษยชน การล่วงละเมิด พฤติกรรมคุกคาม หรือการกลั่นแกล้งในสถานที่ทำงาน',
+      secondaryCategory: 'Ethics',
+      suggestedUrgency: 'High',
+      keywords: ['สิทธิมนุษยชน', 'การล่วงละเมิด', 'การคุกคาม'],
+    },
   },
   {
     terms: [
@@ -70,13 +83,15 @@ const RULES: HeuristicRule[] = [
       'เลี้ยงรับรอง',
       'ปลอมเอกสาร',
     ],
-    suggestedCategory: 'Fraud',
-    confidence: 96,
-    reasoning:
-      'ตรวจพบพฤติกรรมทุจริต การฉ้อโกงทางการเงิน การติดสินบน การรับผลประโยชน์ทับซ้อน หรือการปลอมแปลงเอกสาร',
-    secondaryCategory: 'Ethics',
-    suggestedUrgency: 'Critical',
-    keywords: ['การทุจริต', 'การฉ้อโกง', 'สินบน'],
+    result: {
+      suggestedCategory: 'Fraud',
+      confidence: 96,
+      reasoning:
+        'ตรวจพบพฤติกรรมทุจริต การฉ้อโกงทางการเงิน การติดสินบน การรับผลประโยชน์ทับซ้อน หรือการปลอมแปลงเอกสาร',
+      secondaryCategory: 'Ethics',
+      suggestedUrgency: 'Critical',
+      keywords: ['การทุจริต', 'การฉ้อโกง', 'สินบน'],
+    },
   },
   {
     terms: [
@@ -96,13 +111,15 @@ const RULES: HeuristicRule[] = [
       'จริยธรรม',
       'ethics',
     ],
-    suggestedCategory: 'Ethics',
-    confidence: 94,
-    reasoning:
-      'ตรวจพบประเด็นจริยธรรม การรักษาความลับองค์กร การเปิดเผยข้อมูล การฟอกเงิน ทรัพย์สินทางปัญญา หรือข้อมูลกลุ่มบริษัท UBE',
-    secondaryCategory: 'Compliance',
-    suggestedUrgency: 'High',
-    keywords: ['จริยธรรม', 'ข้อมูลความลับ', 'ความโปร่งใส'],
+    result: {
+      suggestedCategory: 'Ethics',
+      confidence: 94,
+      reasoning:
+        'ตรวจพบประเด็นจริยธรรม การรักษาความลับองค์กร การเปิดเผยข้อมูล การฟอกเงิน ทรัพย์สินทางปัญญา หรือข้อมูลกลุ่มบริษัท UBE',
+      secondaryCategory: 'Compliance',
+      suggestedUrgency: 'High',
+      keywords: ['จริยธรรม', 'ข้อมูลความลับ', 'ความโปร่งใส'],
+    },
   },
   {
     terms: [
@@ -120,13 +137,15 @@ const RULES: HeuristicRule[] = [
       'นโยบาย',
       'ข้อบังคับ',
     ],
-    suggestedCategory: 'Compliance',
-    confidence: 93,
-    reasoning:
-      'ตรวจพบประเด็นการไม่ปฏิบัติตามกฎหมายและกฎเกณฑ์ เช่น กฎหมายแข่งขันทางการค้า ควบคุมการส่งออก หรือระเบียบข้อบังคับ',
-    secondaryCategory: 'Ethics',
-    suggestedUrgency: 'Medium',
-    keywords: ['กฎหมายและกฎเกณฑ์', 'Compliance', 'ข้อบังคับ'],
+    result: {
+      suggestedCategory: 'Compliance',
+      confidence: 93,
+      reasoning:
+        'ตรวจพบประเด็นการไม่ปฏิบัติตามกฎหมายและกฎเกณฑ์ เช่น กฎหมายแข่งขันทางการค้า ควบคุมการส่งออก หรือระเบียบข้อบังคับ',
+      secondaryCategory: 'Ethics',
+      suggestedUrgency: 'Medium',
+      keywords: ['กฎหมายและกฎเกณฑ์', 'Compliance', 'ข้อบังคับ'],
+    },
   },
   {
     terms: [
@@ -142,13 +161,15 @@ const RULES: HeuristicRule[] = [
       'ใบรับรองคุณภาพ',
       'หลุด qc',
     ],
-    suggestedCategory: 'Quality',
-    confidence: 93,
-    reasoning:
-      'ตรวจพบประเด็นการตรวจสอบคุณภาพอย่างไม่เหมาะสม การบิดเบือนผลทดสอบ หรือมาตรฐานสินค้า/งานบริการตกหล่น',
-    secondaryCategory: 'Compliance',
-    suggestedUrgency: 'Medium',
-    keywords: ['คุณภาพไม่เหมาะสม', 'QA/QC', 'มาตรฐาน'],
+    result: {
+      suggestedCategory: 'Quality',
+      confidence: 93,
+      reasoning:
+        'ตรวจพบประเด็นการตรวจสอบคุณภาพอย่างไม่เหมาะสม การบิดเบือนผลทดสอบ หรือมาตรฐานสินค้า/งานบริการตกหล่น',
+      secondaryCategory: 'Compliance',
+      suggestedUrgency: 'Medium',
+      keywords: ['คุณภาพไม่เหมาะสม', 'QA/QC', 'มาตรฐาน'],
+    },
   },
 ];
 
@@ -162,12 +183,24 @@ const DEFAULT_SUGGESTION: CategorySuggestion = {
   keywords: ['ทรัพยากรบุคคล', 'สวัสดิการ', 'สิทธิประโยชน์'],
 };
 
-/** Keyword-based classification used when Gemini is unavailable. */
-export function analyzeWithHeuristics(title?: string, description?: string): CategorySuggestion {
+function classify(rules: HeuristicRule[], title?: string, description?: string) {
   const text = `${title || ''} ${description || ''}`.toLowerCase();
-  const rule = RULES.find((r) => r.terms.some((term) => text.includes(term)));
-  if (!rule) return DEFAULT_SUGGESTION;
-  const { terms, ...suggestion } = rule;
-  void terms;
-  return suggestion;
+  return (
+    rules.find((r) => r.terms.some((term) => text.includes(term)))?.result ?? DEFAULT_SUGGESTION
+  );
+}
+
+const SERVER_RULES = [...SERVER_ONLY_RULES, ...SHARED_RULES];
+
+/** Server fallback of POST /api/ai/suggest-category (upstream server.ts rules). */
+export function analyzeWithHeuristics(title?: string, description?: string): CategorySuggestion {
+  return classify(SERVER_RULES, title, description);
+}
+
+/** Client fallback of suggestCategoryWithAI() (upstream api.ts catch-path rules). */
+export function analyzeWithClientHeuristics(
+  title?: string,
+  description?: string
+): CategorySuggestion {
+  return classify(SHARED_RULES, title, description);
 }

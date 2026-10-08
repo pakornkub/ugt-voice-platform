@@ -89,6 +89,7 @@ Return valid JSON with schema:
     return NextResponse.json(result);
   } catch (error) {
     console.warn(
+      // NOSONAR typescript:S106
       'AI Cluster Insights unavailable, returning default corporate clusters:',
       error instanceof Error ? error.message : error
     );

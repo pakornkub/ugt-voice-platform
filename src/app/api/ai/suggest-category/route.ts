@@ -4,7 +4,8 @@ import { analyzeWithHeuristics } from '@/services/categoryHeuristics';
 
 // AI Smart Category Suggestion & Classification Assistant
 export async function POST(request: NextRequest) {
-  const { title, description } = await request.json().catch(() => ({}));
+  const body = await request.json().catch(() => ({}));
+  const { title, description } = body ?? {};
 
   try {
     const ai = getGeminiClient();
@@ -45,6 +46,7 @@ Return a valid JSON object:
     return NextResponse.json(parsed);
   } catch (error) {
     console.warn(
+      // NOSONAR typescript:S106
       'AI Category Suggestion service unavailable or experiencing high demand, served rule-based classification:',
       error instanceof Error ? error.message : error
     );

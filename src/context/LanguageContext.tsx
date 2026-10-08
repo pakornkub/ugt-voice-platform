@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
 import {
   GrievanceCategory,
   TicketStatus,
@@ -298,13 +298,12 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 
 const STORAGE_KEY_LANG = 'voicecare_lang_preference_v2';
 
-export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const LanguageProvider: React.FC<Readonly<{ children: ReactNode }>> = ({ children }) => {
   const [lang, setLangState] = useState<Language>('th');
 
   // Initialize from localStorage with strict default in 'th'. Read after mount
   // (not in useState) so SSR and hydration markup stay identical.
   useEffect(() => {
-    if (typeof window === 'undefined') return;
     try {
       const stored = localStorage.getItem(STORAGE_KEY_LANG);
       if (stored === 'th' || stored === 'en') {
@@ -318,137 +317,141 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   }, []);
 
-  const setLang = (newLang: Language) => {
-    setLangState(newLang);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEY_LANG, newLang);
-    }
-  };
-
-  const toggleLang = () => {
-    setLang(lang === 'th' ? 'en' : 'th');
-  };
-
-  const t = (key: string, defaultText?: string): string => {
-    const item = DICTIONARY[key];
-    if (item && item[lang]) {
-      return item[lang];
-    }
-    return defaultText || key;
-  };
-
-  const getCategoryName = (cat: GrievanceCategory): string => {
-    const map: Record<GrievanceCategory, { th: string; en: string }> = {
-      HR: { th: 'HR – ทรัพยากรบุคคลและสวัสดิการ', en: 'HR – Human Resources & Employee Benefits' },
-      Compliance: {
-        th: 'Compliance – การไม่ปฏิบัติตามกฎหมายและกฎเกณฑ์',
-        en: 'Compliance – Regulatory & Legal Rules',
-      },
-      Ethics: { th: 'Ethics – จริยธรรม', en: 'Ethics – Corporate Ethics & Business Conduct' },
-      Fraud: { th: 'Fraud – การทุจริต และการฉ้อโกง', en: 'Fraud – Anti-Fraud & Anti-Corruption' },
-      Harassment: {
-        th: 'Human Right , Harassment – สิทธิมนุษยชน , การล่วงละเมิด',
-        en: 'Human Right , Harassment – Human Rights & Anti-Harassment',
-      },
-      Quality: {
-        th: 'Quality Impropriety – การตรวจสอบคุณภาพอย่างไม่เหมาะสม',
-        en: 'Quality Impropriety – Quality Assurance & Standards',
-      },
+  // Memoised so consumers only re-render when the language actually changes.
+  const value = useMemo<LanguageContextType>(() => {
+    const setLang = (newLang: Language) => {
+      setLangState(newLang);
+      try {
+        localStorage.setItem(STORAGE_KEY_LANG, newLang);
+      } catch {
+        // Ignore storage quota or security errors
+      }
     };
-    return map[cat] ? map[cat][lang] : cat;
-  };
 
-  const getStatusName = (status?: TicketStatus): string => {
-    if (!status) return '';
-    const map: Record<TicketStatus, { th: string; en: string }> = {
-      submitted: { th: 'รอรับเรื่อง', en: 'Submitted' },
-      gatekeeper_triaged: { th: 'คัดกรองแล้ว', en: 'Triaged' },
-      in_progress: { th: 'กำลังดำเนินการ', en: 'In Progress' },
-      resolved: { th: 'แก้ไขเสร็จสิ้น', en: 'Resolved' },
-      closed: { th: 'ปิดเคสแล้ว', en: 'Closed' },
+    const toggleLang = () => {
+      setLang(lang === 'th' ? 'en' : 'th');
     };
-    return map[status] ? map[status][lang] : status;
-  };
 
-  const getUrgencyName = (urgency?: UrgencyLevel): string => {
-    if (!urgency) return '';
-    const map: Record<UrgencyLevel, { th: string; en: string }> = {
-      Low: { th: 'ปกติ (Low)', en: 'Low' },
-      Medium: { th: 'ปานกลาง (Medium)', en: 'Medium' },
-      High: { th: 'เร่งด่วน (High)', en: 'High' },
-      Critical: { th: 'วิกฤต (Critical)', en: 'Critical' },
+    const t = (key: string, defaultText?: string): string => {
+      const item = DICTIONARY[key];
+      if (item && item[lang]) {
+        return item[lang];
+      }
+      return defaultText || key;
     };
-    return map[urgency] ? map[urgency][lang] : urgency;
-  };
 
-  const getRoleTitle = (role: UserRole): string => {
-    const map: Record<UserRole, { th: string; en: string }> = {
-      employee: { th: 'พนักงานทั่วไป (Employee)', en: 'General Employee' },
-      gatekeeper: { th: 'Gatekeeper ประจำหน่วยงาน', en: 'Department Gatekeeper' },
-      executive: { th: 'ผู้บริหารระดับสูง (CEO/EVP)', en: 'Executive (CEO/EVP)' },
-      admin: { th: 'HR Admin & ตัวแทนผู้บริหาร', en: 'HR Admin & Governance Rep' },
+    const getCategoryName = (cat: GrievanceCategory): string => {
+      const map: Record<GrievanceCategory, { th: string; en: string }> = {
+        HR: {
+          th: 'HR – ทรัพยากรบุคคลและสวัสดิการ',
+          en: 'HR – Human Resources & Employee Benefits',
+        },
+        Compliance: {
+          th: 'Compliance – การไม่ปฏิบัติตามกฎหมายและกฎเกณฑ์',
+          en: 'Compliance – Regulatory & Legal Rules',
+        },
+        Ethics: { th: 'Ethics – จริยธรรม', en: 'Ethics – Corporate Ethics & Business Conduct' },
+        Fraud: { th: 'Fraud – การทุจริต และการฉ้อโกง', en: 'Fraud – Anti-Fraud & Anti-Corruption' },
+        Harassment: {
+          th: 'Human Right , Harassment – สิทธิมนุษยชน , การล่วงละเมิด',
+          en: 'Human Right , Harassment – Human Rights & Anti-Harassment',
+        },
+        Quality: {
+          th: 'Quality Impropriety – การตรวจสอบคุณภาพอย่างไม่เหมาะสม',
+          en: 'Quality Impropriety – Quality Assurance & Standards',
+        },
+      };
+      return map[cat] ? map[cat][lang] : cat;
     };
-    return map[role] ? map[role][lang] : role;
-  };
 
-  const getConfidentialityName = (conf: ConfidentialityLevel): string => {
-    const map: Record<ConfidentialityLevel, { th: string; en: string }> = {
-      anonymous: { th: 'ไม่ระบุตัวตน (Anonymous)', en: 'Anonymous' },
-      confidential_restricted: {
-        th: 'ปกปิดตัวตน (เฉพาะ Gatekeeper)',
-        en: 'Confidential (Gatekeeper Only)',
-      },
-      standard_named: { th: 'ระบุตัวตนปกติ', en: 'Standard Named' },
+    const getStatusName = (status?: TicketStatus): string => {
+      if (!status) return '';
+      const map: Record<TicketStatus, { th: string; en: string }> = {
+        submitted: { th: 'รอรับเรื่อง', en: 'Submitted' },
+        gatekeeper_triaged: { th: 'คัดกรองแล้ว', en: 'Triaged' },
+        in_progress: { th: 'กำลังดำเนินการ', en: 'In Progress' },
+        resolved: { th: 'แก้ไขเสร็จสิ้น', en: 'Resolved' },
+        closed: { th: 'ปิดเคสแล้ว', en: 'Closed' },
+      };
+      return map[status] ? map[status][lang] : status;
     };
-    return map[conf] ? map[conf][lang] : conf;
-  };
 
-  const getSubmissionTypeName = (type: SubmissionType): string => {
-    const map: Record<SubmissionType, { th: string; en: string }> = {
-      complaint: { th: 'ข้อร้องเรียน (Complaint)', en: 'Complaint' },
-      suggestion: { th: 'ข้อเสนอแนะปรับปรุง (Suggestion)', en: 'Suggestion' },
+    const getUrgencyName = (urgency?: UrgencyLevel): string => {
+      if (!urgency) return '';
+      const map: Record<UrgencyLevel, { th: string; en: string }> = {
+        Low: { th: 'ปกติ (Low)', en: 'Low' },
+        Medium: { th: 'ปานกลาง (Medium)', en: 'Medium' },
+        High: { th: 'เร่งด่วน (High)', en: 'High' },
+        Critical: { th: 'วิกฤต (Critical)', en: 'Critical' },
+      };
+      return map[urgency] ? map[urgency][lang] : urgency;
     };
-    return map[type] ? map[type][lang] : type;
-  };
 
-  const getTabName = (tabId: AppTabId): string => {
-    const map: Record<AppTabId, { th: string; en: string }> = {
-      submit: { th: 'ยื่นข้อร้องเรียน / ข้อเสนอแนะ', en: 'Submit Grievance / Suggestion' },
-      my_tickets: { th: 'ติดตามสถานะ (Timeline)', en: 'Track Status (Timeline)' },
-      gatekeeper: { th: 'Gatekeeper Triage Portal', en: 'Gatekeeper Triage Portal' },
-      executive: { th: 'Dashboard ภาพรวม', en: 'Executive Dashboard' },
-      clustering: { th: 'วิเคราะห์สาเหตุ CAPA', en: 'Root Cause & CAPA' },
-      admin_gatekeeper: { th: 'จัดการผู้บริหาร & Gatekeeper', en: 'Personnel & Gatekeepers' },
-      rbac_management: { th: 'กำหนดสิทธิ์เข้าถึง (RBAC)', en: 'Access Control (RBAC)' },
-      workflow: { th: 'คู่มือ & ผังขั้นตอน (SOP)', en: 'Manual & Workflow (SOP)' },
-      // Tabs added by our SSO/RBAC setup (not in upstream)
-      admin_users: { th: 'จัดการผู้ใช้', en: 'User Management' },
-      admin_roles: { th: 'บทบาทและสิทธิ์', en: 'Roles & Permissions' },
-      admin_audit_logs: { th: 'บันทึกการใช้งาน', en: 'Audit Logs' },
-      admin_mail_templates: { th: 'เทมเพลตอีเมล', en: 'Email Templates' },
+    const getRoleTitle = (role: UserRole): string => {
+      const map: Record<UserRole, { th: string; en: string }> = {
+        employee: { th: 'พนักงานทั่วไป (Employee)', en: 'General Employee' },
+        gatekeeper: { th: 'Gatekeeper ประจำหน่วยงาน', en: 'Department Gatekeeper' },
+        executive: { th: 'ผู้บริหารระดับสูง (CEO/EVP)', en: 'Executive (CEO/EVP)' },
+        admin: { th: 'HR Admin & ตัวแทนผู้บริหาร', en: 'HR Admin & Governance Rep' },
+      };
+      return map[role] ? map[role][lang] : role;
     };
-    return map[tabId] ? map[tabId][lang] : tabId;
-  };
 
-  return (
-    <LanguageContext.Provider
-      value={{
-        lang,
-        setLang,
-        toggleLang,
-        t,
-        getCategoryName,
-        getStatusName,
-        getUrgencyName,
-        getRoleTitle,
-        getConfidentialityName,
-        getSubmissionTypeName,
-        getTabName,
-      }}
-    >
-      {children}
-    </LanguageContext.Provider>
-  );
+    const getConfidentialityName = (conf: ConfidentialityLevel): string => {
+      const map: Record<ConfidentialityLevel, { th: string; en: string }> = {
+        anonymous: { th: 'ไม่ระบุตัวตน (Anonymous)', en: 'Anonymous' },
+        confidential_restricted: {
+          th: 'ปกปิดตัวตน (เฉพาะ Gatekeeper)',
+          en: 'Confidential (Gatekeeper Only)',
+        },
+        standard_named: { th: 'ระบุตัวตนปกติ', en: 'Standard Named' },
+      };
+      return map[conf] ? map[conf][lang] : conf;
+    };
+
+    const getSubmissionTypeName = (type: SubmissionType): string => {
+      const map: Record<SubmissionType, { th: string; en: string }> = {
+        complaint: { th: 'ข้อร้องเรียน (Complaint)', en: 'Complaint' },
+        suggestion: { th: 'ข้อเสนอแนะปรับปรุง (Suggestion)', en: 'Suggestion' },
+      };
+      return map[type] ? map[type][lang] : type;
+    };
+
+    const getTabName = (tabId: AppTabId): string => {
+      const map: Record<AppTabId, { th: string; en: string }> = {
+        submit: { th: 'ยื่นข้อร้องเรียน / ข้อเสนอแนะ', en: 'Submit Grievance / Suggestion' },
+        my_tickets: { th: 'ติดตามสถานะ (Timeline)', en: 'Track Status (Timeline)' },
+        gatekeeper: { th: 'Gatekeeper Triage Portal', en: 'Gatekeeper Triage Portal' },
+        executive: { th: 'Dashboard ภาพรวม', en: 'Executive Dashboard' },
+        clustering: { th: 'วิเคราะห์สาเหตุ CAPA', en: 'Root Cause & CAPA' },
+        admin_gatekeeper: { th: 'จัดการผู้บริหาร & Gatekeeper', en: 'Personnel & Gatekeepers' },
+        rbac_management: { th: 'กำหนดสิทธิ์เข้าถึง (RBAC)', en: 'Access Control (RBAC)' },
+        workflow: { th: 'คู่มือ & ผังขั้นตอน (SOP)', en: 'Manual & Workflow (SOP)' },
+        // Tabs added by our SSO/RBAC setup (not in upstream)
+        admin_users: { th: 'จัดการผู้ใช้', en: 'User Management' },
+        admin_roles: { th: 'บทบาทและสิทธิ์', en: 'Roles & Permissions' },
+        admin_audit_logs: { th: 'บันทึกการใช้งาน', en: 'Audit Logs' },
+        admin_mail_templates: { th: 'เทมเพลตอีเมล', en: 'Email Templates' },
+      };
+      return map[tabId] ? map[tabId][lang] : tabId;
+    };
+
+    return {
+      lang,
+      setLang,
+      toggleLang,
+      t,
+      getCategoryName,
+      getStatusName,
+      getUrgencyName,
+      getRoleTitle,
+      getConfidentialityName,
+      getSubmissionTypeName,
+      getTabName,
+    };
+  }, [lang]);
+
+  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 };
 
 export const useLanguage = (): LanguageContextType => {

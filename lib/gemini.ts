@@ -59,7 +59,7 @@ export async function generateGeminiContentWithFallback(
     } catch (err) {
       lastError = err;
       if (isTransientGeminiError(err)) {
-        console.warn(`[Gemini Temporary High Demand on ${model}] Switching to fallback model...`);
+        console.warn(`[Gemini Temporary High Demand on ${model}] Switching to fallback model...`); // NOSONAR typescript:S106
         continue;
       }
       throw err;

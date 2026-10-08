@@ -23,7 +23,7 @@ import {
   INITIAL_GATEKEEPER_CONFIGS,
 } from '../mockData';
 import { syncAllTicketsToSqlite } from './sqliteDb';
-import { analyzeWithHeuristics } from './categoryHeuristics';
+import { analyzeWithClientHeuristics } from './categoryHeuristics';
 import { safeStorage } from './safeStorage';
 import {
   mapLoginEmailForTicket,
@@ -731,7 +731,7 @@ export async function suggestCategoryWithAI(params: {
     return await res.json();
   } catch (err) {
     console.warn('suggestCategoryWithAI fallback', err);
-    return analyzeWithHeuristics(params.title, params.description);
+    return analyzeWithClientHeuristics(params.title, params.description);
   }
 }
 
