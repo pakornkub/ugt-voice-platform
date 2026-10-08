@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   SlidersHorizontal,
   Shield,
@@ -59,11 +59,114 @@ import {
   addExecutiveMember,
   updateExecutiveMember,
   deleteExecutiveMember,
-  EVENT_EXECUTIVES_UPDATED,
   getStoredHrAdmins,
 } from '../services/api';
 import { CATEGORY_DEFINITIONS } from '../mockData';
 import { useConfirmDialog } from './ConfirmDialog';
+import { ExecStatusSelect, ExecutiveStatus, useExecutivesSync } from './executiveShared';
+
+const rolesList: UserRole[] = ['employee', 'gatekeeper', 'executive', 'admin'];
+
+const ROLE_SHORT_LABEL: Record<UserRole, string> = {
+  employee: 'พนักงาน',
+  gatekeeper: 'GK',
+  executive: 'ผู้บริหาร',
+  admin: 'Admin',
+};
+
+// Quick presets for who may see the login e-mail of an anonymous submitter.
+const ANONYMOUS_PRESETS: {
+  label: string;
+  toast: string;
+  textClass: string;
+  visibleTo: Record<UserRole, boolean>;
+}[] = [
+  {
+    label: '🔒 เฉพาะ HR Admin & ผู้บริหาร (แนะนำ)',
+    toast: 'ตั้งค่า: ให้เฉพาะ HR Admin & ผู้บริหาร มองเห็นอีเมลล็อกอิน',
+    textClass: 'text-slate-700',
+    visibleTo: { employee: false, gatekeeper: false, executive: true, admin: true },
+  },
+  {
+    label: '🛡️ Gatekeeper + ผู้บริหาร + HR Admin',
+    toast: 'ตั้งค่า: ให้ Gatekeeper, ผู้บริหาร และ HR Admin มองเห็นอีเมลล็อกอิน',
+    textClass: 'text-slate-700',
+    visibleTo: { employee: false, gatekeeper: true, executive: true, admin: true },
+  },
+  {
+    label: '🚫 ปกปิด 100% ทุก Role',
+    toast: 'ตั้งค่า: ปกปิดอีเมลล็อกอิน 100% ทุก Role',
+    textClass: 'text-rose-700',
+    visibleTo: { employee: false, gatekeeper: false, executive: false, admin: false },
+  },
+];
+
+interface AnonymousSimulatorCardProps {
+  readonly isSimAllowed: boolean;
+  readonly roleName: string;
+}
+
+/** Read-only preview of what the anonymous-ticket submitter panel shows a given role. */
+const AnonymousSimulatorCard: React.FC<AnonymousSimulatorCardProps> = ({
+  isSimAllowed,
+  roleName,
+}) => (
+  <div className="space-y-2.5 rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs">
+    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+      <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
+        <EyeOff className="h-4 w-4 text-slate-500" />
+        <span>ข้อมูลผู้ยื่นเรื่อง (กรณีไม่ระบุตัวตน / Anonymous Ticket)</span>
+      </div>
+      <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+        🕵️ ไม่ระบุตัวตน (Anonymous)
+      </span>
+    </div>
+
+    {isSimAllowed ? (
+      <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50/70 p-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-950">
+            <Mail className="h-3.5 w-3.5 text-emerald-700" />
+            <span>อีเมลที่ใช้ในการ Login (Mapping หลังบ้านจากฐานข้อมูลพนักงาน):</span>
+          </div>
+          <span className="py-0.2 rounded bg-emerald-200 px-2 text-[10px] font-bold text-emerald-900">
+            ✓ ได้รับสิทธิ์มองเห็น (Role: {roleName})
+          </span>
+        </div>
+        <div className="flex items-center justify-between rounded border border-emerald-200 bg-white p-2">
+          <span className="font-mono text-xs font-bold text-indigo-950">
+            somchai.v@company.internal
+          </span>
+          <span className="text-[10px] text-slate-500">Mapping จาก Employee DB: EMP-4092</span>
+        </div>
+        <p className="text-[10.5px] leading-tight text-emerald-900/90">
+          * หมายเหตุ: HR Admin & ตัวแทนผู้บริหาร ได้ tick อนุญาตให้บทบาทของคุณมองเห็น email
+          ที่ใช้ในการ login นี้ได้ (โดยชื่อ นามสกุล และรหัสพนักงาน
+          ยังคงได้รับการปกป้องตามนโยบายคุ้มครองพยาน)
+        </p>
+      </div>
+    ) : (
+      <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+            <Lock className="h-3.5 w-3.5 text-slate-500" />
+            <span>อีเมลที่ใช้ในการ Login:</span>
+          </div>
+          <span className="py-0.2 rounded bg-slate-200 px-2 text-[10px] font-bold text-slate-700">
+            🔒 ปกปิด (Role: {roleName})
+          </span>
+        </div>
+        <div className="rounded border border-slate-200 bg-white p-2 font-mono text-xs text-slate-400 select-none">
+          ••••••••••••••••@••••••••••••
+        </div>
+        <p className="text-[10.5px] leading-tight text-slate-500">
+          * หมายเหตุ: บทบาทของคุณ ({roleName}) ไม่ได้รับอนุญาตจาก HR Admin & ตัวแทนผู้บริหาร
+          ให้มองเห็นอีเมลล็อกอินของผู้ยื่นเรื่องนิรนามนี้
+        </p>
+      </div>
+    )}
+  </div>
+);
 
 interface RoleBasedAccessManagementProps {
   currentRole: UserRole;
@@ -98,7 +201,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
   const [execRoleType, setExecRoleType] = useState<ExecutiveMember['roleType']>('CEO');
   const [execIsWhistleblower, setExecIsWhistleblower] = useState(true);
   const [execCanViewConfidential, setExecCanViewConfidential] = useState(true);
-  const [execStatus, setExecStatus] = useState<'active' | 'inactive'>('active');
+  const [execStatus, setExecStatus] = useState<ExecutiveStatus>('active');
 
   // Anonymous Submitter Email Simulation & Directory Preview
   const [simulatedRoleForAnonymous, setSimulatedRoleForAnonymous] =
@@ -110,15 +213,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
   // In-app confirmation dialog (replaces window.confirm — see ConfirmDialog.tsx)
   const { askConfirm, confirmDialog } = useConfirmDialog();
 
-  useEffect(() => {
-    const handleSync = () => {
-      setExecutives(getStoredExecutives());
-    };
-    window.addEventListener(EVENT_EXECUTIVES_UPDATED, handleSync);
-    return () => {
-      window.removeEventListener(EVENT_EXECUTIVES_UPDATED, handleSync);
-    };
-  }, []);
+  useExecutivesSync(setExecutives);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -219,6 +314,8 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
 
   const notifyPermissionsUpdated = () => {
     if (onPermissionsUpdated) {
+      // Deferred so the parent's refresh never runs while this component is still rendering/committing
+      // (setState in the parent during our own update triggers a React warning).
       setTimeout(() => {
         onPermissionsUpdated();
       }, 0);
@@ -309,32 +406,28 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
     commitPermissions(updated, 'อัปเดตขอบเขตหมวดหมู่ Gatekeeper แล้ว');
   };
 
-  const handleSelectAllGatekeeperCategories = () => {
+  // "Select all" and "reset" both end at the default scope: every category.
+  const grantAllGatekeeperCategories = (toastMsg: string) => {
     const allCats = Object.keys(CATEGORY_DEFINITIONS) as GrievanceCategory[];
-    const gkConfig = permissions.gatekeeper;
-    const updated = {
-      ...permissions,
-      gatekeeper: {
-        ...gkConfig,
-        canViewAllDepartments: true,
-        assignedDepartments: allCats,
+    commitPermissions(
+      {
+        ...permissions,
+        gatekeeper: {
+          ...permissions.gatekeeper,
+          canViewAllDepartments: true,
+          assignedDepartments: allCats,
+        },
       },
-    };
-    commitPermissions(updated, 'อนุญาตให้ Gatekeeper เข้าถึงครบทั้ง 6 หมวดหมู่แล้ว');
+      toastMsg
+    );
   };
 
-  const handleResetGatekeeperCategories = () => {
-    const allCats = Object.keys(CATEGORY_DEFINITIONS) as GrievanceCategory[];
-    const gkConfig = permissions.gatekeeper;
-    const updated = {
-      ...permissions,
-      gatekeeper: {
-        ...gkConfig,
-        canViewAllDepartments: true,
-        assignedDepartments: allCats,
-      },
-    };
-    commitPermissions(updated, 'รีเซ็ตขอบเขตหมวดหมู่ Gatekeeper เป็นทั้ง 6 หมวดหมู่ตามค่าเริ่มต้น');
+  const applyAnonymousPreset = (visibleTo: Record<UserRole, boolean>, toastMsg: string) => {
+    const updated = { ...permissions };
+    for (const role of rolesList) {
+      updated[role] = { ...permissions[role], canViewAnonymousSubmitterEmail: visibleTo[role] };
+    }
+    commitPermissions(updated, toastMsg);
   };
 
   const handleSetGatekeeperViewDept = (cat: GrievanceCategory) => {
@@ -395,8 +488,6 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
         return <FileText className="h-4 w-4 text-slate-500" />;
     }
   };
-
-  const rolesList: UserRole[] = ['employee', 'gatekeeper', 'executive', 'admin'];
 
   return (
     <div className="mx-auto max-w-7xl space-y-5 px-4 py-4">
@@ -660,14 +751,22 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
-                    onClick={handleSelectAllGatekeeperCategories}
+                    onClick={() =>
+                      grantAllGatekeeperCategories(
+                        'อนุญาตให้ Gatekeeper เข้าถึงครบทั้ง 6 หมวดหมู่แล้ว'
+                      )
+                    }
                     className="cursor-pointer rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-800 transition hover:bg-emerald-200"
                   >
                     เลือกทั้ง 6 หมวดหมู่
                   </button>
                   <button
                     type="button"
-                    onClick={handleResetGatekeeperCategories}
+                    onClick={() =>
+                      grantAllGatekeeperCategories(
+                        'รีเซ็ตขอบเขตหมวดหมู่ Gatekeeper เป็นทั้ง 6 หมวดหมู่ตามค่าเริ่มต้น'
+                      )
+                    }
                     className="cursor-pointer rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 transition hover:bg-slate-200"
                   >
                     รีเซ็ต
@@ -831,13 +930,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                     }`}
                     title={`${r}: ${permissions[r].canViewDirectCeoTickets ? 'มีสิทธิ์' : 'ไม่มีสิทธิ์'}`}
                   >
-                    {r === 'employee'
-                      ? 'พนักงาน'
-                      : r === 'gatekeeper'
-                        ? 'GK'
-                        : r === 'executive'
-                          ? 'ผู้บริหาร'
-                          : 'Admin'}
+                    {ROLE_SHORT_LABEL[r]}
                   </button>
                 ))}
               </div>
@@ -873,13 +966,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                     }`}
                     title={`${r}: ${permissions[r].canViewConfidentialIdentities ? 'มีสิทธิ์' : 'ไม่มีสิทธิ์'}`}
                   >
-                    {r === 'employee'
-                      ? 'พนักงาน'
-                      : r === 'gatekeeper'
-                        ? 'GK'
-                        : r === 'executive'
-                          ? 'ผู้บริหาร'
-                          : 'Admin'}
+                    {ROLE_SHORT_LABEL[r]}
                   </button>
                 ))}
               </div>
@@ -912,13 +999,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                     }`}
                     title={`${r}: ${permissions[r].canEditRootCauseAndCapa ? 'มีสิทธิ์' : 'ไม่มีสิทธิ์'}`}
                   >
-                    {r === 'employee'
-                      ? 'พนักงาน'
-                      : r === 'gatekeeper'
-                        ? 'GK'
-                        : r === 'executive'
-                          ? 'ผู้บริหาร'
-                          : 'Admin'}
+                    {ROLE_SHORT_LABEL[r]}
                   </button>
                 ))}
               </div>
@@ -951,13 +1032,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                     }`}
                     title={`${r}: ${permissions[r].canManageGatekeeperOfficers ? 'มีสิทธิ์' : 'ไม่มีสิทธิ์'}`}
                   >
-                    {r === 'employee'
-                      ? 'พนักงาน'
-                      : r === 'gatekeeper'
-                        ? 'GK'
-                        : r === 'executive'
-                          ? 'ผู้บริหาร'
-                          : 'Admin'}
+                    {ROLE_SHORT_LABEL[r]}
                   </button>
                 ))}
               </div>
@@ -998,13 +1073,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                     title={`${r}: ${permissions[r].canViewAnonymousSubmitterEmail ? 'อนุญาตให้มองเห็นอีเมลล็อกอิน' : 'ไม่ให้เห็นอีเมลล็อกอิน'}`}
                   >
                     {permissions[r].canViewAnonymousSubmitterEmail ? '✓ ' : '✗ '}
-                    {r === 'employee'
-                      ? 'พนักงาน'
-                      : r === 'gatekeeper'
-                        ? 'GK'
-                        : r === 'executive'
-                          ? 'ผู้บริหาร'
-                          : 'Admin'}
+                    {ROLE_SHORT_LABEL[r]}
                   </button>
                 ))}
               </div>
@@ -1082,10 +1151,12 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
               const isAllowed = !!permissions[r].canViewAnonymousSubmitterEmail;
               const roleInfo = permissions[r];
               return (
-                <div
+                <button
                   key={r}
+                  type="button"
+                  aria-pressed={isAllowed}
                   onClick={() => handleToggleSpecialPermission(r, 'canViewAnonymousSubmitterEmail')}
-                  className={`relative cursor-pointer rounded-xl border-2 p-3.5 transition select-none ${
+                  className={`relative block w-full cursor-pointer rounded-xl border-2 p-3.5 text-left transition select-none ${
                     isAllowed
                       ? 'border-indigo-400 bg-indigo-50/60 shadow-xs ring-2 ring-indigo-500/20'
                       : 'border-slate-200 bg-slate-50/70 hover:border-slate-300'
@@ -1137,7 +1208,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                         : 'ชื่อ, รหัส และอีเมลล็อกอินจะถูกปิดกั้นทั้งหมด'}
                     </div>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -1147,60 +1218,16 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
             <span className="shrink-0 text-[11px] font-bold text-slate-700">
               ชุดค่าด่วน (Presets):
             </span>
-            <button
-              type="button"
-              onClick={() => {
-                const updated = {
-                  ...permissions,
-                  employee: { ...permissions.employee, canViewAnonymousSubmitterEmail: false },
-                  gatekeeper: { ...permissions.gatekeeper, canViewAnonymousSubmitterEmail: false },
-                  executive: { ...permissions.executive, canViewAnonymousSubmitterEmail: true },
-                  admin: { ...permissions.admin, canViewAnonymousSubmitterEmail: true },
-                };
-                commitPermissions(
-                  updated,
-                  'ตั้งค่า: ให้เฉพาะ HR Admin & ผู้บริหาร มองเห็นอีเมลล็อกอิน'
-                );
-              }}
-              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 transition hover:bg-slate-100"
-            >
-              🔒 เฉพาะ HR Admin & ผู้บริหาร (แนะนำ)
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const updated = {
-                  ...permissions,
-                  employee: { ...permissions.employee, canViewAnonymousSubmitterEmail: false },
-                  gatekeeper: { ...permissions.gatekeeper, canViewAnonymousSubmitterEmail: true },
-                  executive: { ...permissions.executive, canViewAnonymousSubmitterEmail: true },
-                  admin: { ...permissions.admin, canViewAnonymousSubmitterEmail: true },
-                };
-                commitPermissions(
-                  updated,
-                  'ตั้งค่า: ให้ Gatekeeper, ผู้บริหาร และ HR Admin มองเห็นอีเมลล็อกอิน'
-                );
-              }}
-              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 transition hover:bg-slate-100"
-            >
-              🛡️ Gatekeeper + ผู้บริหาร + HR Admin
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const updated = {
-                  ...permissions,
-                  employee: { ...permissions.employee, canViewAnonymousSubmitterEmail: false },
-                  gatekeeper: { ...permissions.gatekeeper, canViewAnonymousSubmitterEmail: false },
-                  executive: { ...permissions.executive, canViewAnonymousSubmitterEmail: false },
-                  admin: { ...permissions.admin, canViewAnonymousSubmitterEmail: false },
-                };
-                commitPermissions(updated, 'ตั้งค่า: ปกปิดอีเมลล็อกอิน 100% ทุก Role');
-              }}
-              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-rose-700 transition hover:bg-slate-100"
-            >
-              🚫 ปกปิด 100% ทุก Role
-            </button>
+            {ANONYMOUS_PRESETS.map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                onClick={() => applyAnonymousPreset(preset.visibleTo, preset.toast)}
+                className={`rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium transition hover:bg-slate-100 ${preset.textClass}`}
+              >
+                {preset.label}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -1227,86 +1254,17 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                       : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
                   }`}
                 >
-                  {r === 'employee'
-                    ? 'พนักงาน'
-                    : r === 'gatekeeper'
-                      ? 'GK'
-                      : r === 'executive'
-                        ? 'ผู้บริหาร'
-                        : 'Admin'}
+                  {ROLE_SHORT_LABEL[r]}
                 </button>
               ))}
             </div>
           </div>
 
           {/* Ticket Anonymous Card Simulation */}
-          {(() => {
-            const isSimAllowed =
-              !!permissions[simulatedRoleForAnonymous].canViewAnonymousSubmitterEmail;
-            return (
-              <div className="space-y-2.5 rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
-                    <EyeOff className="h-4 w-4 text-slate-500" />
-                    <span>ข้อมูลผู้ยื่นเรื่อง (กรณีไม่ระบุตัวตน / Anonymous Ticket)</span>
-                  </div>
-                  <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
-                    🕵️ ไม่ระบุตัวตน (Anonymous)
-                  </span>
-                </div>
-
-                {isSimAllowed ? (
-                  <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50/70 p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-950">
-                        <Mail className="h-3.5 w-3.5 text-emerald-700" />
-                        <span>อีเมลที่ใช้ในการ Login (Mapping หลังบ้านจากฐานข้อมูลพนักงาน):</span>
-                      </div>
-                      <span className="py-0.2 rounded bg-emerald-200 px-2 text-[10px] font-bold text-emerald-900">
-                        ✓ ได้รับสิทธิ์มองเห็น (Role:{' '}
-                        {permissions[simulatedRoleForAnonymous].roleTitleTh.split(' ')[0]})
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between rounded border border-emerald-200 bg-white p-2">
-                      <span className="font-mono text-xs font-bold text-indigo-950">
-                        somchai.v@company.internal
-                      </span>
-                      <span className="text-[10px] text-slate-500">
-                        Mapping จาก Employee DB: EMP-4092
-                      </span>
-                    </div>
-                    <p className="text-[10.5px] leading-tight text-emerald-900/90">
-                      * หมายเหตุ: HR Admin & ตัวแทนผู้บริหาร ได้ tick อนุญาตให้บทบาทของคุณมองเห็น
-                      email ที่ใช้ในการ login นี้ได้ (โดยชื่อ นามสกุล และรหัสพนักงาน
-                      ยังคงได้รับการปกป้องตามนโยบายคุ้มครองพยาน)
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                        <Lock className="h-3.5 w-3.5 text-slate-500" />
-                        <span>อีเมลที่ใช้ในการ Login:</span>
-                      </div>
-                      <span className="py-0.2 rounded bg-slate-200 px-2 text-[10px] font-bold text-slate-700">
-                        🔒 ปกปิด (Role:{' '}
-                        {permissions[simulatedRoleForAnonymous].roleTitleTh.split(' ')[0]})
-                      </span>
-                    </div>
-                    <div className="rounded border border-slate-200 bg-white p-2 font-mono text-xs text-slate-400 select-none">
-                      ••••••••••••••••@••••••••••••
-                    </div>
-                    <p className="text-[10.5px] leading-tight text-slate-500">
-                      * หมายเหตุ: บทบาทของคุณ (
-                      {permissions[simulatedRoleForAnonymous].roleTitleTh.split(' ')[0]})
-                      ไม่ได้รับอนุญาตจาก HR Admin & ตัวแทนผู้บริหาร
-                      ให้มองเห็นอีเมลล็อกอินของผู้ยื่นเรื่องนิรนามนี้
-                    </p>
-                  </div>
-                )}
-              </div>
-            );
-          })()}
+          <AnonymousSimulatorCard
+            isSimAllowed={!!permissions[simulatedRoleForAnonymous].canViewAnonymousSubmitterEmail}
+            roleName={permissions[simulatedRoleForAnonymous].roleTitleTh.split(' ')[0]}
+          />
         </div>
 
         {/* Corporate Employee Directory Collapsible */}
@@ -1550,23 +1508,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                 />
               </div>
 
-              <div>
-                <label className="mb-1 block text-[11px] font-bold text-slate-700">
-                  สถานะการปฏิบัติหน้าที่ (Account Status)
-                </label>
-                <select
-                  value={execStatus}
-                  onChange={(e) => setExecStatus(e.target.value as 'active' | 'inactive')}
-                  className={`w-full rounded-lg border bg-white px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-purple-500 focus:outline-none ${
-                    execStatus === 'active'
-                      ? 'border-emerald-300 text-emerald-700'
-                      : 'border-slate-300 text-slate-500'
-                  }`}
-                >
-                  <option value="active">เปิดใช้งาน (Active - พร้อมปฏิบัติหน้าที่)</option>
-                  <option value="inactive">พักสถานะ (Inactive - ระงับชั่วคราว)</option>
-                </select>
-              </div>
+              <ExecStatusSelect value={execStatus} onChange={setExecStatus} />
             </div>
 
             {/* Special Privileges Checkboxes */}

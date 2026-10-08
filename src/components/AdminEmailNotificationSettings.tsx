@@ -34,7 +34,20 @@ type TemplateKey = 'onTicketSubmitted' | 'onTicketResolved';
 type Tone = 'indigo' | 'emerald';
 
 // Tailwind needs complete class names at build time, so each tone is spelled out.
-const TONES: Record<Tone, Record<string, string>> = {
+interface ToneClasses {
+  iconBox: string;
+  caseBadge: string;
+  toggleOn: string;
+  recipientBox: string;
+  recipientIcon: string;
+  recipientBadge: string;
+  focus: string;
+  tagHover: string;
+  previewBtn: string;
+  previewTitle: string;
+}
+
+const TONES: Record<Tone, ToneClasses> = {
   indigo: {
     iconBox: 'border-indigo-200 bg-indigo-50 text-indigo-700',
     caseBadge: 'bg-indigo-100/60 text-indigo-700',
@@ -160,11 +173,8 @@ const ToggleSwitch: React.FC<ToggleSwitchProps> = ({ id, checked, onToggle, onCl
   );
 };
 
-interface TemplateCardProps {
-  readonly tone: Tone;
-  readonly idKey: 'submitted' | 'resolved';
-  readonly icon: React.ReactNode;
-  readonly recipientIcon: React.ReactNode;
+/** Static copy of one template card (already translated). */
+interface TemplateCopy {
   readonly caseLabel: string;
   readonly title: string;
   readonly description: string;
@@ -172,20 +182,34 @@ interface TemplateCardProps {
   readonly recipientBadge: string;
   readonly subjectPlaceholder: string;
   readonly bodyPlaceholder: string;
+}
+
+/** Live-preview pane state of one template card. */
+interface TemplatePreview {
+  readonly open: boolean;
+  readonly title: string;
+  readonly to: string;
+  readonly subject: string;
+  readonly body: string;
+}
+
+interface TemplateCardProps {
+  readonly tone: Tone;
+  readonly idKey: 'submitted' | 'resolved';
+  readonly icon: React.ReactNode;
+  readonly recipientIcon: React.ReactNode;
+  readonly copy: TemplateCopy;
   readonly tags: string[];
   readonly template: EmailNotificationTemplate;
   readonly onChange: (patch: Partial<EmailNotificationTemplate>) => void;
-  readonly previewOpen: boolean;
+  readonly preview: TemplatePreview;
   readonly onTogglePreview: () => void;
   readonly onTestDispatch: () => void;
-  readonly previewTitle: string;
-  readonly previewTo: string;
-  readonly previewSubject: string;
-  readonly previewBody: string;
 }
 
 const TemplateCard: React.FC<TemplateCardProps> = (props) => {
-  const { tone, idKey, template, onChange, previewOpen } = props;
+  const { tone, idKey, template, onChange, copy, preview } = props;
+  const previewOpen = preview.open;
   const { lang } = useLanguage();
   const tr = makeTranslate(lang);
   const c = TONES[tone];
@@ -200,10 +224,10 @@ const TemplateCard: React.FC<TemplateCardProps> = (props) => {
             <span
               className={`rounded px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase ${c.caseBadge}`}
             >
-              {props.caseLabel}
+              {copy.caseLabel}
             </span>
-            <h3 className="mt-1 text-base font-bold text-slate-900 sm:text-lg">{props.title}</h3>
-            <p className="mt-0.5 text-xs text-slate-500">{props.description}</p>
+            <h3 className="mt-1 text-base font-bold text-slate-900 sm:text-lg">{copy.title}</h3>
+            <p className="mt-0.5 text-xs text-slate-500">{copy.description}</p>
           </div>
         </div>
 
@@ -228,12 +252,12 @@ const TemplateCard: React.FC<TemplateCardProps> = (props) => {
           <span className="flex items-center gap-1.5 font-medium">
             <span className={c.recipientIcon}>{props.recipientIcon}</span>
             {tr('Recipient: ', 'ผู้รับ: ')}
-            <strong>{props.recipientLabel}</strong>
+            <strong>{copy.recipientLabel}</strong>
           </span>
           <span
             className={`rounded border bg-white px-2 py-0.5 font-mono text-[11px] ${c.recipientBadge}`}
           >
-            {props.recipientBadge}
+            {copy.recipientBadge}
           </span>
         </div>
 
@@ -255,7 +279,7 @@ const TemplateCard: React.FC<TemplateCardProps> = (props) => {
             id={`input-${idKey}-subject`}
             value={template.subject}
             onChange={(e) => onChange({ subject: e.target.value })}
-            placeholder={props.subjectPlaceholder}
+            placeholder={copy.subjectPlaceholder}
             className={`w-full rounded-xl px-3.5 py-2.5 text-xs sm:text-sm ${inputBase}`}
           />
         </div>
@@ -278,7 +302,7 @@ const TemplateCard: React.FC<TemplateCardProps> = (props) => {
             rows={12}
             value={template.body}
             onChange={(e) => onChange({ body: e.target.value })}
-            placeholder={props.bodyPlaceholder}
+            placeholder={copy.bodyPlaceholder}
             className={`w-full flex-1 resize-y rounded-xl p-3.5 text-xs leading-relaxed ${inputBase}`}
           />
         </div>
@@ -334,18 +358,18 @@ const TemplateCard: React.FC<TemplateCardProps> = (props) => {
         {previewOpen && (
           <div className="animate-fadeIn mt-3 space-y-2 rounded-xl border border-slate-800 bg-slate-900 p-4 font-mono text-xs text-slate-100">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-              <span className={`font-bold ${c.previewTitle}`}>{props.previewTitle}</span>
+              <span className={`font-bold ${c.previewTitle}`}>{preview.title}</span>
               <span className="text-[10px] text-slate-400">Mock Data Applied</span>
             </div>
             <div>
-              <span className="text-slate-400">To:</span> {props.previewTo}
+              <span className="text-slate-400">To:</span> {preview.to}
             </div>
             <div>
               <span className="text-slate-400">Subject:</span>{' '}
-              <strong className="text-emerald-300">{props.previewSubject}</strong>
+              <strong className="text-emerald-300">{preview.subject}</strong>
             </div>
             <div className="border-t border-slate-800/80 pt-2 font-sans text-xs leading-relaxed whitespace-pre-wrap text-slate-300">
-              {props.previewBody}
+              {preview.body}
             </div>
           </div>
         )}
@@ -528,16 +552,15 @@ interface LogDetailModalProps {
 const LogDetailModal: React.FC<LogDetailModalProps> = ({ log, onClose }) => {
   const { lang } = useLanguage();
   const tr = makeTranslate(lang);
-  const facts: [string, string, string, string][] = [
-    [tr('Tracking ID:', 'รหัสติดตาม:'), log.trackingCode, 'font-bold font-mono', ''],
+  const facts: [string, string, string][] = [
+    [tr('Tracking ID:', 'รหัสติดตาม:'), log.trackingCode, 'font-bold font-mono'],
     [
       tr('Dispatched At:', 'เวลาส่งออก:'),
       new Date(log.timestamp).toLocaleString(localeOf(lang)),
       'font-mono',
-      '',
     ],
-    [tr('Recipient:', 'ผู้รับ:'), log.recipientName, 'font-semibold', ''],
-    [tr('Recipient Email:', 'อีเมลปลายทาง:'), log.recipientEmail, 'font-mono', ''],
+    [tr('Recipient:', 'ผู้รับ:'), log.recipientName, 'font-semibold'],
+    [tr('Recipient Email:', 'อีเมลปลายทาง:'), log.recipientEmail, 'font-mono'],
   ];
 
   return (
@@ -848,38 +871,45 @@ export const AdminEmailNotificationSettings: React.FC = () => {
           idKey="submitted"
           icon={<Inbox className="h-5 w-5" />}
           recipientIcon={<UserCheck className="h-4 w-4" />}
-          caseLabel={tr('Case 1 • Ticket Submission', 'กรณีที่ 1 • Ticket Submission')}
-          title={tr('Notify Gatekeeper on New Ticket', 'แจ้งเตือนเมื่อพนักงานยื่นข้อร้องเรียนใหม่')}
-          description={tr(
-            'Dispatches an email alert to the Category Gatekeeper for triage and assignment.',
-            'ส่งอีเมลแจ้งเตือนไปยัง Gatekeeper ประจำหมวดหมู่ เพื่อคัดกรองและดำเนินการ'
-          )}
-          recipientLabel={tr(
-            'Lead Gatekeeper for Category ({categoryTh})',
-            'Lead Gatekeeper ประจำหมวดหมู่ ({categoryTh})'
-          )}
-          recipientBadge="Auto-assigned by Category"
-          subjectPlaceholder={tr(
-            '[VoiceCare Alert] {ticketId}: New Ticket ({categoryTh})',
-            'เช่น [VoiceCare แจ้งเรื่องใหม่] {ticketId}: มีข้อร้องเรียนใหม่ ({categoryTh})'
-          )}
-          bodyPlaceholder={tr(
-            'Enter notification message to send to Gatekeeper...',
-            'กรอกเนื้อหาข้อความที่ต้องการส่งถึง Gatekeeper...'
-          )}
+          copy={{
+            caseLabel: tr('Case 1 • Ticket Submission', 'กรณีที่ 1 • Ticket Submission'),
+            title: tr(
+              'Notify Gatekeeper on New Ticket',
+              'แจ้งเตือนเมื่อพนักงานยื่นข้อร้องเรียนใหม่'
+            ),
+            description: tr(
+              'Dispatches an email alert to the Category Gatekeeper for triage and assignment.',
+              'ส่งอีเมลแจ้งเตือนไปยัง Gatekeeper ประจำหมวดหมู่ เพื่อคัดกรองและดำเนินการ'
+            ),
+            recipientLabel: tr(
+              'Lead Gatekeeper for Category ({categoryTh})',
+              'Lead Gatekeeper ประจำหมวดหมู่ ({categoryTh})'
+            ),
+            recipientBadge: 'Auto-assigned by Category',
+            subjectPlaceholder: tr(
+              '[VoiceCare Alert] {ticketId}: New Ticket ({categoryTh})',
+              'เช่น [VoiceCare แจ้งเรื่องใหม่] {ticketId}: มีข้อร้องเรียนใหม่ ({categoryTh})'
+            ),
+            bodyPlaceholder: tr(
+              'Enter notification message to send to Gatekeeper...',
+              'กรอกเนื้อหาข้อความที่ต้องการส่งถึง Gatekeeper...'
+            ),
+          }}
           tags={SUBMITTED_TAGS}
           template={settings.onTicketSubmitted}
           onChange={(patch) => updateTemplate('onTicketSubmitted', patch)}
-          previewOpen={activePreview === 'submitted'}
+          preview={{
+            open: activePreview === 'submitted',
+            title: tr(
+              'LIVE PREVIEW: Email sent to Gatekeeper',
+              'LIVE PREVIEW: อีเมลส่งหา Gatekeeper'
+            ),
+            to: `${sample.recipientName} <hr-gatekeeper@enterprise.co.th>`,
+            subject: interpolateEmailTemplate(settings.onTicketSubmitted.subject, sample),
+            body: interpolateEmailTemplate(settings.onTicketSubmitted.body, sample),
+          }}
           onTogglePreview={() => togglePreview('submitted')}
           onTestDispatch={() => handleTestDispatch('ticket_submitted')}
-          previewTitle={tr(
-            'LIVE PREVIEW: Email sent to Gatekeeper',
-            'LIVE PREVIEW: อีเมลส่งหา Gatekeeper'
-          )}
-          previewTo={`${sample.recipientName} <hr-gatekeeper@enterprise.co.th>`}
-          previewSubject={interpolateEmailTemplate(settings.onTicketSubmitted.subject, sample)}
-          previewBody={interpolateEmailTemplate(settings.onTicketSubmitted.body, sample)}
         />
 
         <TemplateCard
@@ -887,44 +917,45 @@ export const AdminEmailNotificationSettings: React.FC = () => {
           idKey="resolved"
           icon={<CheckCircle2 className="h-5 w-5" />}
           recipientIcon={<User className="h-4 w-4" />}
-          caseLabel={tr('Case 2 • Ticket Resolved', 'กรณีที่ 2 • Ticket Resolved')}
-          title={tr(
-            'Notify Employee on Resolution Completion',
-            'แจ้งเตือนเมื่อแก้ไขเสร็จสิ้นเรียบร้อย'
-          )}
-          description={tr(
-            'Dispatches summary and evaluation link to Employee upon case completion.',
-            'ส่งอีเมลแจ้งผลสรุปและคำขอบคุณไปยัง พนักงานผู้ยื่นเรื่อง พร้อมลิงก์ประเมิน CSAT'
-          )}
-          recipientLabel={tr(
-            'Ticket Submitter (Email: {senderEmail})',
-            'พนักงานผู้ยื่นเรื่อง (Submitter Email: {senderEmail})'
-          )}
-          recipientBadge="Employee In-Box"
-          subjectPlaceholder={tr(
-            '[VoiceCare Result] {ticketId}: Resolution complete',
-            'เช่น [VoiceCare แจ้งผลการแก้ไข] เรื่อง {ticketId}: ดำเนินการแก้ไขเสร็จสิ้นเรียบร้อยแล้ว'
-          )}
-          bodyPlaceholder={tr(
-            'Enter notification message to send to employee upon resolution...',
-            'กรอกเนื้อหาข้อความที่ต้องการส่งแจ้งเตือนกลับไปยังพนักงานเมื่อเคสเสร็จสิ้น...'
-          )}
+          copy={{
+            caseLabel: tr('Case 2 • Ticket Resolved', 'กรณีที่ 2 • Ticket Resolved'),
+            title: tr(
+              'Notify Employee on Resolution Completion',
+              'แจ้งเตือนเมื่อแก้ไขเสร็จสิ้นเรียบร้อย'
+            ),
+            description: tr(
+              'Dispatches summary and evaluation link to Employee upon case completion.',
+              'ส่งอีเมลแจ้งผลสรุปและคำขอบคุณไปยัง พนักงานผู้ยื่นเรื่อง พร้อมลิงก์ประเมิน CSAT'
+            ),
+            recipientLabel: tr(
+              'Ticket Submitter (Email: {senderEmail})',
+              'พนักงานผู้ยื่นเรื่อง (Submitter Email: {senderEmail})'
+            ),
+            recipientBadge: 'Employee In-Box',
+            subjectPlaceholder: tr(
+              '[VoiceCare Result] {ticketId}: Resolution complete',
+              'เช่น [VoiceCare แจ้งผลการแก้ไข] เรื่อง {ticketId}: ดำเนินการแก้ไขเสร็จสิ้นเรียบร้อยแล้ว'
+            ),
+            bodyPlaceholder: tr(
+              'Enter notification message to send to employee upon resolution...',
+              'กรอกเนื้อหาข้อความที่ต้องการส่งแจ้งเตือนกลับไปยังพนักงานเมื่อเคสเสร็จสิ้น...'
+            ),
+          }}
           tags={RESOLVED_TAGS}
           template={settings.onTicketResolved}
           onChange={(patch) => updateTemplate('onTicketResolved', patch)}
-          previewOpen={activePreview === 'resolved'}
+          preview={{
+            open: activePreview === 'resolved',
+            title: tr(
+              'LIVE PREVIEW: Email sent to Submitter',
+              'LIVE PREVIEW: อีเมลส่งหาพนักงานผู้ยื่น'
+            ),
+            to: `${submitterName} <pattarapol.n@enterprise.co.th>`,
+            subject: interpolateEmailTemplate(settings.onTicketResolved.subject, submitterVars),
+            body: interpolateEmailTemplate(settings.onTicketResolved.body, resolvedBodyVars),
+          }}
           onTogglePreview={() => togglePreview('resolved')}
           onTestDispatch={() => handleTestDispatch('ticket_resolved')}
-          previewTitle={tr(
-            'LIVE PREVIEW: Email sent to Submitter',
-            'LIVE PREVIEW: อีเมลส่งหาพนักงานผู้ยื่น'
-          )}
-          previewTo={`${submitterName} <pattarapol.n@enterprise.co.th>`}
-          previewSubject={interpolateEmailTemplate(
-            settings.onTicketResolved.subject,
-            submitterVars
-          )}
-          previewBody={interpolateEmailTemplate(settings.onTicketResolved.body, resolvedBodyVars)}
         />
       </div>
 

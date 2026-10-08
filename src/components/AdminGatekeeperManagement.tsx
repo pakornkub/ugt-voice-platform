@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Shield,
   Users,
@@ -53,7 +53,6 @@ import {
   updateExecutiveMember,
   deleteExecutiveMember,
   resetExecutivesToDefault,
-  EVENT_EXECUTIVES_UPDATED,
   getStoredHrAdmins,
   addHrAdminMember,
   updateHrAdminMember,
@@ -61,6 +60,7 @@ import {
   resetHrAdminsToDefault,
 } from '../services/api';
 import { AdminEmailNotificationSettings } from './AdminEmailNotificationSettings';
+import { ExecStatusSelect, ExecutiveStatus, useExecutivesSync } from './executiveShared';
 
 interface AdminGatekeeperManagementProps {
   tickets?: ComplaintTicket[];
@@ -99,16 +99,10 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
   const [execCanViewConfidential, setExecCanViewConfidential] = useState(false);
   const [execReceiveAlerts, setExecReceiveAlerts] = useState(true);
   const [execCommittees, setExecCommittees] = useState('');
-  const [execStatus, setExecStatus] = useState<'active' | 'inactive'>('active');
+  const [execStatus, setExecStatus] = useState<ExecutiveStatus>('active');
 
   // Sync executives across components
-  useEffect(() => {
-    const handleExecSync = () => {
-      setExecutives(getStoredExecutives());
-    };
-    window.addEventListener(EVENT_EXECUTIVES_UPDATED, handleExecSync);
-    return () => window.removeEventListener(EVENT_EXECUTIVES_UPDATED, handleExecSync);
-  }, []);
+  useExecutivesSync(setExecutives);
 
   // HR Admin states
   const [hrAdmins, setHrAdmins] = useState<HrAdminMember[]>(() => getStoredHrAdmins());
@@ -1118,24 +1112,12 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
                     </select>
                   </div>
 
-                  <div>
-                    <label className="mb-1 block text-[11px] font-semibold text-slate-700">
-                      สถานะการปฏิบัติหน้าที่ (Account Status)
-                    </label>
-                    <select
-                      id="exec-status"
-                      value={execStatus}
-                      onChange={(e) => setExecStatus(e.target.value as 'active' | 'inactive')}
-                      className={`w-full rounded-lg border bg-white px-3 py-1.5 text-xs font-semibold focus:ring-2 focus:ring-purple-500 focus:outline-none ${
-                        execStatus === 'active'
-                          ? 'border-emerald-300 text-emerald-700'
-                          : 'border-slate-300 text-slate-500'
-                      }`}
-                    >
-                      <option value="active">เปิดใช้งาน (Active - พร้อมปฏิบัติหน้าที่)</option>
-                      <option value="inactive">พักสถานะ (Inactive - ระงับชั่วคราว)</option>
-                    </select>
-                  </div>
+                  <ExecStatusSelect
+                    id="exec-status"
+                    value={execStatus}
+                    onChange={setExecStatus}
+                    dense
+                  />
                 </div>
 
                 <div>

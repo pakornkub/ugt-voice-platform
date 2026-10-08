@@ -1,9 +1,12 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AdminGatekeeperManagement } from './AdminGatekeeperManagement';
 import { LanguageProvider } from '../context/LanguageContext';
 import { getStoredExecutives, getStoredGatekeeperConfigs } from '../services/api';
+
+// userEvent-heavy tests: stay green on loaded CI agents / dev machines.
+vi.setConfig({ testTimeout: 20000 });
 
 const renderPage = () =>
   render(

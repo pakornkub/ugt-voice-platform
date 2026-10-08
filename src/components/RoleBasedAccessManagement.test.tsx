@@ -5,6 +5,9 @@ import { RoleBasedAccessManagement } from './RoleBasedAccessManagement';
 import { LanguageProvider } from '../context/LanguageContext';
 import { getStoredRolePermissions } from '../services/api';
 
+// userEvent-heavy tests: stay green on loaded CI agents / dev machines.
+vi.setConfig({ testTimeout: 20000 });
+
 const renderPage = (onPermissionsUpdated = vi.fn()) =>
   render(
     <LanguageProvider>

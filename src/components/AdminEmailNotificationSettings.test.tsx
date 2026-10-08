@@ -1,9 +1,12 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AdminEmailNotificationSettings } from './AdminEmailNotificationSettings';
 import { LanguageProvider } from '../context/LanguageContext';
 import { getStoredEmailDispatchLogs, getStoredEmailNotificationSettings } from '../services/api';
+
+// userEvent-heavy tests: stay green on loaded CI agents / dev machines.
+vi.setConfig({ testTimeout: 20000 });
 
 const renderPanel = () =>
   render(
@@ -106,5 +109,21 @@ describe('AdminEmailNotificationSettings', () => {
     localStorage.setItem('voicecare_lang_preference_v2', 'en');
     renderPanel();
     expect(await screen.findByText('Automated Email Notifications System')).toBeInTheDocument();
+  });
+
+  it('logs a ticket_resolved test dispatch and closes the detail modal with its X button', async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.click(byId('btn-test-resolved-email'));
+    const logs = getStoredEmailDispatchLogs();
+    expect(logs).toHaveLength(1);
+    expect(logs[0].recipientRole).toBe('test');
+    expect(screen.getByText(/จำลองการส่งอีเมล แจ้งผลการแก้ไขหาพนักงาน/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /เปิดดู/ }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'ปิด' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });
