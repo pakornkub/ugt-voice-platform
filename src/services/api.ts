@@ -25,6 +25,7 @@ import {
 import { syncAllTicketsToSqlite } from './sqliteDb';
 import { analyzeWithClientHeuristics } from './categoryHeuristics';
 import { safeStorage } from './safeStorage';
+import { env } from '@/lib/env';
 import {
   mapLoginEmailForTicket,
   getAllEmployees,
@@ -35,6 +36,10 @@ import {
   setCurrentLoginEmployee,
   EMPLOYEE_DATABASE,
 } from './employeeDirectory';
+
+// App is served under a basePath on ugtweb.ube.co.th (decisions.md 2026-10-09) —
+// plain fetch('/api/...') and hand-built URLs don't get it added automatically.
+const BASE_PATH = env.NEXT_PUBLIC_BASE_PATH;
 
 export {
   mapLoginEmailForTicket,
@@ -722,7 +727,7 @@ export async function suggestCategoryWithAI(params: {
   description: string;
 }): Promise<AICategorySuggestionResult> {
   try {
-    const res = await fetch('/api/ai/suggest-category', {
+    const res = await fetch(`${BASE_PATH}/api/ai/suggest-category`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
@@ -741,7 +746,7 @@ export async function analyzeGrievanceWithAI(params: {
   category?: string;
 }) {
   try {
-    const res = await fetch('/api/ai/analyze-complaint', {
+    const res = await fetch(`${BASE_PATH}/api/ai/analyze-complaint`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
@@ -775,7 +780,7 @@ export async function analyzeGrievanceWithAI(params: {
 // AI Executive Root Cause Clustering API Call
 export async function getClusterInsightsWithAI(tickets: ComplaintTicket[]) {
   try {
-    const res = await fetch('/api/ai/cluster-insights', {
+    const res = await fetch(`${BASE_PATH}/api/ai/cluster-insights`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ complaints: tickets }),
@@ -1486,7 +1491,7 @@ export function dispatchEmailOnTicketSubmitted(ticket: ComplaintTicket): EmailDi
     urgency: ticket.urgency,
     description: ticket.description || '-',
     submissionDate: new Date(ticket.createdAt).toLocaleString('th-TH'),
-    trackingUrl: `${typeof window !== 'undefined' ? window.location.origin : ''}/#tracking=${ticket.trackingCode}`,
+    trackingUrl: `${typeof window !== 'undefined' ? window.location.origin : ''}${BASE_PATH}/#tracking=${ticket.trackingCode}`,
   };
 
   const isEnabled = settings.masterEnabled && settings.onTicketSubmitted.enabled;
@@ -1539,7 +1544,7 @@ export function dispatchEmailOnTicketResolved(
     resolvedBy: resolvedBy || 'เจ้าหน้าที่ผู้รับผิดชอบ',
     resolvedDate: new Date().toLocaleString('th-TH'),
     resolutionNotes: resolutionNotes || 'ดำเนินการแก้ไขและปรับปรุงตามขั้นตอนเรียบร้อยแล้ว',
-    trackingUrl: `${typeof window !== 'undefined' ? window.location.origin : ''}/#tracking=${ticket.trackingCode}`,
+    trackingUrl: `${typeof window !== 'undefined' ? window.location.origin : ''}${BASE_PATH}/#tracking=${ticket.trackingCode}`,
   };
 
   const isEnabled = settings.masterEnabled && settings.onTicketResolved.enabled;
@@ -1590,7 +1595,7 @@ export function sendTestEmailNotification(
     resolvedDate: new Date().toLocaleString('th-TH'),
     resolutionNotes:
       'ได้ปรับปรุงแบบฟอร์มเบิกจ่ายออนไลน์และเพิ่มช่องทางยืนยันเอกสารผ่านระบบอัตโนมัติแล้ว',
-    trackingUrl: `${typeof window !== 'undefined' ? window.location.origin : ''}/#tracking=TK-2026-TEST`,
+    trackingUrl: `${typeof window !== 'undefined' ? window.location.origin : ''}${BASE_PATH}/#tracking=TK-2026-TEST`,
   };
 
   const template =

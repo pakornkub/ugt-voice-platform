@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
@@ -60,12 +61,12 @@ export default async function ShellLayout({ children }: { children: React.ReactN
         </p>
         <div className="flex items-center gap-2">
           {canManageUsers && (
-            <a
+            <Link
               href="/admin/users"
               className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-indigo-700"
             >
               ไปที่หน้าจัดการผู้ใช้
-            </a>
+            </Link>
           )}
           <form action={ssoLogoutAction}>
             <button
