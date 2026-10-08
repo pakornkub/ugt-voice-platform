@@ -202,7 +202,8 @@ service_healthy`.
 up` testing.
   - `docs/admin-handoff.md` §5 — Jenkins credentials/job/webhook, SonarQube
     projects/Quality Gate/webhook, Docker host prep (`/home/docker02/appdata`,
-    `proxy-network`), flags this repo has no git remote yet.
+    `proxy-network`). Remote: `origin` = `github.com/pakornkub/ugt-voice-platform`
+    (first full push 2026-10-08).
 
 ## Data flow หลัก
 

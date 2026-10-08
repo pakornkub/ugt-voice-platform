@@ -44,3 +44,14 @@
   ไม่ reproduce ซ้ำ ลบ `.next/` แล้ว build ใหม่ (`rm -rf .next && npm run build`) ผ่านสะอาด —
   ถ้าเจอซ้ำบ่อยบนเครื่อง dev ตัวไหน ให้สงสัย antivirus/OneDrive sync ล็อกไฟล์ระหว่าง build
   (2026-09-02)
+- **`next build`/vitest ล่มด้วย `Cannot find module './runtime-reacts.external'` หรือ
+  `'./typescript/runTypeScriptCli'` หลัง `npm install`** → `npm install` สองตัวรันพร้อมกันใน
+  checkout เดียว (ตัวแรกค้างจาก session ก่อน) ทำให้ `node_modules/next` มีไฟล์ครึ่ง ๆ — npm
+  ตัวหลังขึ้น `ENOTEMPTY` → รอ/ปิด npm ตัวที่ค้างก่อน แล้ว `npm ci` ใหม่ทั้งหมด (2026-10-08)
+- **`next build` ล่มด้วย `Module '"@prisma/client"' has no exported member 'ticket'`/`PrismaClient`
+  หลัง `npm ci`** → `npm ci` ล้าง `node_modules` รวม Prisma client ที่ generate ไว้ และโปรเจคนี้
+  ไม่มี `postinstall` → รัน `npx prisma generate` (ไม่ต้องต่อ DB) แล้ว build ใหม่ (2026-10-08)
+- **vitest ล้มด้วย `[vitest-pool-runner]: Timeout waiting for worker to respond` / `Test Files
+no tests`** → ไม่ใช่ test พัง — เครื่องโหลดหนัก (CPU ~90% จาก vitest/build ของโปรเจคอื่นรัน
+  พร้อมกัน) worker start ไม่ทัน → รันใหม่ตอนเครื่องว่าง หรือ `npx vitest run --maxWorkers=1
+--no-file-parallelism` (2026-10-08)
