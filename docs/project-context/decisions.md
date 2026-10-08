@@ -601,3 +601,18 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   swap `src/services/employeeDirectory.ts`'s mock for it during the localStorage → Server
   Action rewiring (after the upstream Phase 2 merge). Supersedes the "mock now" part of the
   2026-10-08 employee-directory entry.
+- 2026-10-09 **Upstream phase 2 merged with behaviour-preserving Sonar refactors** — upstream code
+  ported verbatim would fail the gate (nested ternaries, index keys, cognitive complexity,
+  duplication), so 2A/2B/2C restructured it (lookup maps, sub-components, `workflow-manual/*`,
+  `export-analytics/*`, `ConfirmDialog`) while keeping UI, TH/EN strings and conditions identical
+  — **because** CLAUDE.md requires the first scan to pass · rejected: `sonar.cpd.exclusions` /
+  NOSONAR on whole files. Two deliberate UX deltas vs upstream: `GatekeeperInbox`/
+  `ExportAnalyticsModal` `alert()` → in-app inline notice (same text), and the investigation
+  report actually prints (upstream's print clipped to one viewport). In-app `ConfirmDialog`
+  supersedes the 2026-09-02 "destructive deletes use `window.confirm()`" rule. Where upstream is
+  Thai-only (GatekeeperInbox, RBAC, admin gatekeeper) ours stays Thai-only (parity over the i18n
+  rule).
+- 2026-10-09 **Deploy dev by pushing `develop`; prod (`main`) left to the owner** — Jenkins jobs
+  `ugt-voice-platform[-dev]` poll GitHub (webhook not reachable from the internal network), so a
+  push is the deploy trigger · rejected: pushing `main` overnight (prod DB never migrated, app
+  still connects as `sa`).

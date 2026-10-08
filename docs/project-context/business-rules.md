@@ -78,3 +78,27 @@
   (ความเร็ว/คุณภาพการแก้ไข/มารยาท/ความชัดเจน) — implement ที่
   `src/components/SatisfactionModal.tsx`, บันทึกที่ `src/services/api.ts:submitEvaluation`
   (assumption: ยังไม่ได้ตรวจ validation ครบทุก field)
+
+## Upstream port phase 2 — as-built (2026-10-09, upstream `d20ca0b`)
+
+- **ยื่นเรื่อง**: ผู้ใช้เลือกความเร่งด่วนเอง 4 ระดับ (Low/Medium/High/Critical) และ
+  `riskSeverity` map ตามระดับ (`src/components/EmployeeSubmitForm.tsx`); เลือก "ระบุตัวตน" หรือ
+  "ไม่ระบุตัวตน" — แบบนิรนามส่ง `confidentiality:'anonymous'` แต่ระบบยังผูก `loginEmail` หลังบ้าน
+  (`mapLoginEmailForTicket`, `src/services/employeeDirectory.ts` — ยังเป็น mock); ปุ่ม AI ช่วยเลือก
+  หมวดเรียก `suggestCategoryWithAI` → `/api/ai/suggest-category` และ fallback เป็น keyword ฝั่ง
+  client (`src/services/categoryHeuristics.ts`)
+- **แชทนิรนามสองทาง**: `sendAnonymousChatMessage` (`src/services/api.ts`) เพิ่ม message + timeline +
+  notification สลับผู้รับ employee/gatekeeper — UI ที่ `TrackingTimelineModal`
+- **สิทธิ์เห็นอีเมลผู้ยื่นนิรนาม**: `canViewAnonymousSubmitterEmail` ใน RoleAccessConfigs (ค่าเริ่มต้น
+  executive/admin) — ใช้ใน `TrackingTimelineModal` และ `ExecutiveDashboard`
+- **เรื่องส่งตรง CEO**: Gatekeeper ที่ไม่มี `canViewDirectCeoTickets` ไม่เห็นเรื่องเหล่านี้ใน inbox
+  (`GatekeeperInbox.tsx` scopedTickets) และเปิดดูได้แค่หน้า Access Restricted
+- **Triage**: Gatekeeper ทบทวน urgency + riskSeverity แล้วส่งเข้า `updateTicketWorkflow`
+- **อีเมลแจ้งเตือน** (`AdminEmailNotificationSettings`, localStorage จนกว่าจะ rewiring):
+  `masterEnabled` + `onTicketSubmitted` (→ Lead Gatekeeper `leadOfficer.email` หรือ
+  `escalationEmail`) + `onTicketResolved` (→ ผู้ยื่น) ใช้ token `{ticketId}` ฯลฯ, มี dispatch log —
+  `dispatchEmailOnTicketSubmitted/Resolved` ใน `api.ts` ยังเป็นการจำลอง ไม่ได้ส่ง SMTP จริง
+- **CSAT**: เหลือดาวรวม + "ปัญหาได้รับการแก้ไขถาวรไหม" + ความคิดเห็น (`SatisfactionModal.tsx`) —
+  คะแนนรายด้านทั้ง 4 ถูกบันทึกเท่ากับคะแนนรวม
+- **Dashboard ผู้บริหาร**: ตัด AI Strategic Briefing เหลือ "Real-Time Insights" + Top-3 ผู้ยื่น,
+  drill-down หมวด/root cause 5 มิติ (`ExecutiveDashboard.tsx`)

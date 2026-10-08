@@ -27,8 +27,14 @@
   (server fallback of `/api/ai/suggest-category`, 7 rules) and `analyzeWithClientHeuristics()`
   (client catch-path of `suggestCategoryWithAI()`, the shared 5 rules) — the two lists upstream
   keeps in `server.ts` / `api.ts`, sharing one copy of the common rules.
-- `src/components/` — one component per feature screen/modal, all `'use client'`. Unchanged
-  logic from the pre-migration Vite SPA (see decisions.md, 2026-09-02 migration).
+- `src/components/` — one component per feature screen/modal, all `'use client'`. Logic = upstream
+  `d20ca0b` (ported 2026-10-09, decisions.md), restructured for Sonar without behaviour change.
+  Added by the port: `InvestigationReportModal` (printable via portal + `@media print` in
+  `src/app/globals.css`), `RecentSearchesPanel`, `AdminEmailNotificationSettings` (sub-tab of
+  `AdminGatekeeperManagement`), shared `ConfirmDialog` (+ `useConfirmDialog`),
+  `executiveShared.tsx` (exec-status select/sync shared by RBAC + gatekeeper admin),
+  `clickableProps.ts` (keyboard-operable clickable rows), `workflow-manual/*` (WorkflowDiagram's
+  5 manual sections + data), `export-analytics/*` (ExportAnalyticsModal tabs + pure CSV/JSON).
 - `src/services/api.ts` — **still the live data layer** (localStorage) that every component
   calls — see ⚠ deviation below. `INITIAL_EXECUTIVES`/`INITIAL_HR_ADMINS` also live here.
 - `src/services/sqliteDb.ts` — sql.js (SQLite-in-browser via WASM, binary fetched from a

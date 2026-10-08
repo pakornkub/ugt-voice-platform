@@ -66,3 +66,12 @@ sqlserver`** → `migration_lock.toml` was hand-written during the offline migra
   `DROP COLUMN`, then `npx prisma migrate resolve --rolled-back <migration>` and deploy again
   (the migration's `BEGIN TRAN`/`ROLLBACK` meant nothing was half-applied). Hit on
   `20260902030000_add_attachments` (2026-10-09)
+- **Jenkins Docker Build → `COPY --from=builder /app/public … "/app/public": not found`** → repo has
+  no `public/` (git keeps no empty dir) but the runner stage copies it → `RUN mkdir -p public` in
+  the builder before `npm run build` (`Dockerfile`) (2026-10-09)
+- **Local SSO → `INVALID_OAUTH_CONFIGURATION`; server log `Discovery fetch failed … fetch failed`
+  (`UNABLE_TO_VERIFY_LEAF_SIGNATURE`)** → Keycloak on `ugtweb.ube.co.th` uses the org's internal
+  CA; the dev server started from the Claude preview pane didn't inherit `NODE_USE_SYSTEM_CA=1`
+  from the shell → start Next with `node --use-system-ca node_modules/next/dist/bin/next dev`
+  (keeps TLS verification) or set `NODE_TLS_REJECT_UNAUTHORIZED=0` in `.env.local` (dev only).
+  Discovery is fetched once at auth init — restart the dev server after fixing (2026-10-09)
