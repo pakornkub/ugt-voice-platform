@@ -51,7 +51,7 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
   const assignedDepts =
     gkConfig?.assignedDepartments && gkConfig.assignedDepartments.length > 0
       ? gkConfig.assignedDepartments
-      : (['IT'] as GrievanceCategory[]);
+      : (['HR'] as GrievanceCategory[]);
 
   const defaultDept = isStrictGatekeeper
     ? assignedDepts.length === 1
@@ -654,11 +654,6 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
                         <strong className="text-slate-700">
                           {t.assignedOfficerName || 'ยังไม่มอบหมาย'}
                         </strong>
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3 text-slate-400" />
-                        SLA: {t.slaTargetHours} ชม. (
-                        {new Date(t.slaDueDate).toLocaleDateString('th-TH')})
                       </span>
                     </div>
                   </div>

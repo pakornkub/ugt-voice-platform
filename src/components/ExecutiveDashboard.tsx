@@ -155,8 +155,8 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       count: safeTickets.filter((t) => t.rootCauseCategory === 'Policy/Governance').length + 2,
     },
     {
-      name: 'สิ่งแวดล้อมสถานที่ (Environment)',
-      count: safeTickets.filter((t) => t.rootCauseCategory === 'Environment').length + 1,
+      name: 'สถานที่/สิ่งอำนวยความสะดวก (Workplace/Facilities)',
+      count: safeTickets.filter((t) => t.rootCauseCategory === 'Workplace/Facilities').length + 1,
     },
   ];
 

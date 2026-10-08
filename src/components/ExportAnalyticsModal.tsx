@@ -42,7 +42,7 @@ interface ExportAnalyticsModalProps {
 }
 
 export type ExportDatasetType =
-  'comprehensive' | 'operational_sla' | 'root_cause_capa' | 'csat_quality';
+  'comprehensive' | 'operational_ops' | 'root_cause_capa' | 'csat_quality';
 export type ExportFileFormat = 'sqlite' | 'csv' | 'json';
 
 export const ExportAnalyticsModal: React.FC<ExportAnalyticsModalProps> = ({
@@ -66,7 +66,6 @@ SELECT
   category AS "หมวดหมู่",
   COUNT(*) AS "จำนวนเรื่องทั้งหมด",
   SUM(CASE WHEN status IN ('resolved', 'closed') THEN 1 ELSE 0 END) AS "แก้ไขสำเร็จ",
-  ROUND(AVG(sla_target_hours), 1) AS "SLA เฉลี่ย (ชม.)",
   SUM(CASE WHEN is_direct_to_executive = 1 THEN 1 ELSE 0 END) AS "สายตรงผู้บริหาร"
 FROM tickets
 GROUP BY category
@@ -137,7 +136,7 @@ ORDER BY COUNT(*) DESC;`
   const metrics = useMemo(() => {
     const total = filteredTickets.length;
     if (total === 0) {
-      return { total: 0, resolvedRate: 0, avgResolutionHours: 0, avgCsat: 0, slaMetRate: 0 };
+      return { total: 0, resolvedRate: 0, avgResolutionHours: 0, avgCsat: 0, directToCeoCount: 0 };
     }
     const resolved = filteredTickets.filter(
       (t) => t.status === 'resolved' || t.status === 'closed'
@@ -149,9 +148,7 @@ ORDER BY COUNT(*) DESC;`
           evaluated.length
         : 0;
 
-    const slaMet = filteredTickets.filter(
-      (t) => t.slaStatus === 'met' || t.slaStatus === 'on_track'
-    );
+    const directToCeoCount = filteredTickets.filter((t) => t.isDirectToExecutive).length;
 
     // Calculate avg resolution time
     let totalHours = 0;
@@ -172,7 +169,7 @@ ORDER BY COUNT(*) DESC;`
       resolvedRate: Math.round((resolved.length / total) * 100),
       avgResolutionHours: countedResolved > 0 ? Math.round(totalHours / countedResolved) : 48,
       avgCsat: Number(avgCsat.toFixed(1)),
-      slaMetRate: Math.round((slaMet.length / total) * 100),
+      directToCeoCount,
     };
   }, [filteredTickets]);
 
@@ -246,9 +243,6 @@ ORDER BY COUNT(*) DESC;`
                   ? 'แก้ไขเสร็จสิ้น'
                   : 'ปิดเรื่อง',
         assignedOfficerName: t.assignedOfficerName || '-',
-        slaTargetHours: t.slaTargetHours,
-        slaStatus: t.slaStatus,
-        slaBreached: t.slaStatus === 'overdue' ? 'เกินกำหนด SLA' : 'อยู่ในเกณฑ์ SLA',
         triageLeadTimeHours: triageLeadTimeHours || '-',
         resolutionLeadTimeHours: resolutionLeadTimeHours || '-',
         resolvedAt: t.resolvedAt || '-',
@@ -271,8 +265,8 @@ ORDER BY COUNT(*) DESC;`
         csatPermanentlyResolved:
           t.evaluation?.isResolvedPermanently !== undefined
             ? t.evaluation.isResolvedPermanently
-              ? 'หายขาดถาวร'
-              : 'ยังไม่หายขาด'
+              ? 'ใช่'
+              : 'ไม่ใช่'
             : '-',
         csatFeedbackComment: t.evaluation?.feedbackComment || '-',
         csatImprovementSuggestions: t.evaluation?.improvementSuggestions || '-',
@@ -339,9 +333,6 @@ ORDER BY COUNT(*) DESC;`
           'รหัสสถานะ (Status Key)',
           'สถานะการดำเนินงาน (Status Label)',
           'เจ้าหน้าที่ผู้รับผิดชอบ (Assigned Officer)',
-          'เป้าหมาย SLA (SLA Target Hours)',
-          'สถานะ SLA (SLA Status)',
-          'การปฏิบัติตาม SLA (SLA Compliance)',
           'เวลาคัดกรองเรื่อง ชม. (Triage Lead Time)',
           'เวลาแก้ไขแล้วเสร็จ ชม. (Resolution Lead Time)',
           'วันที่แก้ไขเสร็จ (Resolved At)',
@@ -381,9 +372,6 @@ ORDER BY COUNT(*) DESC;`
             escapeCsv(d.status),
             escapeCsv(d.statusLabelTh),
             escapeCsv(d.assignedOfficerName),
-            escapeCsv(d.slaTargetHours),
-            escapeCsv(d.slaStatus),
-            escapeCsv(d.slaBreached),
             escapeCsv(d.triageLeadTimeHours),
             escapeCsv(d.resolutionLeadTimeHours),
             escapeCsv(d.resolvedAt),
@@ -454,17 +442,16 @@ GROUP BY category
 ORDER BY COUNT(*) DESC;`,
     },
     {
-      title: '2. ตรวจสอบเคสเกินกำหนด SLA (SLA Breaches)',
+      title: '2. ตรวจสอบเคสที่กำลังดำเนินการ (In-Progress Tickets)',
       sql: `SELECT 
   tracking_code AS "รหัสคำร้อง",
   category AS "หมวดหมู่",
   title AS "หัวข้อ",
   urgency AS "ความเร่งด่วน",
-  sla_target_hours AS "SLA (ชม.)",
   status AS "สถานะปัจจุบัน",
   assigned_officer_name AS "ผู้รับผิดชอบ"
 FROM tickets
-WHERE sla_status = 'breached' OR status = 'in_progress'
+WHERE status = 'in_progress' OR status = 'gatekeeper_triaged'
 ORDER BY created_at ASC;`,
     },
     {
@@ -732,14 +719,14 @@ ORDER BY created_at DESC;`,
                     {
                       id: 'comprehensive',
                       name: 'ชุดข้อมูลวิเคราะห์ครบวงจร',
-                      sub: 'BI Comprehensive (38 มิติข้อมูล)',
-                      desc: 'รวมข้อมูลเรื่องร้องเรียน, SLA Lead Time, RCA สาเหตุต้นตอ, แผน CAPA และคะแนน CSAT ครบทุกคอลัมน์',
+                      sub: 'BI Comprehensive (35 มิติข้อมูล)',
+                      desc: 'รวมข้อมูลเรื่องร้องเรียน, ระยะเวลาดำเนินการ, RCA สาเหตุต้นตอ, แผน CAPA และคะแนน CSAT ครบทุกคอลัมน์',
                       icon: <BarChart3 className="h-4 w-4 text-emerald-600" />,
                     },
                     {
-                      id: 'operational_sla',
-                      name: 'ประสิทธิภาพการปฏิบัติงาน & SLA',
-                      sub: 'SLA & Operations Performance',
+                      id: 'operational_ops',
+                      name: 'ประสิทธิภาพการปฏิบัติงาน & ความรวดเร็ว',
+                      sub: 'Operations & Response Time',
                       desc: 'เน้นวิเคราะห์เวลาตอบรับ (Triage Time), เวลาแก้ไข (Lead Time) และจุดติดขัดรายหน่วยงาน',
                       icon: <Clock className="h-4 w-4 text-blue-600" />,
                     },
@@ -881,9 +868,11 @@ ORDER BY created_at DESC;`,
                   </div>
                   <div className="rounded-lg border border-white/10 bg-white/5 p-2.5">
                     <span className="block text-[10px] font-medium text-slate-400">
-                      SLA Compliance
+                      สายตรงผู้บริหาร (CEO)
                     </span>
-                    <span className="text-lg font-black text-sky-400">{metrics.slaMetRate}%</span>
+                    <span className="text-lg font-black text-sky-400">
+                      {metrics.directToCeoCount} เคส
+                    </span>
                   </div>
                   <div className="rounded-lg border border-white/10 bg-white/5 p-2.5">
                     <span className="block text-[10px] font-medium text-slate-400">
@@ -1150,13 +1139,13 @@ ORDER BY created_at DESC;`,
                   </p>
                 </div>
 
-                {/* 2. SLA & Bottlenecks */}
+                {/* 2. Response Time & Bottlenecks */}
                 <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
                   <div className="flex items-center gap-2 text-xs font-bold text-sky-700">
                     <span className="flex h-5 w-5 items-center justify-center rounded-full bg-sky-100 text-[10px] text-sky-700">
                       2
                     </span>
-                    <span>การวิเคราะห์เวลาตอบสนอง & จุดคอขวด (Lead Time & SLA Bottlenecks)</span>
+                    <span>การวิเคราะห์เวลาตอบสนอง & จุดคอขวด (Lead Time & Bottlenecks)</span>
                   </div>
                   <p className="text-xs leading-relaxed text-slate-600">
                     <strong>คอลัมน์ที่แนะนำ:</strong>{' '}
@@ -1173,9 +1162,8 @@ ORDER BY created_at DESC;`,
                     </code>
                   </p>
                   <p className="text-xs leading-relaxed text-slate-500">
-                    <strong>ประโยชน์:</strong> เปรียบเทียบ Lead Time จริงกับเป้าหมาย SLA รายฝ่าย
-                    เพื่อดูว่าหน่วยงานใดใช้เวลาคัดกรองหรือแก้ไขนานเกินเกณฑ์
-                    และต้องเพิ่มทรัพยากรช่วยเหลือ
+                    <strong>ประโยชน์:</strong> เปรียบเทียบ Lead Time จริงรายฝ่าย
+                    เพื่อดูว่าหน่วยงานใดใช้เวลาคัดกรองหรือแก้ไขนาน และต้องเพิ่มทรัพยากรช่วยเหลือ
                   </p>
                 </div>
 
@@ -1205,7 +1193,7 @@ ORDER BY created_at DESC;`,
                   </p>
                   <p className="text-xs leading-relaxed text-slate-500">
                     <strong>ประโยชน์:</strong> แยกประเภทสาเหตุตาม Ishikawa (Process, People,
-                    Equipment, Policy, Environment) เพื่อป้องกันการเกิดซ้ำ (Systemic Fix)
+                    Equipment, Policy, Workplace/Facilities) เพื่อป้องกันการเกิดซ้ำ (Systemic Fix)
                     แทนการแก้แบบชั่วคราว
                   </p>
                 </div>

@@ -349,16 +349,6 @@ export const TrackingTimelineModal: React.FC<TrackingTimelineModalProps> = ({
                     </div>
                   </div>
                 )}
-                <div className="border-t border-slate-200 pt-2">
-                  <span className="text-slate-500">SLA กำหนดเสร็จ:</span>
-                  <div className="mt-0.5 flex items-center gap-1 font-bold text-slate-800">
-                    <Clock className="h-3.5 w-3.5 text-slate-500" />
-                    <span>
-                      ภายใน {ticket.slaTargetHours} ชม. (
-                      {new Date(ticket.slaDueDate).toLocaleDateString('th-TH')})
-                    </span>
-                  </div>
-                </div>
               </div>
 
               {/* Submitter Identification Card */}

@@ -8,7 +8,6 @@ import {
   UserCheck,
   Crown,
   Trash2,
-  Clock,
   Mail,
   Phone,
   Briefcase,
@@ -594,7 +593,7 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
 
           {/* Right Column: Selected Department Details & Officers List */}
           <div className="space-y-6 lg:col-span-8">
-            {/* Department Summary & SLA Settings Card */}
+            {/* Department Summary & Configuration Card */}
             <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
               <div className="flex flex-col justify-between gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-center">
                 <div>
@@ -624,32 +623,8 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
                 </div>
               </div>
 
-              {/* SLA & Auto-Assign Settings Form */}
-              <div className="grid grid-cols-1 gap-4 pt-1 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block flex items-center gap-1.5 text-xs font-semibold text-slate-700">
-                    <Clock className="h-3.5 w-3.5 text-indigo-600" />
-                    <span>เกณฑ์เวลาแก้ไขมาตรฐาน (SLA Target Hours)</span>
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      id="input-sla-hours"
-                      min="1"
-                      max="720"
-                      value={currentConfig.defaultSlaHours}
-                      onChange={(e) =>
-                        handleUpdateConfig({ defaultSlaHours: parseInt(e.target.value) || 24 })
-                      }
-                      className="w-24 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                    />
-                    <span className="text-xs text-slate-500">
-                      ชั่วโมง ({Math.round((currentConfig.defaultSlaHours / 24) * 10) / 10}{' '}
-                      วันทำการ)
-                    </span>
-                  </div>
-                </div>
-
+              {/* Auto-Assign Settings Form */}
+              <div className="pt-1">
                 <div>
                   <label className="mb-1.5 block flex items-center gap-1.5 text-xs font-semibold text-slate-700">
                     <Zap className="h-3.5 w-3.5 text-amber-600" />
