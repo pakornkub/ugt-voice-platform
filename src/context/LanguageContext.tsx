@@ -22,7 +22,7 @@ export interface Translations {
 
 export const DICTIONARY: Translations = {
   // Brand & Header
-  'brand.name': { th: 'UGT VoiceCare', en: 'UGT VoiceCare' },
+  'brand.name': { th: 'UGT VoicePlatform', en: 'UGT VoicePlatform' },
   'brand.subtitle': { th: 'Grievance & Whistleblower', en: 'Grievance & Whistleblower' },
   'brand.desc': {
     th: 'ระบบบันทึกข้อร้องเรียน ข้อเสนอแนะ และติดตามผลเรียลไทม์',
@@ -296,7 +296,7 @@ interface LanguageContextType {
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
-const STORAGE_KEY_LANG = 'voicecare_lang_preference_v2';
+const STORAGE_KEY_LANG = 'voiceplatform_lang_preference_v2';
 
 export const LanguageProvider: React.FC<Readonly<{ children: ReactNode }>> = ({ children }) => {
   const [lang, setLangState] = useState<Language>('th');

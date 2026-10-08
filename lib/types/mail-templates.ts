@@ -169,13 +169,13 @@ export const MAIL_TEMPLATE_DEFINITION_BY_KEY: Record<MailTemplateKey, MailTempla
 
 /** Base sample values for the editor preview (per-template overrides merge on top). */
 export const MAIL_TEMPLATE_PREVIEW_SAMPLE_BASE: Record<string, string> = {
-  appName: 'UGT VoiceCare',
+  appName: 'UGT VoicePlatform',
   recipientName: 'สมชาย ใจดี',
   trackingCode: 'TK-2026-0881',
   notificationTitle: 'อัปเดตความคืบหน้า (TK-2026-0881)',
   notificationMessage:
     'เรื่องของคุณมีการเปลี่ยนสถานะเป็น "กำลังแก้ไข (In Progress)" โดย ฝ่ายทรัพยากรบุคคล',
-  detailUrl: 'https://voicecare.example.company.com/my-tickets',
+  detailUrl: 'https://voiceplatform.example.company.com/my-tickets',
 };
 
 // ─── Fixed chrome ────────────────────────────────────────────────────────────

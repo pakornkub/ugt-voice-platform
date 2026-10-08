@@ -6,3 +6,12 @@
      utility already used throughout the app (e.g. src/app/(shell)/shell.tsx). */
   --font-sans: var(--font-inter), var(--font-noto-sans-thai), ui-sans-serif, system-ui, sans-serif;
 }
+
+/* Printing the investigation report: InvestigationReportModal portals into <body>
+   (.print-report-root), so hide every other body child and let the report flow
+   across pages instead of being clipped by the fixed/overflow-hidden modal. */
+@media print {
+  body:has(.print-report-root) > :not(.print-report-root) {
+    display: none !important;
+  }
+}

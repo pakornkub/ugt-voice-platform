@@ -15,7 +15,7 @@ paths:
 This project: basePath `/ugt-voice-platform` (prod) · `/ugt-voice-platform-dev` (dev) on
 https://ugtweb.ube.co.th (decisions.md 2026-10-09), no Sentry, Prisma/SQL Server
 present — see `docs/project-context/decisions.md` (2026-09-02,
-`ugt-nextjs-cicd-setup`) for why. Storage (`/app/storage`) is wired into both compose files (no ClamAV — no virus scan,
+`ugt-nextjs-cicd-setup`) for why. Storage (`/app/storage`) is wired into both compose files (no virus scan — no virus scan,
 decisions.md 2026-10-09) — see
 `.claude/rules/ugt-nextjs-upload.md`.
 

@@ -584,3 +584,20 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   (`ScanStatus`/`ScanSignature`/`ScannedAt`) kept unchanged — no migration needed, and they let
   scanning be switched back on later. Supersedes the virus-scan parts of the 2026-09-02 upload
   entries and the 2026-09-03 CI/CD ClamAV wiring.
+- 2026-10-09 **Product name is "UGT VoicePlatform"** (owner decision) — every "VoiceCare"
+  becomes "VoicePlatform": display/app name (`NEXT_PUBLIC_APP_NAME`, Jenkinsfile, Dockerfile,
+  SonarQube project names, mail templates, layout metadata, UI strings), localStorage keys
+  `voicecare_*` → `voiceplatform_*` (only a language preference + the mock login employee are
+  lost on first load), project rule files `ugt-voice-platform-*.md`. Not rewritten: earlier
+  entries in this file (append-only) and comments inside already-generated migrations.
+- 2026-10-09 **HR views confirmed** (owner provided; DEV probe OK with the app's DB login):
+  employee directory = `[thrygsd002].[ICTPortal_PRD].[dbo].[vwHR_SC_Employee]` (550 rows, all
+  `workstatus = 'Active'`; match SSO users on `CurrentEmail`, fallback `ADLoginName`; fields
+  `EmpCode`, `FullNameThai/Eng`, `PostNameEng`, `OrgNameThai`/`OrgTDesc1..5`, `superempcode`);
+  approval chain = `[thrygsd002].[ICTPortal_PRD].[dbo].[HR_SC_AuthorizeEmployee_ms]`
+  (`EmpCode`, `SuperEmpCode`, `Seq`, `Special`, …) — **not used yet** (owner: VoicePlatform has
+  no approval step; recorded so `lib/approval-chain.ts` can be installed when a workflow needs
+  it). Next: install `ugt-nextjs-auth-setup`'s `lib/directory.ts` against the employee view and
+  swap `src/services/employeeDirectory.ts`'s mock for it during the localStorage → Server
+  Action rewiring (after the upstream Phase 2 merge). Supersedes the "mock now" part of the
+  2026-10-08 employee-directory entry.

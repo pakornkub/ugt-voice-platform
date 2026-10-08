@@ -12,7 +12,7 @@ the "Thai only / no i18n catalog" line in `ugt-nextjs-design.md`:
 
 - UI copy is bilingual. Use `useLanguage()` from `src/context/LanguageContext.tsx`
   (`lang === 'en' ? … : …` inline, or `t('key')` for entries in `DICTIONARY`). Default is `th`;
-  the preference lives in localStorage (`voicecare_lang_preference_v2`).
+  the preference lives in localStorage (`voiceplatform_lang_preference_v2`).
 - Do **not** add `next-intl` or a second translation substrate — the hand-rolled context is kept
   on purpose so upstream (`pisanu90853-cmd/UGTVoice-platform`) ports stay line-for-line.
 - Helpers that return display text take a `lang` argument (`getStatusBadgeText(status, lang)`,

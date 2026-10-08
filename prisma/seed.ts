@@ -1,4 +1,4 @@
-// prisma/seed.ts — idempotent seed for UGT VoiceCare.
+// prisma/seed.ts — idempotent seed for UGT VoicePlatform.
 // Run with: npx prisma db seed (wired via prisma.config.ts -> migrations.seed)
 //
 // Mirrors the demo data the app ships today so a freshly migrated database
@@ -500,7 +500,7 @@ async function seedRoleAccessConfigs() {
 }
 
 async function main() {
-  console.log('Seeding UGT VoiceCare...');
+  console.log('Seeding UGT VoicePlatform...');
   await seedGatekeeperConfigs();
   await seedTickets();
   await seedNotifications();

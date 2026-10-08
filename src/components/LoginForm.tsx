@@ -64,7 +64,7 @@ export function LoginForm({
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-blue-700 text-white shadow-sm shadow-indigo-200">
           <Shield className="h-7 w-7" />
         </div>
-        <h1 className="text-xl font-bold tracking-tight text-slate-900">UGT VoiceCare</h1>
+        <h1 className="text-xl font-bold tracking-tight text-slate-900">UGT VoicePlatform</h1>
         <p className="text-xs text-slate-500">
           ระบบบันทึกข้อร้องเรียน ข้อเสนอแนะ และติดตามผลเรียลไทม์
         </p>

@@ -11,7 +11,7 @@
 // String @db.NVarChar(n) and validated at the app layer against the TS union
 // types in src/types.ts (the authoritative source for the allowed values).
 //
-// This is the first schema for UGT VoiceCare (no legacy tables to preserve).
+// This is the first schema for UGT VoicePlatform (no legacy tables to preserve).
 // It replaces the browser-only sql.js draft in src/services/sqliteDb.ts,
 // with two deliberate changes documented in decisions.md (2026-09-02):
 //   1. `tickets.tracking_code` (PK in the sqlite draft) becomes a surrogate

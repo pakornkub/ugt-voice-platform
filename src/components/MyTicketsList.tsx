@@ -1,23 +1,29 @@
 'use client';
 
 import React, { useState } from 'react';
-import {
-  Search,
-  Clock,
-  CheckCircle2,
-  Star,
-  Crown,
-  ArrowRight,
-  Filter,
-  ShieldAlert,
-  Lightbulb,
-  EyeOff,
-  User,
-  Plus,
-} from 'lucide-react';
-import { ComplaintTicket, TicketStatus } from '../types';
+import { Search, Clock, Star, Crown, ArrowRight, Plus } from 'lucide-react';
+import { ComplaintTicket } from '../types';
 import { CATEGORY_DEFINITIONS } from '../mockData';
-import { getStatusBadgeText, getStatusColor } from '../services/api';
+import {
+  getStatusBadgeText,
+  getStatusColor,
+  getUrgencyBadgeText,
+  getUrgencyColor,
+} from '../services/api';
+import { useLanguage } from '../context/LanguageContext';
+
+type StatusFilter = 'ALL' | 'ACTIVE' | 'RESOLVED' | 'CLOSED';
+
+const STATUS_FILTER_TABS: { key: StatusFilter; labelTh: string; labelEn: string }[] = [
+  { key: 'ALL', labelTh: 'ทั้งหมด', labelEn: 'All' },
+  { key: 'ACTIVE', labelTh: 'อยู่ระหว่างดำเนินการ', labelEn: 'In Progress' },
+  {
+    key: 'RESOLVED',
+    labelTh: '⭐ รอการประเมิน (Resolved)',
+    labelEn: '⭐ Awaiting CSAT (Resolved)',
+  },
+  { key: 'CLOSED', labelTh: 'ปิดเคสแล้ว', labelEn: 'Closed' },
+];
 
 interface MyTicketsListProps {
   tickets: ComplaintTicket[];
@@ -26,14 +32,15 @@ interface MyTicketsListProps {
   onNavigateToSubmit: () => void;
 }
 
-export const MyTicketsList: React.FC<MyTicketsListProps> = ({
+export const MyTicketsList: React.FC<Readonly<MyTicketsListProps>> = ({
   tickets = [],
   onOpenTracking,
   onOpenSatisfaction,
   onNavigateToSubmit,
 }) => {
+  const { lang } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'RESOLVED' | 'CLOSED'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
 
   const safeTickets = tickets || [];
 
@@ -61,10 +68,14 @@ export const MyTicketsList: React.FC<MyTicketsListProps> = ({
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">
-            รายการคำร้องของฉัน (My Grievance & Suggestion History)
+            {lang === 'en'
+              ? 'My Grievance & Suggestion History'
+              : 'รายการคำร้องของฉัน (My Grievance & Suggestion History)'}
           </h1>
           <p className="text-xs text-slate-600 sm:text-sm">
-            ติดตามสถานะการดำเนินการ ตรวจสอบประวัติการตอบกลับ และประเมินความพึงพอใจ
+            {lang === 'en'
+              ? 'Track progress, review official responses, and evaluate resolution satisfaction.'
+              : 'ติดตามสถานะการดำเนินการ ตรวจสอบประวัติการตอบกลับ และประเมินความพึงพอใจ'}
           </p>
         </div>
 
@@ -74,7 +85,7 @@ export const MyTicketsList: React.FC<MyTicketsListProps> = ({
           className="flex items-center gap-1.5 self-start rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-indigo-700 sm:self-auto"
         >
           <Plus className="h-4 w-4" />
-          <span>ยื่นเรื่องใหม่</span>
+          <span>{lang === 'en' ? 'New Submission' : 'ยื่นเรื่องใหม่'}</span>
         </button>
       </div>
 
@@ -84,7 +95,11 @@ export const MyTicketsList: React.FC<MyTicketsListProps> = ({
           <Search className="absolute top-2.5 left-3 h-4 w-4 text-slate-400" />
           <input
             type="text"
-            placeholder="ค้นหาด้วย Tracking Code หรือชื่อเรื่อง..."
+            placeholder={
+              lang === 'en'
+                ? 'Search by Tracking Code, title, dept...'
+                : 'ค้นหาด้วย Tracking Code หรือชื่อเรื่อง...'
+            }
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full rounded-lg border border-slate-200 py-2 pr-3 pl-9 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
@@ -92,23 +107,18 @@ export const MyTicketsList: React.FC<MyTicketsListProps> = ({
         </div>
 
         <div className="no-scrollbar flex w-full items-center gap-1.5 overflow-x-auto sm:w-auto">
-          {[
-            { key: 'ALL', label: 'ทั้งหมด' },
-            { key: 'ACTIVE', label: 'อยู่ระหว่างดำเนินการ' },
-            { key: 'RESOLVED', label: '⭐ รอการประเมิน (Resolved)' },
-            { key: 'CLOSED', label: 'ปิดเคสแล้ว' },
-          ].map((tab) => (
+          {STATUS_FILTER_TABS.map((tab) => (
             <button
               key={tab.key}
               type="button"
-              onClick={() => setStatusFilter(tab.key as 'ALL' | 'ACTIVE' | 'RESOLVED' | 'CLOSED')}
+              onClick={() => setStatusFilter(tab.key)}
               className={`rounded-lg px-3 py-1.5 text-xs font-medium whitespace-nowrap transition ${
                 statusFilter === tab.key
                   ? 'bg-indigo-600 font-bold text-white shadow-xs'
                   : 'border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
               }`}
             >
-              {tab.label}
+              {lang === 'en' ? tab.labelEn : tab.labelTh}
             </button>
           ))}
         </div>
@@ -118,7 +128,9 @@ export const MyTicketsList: React.FC<MyTicketsListProps> = ({
       <div className="space-y-3">
         {filteredTickets.length === 0 ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-xs text-slate-500">
-            ไม่พบรายการคำร้องที่ค้นหา
+            {lang === 'en'
+              ? 'No grievance or suggestion records found matching your query.'
+              : 'ไม่พบรายการคำร้องที่ค้นหา'}
           </div>
         ) : (
           filteredTickets.map((t) => {
@@ -143,26 +155,31 @@ export const MyTicketsList: React.FC<MyTicketsListProps> = ({
                     <span
                       className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${getStatusColor(t.status)}`}
                     >
-                      {getStatusBadgeText(t.status)}
+                      {getStatusBadgeText(t.status, lang)}
                     </span>
                     <span
                       className={`rounded border px-2 py-0.5 text-[11px] font-medium ${catInfo?.badgeColor}`}
                     >
-                      {catInfo?.nameEn}
+                      {lang === 'en' ? catInfo?.nameEn : catInfo?.nameTh}
+                    </span>
+                    <span
+                      className={`rounded border px-2 py-0.5 text-[10px] font-semibold ${getUrgencyColor(t.urgency)}`}
+                    >
+                      {getUrgencyBadgeText(t.urgency, lang)}
                     </span>
                     {t.isDirectToExecutive && (
                       <span className="inline-flex items-center gap-1 rounded border border-purple-200 bg-purple-50 px-1.5 py-0.5 text-[10px] font-bold text-purple-700">
                         <Crown className="h-3 w-3 text-purple-600" />
-                        สายตรงผู้บริหาร
+                        {lang === 'en' ? 'Executive Direct' : 'สายตรงผู้บริหาร'}
                       </span>
                     )}
                     {t.type === 'suggestion' ? (
                       <span className="rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
-                        💡 ข้อเสนอแนะ
+                        {lang === 'en' ? '💡 Suggestion' : '💡 ข้อเสนอแนะ'}
                       </span>
                     ) : (
                       <span className="rounded border border-rose-200 bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-700">
-                        ⚠️ ข้อร้องเรียน
+                        {lang === 'en' ? '⚠️ Grievance' : '⚠️ ข้อร้องเรียน'}
                       </span>
                     )}
                   </div>
@@ -172,18 +189,22 @@ export const MyTicketsList: React.FC<MyTicketsListProps> = ({
 
                   <div className="flex flex-wrap items-center gap-4 pt-1 text-[11px] text-slate-500">
                     <span>
-                      หน่วยงานรับเรื่อง:{' '}
-                      <strong className="text-slate-800">{t.gatekeeperDepartment}</strong>
+                      {lang === 'en' ? 'Category: ' : 'หมวดหมู่: '}
+                      <strong className="text-slate-800">
+                        {catInfo?.nameTh || t.gatekeeperDepartment}
+                      </strong>
                     </span>
                     <span>
-                      ผู้รับผิดชอบ:{' '}
+                      {lang === 'en' ? 'Officer: ' : 'ผู้รับผิดชอบ: '}
                       <strong className="text-slate-800">
-                        {t.assignedOfficerName || 'อยู่ระหว่างมอบหมาย'}
+                        {t.assignedOfficerName ||
+                          (lang === 'en' ? 'Awaiting assignment' : 'อยู่ระหว่างมอบหมาย')}
                       </strong>
                     </span>
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3 text-slate-400" />
-                      ยื่นเมื่อ: {new Date(t.createdAt).toLocaleDateString('th-TH')}
+                      {lang === 'en' ? 'Submitted: ' : 'ยื่นเมื่อ: '}
+                      {new Date(t.createdAt).toLocaleDateString(lang === 'en' ? 'en-US' : 'th-TH')}
                     </span>
                   </div>
                 </div>
@@ -198,7 +219,11 @@ export const MyTicketsList: React.FC<MyTicketsListProps> = ({
                       className="flex w-full animate-pulse items-center justify-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-amber-600 sm:w-auto"
                     >
                       <Star className="h-3.5 w-3.5 fill-white" />
-                      <span>ประเมินความพึงพอใจ (CSAT)</span>
+                      <span>
+                        {lang === 'en'
+                          ? 'Evaluate Satisfaction (CSAT)'
+                          : 'ประเมินความพึงพอใจ (CSAT)'}
+                      </span>
                     </button>
                   )}
 
@@ -208,7 +233,7 @@ export const MyTicketsList: React.FC<MyTicketsListProps> = ({
                     onClick={() => onOpenTracking(t.trackingCode)}
                     className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100 sm:w-auto"
                   >
-                    <span>ติดตามความคืบหน้า</span>
+                    <span>{lang === 'en' ? 'Track Progress' : 'ติดตามความคืบหน้า'}</span>
                     <ArrowRight className="h-3.5 w-3.5" />
                   </button>
                 </div>
