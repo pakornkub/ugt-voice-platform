@@ -59,7 +59,7 @@ Last updated: 2026-10-08
   `.claude/state/model-mode.md`); wrote the missing `.claude/rules/ugt-nextjs-auth.md`.
   full-setup `verify.mjs` 16/16.
 - 2026-09-03 Installed CI/CD (`ugt-nextjs-cicd-setup`): Jenkinsfile, SonarQube config,
-  Dockerfile + compose files (incl. ClamAV/storage), `/api/health` DB check.
+  Dockerfile + compose files (storage; ClamAV removed 2026-10-09), `/api/health` DB check.
 - 2026-09-02 Installed real file attachments (`ugt-nextjs-upload-setup`) — not wired into
   any page yet (forms still use the fake attachment simulator).
 - 2026-09-02 Installed workflow email (`ugt-nextjs-mail-setup`) — hooked into

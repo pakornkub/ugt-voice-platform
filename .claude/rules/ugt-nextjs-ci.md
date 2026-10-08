@@ -15,8 +15,8 @@ paths:
 This project: basePath `/ugt-voice-platform` (prod) · `/ugt-voice-platform-dev` (dev) on
 https://ugtweb.ube.co.th (decisions.md 2026-10-09), no Sentry, Prisma/SQL Server
 present — see `docs/project-context/decisions.md` (2026-09-02,
-`ugt-nextjs-cicd-setup`) for why. Storage (`/app/storage`) and ClamAV
-(`clamav` service) are wired into both compose files already — see
+`ugt-nextjs-cicd-setup`) for why. Storage (`/app/storage`) is wired into both compose files (no ClamAV — no virus scan,
+decisions.md 2026-10-09) — see
 `.claude/rules/ugt-nextjs-upload.md`.
 
 ## The stage list is the contract — change commands inside stages, never remove stages
@@ -73,9 +73,6 @@ global `environment {}` block (global = one value for every branch).
 - **Migrate before `compose up`, always** — migrate fail = no deploy
 - `next.config.ts` sets `output: process.env.CI ? 'standalone' : undefined` or
   the Dockerfile's `COPY .next/standalone` fails
-- The `app` service `depends_on: clamav: condition: service_healthy` — compose
-  will not start `app` until `clamav` reports healthy (its `start_period: 300s`
-  covers the ~1 GB first-boot signature download)
 
 ## SonarQube config
 

@@ -572,3 +572,15 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   `next/link`. Env: `BETTER_AUTH_URL` and `APP_URL` stay the **bare origin**
   (`https://ugtweb.ube.co.th`) — auth and email links append the basePath themselves.
   Keycloak redirect URIs + reverse-proxy routing requested in `docs/admin-handoff.md` §2/§5.5.
+- 2026-10-09 **No virus scan / no ClamAV** (owner decision) — the upload skill's opt-in
+  `[SCAN]` is turned **off** (its own default; the 2026-09-02 install had switched it on as
+  an installer default, not an owner choice). Removed: `lib/virus-scan.ts`, the scan step in
+  `src/app/api/files/route.ts` (rows now `scanStatus: 'unscanned'`), `FILE_INFECTED`/
+  `SCANNER_UNAVAILABLE` codes, `files.upload-rejected` audit action, `scanAvailable` in
+  `/api/health`, the `clamav` service + `depends_on` + `clamav-db` bind in both compose files
+  and the Jenkinsfile `[VOLUME]` loop, `CLAMAV_*` env. Download now blocks only
+  `scanStatus === 'infected'` (skill default). Kept: storage volume, guarded download,
+  `application/octet-stream` + `attachment` + `nosniff`. Schema columns
+  (`ScanStatus`/`ScanSignature`/`ScannedAt`) kept unchanged — no migration needed, and they let
+  scanning be switched back on later. Supersedes the virus-scan parts of the 2026-09-02 upload
+  entries and the 2026-09-03 CI/CD ClamAV wiring.
