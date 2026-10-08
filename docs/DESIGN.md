@@ -76,8 +76,9 @@ globals.css`'s `@theme inline` map `--font-sans` ให้ชี้ไปที�
 
 - **Shell**: **Topbar** (ไม่ใช่ sidebar) — `src/app/(shell)/shell.tsx` +
   `src/components/Navbar.tsx`:
-  - Sticky top header (โลโก้ + ชื่อแอป + search กล่องติดตาม + ปุ่ม quick action
-    3 ปุ่ม + notification bell + role switcher dropdown)
+  - Sticky top header (โลโก้ + ชื่อแอป + search กล่องติดตาม + ปุ่ม quick action,
+    ปุ่มประวัติการค้นหา, ปุ่มสลับภาษา TH/EN, notification bell และเมนูตัวตน SSO
+    พร้อมปุ่มออกจากระบบ — role มาจาก `user.appRole` ไม่มี role switcher แล้ว)
   - แถบ tab นำทางใต้ header (scroll แนวนอน, ไม่ wrap — ตรงกับกฎ overflow
     ขององค์กร)
   - Mobile: bottom nav bar คงที่ (5 ปุ่มหลัก) แทน tab bar — ไม่ใช่รูปแบบ
@@ -85,10 +86,10 @@ globals.css`'s `@theme inline` map `--font-sans` ให้ชี้ไปที�
     กลางให้ใช้
   - Notification: slide-over drawer จากขวา (ไม่ใช่ dropdown/`Sheet` primitive)
   - Modal: centered overlay (`TrackingTimelineModal`, `SatisfactionModal`,
-    `ExportAnalyticsModal`) — hand-built ไม่ใช่ shadcn `Dialog`
-- **ไม่มี user menu/`NavUser`** — ปัจจุบันใช้ role switcher dropdown แทน (จะถูก
-  ปลดออกโดย `ugt-nextjs-auth-setup` ตามมติที่บันทึกไว้แล้วใน `decisions.md`)
-  จุดนั้นคือที่ที่ `NavUser` ควรเข้ามาแทนที่
+    `ExportAnalyticsModal`, `InvestigationReportModal`) — hand-built ไม่ใช่ shadcn `Dialog`;
+    การยืนยันใช้ `ConfirmDialog` กลาง (in-app แบบ upstream แทน `window.confirm`)
+- **User menu**: เมนูตัวตน SSO แบบ hand-built ใน `Navbar.tsx` (ชื่อ/อีเมล/role + ออกจาก
+  ระบบ) แทน role switcher เดิม (ปลดโดย `ugt-nextjs-auth-setup`) — ไม่ใช่ `NavUser` ของ org kit
 - **ไม่มีโลโก้แยกไฟล์** — ไอคอน `Shield` (lucide) ในกล่อง gradient indigo→blue
   ทำหน้าที่แทนโลโก้บริษัท (ไม่มี `public/brand/*.svg`)
 - Nav highlight: current tab = exact match กับ `activeTab` (ไม่ใช่ longest-prefix
