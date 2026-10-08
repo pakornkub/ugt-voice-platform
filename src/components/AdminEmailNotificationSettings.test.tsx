@@ -106,7 +106,7 @@ describe('AdminEmailNotificationSettings', () => {
   });
 
   it('renders English copy when the stored language is en', async () => {
-    localStorage.setItem('voicecare_lang_preference_v2', 'en');
+    localStorage.setItem('voiceplatform_lang_preference_v2', 'en');
     renderPanel();
     expect(await screen.findByText('Automated Email Notifications System')).toBeInTheDocument();
   });

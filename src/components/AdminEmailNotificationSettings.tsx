@@ -136,7 +136,7 @@ function buildSampleVariables(lang: Language): Record<string, string> {
       'HR department approved the E-Claim pilot project, scheduled to test with Strategy Unit next month.',
       'ฝ่ายบุคคลได้อนุมัติโครงการ E-Claim และจะเริ่มทดสอบนำร่องกับฝ่ายกลยุทธ์ในเดือนหน้า'
     ),
-    trackingUrl: 'https://voicecare.enterprise.co.th/#tracking=TK-2026-0881',
+    trackingUrl: 'https://voiceplatform.enterprise.co.th/#tracking=TK-2026-0881',
   };
 }
 
@@ -887,8 +887,8 @@ export const AdminEmailNotificationSettings: React.FC = () => {
             ),
             recipientBadge: 'Auto-assigned by Category',
             subjectPlaceholder: tr(
-              '[VoiceCare Alert] {ticketId}: New Ticket ({categoryTh})',
-              'เช่น [VoiceCare แจ้งเรื่องใหม่] {ticketId}: มีข้อร้องเรียนใหม่ ({categoryTh})'
+              '[VoicePlatform Alert] {ticketId}: New Ticket ({categoryTh})',
+              'เช่น [VoicePlatform แจ้งเรื่องใหม่] {ticketId}: มีข้อร้องเรียนใหม่ ({categoryTh})'
             ),
             bodyPlaceholder: tr(
               'Enter notification message to send to Gatekeeper...',
@@ -933,8 +933,8 @@ export const AdminEmailNotificationSettings: React.FC = () => {
             ),
             recipientBadge: 'Employee In-Box',
             subjectPlaceholder: tr(
-              '[VoiceCare Result] {ticketId}: Resolution complete',
-              'เช่น [VoiceCare แจ้งผลการแก้ไข] เรื่อง {ticketId}: ดำเนินการแก้ไขเสร็จสิ้นเรียบร้อยแล้ว'
+              '[VoicePlatform Result] {ticketId}: Resolution complete',
+              'เช่น [VoicePlatform แจ้งผลการแก้ไข] เรื่อง {ticketId}: ดำเนินการแก้ไขเสร็จสิ้นเรียบร้อยแล้ว'
             ),
             bodyPlaceholder: tr(
               'Enter notification message to send to employee upon resolution...',
