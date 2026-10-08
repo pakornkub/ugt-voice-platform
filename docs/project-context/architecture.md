@@ -149,9 +149,8 @@ resolve --applied` once real DB values land, see `docs/admin-handoff.md`.
   correct but not called by any page yet, see ⚠ deviation below:**
   - `lib/storage.ts` — Docker-volume file I/O (`STORAGE_ROOT`), generated `yyyy/mm/<uuid>`
     paths (never derived from the uploaded filename), `safeDisplayName()`.
-  - `lib/virus-scan.ts` — ClamAV `clamd` INSTREAM client over raw TCP (`scanBuffer`,
-    `pingScanner`), fail-closed (scanner down/timeout = upload refused, never accepted
-    unscanned).
+  - (no virus scan — `lib/virus-scan.ts` removed 2026-10-09, owner decision; rows are
+    stored `scanStatus: 'unscanned'`.)
   - `lib/attachment-access.ts` — `canReadAttachment(userId, {ticketId})`, the per-ticket
     download scope: admin sees everything; the ticket's own submitter (matched by
     session email against `Tickets.SubmitterEmail` — no stronger link exists yet, see
@@ -173,11 +172,9 @@ resolve --applied` once real DB values land, see `docs/admin-handoff.md`.
     (schema-to-schema diff, no live SQL Server — same method as the prior three
     migrations); apply via `prisma migrate resolve --applied` once real DB values land.
   - `lib/permissions.ts` — new `files:create`/`files:read` permissions (group "ไฟล์แนบ").
-  - `lib/audit-actions.ts` — new `files.upload`/`files.upload-rejected`/`files.download`
+  - `lib/audit-actions.ts` — new `files.upload`/`files.download`
     audit actions.
-  - `src/app/api/health/route.ts` — now also reports `scanAvailable` (`pingScanner()`);
-    `false` until the ClamAV service exists in compose (see ⚠ deviation below).
-  - ClamAV Docker service + storage bind-mount, previously deferred, are now wired
+  - Storage bind-mount, previously deferred, is now wired
     into `docker-compose.yml`/`docker-compose.dev.yml`/`Dockerfile` — see the CI/CD
     entry below and `docs/project-context/decisions.md`.
 
@@ -196,18 +193,16 @@ resolve --applied` once real DB values land, see `docs/admin-handoff.md`.
     `output: 'standalone'` (gated on `CI` in `next.config.ts`), creates
     `/app/storage` before dropping to the non-root `nextjs` user, `HEALTHCHECK`
     against `/api/health`.
-  - `docker-compose.yml` / `docker-compose.dev.yml` — `app` + `clamav` services,
+  - `docker-compose.yml` / `docker-compose.dev.yml` — `app` service (no `clamav` since 2026-10-09),
     `pull_policy: never` (image built locally by Jenkins), bind-mount
-    `/home/docker02/appdata/ugt-voice-platform(-dev)/storage:/app/storage` and
-    `.../clamav-db:/var/lib/clamav`, `app`'s `depends_on: clamav: condition:
-service_healthy`.
+    `/home/docker02/appdata/ugt-voice-platform(-dev)/storage:/app/storage`.
   - `owasp-suppressions.xml` — empty skeleton (suppressions added only after a
     reviewed real finding).
   - `.dockerignore`, `.claude/rules/ugt-nextjs-ci.md`.
   - `src/app/api/health/route.ts` — **extended in place** (not replaced by the
     skill's generic asset): added a real `checks.database` (`prisma.$queryRaw`,
     200/503) and the org-contract `status: 'healthy'|'degraded'` literal on top of
-    the upload chunk's existing `aiAvailable`/`scanAvailable` fields — see
+    the upload chunk's existing `aiAvailable` field (`scanAvailable` dropped 2026-10-09) — see
     decisions.md. Returns 503 while `DATABASE_URL` is a placeholder (expected).
   - `next.config.ts` — `output: process.env.CI ? 'standalone' : undefined`.
   - Local, gitignored `.env`/`.env.dev` (mirrors of `.env.local` + `APP_PORT`) for
@@ -260,9 +255,9 @@ up` testing.
   deviation below, same root cause as the Prisma persistence layer's.
 - File attachment (added 2026-09-02, `ugt-nextjs-upload-setup`): `FileUpload.tsx` →
   `POST /api/files` (session → permission `files:create` → ticket/timeline-log exist →
-  `scanBuffer()` → `writeStoredFile()` on the volume → `Attachments` row → audit log) →
+  `writeStoredFile()` on the volume → `Attachments` row → audit log) →
   download via `GET /api/files/<id>` (session → permission `files:read` →
-  `canReadAttachment()` → `scanStatus === 'clean'` → stream + audit log). **Not called by
+  `canReadAttachment()` → block only `scanStatus === 'infected'` → stream + audit log). **Not called by
   any page yet** — see ⚠ deviation below, same root cause as the Prisma persistence
   layer's and the mail send hook's.
 
@@ -330,11 +325,11 @@ component ทั้งหมดยังอ่าน/เขียน `localStora
 - ⚠ deviation (updated 2026-09-02, `ugt-nextjs-upload-setup`): การแนบไฟล์ใน
   `EmployeeSubmitForm.tsx`/`TrackingTimelineModal.tsx` ยังเป็นการจำลอง (`Math.random()`
   สร้าง object ไฟล์ปลอม) ผ่าน `src/services/api.ts` (localStorage) เหมือนเดิม — แม้ตอนนี้
-  จะมี upload/storage/scan/download จริงพร้อมใช้แล้ว (`FileUpload.tsx`, `/api/files*`,
-  `lib/storage.ts`, `lib/virus-scan.ts`) ก็ตาม เหตุผลเดียวกับ deviation แรกด้านบน: ยังไม่มี
+  จะมี upload/storage/download จริงพร้อมใช้แล้ว (`FileUpload.tsx`, `/api/files*`,
+  `lib/storage.ts`) ก็ตาม เหตุผลเดียวกับ deviation แรกด้านบน: ยังไม่มี
   component ไหนเรียก Prisma Server Actions จริง จึงไม่มี `ticketId` จริงให้แนบไฟล์ด้วย —
   ดู decisions.md.
-- ⚠ deviation (**resolved 2026-09-03**, `ugt-nextjs-cicd-setup`): ClamAV virus
+- ⚠ deviation (**obsolete 2026-10-09** — ClamAV removed entirely, owner decision; kept for history; resolved 2026-09-03, `ugt-nextjs-cicd-setup`): ClamAV virus
   scanning's service was missing from compose — now fixed. Both compose files carry a
   `clamav` service + storage bind-mount (the upload skill's own
   `assets/compose-and-dockerfile.snippet.md`, applied verbatim as this chunk's

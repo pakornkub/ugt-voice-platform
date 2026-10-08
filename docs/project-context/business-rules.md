@@ -60,9 +60,9 @@
   (`TrackingTimelineModal.tsx`, ผูกทั้ง `ticketId` และ `timelineLogId`) — implement ที่
   `prisma/schema.prisma`'s `attachment` model, ดู `docs/project-context/decisions.md`
   สำหรับเหตุผลที่เลือก FK จริงแทน polymorphic entityType/entityId
-- ทุกไฟล์ผ่านการสแกนไวรัส (ClamAV) ก่อนเขียนลง volume เสมอ — สแกนเนอร์ล่ม/timeout =
-  ปฏิเสธการอัปโหลด (fail closed) ไม่ใช่ปล่อยผ่าน — implement ที่ `lib/virus-scan.ts`,
-  `src/app/api/files/route.ts`
+- **ไม่มีการสแกนไวรัส** (มติเจ้าของ 2026-10-09) — ไฟล์เขียนลง volume ทันที แถวเป็น
+  `scanStatus: 'unscanned'` ดาวน์โหลดได้ปกติ บล็อกเฉพาะแถวที่เป็น `'infected'` —
+  `src/app/api/files/route.ts`, `src/app/api/files/[id]/route.ts`
 - สิทธิ์ดูไฟล์แนบของแต่ละคำร้อง (`canReadAttachment`) ให้เฉพาะ: admin (ทุกคำร้อง),
   ผู้ยื่นเรื่องเอง (จับคู่ด้วยอีเมล session — ยังไม่มีการผูกบัญชีผู้ใช้กับผู้ยื่นเรื่องที่
   แน่นหนากว่านี้), ผู้บริหาร (เฉพาะคำร้องที่ `isDirectToExecutive`), Gatekeeper (เฉพาะ

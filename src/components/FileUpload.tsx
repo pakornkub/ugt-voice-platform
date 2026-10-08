@@ -40,8 +40,6 @@ const UPLOAD_ERROR_TH: Record<string, string> = {
   BAD_REQUEST: 'ข้อมูลไฟล์ไม่ถูกต้อง',
   TICKET_NOT_FOUND: 'ไม่พบคำร้องนี้ในระบบ',
   TIMELINE_LOG_NOT_FOUND: 'ไม่พบบันทึกไทม์ไลน์นี้',
-  FILE_INFECTED: 'ไฟล์นี้ตรวจพบไวรัส ระบบปฏิเสธการอัปโหลด',
-  SCANNER_UNAVAILABLE: 'ระบบตรวจสอบไวรัสขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง',
   UPLOAD_FAILED: 'อัปโหลดไฟล์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
 };
 

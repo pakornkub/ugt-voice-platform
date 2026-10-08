@@ -48,18 +48,12 @@ services:
       APP_URL: ${APP_URL:-}
       STORAGE_ROOT: /app/storage
       UPLOAD_MAX_BYTES: ${UPLOAD_MAX_BYTES:-26214400}
-      CLAMAV_HOST: clamav
-      CLAMAV_PORT: '3310'
-      CLAMAV_TIMEOUT_MS: '30000'
       # [METHOD: SSO] Internal-CA TLS — decide with admin via
       # docs/admin-handoff.md ("TLS ภายในองค์กร") before uncommenting either
       # line. This is an infra decision, NOT a secret — set it here directly,
       # never inside the env-ugt-voice-platform Jenkins Secret File credential.
       # NODE_EXTRA_CA_CERTS: /etc/ssl/certs/org-ca.pem   # preferred — mount the cert; needs a matching volumes: bind
       NODE_TLS_REJECT_UNAUTHORIZED: '0' # closed intranet only, admin-confirmed — disables TLS verification for the whole container
-    depends_on:
-      clamav:
-        condition: service_healthy
     healthcheck:
       # Always 127.0.0.1 (NOT localhost — Alpine resolves it to IPv6 ::1) and
       # always internal port 3000 (container-internal, not the host port)
@@ -81,29 +75,6 @@ services:
         reservations:
           cpus: '0.25'
           memory: 256M
-
-  # Virus scanner (ugt-nextjs-upload-setup) — clamd, checked via lib/virus-scan.ts's
-  # INSTREAM client. fail-closed: app refuses uploads whenever this is
-  # unreachable, so the app container waits for this to report healthy first
-  # (depends_on above).
-  clamav:
-    image: clamav/clamav:stable
-    container_name: ugt-voice-platform-clamav
-    restart: unless-stopped
-    networks:
-      - proxy-network
-    volumes:
-      # Keep the signature DB across restarts — re-downloading it on every
-      # deploy costs minutes of refused uploads (the app fails closed).
-      - /home/docker02/appdata/ugt-voice-platform/clamav-db:/var/lib/clamav
-    healthcheck:
-      test: ['CMD-SHELL', 'clamdscan --ping 1 || exit 1']
-      interval: 30s
-      timeout: 10s
-      # First boot loads ~1 GB of signatures — without a long start_period the
-      # container is marked unhealthy before it has ever had a chance.
-      start_period: 300s
-      retries: 3
 
 networks:
   # Shared reverse-proxy network on the Docker host (created once, externally)

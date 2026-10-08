@@ -220,14 +220,12 @@ intranet ปิด — ตัดสินใจนี้เป็นของท
 
 <!-- [UPLOAD] เพิ่มโดย ugt-nextjs-upload-setup เมื่อ 2026-09-02 — อย่าลบ section นี้ -->
 
-## 4. ไฟล์แนบ (Upload) + การตรวจไวรัส (ClamAV)
+## 4. ไฟล์แนบ (Upload)
 
-โปรเจคนี้เก็บไฟล์แนบจริงบน Docker volume (ไม่ใช่ใน database, ไม่ใช่ใน image) และสแกน
-ไวรัสทุกไฟล์ก่อนเขียนลงดิสก์ (ClamAV, fail-closed — สแกนเนอร์ล่ม = ปฏิเสธการอัปโหลด
-ไม่ใช่ปล่อยผ่าน) โค้ดฝั่งแอปพร้อมใช้งานจริงแล้ว (`lib/storage.ts`, `lib/virus-scan.ts`,
-`src/app/api/files/**`) และ service `clamav` + volume bind-mount อยู่ใน
-`docker-compose.yml`/`docker-compose.dev.yml`/`Dockerfile` แล้ว — ฝั่ง Admin เตรียมแค่
-โฟลเดอร์/backup/RAM ตาม §4.1 และ §5.5
+โปรเจคนี้เก็บไฟล์แนบจริงบน Docker volume (ไม่ใช่ใน database, ไม่ใช่ใน image) — **ไม่มีการ
+สแกนไวรัส / ไม่มี ClamAV** (มติเจ้าของโปรเจค) โค้ดฝั่งแอปพร้อมใช้งานแล้ว
+(`lib/storage.ts`, `src/app/api/files/**`) และ volume bind-mount อยู่ในทั้งสอง compose แล้ว —
+ฝั่ง Admin เตรียมแค่โฟลเดอร์/backup ตาม §4.1 และ §5.5
 
 ### 4.1 สิ่งที่ทีม Admin/DevOps ต้องรู้ (สำคัญ — ผลกระทบจริงเมื่อ deploy)
 
@@ -236,10 +234,6 @@ intranet ปิด — ตัดสินใจนี้เป็นของท
   ต้องมี backup job แยกต่างหากสำหรับโฟลเดอร์นี้
 - ลบโฟลเดอร์นี้บน host = ไฟล์แนบทุกไฟล์หายถาวร (container ลบ/สร้างใหม่ได้อิสระ
   `docker compose down && up -d` ปลอดภัย — แต่โฟลเดอร์นี้ห้ามลบ)
-- ClamAV ต้องการ RAM ประมาณ **2 GB** และอัปเดต signature เอง (`freshclam` รันในตัว
-  image) — boot ครั้งแรกดาวน์โหลด signature DB ~1 GB จากอินเทอร์เน็ต ถ้า host ไม่มี
-  outbound internet ต้อง preload ไฟล์ signature เอง (รายละเอียดใน
-  `ugt-nextjs-upload-setup`'s SKILL.md §7)
 - **reverse proxy ของ `ugtweb.ube.co.th` ต้องตั้ง body-size limit ให้ ≥ 25 MB**
   สำหรับ path `/ugt-voice-platform` และ `/ugt-voice-platform-dev` (`UPLOAD_MAX_BYTES`
   ปัจจุบัน) เช่น nginx `client_max_body_size 25m;` — มิฉะนั้นไฟล์แนบขนาดใหญ่จะถูก proxy
@@ -247,17 +241,15 @@ intranet ปิด — ตัดสินใจนี้เป็นของท
 
 ### ✅ ค่าที่ต้องส่งกลับให้ทีมพัฒนา (กรอกแล้วส่งไฟล์นี้คืน)
 
-| ค่า                                                                               | มาจากไหน                                                                                | กรอกตรงนี้ |
-| --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ---------- |
-| **→ ตั้ง body-size limit ≥ 25 MB บน proxy แล้ว**                                  | ตาม §4.1                                                                                |            |
-| **→ ใครรับผิดชอบ backup ของ `/home/docker02/appdata/ugt-voice-platform/storage`** | ไม่ใช่ backup เดียวกับ database — ต้องมีแผนแยก                                          |            |
-| **→ host มี outbound internet ให้ ClamAV ดาวน์โหลด signature DB ไหม**             | ถ้าไม่มี ต้อง preload ไฟล์ signature เอง — ดู SKILL.md §7 ของ `ugt-nextjs-upload-setup` |            |
+| ค่า                                                                               | มาจากไหน                                       | กรอกตรงนี้ |
+| --------------------------------------------------------------------------------- | ---------------------------------------------- | ---------- |
+| **→ ตั้ง body-size limit ≥ 25 MB บน proxy แล้ว**                                  | ตาม §4.1                                       |            |
+| **→ ใครรับผิดชอบ backup ของ `/home/docker02/appdata/ugt-voice-platform/storage`** | ไม่ใช่ backup เดียวกับ database — ต้องมีแผนแยก |            |
 
 ## เช็คก่อนปิดงาน (ฝั่ง Admin/DevOps)
 
 - [ ] มีแผน backup แยกสำหรับโฟลเดอร์ storage (ไม่ใช่แผนเดียวกับ database)
 - [ ] ปรับ body-size limit ของ reverse proxy (`ugtweb.ube.co.th`) ≥ 25 MB แล้ว
-- [ ] ยืนยันแล้วว่า host มี/ไม่มี outbound internet สำหรับ ClamAV signature DB
 
 <!-- /[UPLOAD] -->
 
@@ -338,17 +330,13 @@ pipeline จะค้างตลอดไป** ที่ขั้นรอผ�
   ไม่มี `/` ท้าย) · ส่ง header `X-Forwarded-Proto` ด้วย
 - Host port ที่ทีมพัฒนาใช้เป็นค่าเริ่มต้นตอนนี้: prod `3000`, dev `3001` — ถ้า
   server จริงมี port อื่นที่จัดสรรให้แล้ว **แจ้งกลับ** (ดูตารางท้ายหัวข้อ)
-- **ไฟล์แนบจริง (ClamAV + storage volume) ต่อเข้ากับ compose ในชุดนี้แล้ว**
+- **ไฟล์แนบจริง (storage volume) ต่อเข้ากับ compose ในชุดนี้แล้ว**
   (ไม่ได้ค้างเป็น deferred อีกต่อไป — ดู §4 ด้านบน) ต้องเตรียม:
-  - `/home/docker02/appdata/ugt-voice-platform/storage` +
-    `/home/docker02/appdata/ugt-voice-platform/clamav-db` (prod)
-  - `/home/docker02/appdata/ugt-voice-platform-dev/storage` +
-    `/home/docker02/appdata/ugt-voice-platform-dev/clamav-db` (dev)
+  - `/home/docker02/appdata/ugt-voice-platform/storage` (prod)
+  - `/home/docker02/appdata/ugt-voice-platform-dev/storage` (dev)
   - Deploy stage สร้าง/chown ให้เองครั้งแรกที่ deploy (idempotent) — **แต่ต้อง
     มี `/home/docker02/appdata` เองอยู่แล้วและ jenkins user เขียนได้** (server นี้
     มีโปรเจคอื่นใช้อยู่แล้ว — น่าจะพร้อม)
-  - `clamav` ต้องการ RAM ~2 GB และดาวน์โหลด signature DB ~1 GB ตอน boot ครั้งแรก
-    — ถ้า host ไม่มี outbound internet ต้อง preload เอง (ดู §4.1)
 - เครือข่าย `proxy-network` (Docker external network สำหรับ reverse-proxy
   ที่ใช้ร่วมกันทั้ง host) ต้องสร้างไว้แล้ว: `docker network create proxy-network`
   (ครั้งเดียวต่อ host — ข้ามได้ถ้ามีโปรเจคอื่นสร้างไว้แล้ว)
