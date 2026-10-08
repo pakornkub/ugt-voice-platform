@@ -22,6 +22,8 @@ BEGIN TRY
 BEGIN TRAN;
 
 -- AlterTable
+-- SQL Server refuses DROP COLUMN while a DEFAULT constraint depends on it.
+ALTER TABLE [dbo].[Tickets] DROP CONSTRAINT [Tickets_AttachmentsJson_df];
 ALTER TABLE [dbo].[Tickets] DROP COLUMN [AttachmentsJson];
 
 -- CreateTable

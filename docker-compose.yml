@@ -1,4 +1,4 @@
-# Production compose — deployed by Jenkins on the `main` branch — UGT VoiceCare.
+# Production compose — deployed by Jenkins on the `main` branch — UGT VoicePlatform.
 # Jenkins always runs `docker compose up -d --no-build`, so the build: section
 # is never used at deploy time; NEXT_PUBLIC_* are passed via --build-arg in the
 # Jenkinsfile Docker Build stage.

@@ -18,7 +18,7 @@
   `lib/gemini.ts`); read `GEMINI_API_KEY` via `@/lib/env`, not `process.env` directly.
 - `src/context/LanguageContext.tsx` — TH/EN UI language (ported as-is from upstream, decision
   2026-10-08): `LanguageProvider` wraps the whole app in `src/app/layout.tsx`; `useLanguage()`
-  → `lang`/`t()`/`getCategoryName()`/... ; preference in localStorage (`voicecare_lang_preference_v2`,
+  → `lang`/`t()`/`getCategoryName()`/... ; preference in localStorage (`voiceplatform_lang_preference_v2`,
   default `th`).
 - `src/services/employeeDirectory.ts` — mock corporate employee DB (`EMPLOYEE_DATABASE`,
   `mapLoginEmailForTicket`, `getCurrentLoginEmployee`) ported unchanged from upstream; to be

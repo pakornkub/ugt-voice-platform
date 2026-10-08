@@ -55,3 +55,14 @@
 no tests`** → ไม่ใช่ test พัง — เครื่องโหลดหนัก (CPU ~90% จาก vitest/build ของโปรเจคอื่นรัน
   พร้อมกัน) worker start ไม่ทัน → รันใหม่ตอนเครื่องว่าง หรือ `npx vitest run --maxWorkers=1
 --no-file-parallelism` (2026-10-08)
+- **`prisma migrate status/deploy` → `P3019 … provider mssql does not match … migration_lock.toml,
+sqlserver`** → `migration_lock.toml` was hand-written during the offline migration generation
+  with `provider = "sqlserver"`, but Prisma 7 + `@prisma/adapter-mssql` records/expects
+  `"mssql"` (every sibling org project's lock says `mssql`) → set `provider = "mssql"`; the
+  `schema.prisma` datasource keeps `provider = "sqlserver"` (2026-10-09)
+- **`migrate deploy` → `P3018` / SQL Server `5074 The object 'X_df' is dependent on column`**
+  → an offline-generated migration did `DROP COLUMN` on a column that still has its DEFAULT
+  constraint → add `ALTER TABLE … DROP CONSTRAINT [<Table>_<Column>_df];` before the
+  `DROP COLUMN`, then `npx prisma migrate resolve --rolled-back <migration>` and deploy again
+  (the migration's `BEGIN TRAN`/`ROLLBACK` meant nothing was half-applied). Hit on
+  `20260902030000_add_attachments` (2026-10-09)

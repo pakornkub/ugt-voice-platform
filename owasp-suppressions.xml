@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  OWASP Dependency-Check suppression file — UGT VoiceCare.
+  OWASP Dependency-Check suppression file — UGT VoicePlatform.
   Referenced by the Jenkinsfile OWASP stage via: - -suppression ./owasp-suppressions.xml
 
   RULES:

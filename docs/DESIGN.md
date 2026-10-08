@@ -1,4 +1,4 @@
-# UGT VoiceCare — Design Agreement
+# UGT VoicePlatform — Design Agreement
 
 > Gen โดย `ugt-nextjs-design-setup` เมื่อ 2026-09-02 (existing-project scan mode) ·
 > อิงมาตรฐานกลาง `ugt-core/contracts/design.md` (ugt-core **2.10.0**)
@@ -22,7 +22,7 @@ lucide-only, ขนาด control มาตรฐาน, DataTable กลาง,
 
 ## 1. Visual identity
 
-- **แหล่งอ้างอิง**: แอป UGT VoiceCare เดิม (Vite+React SPA ก่อน migrate, ดู
+- **แหล่งอ้างอิง**: แอป UGT VoicePlatform เดิม (Vite+React SPA ก่อน migrate, ดู
   `docs/project-context/decisions.md` 2026-09-02) — ดีไซน์นี้ถูกออกแบบไว้ก่อน
   โปรเจคนี้จะเข้า org standard pipeline และเป็นสิ่งที่ต้องคงไว้ ไม่ใช่ทำใหม่
 - **primary**: **indigo** (Tailwind `indigo-*` scale ตรง ๆ — `indigo-600`/`700`

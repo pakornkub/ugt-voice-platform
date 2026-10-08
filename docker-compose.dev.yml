@@ -1,4 +1,4 @@
-# Dev compose — deployed by Jenkins on the `develop` branch — UGT VoiceCare.
+# Dev compose — deployed by Jenkins on the `develop` branch — UGT VoicePlatform.
 # Same shape as docker-compose.yml but with dev image/container names, dev
 # host port, and a separate storage dir so a dev deploy can never
 # touch production's files.

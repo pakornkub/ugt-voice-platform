@@ -16,13 +16,13 @@ const notoSansThai = Noto_Sans_Thai({
 });
 
 const DESCRIPTION =
-  'UGT VoiceCare - Enterprise Employee Grievance & Feedback Portal with Interactive Workflow Diagram, Gatekeeper Triage & Department Management, Real-time Tracking, Auto-notifications, CSAT Evaluation, Executive Analytics, and Root Cause AI Clustering.';
+  'UGT VoicePlatform - Enterprise Employee Grievance & Feedback Portal with Interactive Workflow Diagram, Gatekeeper Triage & Department Management, Real-time Tracking, Auto-notifications, CSAT Evaluation, Executive Analytics, and Root Cause AI Clustering.';
 
 export const metadata: Metadata = {
-  title: 'UGT VoiceCare',
+  title: 'UGT VoicePlatform',
   description: DESCRIPTION,
   openGraph: {
-    title: 'UGT VoiceCare',
+    title: 'UGT VoicePlatform',
     description: DESCRIPTION,
     type: 'website',
   },

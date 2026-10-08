@@ -1318,10 +1318,11 @@ export const DEFAULT_EMAIL_SETTINGS: EmailNotificationSettings = {
   masterEnabled: true,
   onTicketSubmitted: {
     enabled: true,
-    subject: '[VoiceCare แจ้งเรื่องใหม่] {ticketId}: มีข้อร้องเรียนใหม่ ({categoryTh}) - {urgency}',
+    subject:
+      '[VoicePlatform แจ้งเรื่องใหม่] {ticketId}: มีข้อร้องเรียนใหม่ ({categoryTh}) - {urgency}',
     body: `เรียน ทีมงาน Gatekeeper ประจำฝ่าย {categoryTh},
 
-ระบบ VoiceCare ขอแจ้งเตือนว่ามีผู้ยื่นเรื่องข้อร้องเรียน/ข้อเสนอแนะใหม่เข้าระบบ โดยมีรายละเอียดดังนี้:
+ระบบ VoicePlatform ขอแจ้งเตือนว่ามีผู้ยื่นเรื่องข้อร้องเรียน/ข้อเสนอแนะใหม่เข้าระบบ โดยมีรายละเอียดดังนี้:
 
 - รหัสติดตาม (Tracking ID): {ticketId}
 - หมวดหมู่ (Category): {categoryTh} ({category})
@@ -1338,14 +1339,15 @@ export const DEFAULT_EMAIL_SETTINGS: EmailNotificationSettings = {
 เข้าสู่ระบบจัดการเคส: {trackingUrl}
 
 ขอแสดงความนับถือ,
-ระบบรับเรื่องร้องเรียนและข้อเสนอแนะองค์กร VoiceCare`,
+ระบบรับเรื่องร้องเรียนและข้อเสนอแนะองค์กร VoicePlatform`,
   },
   onTicketResolved: {
     enabled: true,
-    subject: '[VoiceCare แจ้งผลการแก้ไข] เรื่อง {ticketId}: ดำเนินการแก้ไขเสร็จสิ้นเรียบร้อยแล้ว',
+    subject:
+      '[VoicePlatform แจ้งผลการแก้ไข] เรื่อง {ticketId}: ดำเนินการแก้ไขเสร็จสิ้นเรียบร้อยแล้ว',
     body: `เรียน คุณ {recipientName},
 
-ระบบ VoiceCare ขอแจ้งให้ท่านทราบว่า ข้อร้องเรียน/ข้อเสนอแนะของท่านได้รับการตรวจสอบและดำเนินการแก้ไขเสร็จสิ้นเรียบร้อยแล้ว
+ระบบ VoicePlatform ขอแจ้งให้ท่านทราบว่า ข้อร้องเรียน/ข้อเสนอแนะของท่านได้รับการตรวจสอบและดำเนินการแก้ไขเสร็จสิ้นเรียบร้อยแล้ว
 
 ข้อมูลสรุปการดำเนินงาน:
 - รหัสติดตาม (Tracking ID): {ticketId}
@@ -1362,7 +1364,7 @@ export const DEFAULT_EMAIL_SETTINGS: EmailNotificationSettings = {
 ตรวจสอบผลการแก้ไขและทำแบบประเมิน: {trackingUrl}
 
 ขอแสดงความนับถือ,
-ทีมงาน VoiceCare & แผนก {categoryTh}`,
+ทีมงาน VoicePlatform & แผนก {categoryTh}`,
   },
   updatedAt: new Date().toISOString(),
 };
@@ -1528,7 +1530,7 @@ export function dispatchEmailOnTicketResolved(
   const recipientEmail =
     ticket.submitterEmail ||
     (ticket.confidentiality === 'anonymous'
-      ? 'anonymous-submitter@voicecare.internal'
+      ? 'anonymous-submitter@voiceplatform.internal'
       : 'employee@enterprise.co.th');
   const recipientName =
     ticket.confidentiality === 'anonymous'
