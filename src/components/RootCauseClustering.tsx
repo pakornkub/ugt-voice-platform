@@ -1,23 +1,15 @@
 'use client';
 
 import React, { useState } from 'react';
-import {
-  Layers,
-  Sparkles,
-  ShieldCheck,
-  AlertOctagon,
-  GitBranch,
-  Workflow,
-  CheckCircle2,
-  HelpCircle,
-  ChevronRight,
-  ArrowRight,
-  TrendingDown,
-  Building,
-  Target,
-} from 'lucide-react';
+import { Layers, GitBranch, CheckCircle2, ChevronRight, Target } from 'lucide-react';
 import { ComplaintTicket } from '../types';
-import { CATEGORY_DEFINITIONS } from '../mockData';
+import { clickableProps } from './clickableProps';
+
+const RISK_BADGE_CLASS: Record<string, string> = {
+  Severe: 'border-red-200 bg-red-50 text-red-700',
+  High: 'border-orange-200 bg-orange-50 text-orange-700',
+};
+const DEFAULT_RISK_BADGE_CLASS = 'border-blue-200 bg-blue-50 text-blue-700';
 
 interface RootCauseClusteringProps {
   tickets: ComplaintTicket[];
@@ -29,8 +21,6 @@ export const RootCauseClustering: React.FC<RootCauseClusteringProps> = ({
   onSelectTicket,
 }) => {
   const [selectedClusterIndex, setSelectedClusterIndex] = useState(0);
-
-  const safeTickets = tickets || [];
 
   // Group tickets into realistic root cause clusters
   const clusters = [
@@ -49,7 +39,7 @@ export const RootCauseClustering: React.FC<RootCauseClusteringProps> = ({
       ],
       capaAction:
         'พัฒนาระบบ Digital QA Inspection ผ่านแท็บเล็ตและเชื่อมต่อระบบ ERP ปลายทางอัตโนมัติ',
-      sampleTickets: safeTickets.filter((t) => t.category === 'Quality'),
+      sampleTickets: tickets.filter((t) => t.category === 'Quality'),
     },
     {
       id: 'cl-2',
@@ -66,7 +56,7 @@ export const RootCauseClustering: React.FC<RootCauseClusteringProps> = ({
       ],
       capaAction:
         'ติดตั้งระบบ IoT Air Quality Sensors ตรวจวัดสารระเหยอัตโนมัติ พร้อมกำหนดแผนเปลี่ยนไส้กรองทุก 45 วัน',
-      sampleTickets: safeTickets.filter((t) => t.category === 'Compliance'),
+      sampleTickets: tickets.filter((t) => t.category === 'Compliance'),
     },
     {
       id: 'cl-3',
@@ -83,9 +73,7 @@ export const RootCauseClustering: React.FC<RootCauseClusteringProps> = ({
       ],
       capaAction:
         'จัดทำหลักสูตร Mandatory Respectful Leadership ทุกระดับบริหาร และเปิดระบบสายด่วน Mental Health',
-      sampleTickets: safeTickets.filter(
-        (t) => t.category === 'Harassment' || t.category === 'Ethics'
-      ),
+      sampleTickets: tickets.filter((t) => t.category === 'Harassment' || t.category === 'Ethics'),
     },
     {
       id: 'cl-4',
@@ -101,9 +89,7 @@ export const RootCauseClustering: React.FC<RootCauseClusteringProps> = ({
       ],
       capaAction:
         'เชื่อมต่อ API กรมพัฒนาธุรกิจการค้า (DBD Open API) เพื่อตรวจสอบโครงสร้างผู้ถือหุ้นอัตโนมัติก่อนเปิด PO',
-      sampleTickets: safeTickets.filter(
-        (t) => t.category === 'Fraud' || t.category === 'Compliance'
-      ),
+      sampleTickets: tickets.filter((t) => t.category === 'Fraud' || t.category === 'Compliance'),
     },
   ];
 
@@ -165,11 +151,7 @@ export const RootCauseClustering: React.FC<RootCauseClusteringProps> = ({
                     </span>
                     <span
                       className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${
-                        c.riskLevel === 'Severe'
-                          ? 'border-red-200 bg-red-50 text-red-700'
-                          : c.riskLevel === 'High'
-                            ? 'border-orange-200 bg-orange-50 text-orange-700'
-                            : 'border-blue-200 bg-blue-50 text-blue-700'
+                        RISK_BADGE_CLASS[c.riskLevel] ?? DEFAULT_RISK_BADGE_CLASS
                       }`}
                     >
                       {c.riskLevel} Risk
@@ -219,7 +201,7 @@ export const RootCauseClustering: React.FC<RootCauseClusteringProps> = ({
                   const isFinal = sIdx === currentCluster.rootCause5Whys.length - 1;
                   return (
                     <div
-                      key={sIdx}
+                      key={step}
                       className={`rounded-lg p-2.5 text-xs transition ${
                         isFinal
                           ? 'border border-rose-200 bg-rose-50 font-bold text-rose-950'
@@ -262,7 +244,7 @@ export const RootCauseClustering: React.FC<RootCauseClusteringProps> = ({
                 {currentCluster.sampleTickets.map((t) => (
                   <div
                     key={t.id}
-                    onClick={() => onSelectTicket(t)}
+                    {...clickableProps(() => onSelectTicket(t))}
                     className="flex cursor-pointer items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs transition hover:bg-slate-100"
                   >
                     <div className="mr-2 flex items-center gap-2 truncate">
