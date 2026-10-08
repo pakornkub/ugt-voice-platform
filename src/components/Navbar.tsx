@@ -16,21 +16,25 @@ import {
   GitBranch,
   LayoutDashboard,
   FileSpreadsheet,
+  History,
+  X,
+  Globe,
   ShieldCheck,
   ScrollText,
   LogOut,
   Mail,
 } from 'lucide-react';
-import { UserRole, NotificationItem, AppTabId } from '../types';
+import { UserRole, NotificationItem, AppTabId, RolePermissionConfig } from '../types';
 import { getStoredRolePermissions } from '../services/api';
+import { useLanguage } from '../context/LanguageContext';
 import type { ShellIdentity } from '../app/shell-context';
 import { ssoLogoutAction } from '@/lib/actions/auth';
 
 interface NavbarProps {
   currentRole: UserRole;
   // ugt-nextjs-auth-setup (2026-09-02): identity from the real session,
-  // replacing the free role-switcher. Optional + defaulted so this component
-  // still renders standalone (e.g. Navbar.test.tsx) without a live session.
+  // replacing upstream's free role-switcher. Optional + defaulted so this
+  // component still renders standalone (e.g. Navbar.test.tsx) without a live session.
   identity?: ShellIdentity;
   activeTab: string;
   onTabChange?: (tab: string) => void;
@@ -42,6 +46,9 @@ interface NavbarProps {
   onSearchTrackingCode?: (code: string) => void;
   onOpenNotifications?: () => void;
   onOpenExport?: () => void;
+  onOpenRecentSearches?: () => void;
+  recentSearchesCount?: number;
+  rolePermissions?: Record<UserRole, RolePermissionConfig>;
 }
 
 const DEFAULT_IDENTITY: ShellIdentity = {
@@ -52,7 +59,7 @@ const DEFAULT_IDENTITY: ShellIdentity = {
   permissions: [],
 };
 
-export const Navbar: React.FC<NavbarProps> = ({
+export const Navbar: React.FC<Readonly<NavbarProps>> = ({
   currentRole = 'employee',
   identity = DEFAULT_IDENTITY,
   activeTab = 'submit',
@@ -64,12 +71,16 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSearchTrackingCode,
   onOpenNotifications,
   onOpenExport,
+  onOpenRecentSearches,
+  recentSearchesCount = 0,
+  rolePermissions: propRolePermissions,
 }) => {
+  const { lang, setLang, toggleLang, t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [isIdentityMenuOpen, setIsIdentityMenuOpen] = useState(false);
   const unreadCount = (notifications || []).filter((n) => !n.read).length;
 
-  const rolePermissions = getStoredRolePermissions();
+  const rolePermissions = propRolePermissions || getStoredRolePermissions();
   const currentRoleConfig = rolePermissions[currentRole] || rolePermissions.employee;
   const allowedTabs: AppTabId[] = currentRoleConfig?.allowedTabs || [
     'submit',
@@ -79,9 +90,9 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const canAccessExecutive = allowedTabs.includes('executive');
 
-  const handleTabSelect = (t: string) => {
-    if (onTabChange) onTabChange(t);
-    if (onSelectTab) onSelectTab(t);
+  const handleTabSelect = (tab: string) => {
+    if (onTabChange) onTabChange(tab);
+    if (onSelectTab) onSelectTab(tab);
   };
 
   const handleSearchCode = (code: string) => {
@@ -102,40 +113,70 @@ export const Navbar: React.FC<NavbarProps> = ({
     { label: string; sub: string; icon: React.ReactNode; color: string }
   > = {
     employee: {
-      label: 'พนักงานทั่วไป (Employee)',
-      sub: 'ยื่นข้อร้องเรียน และติดตามสถานะ',
+      label: t('role.employee'),
+      sub: t('role.employee.sub'),
       icon: <UserCheck className="h-4 w-4 text-emerald-600" />,
       color: 'bg-emerald-50 border-emerald-200 text-emerald-800',
     },
     gatekeeper: {
-      label: 'Gatekeeper ประจำหน่วยงาน',
-      sub: 'เห็นเฉพาะหน่วยงานที่ตนรับผิดชอบ',
+      label: t('role.gatekeeper'),
+      sub: t('role.gatekeeper.sub'),
       icon: <Shield className="h-4 w-4 text-blue-600" />,
       color: 'bg-blue-50 border-blue-200 text-blue-800',
     },
     executive: {
-      label: 'ผู้บริหารระดับสูง (CEO/EVP)',
-      sub: 'Dashboard ภาพรวม & ข้อร้องเรียนลับ',
+      label: t('role.executive'),
+      sub: t('role.executive.sub'),
       icon: <Crown className="h-4 w-4 text-purple-600" />,
       color: 'bg-purple-50 border-purple-200 text-purple-800',
     },
     admin: {
-      label: 'HR Admin & ตัวแทนผู้บริหาร',
-      sub: 'กำหนดสิทธิ์ RBAC & Gatekeeper',
+      label: t('role.admin'),
+      sub: t('role.admin.sub'),
       icon: <SlidersHorizontal className="h-4 w-4 text-rose-600" />,
       color: 'bg-rose-50 border-rose-200 text-rose-800',
     },
   };
 
-  // ugt-nextjs-auth-setup (2026-09-02): visibility of these 3 comes from the
-  // new RBAC permission system, not RoleAccessConfigs.allowedTabs like the
-  // tabs above — see docs/project-context/decisions.md.
+  // ugt-nextjs-auth-setup / mail-setup (2026-09-02): visibility of these 4
+  // comes from the RBAC permission system, not RoleAccessConfigs.allowedTabs
+  // like the tabs above — see docs/project-context/decisions.md.
   const canSeeUsers = identity.permissions.includes('users:read');
   const canSeeRoles = identity.permissions.includes('roles:read');
   const canSeeAuditLogs = identity.permissions.includes('audit-logs:read');
-  // ugt-nextjs-mail-setup (2026-09-02): same pattern as the 3 above.
   const canSeeMailTemplates = identity.permissions.includes('mail-templates:manage');
   const hasAdminSection = canSeeUsers || canSeeRoles || canSeeAuditLogs || canSeeMailTemplates;
+
+  const adminTabs = [
+    {
+      id: 'admin_users',
+      domId: 'nav-tab-admin-users',
+      visible: canSeeUsers,
+      icon: <Users className="h-3.5 w-3.5" />,
+      label: lang === 'en' ? 'Users' : 'จัดการผู้ใช้',
+    },
+    {
+      id: 'admin_roles',
+      domId: 'nav-tab-admin-roles',
+      visible: canSeeRoles,
+      icon: <ShieldCheck className="h-3.5 w-3.5" />,
+      label: lang === 'en' ? 'Roles & Permissions' : 'บทบาทและสิทธิ์',
+    },
+    {
+      id: 'admin_audit_logs',
+      domId: 'nav-tab-admin-audit-logs',
+      visible: canSeeAuditLogs,
+      icon: <ScrollText className="h-3.5 w-3.5" />,
+      label: lang === 'en' ? 'Audit Logs' : 'บันทึกการใช้งาน',
+    },
+    {
+      id: 'admin_mail_templates',
+      domId: 'nav-tab-admin-mail-templates',
+      visible: canSeeMailTemplates,
+      icon: <Mail className="h-3.5 w-3.5" />,
+      label: lang === 'en' ? 'Email Templates' : 'เทมเพลตอีเมล',
+    },
+  ];
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 shadow-xs backdrop-blur">
@@ -161,77 +202,102 @@ export const Navbar: React.FC<NavbarProps> = ({
                   Grievance & Whistleblower
                 </span>
               </div>
-              <p className="hidden text-xs text-slate-500 md:block">
-                ระบบบันทึกข้อร้องเรียน ข้อเสนอแนะ และติดตามผลเรียลไทม์
-              </p>
+              <p className="hidden text-xs text-slate-500 md:block">{t('brand.desc')}</p>
             </div>
           </div>
 
-          {/* Quick Tracking Search Bar */}
-          <form
-            onSubmit={handleSearchSubmit}
-            className="relative hidden w-64 items-center lg:flex xl:w-72"
-          >
-            <Search className="pointer-events-none absolute left-3 h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              id="global-tracking-search"
-              placeholder="ค้นหารหัสติดตาม เช่น TK-2026..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pr-3 pl-9 text-xs text-slate-800 placeholder-slate-400 transition focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-            />
-          </form>
+          {/* Quick Tracking Search Bar with Recent Searches Trigger */}
+          <div className="hidden items-center gap-1.5 lg:flex">
+            <form onSubmit={handleSearchSubmit} className="relative flex w-60 items-center xl:w-72">
+              <Search className="pointer-events-none absolute left-3 h-4 w-4 text-slate-400" />
+              <input
+                type="text"
+                id="global-tracking-search"
+                placeholder={t('nav.search_placeholder')}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pr-7 pl-9 text-xs text-slate-800 placeholder-slate-400 transition focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 text-slate-400 hover:text-slate-600"
+                  title="Clear search"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </form>
+
+            {/* Recent Searches Trigger Button */}
+            <button
+              type="button"
+              id="btn-navbar-recent-searches"
+              onClick={onOpenRecentSearches}
+              className="relative flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 p-1.5 text-slate-600 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+              title={t('nav.recent_searches_tooltip')}
+            >
+              <History className="h-4 w-4 text-indigo-600" />
+              {recentSearchesCount > 0 && (
+                <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-indigo-600 px-1 text-[10px] font-bold text-white">
+                  {recentSearchesCount > 9 ? '9+' : recentSearchesCount}
+                </span>
+              )}
+            </button>
+          </div>
 
           {/* Right Action Tools */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Quick Dashboard Button */}
+            {/* Mobile History / Tracking Search Button */}
             <button
-              id="btn-quick-dashboard"
               type="button"
-              onClick={() => handleTabSelect('executive')}
-              className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold shadow-xs transition ${
-                activeTab === 'executive'
-                  ? 'border-purple-700 bg-purple-700 text-white ring-2 ring-purple-400/40'
-                  : 'border-purple-200 bg-white text-purple-900 hover:border-purple-300 hover:bg-purple-50'
-              }`}
-              title="เปิดดู Dashboard ภาพรวม"
+              id="btn-mobile-recent-searches"
+              onClick={onOpenRecentSearches}
+              className="relative rounded-lg border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-100 hover:text-indigo-700 lg:hidden"
+              title={t('nav.recent_searches_tooltip')}
             >
-              <LayoutDashboard
-                className={`h-3.5 w-3.5 ${activeTab === 'executive' ? 'text-purple-200' : 'text-purple-600'}`}
-              />
-              <span>Dashboard</span>
+              <History className="h-4 w-4 text-indigo-600" />
+              {recentSearchesCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white shadow-xs">
+                  {recentSearchesCount > 9 ? '9+' : recentSearchesCount}
+                </span>
+              )}
             </button>
 
-            {/* Quick Manual / Workflow Button (คู่มือที่เดียวข้างๆ Dashboard) */}
-            <button
-              id="btn-quick-manual"
-              type="button"
-              onClick={() => handleTabSelect('workflow')}
-              className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold shadow-xs transition ${
-                activeTab === 'workflow'
-                  ? 'border-indigo-700 bg-indigo-700 text-white ring-2 ring-indigo-400/40'
-                  : 'border-indigo-200 bg-white text-indigo-900 hover:border-indigo-300 hover:bg-indigo-50'
-              }`}
-              title="เปิดดูคู่มือและผังขั้นตอนการทำงาน (Workflow)"
-            >
-              <GitBranch
-                className={`h-3.5 w-3.5 ${activeTab === 'workflow' ? 'text-indigo-200' : 'text-indigo-600'}`}
-              />
-              <span>คู่มือ</span>
-            </button>
+            {/* Quick Dashboard Button (only visible if allowed by the Screen Visibility Matrix) */}
+            {canAccessExecutive && (
+              <button
+                id="btn-quick-dashboard"
+                type="button"
+                onClick={() => handleTabSelect('executive')}
+                className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold shadow-xs transition ${
+                  activeTab === 'executive'
+                    ? 'border-purple-700 bg-purple-700 text-white ring-2 ring-purple-400/40'
+                    : 'border-purple-200 bg-white text-purple-900 hover:border-purple-300 hover:bg-purple-50'
+                }`}
+                title={t('nav.quick_dashboard')}
+              >
+                <LayoutDashboard
+                  className={`h-3.5 w-3.5 ${activeTab === 'executive' ? 'text-purple-200' : 'text-purple-600'}`}
+                />
+                <span>{t('nav.quick_dashboard')}</span>
+              </button>
+            )}
 
-            {/* Quick Export Data Button (ส่งออกข้อมูลสำหรับวิเคราะห์ ข้างๆ ปุ่มคู่มือ) */}
-            <button
-              id="btn-quick-export"
-              type="button"
-              onClick={onOpenExport}
-              className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-900 shadow-xs transition hover:border-emerald-300 hover:bg-emerald-50"
-              title="ส่งออกชุดข้อมูลสำหรับนำไปวิเคราะห์ต่อยอด (Export for Analytics)"
-            >
-              <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
-              <span>ส่งออกข้อมูล</span>
-            </button>
+            {/* Quick Export Data Button (only visible to HR Admin) */}
+            {currentRole === 'admin' && (
+              <button
+                id="btn-quick-export"
+                type="button"
+                onClick={onOpenExport}
+                className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-900 shadow-xs transition hover:border-emerald-300 hover:bg-emerald-50"
+                title={t('nav.quick_export')}
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
+                <span>{t('nav.quick_export')}</span>
+              </button>
+            )}
 
             {/* Notification Center Trigger */}
             <button
@@ -239,7 +305,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               type="button"
               onClick={onOpenNotifications}
               className="relative rounded-lg border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
-              title="การแจ้งเตือน"
+              title={t('nav.notifications')}
             >
               <Bell className="h-4 w-4" />
               {unreadCount > 0 && (
@@ -249,7 +315,55 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </button>
 
-            {/* Identity Menu — replaces the old free role-switcher dropdown
+            {/* Language Switcher Button (TH/EN, default TH) */}
+            <div
+              id="btn-lang-switcher"
+              className="flex shrink-0 items-center rounded-lg border border-slate-200 bg-slate-100 p-0.5 shadow-2xs"
+              title={
+                lang === 'th'
+                  ? 'ภาษา: ไทย (คลิกเพื่อเปลี่ยนเป็น EN)'
+                  : 'Language: English (Click to switch to TH)'
+              }
+            >
+              <button
+                id="btn-lang-toggle"
+                type="button"
+                onClick={toggleLang}
+                className="rounded-md p-1 text-slate-400 transition hover:bg-slate-200/60 hover:text-indigo-600"
+                title={lang === 'th' ? 'สลับภาษา TH/EN' : 'Toggle Language TH/EN'}
+              >
+                <Globe className="h-3.5 w-3.5" />
+              </button>
+              <button
+                id="btn-lang-th"
+                type="button"
+                onClick={() => setLang('th')}
+                className={`rounded-md px-2 py-1 text-xs font-bold transition ${
+                  lang === 'th'
+                    ? 'bg-white font-black text-indigo-700 shadow-xs ring-1 ring-slate-200/80'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+                title="เปลี่ยนเป็นภาษาไทย (TH)"
+              >
+                TH
+              </button>
+              <span className="px-0.5 text-[11px] font-bold text-slate-300 select-none">/</span>
+              <button
+                id="btn-lang-en"
+                type="button"
+                onClick={() => setLang('en')}
+                className={`rounded-md px-2 py-1 text-xs font-bold transition ${
+                  lang === 'en'
+                    ? 'bg-white font-black text-indigo-700 shadow-xs ring-1 ring-slate-200/80'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+                title="Switch to English (EN)"
+              >
+                EN
+              </button>
+            </div>
+
+            {/* Identity Menu — replaces upstream's free role-switcher dropdown
                 (ugt-nextjs-auth-setup, 2026-09-02): บทบาทมาจาก session จริง
                 อ่านอย่างเดียว ไม่มีปุ่มสลับ */}
             <div className="relative">
@@ -299,7 +413,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-xs font-semibold text-rose-700 transition hover:bg-rose-50"
                       >
                         <LogOut className="h-3.5 w-3.5" />
-                        <span>ออกจากระบบ</span>
+                        <span>{lang === 'en' ? 'Sign out' : 'ออกจากระบบ'}</span>
                       </button>
                     </form>
                   </div>
@@ -325,7 +439,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }`}
               >
                 <FileText className="h-3.5 w-3.5" />
-                <span>ยื่นข้อร้องเรียน / ข้อเสนอแนะ</span>
+                <span>{t('tab.submit')}</span>
               </button>
             )}
 
@@ -342,7 +456,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }`}
               >
                 <LifeBuoy className="h-3.5 w-3.5" />
-                <span>ติดตามสถานะ (Timeline)</span>
+                <span>{t('tab.my_tickets')}</span>
               </button>
             )}
 
@@ -359,7 +473,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }`}
               >
                 <Shield className="h-3.5 w-3.5 text-emerald-600" />
-                <span>Gatekeeper Triage Portal</span>
+                <span>{t('tab.gatekeeper')}</span>
               </button>
             )}
 
@@ -376,7 +490,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }`}
               >
                 <Layers className="h-3.5 w-3.5" />
-                <span>วิเคราะห์สาเหตุ CAPA</span>
+                <span>{t('tab.clustering')}</span>
               </button>
             )}
 
@@ -393,7 +507,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }`}
               >
                 <Users className="h-3.5 w-3.5" />
-                <span>จัดการผู้บริหาร, Admin & Gatekeeper</span>
+                <span>{t('tab.admin_gatekeeper')}</span>
               </button>
             )}
 
@@ -411,7 +525,24 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }`}
               >
                 <SlidersHorizontal className="h-3.5 w-3.5 text-rose-600" />
-                <span>กำหนดสิทธิ์เข้าถึง (RBAC)</span>
+                <span>{t('tab.rbac_management')}</span>
+              </button>
+            )}
+
+            {/* Tab: Workflow & SOP Manual (คู่มือ — upstream moved it from a quick button to a tab) */}
+            {allowedTabs.includes('workflow') && (
+              <button
+                id="nav-tab-workflow"
+                type="button"
+                onClick={() => handleTabSelect('workflow')}
+                className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                  activeTab === 'workflow'
+                    ? 'bg-indigo-50 font-semibold text-indigo-700 ring-1 ring-indigo-300'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`}
+              >
+                <GitBranch className="h-3.5 w-3.5 text-indigo-600" />
+                <span>{t('tab.workflow')}</span>
               </button>
             )}
 
@@ -423,69 +554,24 @@ export const Navbar: React.FC<NavbarProps> = ({
               </span>
             )}
 
-            {canSeeUsers && (
-              <button
-                id="nav-tab-admin-users"
-                type="button"
-                onClick={() => handleTabSelect('admin_users')}
-                className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                  activeTab === 'admin_users'
-                    ? 'bg-slate-800 font-semibold text-white'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <Users className="h-3.5 w-3.5" />
-                <span>จัดการผู้ใช้</span>
-              </button>
-            )}
-
-            {canSeeRoles && (
-              <button
-                id="nav-tab-admin-roles"
-                type="button"
-                onClick={() => handleTabSelect('admin_roles')}
-                className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                  activeTab === 'admin_roles'
-                    ? 'bg-slate-800 font-semibold text-white'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <ShieldCheck className="h-3.5 w-3.5" />
-                <span>บทบาทและสิทธิ์</span>
-              </button>
-            )}
-
-            {canSeeAuditLogs && (
-              <button
-                id="nav-tab-admin-audit-logs"
-                type="button"
-                onClick={() => handleTabSelect('admin_audit_logs')}
-                className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                  activeTab === 'admin_audit_logs'
-                    ? 'bg-slate-800 font-semibold text-white'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <ScrollText className="h-3.5 w-3.5" />
-                <span>บันทึกการใช้งาน</span>
-              </button>
-            )}
-
-            {canSeeMailTemplates && (
-              <button
-                id="nav-tab-admin-mail-templates"
-                type="button"
-                onClick={() => handleTabSelect('admin_mail_templates')}
-                className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                  activeTab === 'admin_mail_templates'
-                    ? 'bg-slate-800 font-semibold text-white'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <Mail className="h-3.5 w-3.5" />
-                <span>เทมเพลตอีเมล</span>
-              </button>
-            )}
+            {adminTabs
+              .filter((tab) => tab.visible)
+              .map((tab) => (
+                <button
+                  key={tab.id}
+                  id={tab.domId}
+                  type="button"
+                  onClick={() => handleTabSelect(tab.id)}
+                  className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                    activeTab === tab.id
+                      ? 'bg-slate-800 font-semibold text-white'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  {tab.icon}
+                  <span>{tab.label}</span>
+                </button>
+              ))}
           </nav>
         )}
       </div>

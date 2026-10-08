@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Navbar } from '@/components/Navbar';
 import { TrackingTimelineModal } from '@/components/TrackingTimelineModal';
 import { SatisfactionModal } from '@/components/SatisfactionModal';
+import { RecentSearchesPanel } from '@/components/RecentSearchesPanel';
 import { ExportAnalyticsModal } from '@/components/ExportAnalyticsModal';
 import {
   AppTabId,
@@ -226,11 +227,9 @@ export default function Shell({
           onSearchTrackingCode={openTrackingByCode}
           onOpenNotifications={() => setIsNotificationsOpen(true)}
           onOpenExport={() => setIsExportModalOpen(true)}
-          // PHASE 2 (Navbar port): also pass upstream's
-          //   onOpenRecentSearches={openRecentSearches}
-          //   recentSearchesCount={recentSearchesCount}
-          //   rolePermissions={rolePermissions}
-          // (all three already live in ShellContext / this component).
+          onOpenRecentSearches={openRecentSearches}
+          recentSearchesCount={recentSearchesCount}
+          rolePermissions={rolePermissions}
         />
 
         {/* Floating Global Toast Notification */}
@@ -440,7 +439,7 @@ export default function Shell({
         {selectedTicketForTracking && (
           <TrackingTimelineModal
             ticket={selectedTicketForTracking}
-            // PHASE 2 (TrackingTimelineModal port): upstream also passes currentRole={currentRole}
+            currentRole={currentRole}
             onClose={() => setSelectedTicketForTracking(null)}
             onOpenSatisfactionModal={(t) => {
               setSelectedTicketForTracking(null);
@@ -471,12 +470,16 @@ export default function Shell({
           />
         )}
 
-        {/* PHASE 2 (RecentSearchesPanel port): render upstream's
-            <RecentSearchesPanel isOpen={isRecentSearchesOpen}
-              onClose={closeRecentSearches}
-              onSelectTicket={setSelectedTicketForTracking}
-              onSearchAgain={openTrackingByCode} />
-            here — state + handlers are wired in this shell already. */}
+        {/* Recent tracking-code searches slide-over */}
+        <RecentSearchesPanel
+          isOpen={isRecentSearchesOpen}
+          onClose={() => {
+            setIsRecentSearchesOpen(false);
+            refreshRecentSearchesCount();
+          }}
+          onSelectTicket={setSelectedTicketForTracking}
+          onSearchAgain={openTrackingByCode}
+        />
       </div>
     </ShellContext.Provider>
   );
