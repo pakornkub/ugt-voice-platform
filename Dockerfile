@@ -43,7 +43,9 @@ ENV NEXT_PUBLIC_BASE_PATH=$NEXT_PUBLIC_BASE_PATH \
 
 # `npx prisma generate` regenerates the Prisma client inside the image
 # (.dockerignore excludes the generated client).
-RUN npx prisma generate && npm run build
+# public/ is optional in Next.js but the runner stage COPYs it — git does not keep
+# empty dirs, so make sure it exists.
+RUN mkdir -p public && npx prisma generate && npm run build
 
 
 # ─── Stage 3: Production runner ───────────────────────────────────────────────
