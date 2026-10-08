@@ -43,6 +43,7 @@ import {
   GrievanceCategory,
 } from '../types';
 import { CATEGORY_DEFINITIONS } from '../mockData';
+import { useConfirmDialog } from './ConfirmDialog';
 import {
   getStoredGatekeeperConfigs,
   updateDepartmentGatekeeperConfig,
@@ -58,12 +59,14 @@ import {
   deleteHrAdminMember,
   resetHrAdminsToDefault,
 } from '../services/api';
+import { AdminEmailNotificationSettings } from './AdminEmailNotificationSettings';
+import { ExecStatusSelect, ExecutiveStatus, useExecutivesSync } from './executiveShared';
 
 interface AdminGatekeeperManagementProps {
   tickets?: ComplaintTicket[];
 }
 
-type ManagementSubTab = 'gatekeepers' | 'executives' | 'hr_admins';
+type ManagementSubTab = 'gatekeepers' | 'executives' | 'hr_admins' | 'email_notifications';
 
 export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps> = ({
   tickets = [],
@@ -96,6 +99,10 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
   const [execCanViewConfidential, setExecCanViewConfidential] = useState(false);
   const [execReceiveAlerts, setExecReceiveAlerts] = useState(true);
   const [execCommittees, setExecCommittees] = useState('');
+  const [execStatus, setExecStatus] = useState<ExecutiveStatus>('active');
+
+  // Sync executives across components
+  useExecutivesSync(setExecutives);
 
   // HR Admin states
   const [hrAdmins, setHrAdmins] = useState<HrAdminMember[]>(() => getStoredHrAdmins());
@@ -113,13 +120,16 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
   const [adminCanManageExecutives, setAdminCanManageExecutives] = useState(false);
   const [adminReceiveAlerts, setAdminReceiveAlerts] = useState(true);
 
+  // In-app confirmation dialog (replaces window.confirm — see ConfirmDialog.tsx)
+  const { askConfirm, confirmDialog } = useConfirmDialog();
+
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const currentConfig = configs[selectedCategory];
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
+    setTimeout(() => setToastMessage(null), 4000);
   };
 
   // --- Gatekeeper Handlers ---
@@ -143,26 +153,37 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
 
   const handleRemoveOfficer = (officerId: string) => {
     if (currentConfig.officers.length <= 1) {
-      alert('แต่ละหน่วยงานต้องมีเจ้าหน้าที่ Gatekeeper อย่างน้อย 1 ท่าน');
+      showToast(
+        '⚠️ ไม่สามารถลบได้: แต่ละฝ่ายต้องมีเจ้าหน้าที่ Gatekeeper ประจำการอย่างน้อย 1 ท่าน'
+      );
       return;
     }
     const target = currentConfig.officers.find((o) => o.id === officerId);
-    if (target?.isLead) {
-      alert(
-        'ไม่สามารถลบ Lead Gatekeeper ได้ กรุณาแต่งตั้งเจ้าหน้าที่ท่านอื่นเป็น Lead ก่อนทำการลบ'
+    if (!target) return;
+    if (target.isLead) {
+      showToast(
+        '⚠️ ไม่สามารถลบ Lead Gatekeeper ได้: กรุณากด "ตั้งเป็น Lead" ให้เจ้าหน้าที่ท่านอื่นก่อนทำการลบ'
       );
       return;
     }
 
-    const updatedOfficers = currentConfig.officers.filter((o) => o.id !== officerId);
-    handleUpdateConfig({ officers: updatedOfficers });
-    showToast(`ลบเจ้าหน้าที่ออกจากรายชื่อ Gatekeeper เรียบร้อยแล้ว`);
+    askConfirm({
+      title: 'ยืนยันการลบรายชื่อ Gatekeeper',
+      message: `คุณต้องการลบคุณ "${target.name}" (${target.roleTitle}) ออกจากการเป็น Gatekeeper ประจำฝ่าย ${selectedCategory} ใช่หรือไม่?`,
+      confirmLabel: 'ลบรายชื่อ',
+      isDestructive: true,
+      onConfirm: () => {
+        const updatedOfficers = currentConfig.officers.filter((o) => o.id !== officerId);
+        handleUpdateConfig({ officers: updatedOfficers });
+        showToast(`ลบคุณ "${target.name}" ออกจากรายชื่อ Gatekeeper เรียบร้อยแล้ว`);
+      },
+    });
   };
 
   const handleAddOfficerSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newOfficerName.trim() || !newOfficerEmail.trim()) {
-      alert('กรุณากรอกชื่อและอีเมลของเจ้าหน้าที่');
+      showToast('⚠️ กรุณากรอกชื่อและอีเมลของเจ้าหน้าที่');
       return;
     }
 
@@ -188,22 +209,24 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
   };
 
   const handleResetGatekeepersToDefaults = () => {
-    if (
-      confirm(
-        'คุณต้องการรีเซ็ตรายชื่อ Gatekeeper ของทุกหน่วยงานกลับเป็นค่าเริ่มต้นขององค์กรใช่หรือไม่?'
-      )
-    ) {
-      const defs = resetGatekeeperConfigsToDefault();
-      setConfigs(defs);
-      showToast('รีเซ็ตรายชื่อ Gatekeeper ทุกหน่วยงานเป็นค่าเริ่มต้นแล้ว');
-    }
+    askConfirm({
+      title: 'ยืนยันการรีเซ็ต Gatekeeper',
+      message:
+        'คุณต้องการรีเซ็ตรายชื่อ Gatekeeper ของทุกหน่วยงานกลับเป็นค่าเริ่มต้นขององค์กรใช่หรือไม่?',
+      confirmLabel: 'รีเซ็ตค่าเริ่มต้น',
+      onConfirm: () => {
+        const defs = resetGatekeeperConfigsToDefault();
+        setConfigs(defs);
+        showToast('รีเซ็ตรายชื่อ Gatekeeper ทุกหน่วยงานเป็นค่าเริ่มต้นแล้ว');
+      },
+    });
   };
 
   // --- Executive Handlers ---
   const handleSaveExecutive = (e: React.FormEvent) => {
     e.preventDefault();
     if (!execName.trim() || !execEmail.trim() || !execPosition.trim()) {
-      alert('กรุณากรอกชื่อ-นามสกุล, ตำแหน่ง และอีเมลของผู้บริหาร');
+      showToast('⚠️ กรุณากรอกชื่อ-นามสกุล, ตำแหน่ง และอีเมลของผู้บริหาร');
       return;
     }
 
@@ -225,6 +248,7 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
         receiveAlertNotifications: execReceiveAlerts,
         assignedCommittees:
           committeeArray.length > 0 ? committeeArray : ['คณะกรรมการบริหารระดับสูง (ExCom)'],
+        status: execStatus,
       });
       setExecutives(updated);
       showToast(`อัปเดตข้อมูลผู้บริหาร "${execName}" เรียบร้อยแล้ว`);
@@ -241,7 +265,7 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
         receiveAlertNotifications: execReceiveAlerts,
         assignedCommittees:
           committeeArray.length > 0 ? committeeArray : ['คณะกรรมการบริหารระดับสูง (ExCom)'],
-        status: 'active',
+        status: execStatus,
       });
       setExecutives(updated);
       showToast(`เพิ่มผู้บริหาร "${execName}" ในบัญชีรายชื่อเรียบร้อยแล้ว`);
@@ -256,6 +280,7 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
     setExecEmail('');
     setExecPhone('');
     setExecCommittees('');
+    setExecStatus('active');
   };
 
   const handleEditExecClick = (exec: ExecutiveMember) => {
@@ -270,6 +295,7 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
     setExecCanViewConfidential(exec.canViewConfidentialIdentities);
     setExecReceiveAlerts(exec.receiveAlertNotifications);
     setExecCommittees(exec.assignedCommittees.join(', '));
+    setExecStatus(exec.status || 'active');
     setIsAddingExec(true);
   };
 
@@ -283,26 +309,38 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
   };
 
   const handleDeleteExec = (id: string, name: string) => {
-    if (confirm(`คุณต้องการลบรายชื่อผู้บริหาร "${name}" ออกจากระบบใช่หรือไม่?`)) {
-      const updated = deleteExecutiveMember(id);
-      setExecutives(updated);
-      showToast(`ลบรายชื่อผู้บริหารเรียบร้อยแล้ว`);
-    }
+    askConfirm({
+      title: 'ยืนยันการลบรายชื่อผู้บริหาร',
+      message: `คุณต้องการลบรายชื่อผู้บริหาร "${name}" ออกจากระบบถาวรใช่หรือไม่? ข้อมูลการมอบหมายและสิทธิ์จะถูกถอดถอนทันที`,
+      confirmLabel: 'ลบรายชื่อ',
+      isDestructive: true,
+      onConfirm: () => {
+        const updated = deleteExecutiveMember(id);
+        setExecutives(updated);
+        showToast(`ลบรายชื่อผู้บริหาร "${name}" เรียบร้อยแล้ว`);
+      },
+    });
   };
 
   const handleResetExecsToDefault = () => {
-    if (confirm('คุณต้องการรีเซ็ตรายชื่อคณะผู้บริหารกลับเป็นค่าเริ่มต้นใช่หรือไม่?')) {
-      const defs = resetExecutivesToDefault();
-      setExecutives(defs);
-      showToast('รีเซ็ตรายชื่อคณะผู้บริหารเป็นค่าเริ่มต้นเรียบร้อยแล้ว');
-    }
+    askConfirm({
+      title: 'ยืนยันการรีเซ็ตคณะผู้บริหาร',
+      message:
+        'คุณต้องการรีเซ็ตรายชื่อคณะผู้บริหารกลับเป็นค่าเริ่มต้นตามโครงสร้างองค์กรใช่หรือไม่?',
+      confirmLabel: 'รีเซ็ตค่าเริ่มต้น',
+      onConfirm: () => {
+        const defs = resetExecutivesToDefault();
+        setExecutives(defs);
+        showToast('รีเซ็ตรายชื่อคณะผู้บริหารเป็นค่าเริ่มต้นเรียบร้อยแล้ว');
+      },
+    });
   };
 
   // --- HR Admin Handlers ---
   const handleSaveHrAdmin = (e: React.FormEvent) => {
     e.preventDefault();
     if (!adminName.trim() || !adminEmail.trim() || !adminPosition.trim()) {
-      alert('กรุณากรอกชื่อ-นามสกุล, ตำแหน่ง และอีเมลของ HR Admin');
+      showToast('⚠️ กรุณากรอกชื่อ-นามสกุล, ตำแหน่ง และอีเมลของ HR Admin');
       return;
     }
 
@@ -374,19 +412,30 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
   };
 
   const handleDeleteAdmin = (id: string, name: string) => {
-    if (confirm(`คุณต้องการลบรายชื่อเจ้าหน้าที่ HR Admin "${name}" ออกจากระบบใช่หรือไม่?`)) {
-      const updated = deleteHrAdminMember(id);
-      setHrAdmins(updated);
-      showToast(`ลบรายชื่อเจ้าหน้าที่ HR Admin เรียบร้อยแล้ว`);
-    }
+    askConfirm({
+      title: 'ยืนยันการลบรายชื่อ HR Admin',
+      message: `คุณต้องการลบรายชื่อเจ้าหน้าที่ HR Admin "${name}" ออกจากระบบใช่หรือไม่?`,
+      confirmLabel: 'ลบรายชื่อ',
+      isDestructive: true,
+      onConfirm: () => {
+        const updated = deleteHrAdminMember(id);
+        setHrAdmins(updated);
+        showToast(`ลบรายชื่อเจ้าหน้าที่ HR Admin "${name}" เรียบร้อยแล้ว`);
+      },
+    });
   };
 
   const handleResetAdminsToDefault = () => {
-    if (confirm('คุณต้องการรีเซ็ตรายชื่อเจ้าหน้าที่ HR Admin กลับเป็นค่าเริ่มต้นใช่หรือไม่?')) {
-      const defs = resetHrAdminsToDefault();
-      setHrAdmins(defs);
-      showToast('รีเซ็ตรายชื่อ HR Admin เป็นค่าเริ่มต้นเรียบร้อยแล้ว');
-    }
+    askConfirm({
+      title: 'ยืนยันการรีเซ็ต HR Admin',
+      message: 'คุณต้องการรีเซ็ตรายชื่อเจ้าหน้าที่ HR Admin กลับเป็นค่าเริ่มต้นใช่หรือไม่?',
+      confirmLabel: 'รีเซ็ตค่าเริ่มต้น',
+      onConfirm: () => {
+        const defs = resetHrAdminsToDefault();
+        setHrAdmins(defs);
+        showToast('รีเซ็ตรายชื่อ HR Admin เป็นค่าเริ่มต้นเรียบร้อยแล้ว');
+      },
+    });
   };
 
   // Stats calculation
@@ -441,8 +490,8 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
             </h1>
             <p className="mt-1 max-w-3xl text-xs leading-relaxed text-slate-300 sm:text-sm">
               จุดศูนย์กลางสำหรับ HR Admin และตัวแทนผู้บริหารในการ Maintain รายชื่อคณะผู้บริหาร
-              (CEO/EVP Whistleblower Channel), เจ้าหน้าที่ HR Admin & GRC และผู้รับผิดชอบ Gatekeeper
-              ทั้ง 9 หน่วยงาน
+              (CEO/EVP Whistleblower Channel), เจ้าหน้าที่ HR Admin & GRC, ผู้รับผิดชอบ Gatekeeper
+              ทั้ง 6 หน่วยงาน และระบบแจ้งเตือน Email
             </p>
           </div>
 
@@ -456,7 +505,7 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
               <span className="text-lg font-bold text-rose-300">{hrAdmins.length} ท่าน</span>
             </div>
             <div className="rounded-xl border border-white/15 bg-white/10 px-3.5 py-2 text-center backdrop-blur">
-              <span className="block text-[11px] text-slate-300">Gatekeepers (9 ฝ่าย)</span>
+              <span className="block text-[11px] text-slate-300">Gatekeepers (6 ฝ่าย)</span>
               <span className="text-lg font-bold text-indigo-300">{totalOfficersCount} ท่าน</span>
             </div>
           </div>
@@ -475,7 +524,7 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
             }`}
           >
             <Shield className="h-4 w-4" />
-            <span>1. Gatekeeper ประจำ 9 ฝ่ายงาน ({totalOfficersCount})</span>
+            <span>1. Gatekeeper ประจำ 6 ฝ่ายงาน ({totalOfficersCount})</span>
           </button>
 
           <button
@@ -505,6 +554,20 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
             <SlidersHorizontal className="h-4 w-4" />
             <span>3. ทีมงาน HR Admin & GRC Operator ({hrAdmins.length})</span>
           </button>
+
+          <button
+            type="button"
+            id="subtab-email-notifications"
+            onClick={() => setActiveSubTab('email_notifications')}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition ${
+              activeSubTab === 'email_notifications'
+                ? 'bg-amber-600 text-white shadow-sm'
+                : 'bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
+            }`}
+          >
+            <Mail className="h-4 w-4" />
+            <span>4. ระบบแจ้งเตือน Email & เทมเพลต (Email Settings)</span>
+          </button>
         </div>
       </div>
 
@@ -513,13 +576,13 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
       {/* ========================================================================= */}
       {activeSubTab === 'gatekeepers' && (
         <div className="animate-in fade-in grid grid-cols-1 gap-6 duration-200 lg:grid-cols-12">
-          {/* Left Column: 9 Categories List */}
+          {/* Left Column: 6 Categories List */}
           <div className="space-y-4 lg:col-span-4">
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900">
                   <Building className="h-4 w-4 text-indigo-600" />
-                  <span>เลือกหน่วยงาน (9 หมวดหมู่)</span>
+                  <span>เลือกหน่วยงาน (6 หมวดหมู่)</span>
                 </h3>
                 <button
                   type="button"
@@ -639,7 +702,7 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
                           .value as DepartmentGatekeeperConfig['autoAssignMode'],
                       })
                     }
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full max-w-md rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   >
                     <option value="lead_manual">จ่ายให้ Lead คัดกรองก่อนเสมอ (แนะนำ)</option>
                     <option value="round_robin">จ่ายวนตามลำดับเจ้าหน้าที่ (Round-Robin)</option>
@@ -837,12 +900,25 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
                           </td>
 
                           <td className="px-4 py-3 text-right">
-                            {!isLead && (
+                            {isLead ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  showToast(
+                                    '⚠️ ไม่สามารถลบ Lead Gatekeeper ได้: กรุณากด "ตั้งเป็น Lead" ให้เจ้าหน้าที่ท่านอื่นก่อน'
+                                  )
+                                }
+                                className="cursor-pointer rounded-lg p-1.5 text-slate-300 transition hover:bg-amber-50 hover:text-amber-600"
+                                title="ไม่สามารถลบ Lead Gatekeeper ได้ (ต้องแต่งตั้งเจ้าหน้าที่ท่านอื่นเป็น Lead ก่อน)"
+                              >
+                                <Trash2 className="h-4 w-4 opacity-35" />
+                              </button>
+                            ) : (
                               <button
                                 type="button"
                                 id={`btn-remove-officer-${officer.id}`}
                                 onClick={() => handleRemoveOfficer(officer.id)}
-                                className="rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                                className="cursor-pointer rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
                                 title="ลบออกจากรายชื่อ Gatekeeper"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -906,6 +982,7 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
                     setExecEmail('');
                     setExecPhone('');
                     setExecCommittees('');
+                    setExecStatus('active');
                     setIsAddingExec(true);
                   }
                 }}
@@ -1034,6 +1111,13 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
                       <option value="Board_Member">กรรมการบริษัท (Board Member)</option>
                     </select>
                   </div>
+
+                  <ExecStatusSelect
+                    id="exec-status"
+                    value={execStatus}
+                    onChange={setExecStatus}
+                    dense
+                  />
                 </div>
 
                 <div>
@@ -1472,7 +1556,7 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
                       <span className="block text-xs font-semibold text-slate-900">
                         สิทธิ์แต่งตั้ง Gatekeeper
                       </span>
-                      <span className="text-[10px] text-slate-500">กำหนด Lead ประจำ 9 ฝ่าย</span>
+                      <span className="text-[10px] text-slate-500">กำหนด Lead ประจำ 6 ฝ่าย</span>
                     </div>
                   </label>
 
@@ -1646,6 +1730,15 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
         </div>
       )}
 
+      {/* ========================================================================= */}
+      {/* SUBTAB 4: EMAIL NOTIFICATIONS SETTINGS & TEMPLATES                        */}
+      {/* ========================================================================= */}
+      {activeSubTab === 'email_notifications' && (
+        <div className="animate-in fade-in duration-200">
+          <AdminEmailNotificationSettings />
+        </div>
+      )}
+
       {/* Global Guidance Note */}
       <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
         <Info className="mt-0.5 h-5 w-5 shrink-0 text-indigo-600" />
@@ -1662,6 +1755,8 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
           </p>
         </div>
       </div>
+
+      {confirmDialog}
     </div>
   );
 };

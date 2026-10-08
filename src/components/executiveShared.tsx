@@ -1,0 +1,57 @@
+'use client';
+
+import React, { useEffect } from 'react';
+import { ExecutiveMember } from '../types';
+import { EVENT_EXECUTIVES_UPDATED, getStoredExecutives } from '../services/api';
+
+export type ExecutiveStatus = ExecutiveMember['status'];
+
+/** Re-reads the executive roster whenever another screen changes it (EVENT_EXECUTIVES_UPDATED). */
+export function useExecutivesSync(setExecutives: (executives: ExecutiveMember[]) => void) {
+  useEffect(() => {
+    const handleExecSync = () => setExecutives(getStoredExecutives());
+    window.addEventListener(EVENT_EXECUTIVES_UPDATED, handleExecSync);
+    return () => window.removeEventListener(EVENT_EXECUTIVES_UPDATED, handleExecSync);
+  }, [setExecutives]);
+}
+
+interface ExecStatusSelectProps {
+  readonly id?: string;
+  readonly value: ExecutiveStatus;
+  readonly onChange: (status: ExecutiveStatus) => void;
+  /** Gatekeeper-management form is a little denser than the RBAC one. */
+  readonly dense?: boolean;
+}
+
+/** Account-status picker shared by both executive forms (upstream markup). */
+export const ExecStatusSelect: React.FC<ExecStatusSelectProps> = ({
+  id,
+  value,
+  onChange,
+  dense = false,
+}) => {
+  const selectId = id ?? 'exec-status-select';
+  return (
+    <div>
+      <label
+        htmlFor={selectId}
+        className={`mb-1 block text-[11px] text-slate-700 ${dense ? 'font-semibold' : 'font-bold'}`}
+      >
+        สถานะการปฏิบัติหน้าที่ (Account Status)
+      </label>
+      <select
+        id={selectId}
+        value={value}
+        onChange={(e) => onChange(e.target.value as ExecutiveStatus)}
+        className={`w-full rounded-lg border bg-white px-3 ${dense ? 'py-1.5' : 'py-2'} text-xs font-semibold focus:ring-2 focus:ring-purple-500 focus:outline-none ${
+          value === 'active'
+            ? 'border-emerald-300 text-emerald-700'
+            : 'border-slate-300 text-slate-500'
+        }`}
+      >
+        <option value="active">เปิดใช้งาน (Active - พร้อมปฏิบัติหน้าที่)</option>
+        <option value="inactive">พักสถานะ (Inactive - ระงับชั่วคราว)</option>
+      </select>
+    </div>
+  );
+};
