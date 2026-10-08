@@ -12,6 +12,7 @@
 | #   | ระบบ        | งาน                                                                          | ใช้เวลาโดยประมาณ |
 | --- | ----------- | ---------------------------------------------------------------------------- | ---------------- |
 | 1   | SQL Server  | สร้าง database 2 ตัว (จริง + shadow) + login/user 1 ตัว + สิทธิ์             | ~10 นาที         |
+| 1.4 | HR view     | view ข้อมูลพนักงาน (อ่านอย่างเดียว) ให้ login ของแอป `SELECT` ได้ (ดู §1.4)  | ประสาน HR        |
 | 2   | Keycloak    | สร้าง client 1 ตัวในระบบ SSO กลางขององค์กร (Client ID `ugt-voicecare`)       | ~10 นาที         |
 | 3   | SMTP        | ให้ host/port ของ SMTP relay + ที่อยู่อีเมลผู้ส่งที่ relay อนุญาต            | ~5 นาที          |
 | 4   | Jenkins     | สร้าง credentials 2 ตัว + pipeline job + webhook (ดูข้อ 5)                   | ~15 นาที         |
@@ -153,7 +154,7 @@ intranet ปิด — ตัดสินใจนี้เป็นของท
 เมื่อได้ค่าครบ ใส่ใน `.env.local` แทนที่ `KEYCLOAK_ISSUER`/`KEYCLOAK_CLIENT_ID`/
 `KEYCLOAK_CLIENT_SECRET` แล้วรีสตาร์ทแอป — ไม่ต้องแก้โค้ดใด ๆ เพิ่ม
 
-## 3. ผู้ดูแลระบบคนแรก (First Admin)
+### 2.3 ผู้ดูแลระบบคนแรก (First Admin)
 
 **ไม่มีบัญชี Administrator ตั้งไว้ล่วงหน้า** — คนแรกที่เข้าสู่ระบบด้วย SSO จะถูกพา
 ไปหน้า `/admin/setup` โดยอัตโนมัติ และกดปุ่มเดียวเพื่อให้ตัวเองเป็น Administrator
@@ -170,12 +171,11 @@ intranet ปิด — ตัดสินใจนี้เป็นของท
 
 ## 3. SMTP (อีเมลแจ้งเตือน)
 
-โปรเจคนี้ส่งอีเมลจริงสำหรับการแจ้งเตือนที่แอปสร้างอยู่แล้ว (ยื่นเรื่องสำเร็จ /
-อัปเดตสถานะ / ขอประเมินความพึงพอใจ / แจ้งเตือน CEO ด่วน / ใกล้ครบกำหนด SLA) —
-ยังไม่มี SMTP relay จริงให้เชื่อมต่อ (ตอนติดตั้งใช้ค่า placeholder ล้วน — ดู
-`.env.example`) โครงเทมเพลตอีเมล ตัวส่ง และหน้าแก้ไขเทมเพลตที่
-`/admin/mail-templates` **พร้อมใช้งานทันที** ที่ได้ค่าจริงด้านล่างนี้ — ไม่ต้อง
-แก้โค้ดเพิ่ม แค่เติม `.env.local` แล้ว restart แอป
+โปรเจคนี้ส่งอีเมลจริงเมื่อ**มีเรื่องร้องเรียนใหม่** (แจ้ง Lead Gatekeeper ของหมวดนั้น)
+และเมื่อ**เรื่องได้รับการแก้ไขแล้ว** (แจ้งผู้ยื่นเรื่อง) — admin เปิด/ปิดและแก้ข้อความ
+อีเมลได้เองในแอป (แท็บตั้งค่าแจ้งเตือนอีเมลในหน้าจัดการ Gatekeeper) ยังไม่มี SMTP relay
+จริงให้เชื่อมต่อ (ตอนนี้ใช้ค่า placeholder ล้วน — ดู `.env.example`) ฝั่งแอปพร้อมใช้
+ทันทีที่ได้ค่าจริงด้านล่างนี้ — ไม่ต้องแก้โค้ดเพิ่ม แค่เติม `.env.local` แล้ว restart แอป
 
 ### 3.1 สิ่งที่ต้องขอจากทีม IT/Network
 
@@ -228,10 +228,9 @@ intranet ปิด — ตัดสินใจนี้เป็นของท
 โปรเจคนี้เก็บไฟล์แนบจริงบน Docker volume (ไม่ใช่ใน database, ไม่ใช่ใน image) และสแกน
 ไวรัสทุกไฟล์ก่อนเขียนลงดิสก์ (ClamAV, fail-closed — สแกนเนอร์ล่ม = ปฏิเสธการอัปโหลด
 ไม่ใช่ปล่อยผ่าน) โค้ดฝั่งแอปพร้อมใช้งานจริงแล้ว (`lib/storage.ts`, `lib/virus-scan.ts`,
-`src/app/api/files/**`) **แต่ service `clamav` และ volume bind-mount ยังไม่มีใน
-`docker-compose.yml`/`docker-compose.dev.yml`/`Dockerfile` เลย** เพราะไฟล์เหล่านั้นยังไม่
-ถูกสร้าง (`ugt-nextjs-cicd-setup` ยังไม่รัน) — ส่วนนี้จะถูกเติมเป็นขั้นตอนปิดงาน (close-out)
-ทันทีหลัง CI/CD chunk ติดตั้ง Dockerfile เสร็จ (ดู `.claude/state/handoff.md`)
+`src/app/api/files/**`) และ service `clamav` + volume bind-mount อยู่ใน
+`docker-compose.yml`/`docker-compose.dev.yml`/`Dockerfile` แล้ว — ฝั่ง Admin เตรียมแค่
+โฟลเดอร์/backup/RAM ตาม §4.1 และ §5.5
 
 ### 4.1 สิ่งที่ทีม Admin/DevOps ต้องรู้ (สำคัญ — ผลกระทบจริงเมื่อ deploy)
 
@@ -248,24 +247,8 @@ intranet ปิด — ตัดสินใจนี้เป็นของท
   limit ของ proxy ให้ ≥ 25 MB** (`UPLOAD_MAX_BYTES` ปัจจุบัน) เช่น nginx
   `client_max_body_size 25m;` — มิฉะนั้นไฟล์แนบขนาดใหญ่จะถูก proxy ปฏิเสธด้วย 413 ก่อน
   ถึงแอปเลย โดยที่แอปไม่เห็น error ใด ๆ — **ยังไม่ยืนยันว่า production มี reverse proxy
-  หรือไม่** (รอมติเรื่อง basePath/shared-domain จาก `ugt-nextjs-cicd-setup`, ดู
-  `.claude/state/handoff.md`) — ถือว่าคำแนะนำนี้ใช้ได้ไม่ว่าคำตอบจะเป็นอะไร
-
-### 4.2 ขั้นตอนที่ยังไม่ได้ทำ (รอ CI/CD chunk ก่อน)
-
-เมื่อ `ugt-nextjs-cicd-setup` สร้าง `Dockerfile`/`docker-compose.yml`/
-`docker-compose.dev.yml` แล้ว ให้ apply
-`assets/compose-and-dockerfile.snippet.md` จาก `ugt-nextjs-upload-setup` skill:
-
-- Dockerfile: `RUN mkdir -p /app/storage && chown -R nextjs:nodejs /app/storage`
-  ก่อน `USER nextjs`
-- compose (ทั้งสองไฟล์): env `STORAGE_ROOT`/`UPLOAD_MAX_BYTES`/`CLAMAV_HOST`/
-  `CLAMAV_PORT`/`CLAMAV_TIMEOUT_MS`, volume bind mount
-  `/home/docker02/appdata/ugt-voicecare/storage:/app/storage` (bind mount เท่านั้น
-  ห้าม named volume — ตาม cicd contract §2.8), service `clamav` พร้อม
-  `depends_on: clamav: condition: service_healthy` และ `start_period: 300s` ใน
-  healthcheck (boot แรกโหลด signature ~1 GB)
-- Jenkinsfile's `[VOLUME]` mkdir -p line: เพิ่ม `storage` และ `clamav-db` เข้าไป
+  หรือไม่** (basePath ตัดสินแล้วว่าไม่มี — deploy ที่ root path) — ถือว่าคำแนะนำนี้
+  ใช้ได้ไม่ว่าคำตอบจะเป็นอะไร
 
 ### ✅ ค่าที่ต้องส่งกลับให้ทีมพัฒนา (กรอกแล้วส่งไฟล์นี้คืน)
 
@@ -275,10 +258,8 @@ intranet ปิด — ตัดสินใจนี้เป็นของท
 | **→ ใครรับผิดชอบ backup ของ `/home/docker02/appdata/ugt-voicecare/storage`** | ไม่ใช่ backup เดียวกับ database — ต้องมีแผนแยก                                                                         |            |
 | **→ host มี outbound internet ให้ ClamAV ดาวน์โหลด signature DB ไหม**        | ถ้าไม่มี ต้อง preload ไฟล์ signature เอง — ดู SKILL.md §7 ของ `ugt-nextjs-upload-setup`                                |            |
 
-## เช็คก่อนปิดงาน (ฝั่ง Admin/DevOps) — หลัง CI/CD chunk ติดตั้ง compose แล้วเท่านั้น
+## เช็คก่อนปิดงาน (ฝั่ง Admin/DevOps)
 
-- [ ] `docker-compose.yml`/`docker-compose.dev.yml` มี volume bind mount ที่
-      `/app/storage` และ service `clamav` (ไม่ใช่ named volume)
 - [ ] มีแผน backup แยกสำหรับโฟลเดอร์ storage (ไม่ใช่แผนเดียวกับ database)
 - [ ] ยืนยัน/ปฏิเสธเรื่อง reverse proxy แล้ว — ถ้ามี ปรับ body-size limit แล้ว
 - [ ] ยืนยันแล้วว่า host มี/ไม่มี outbound internet สำหรับ ClamAV signature DB
@@ -291,19 +272,18 @@ intranet ปิด — ตัดสินใจนี้เป็นของท
 
 ## 5. Jenkins / SonarQube / Docker host — CI/CD
 
-> สร้างอัตโนมัติเมื่อ 2026-09-02 · ผู้ขอ: pakorn.worakarn@gmail.com
-> โปรเจค: `ugt-voicecare` (repo git ยังเป็น local-only ตอนนี้ — ยังไม่ได้ push
-> ขึ้น GitHub/GitLab/Gitea ใด ๆ — ดูหมายเหตุท้ายข้อ 5.1 ก่อนตั้ง webhook)
+> สร้างอัตโนมัติเมื่อ 2026-09-02 · ผู้ขอ: pakornwo@ube.co.th
+> โปรเจค: `ugt-voicecare` · repo: `https://github.com/pakornkub/ugt-voice-platform`
+> (branch `main` = prod, `develop` = dev)
 >
 > โปรเจคนี้**ไม่มี basePath** (deploy standalone ที่ root path) และ**ไม่ใช้
 > Sentry** — ยืนยันแล้วในชุดนี้ (มติ: `docs/project-context/decisions.md`)
 > ชื่อทุกตัวด้านล่างถูก generate ให้ตรงกับค่าที่ตั้งไว้ในโปรเจคแล้ว —
 > **กรุณาใช้ชื่อตามนี้เป๊ะ ๆ** (ต่างแม้ตัวเดียว pipeline จะไม่ทำงาน)
 
-<!-- ถ้า Jenkins server นี้เคยตั้งโปรเจคอื่นแล้ว งานระดับ server (plugins, tools,
-     nvd credential, NOTIFY_EMAIL, การสร้าง /home/docker02/appdata ครั้งแรก)
-     ทำไปแล้ว — ทำเฉพาะระดับโปรเจคด้านล่าง (5.1–5.3) ถ้าเป็นโปรเจคแรกของ server
-     ดูภาคผนวก §5.6 ท้ายหัวข้อนี้ -->
+Jenkins server นี้มีโปรเจคอื่นตั้งไว้แล้ว (งานระดับ server — plugins, tools, `nvd`
+credential, `NOTIFY_EMAIL`, `/home/docker02/appdata`, `proxy-network` — ทำไปแล้ว) ทำ
+เฉพาะระดับโปรเจคด้านล่าง
 
 ### 5.1 Jenkins — Credentials (Manage Jenkins → Credentials → Global)
 
@@ -314,21 +294,24 @@ intranet ปิด — ตัดสินใจนี้เป็นของท
 
 (ไม่มีแถว `sentry-dsn-ugt-voicecare` — โปรเจคนี้ไม่ใช้ Sentry)
 
-### 5.2 Jenkins — Pipeline job
+### 5.2 Jenkins — Pipeline jobs (2 ตัว ตามรูปแบบโปรเจคอื่นบน server นี้)
 
-1. New Item → ชื่อ `ugt-voicecare` → เลือก **Multibranch Pipeline**
-2. Branch Sources → repo ของโปรเจคนี้ → discover branches `main` และ `develop`
-   — **หมายเหตุ**: repo นี้ยังเป็น git local-only (ยังไม่มี remote บน
-   GitHub/GitLab/Gitea ใด ๆ) ต้อง push ขึ้นที่เก็บโค้ดที่องค์กรใช้งานก่อน
-   ถึงจะตั้ง Multibranch Pipeline ชี้ไปได้ — แจ้งกลับทีมพัฒนาว่าจะใช้ที่เก็บ
-   โค้ดไหน (ดูตาราง "ค่าที่ต้องส่งกลับ" ท้ายหัวข้อนี้)
-3. **สำคัญ**: ปิด "Lightweight checkout" (ถ้าเปิดไว้ stage แรกจะพัง)
+| ชื่อ job (New Item → **Pipeline**) | Repo                                              | Branch    | Script Path   |
+| ---------------------------------- | ------------------------------------------------- | --------- | ------------- |
+| `ugt-voicecare`                    | `https://github.com/pakornkub/ugt-voice-platform` | `main`    | `Jenkinsfile` |
+| `ugt-voicecare-dev`                | `https://github.com/pakornkub/ugt-voice-platform` | `develop` | `Jenkinsfile` |
 
-### 5.3 Webhook ที่ที่เก็บโค้ด (หลัง push ขึ้นจริงแล้ว)
+- Definition: **Pipeline script from SCM** (Git) · ถ้า repo เป็น private ทีมพัฒนาจะ
+  ส่ง GitHub credential ให้ (ยังเป็น public อยู่ตอนนี้ — แจ้งถ้าต้องการให้เป็น private)
+- **สำคัญ**: ปิด "Lightweight checkout" (ถ้าเปิดไว้ stage แรกจะพัง)
+- Jenkinsfile แยก prod/dev จากชื่อ branch เอง (`main` → prod, อื่น ๆ → dev) ไม่ต้อง
+  ตั้ง parameter เพิ่ม
 
-- Settings → Webhooks → Add: URL `http://<jenkins-host>:8080/github-webhook/`
-  (หรือ path ของ webhook ที่ตรงกับระบบที่ใช้จริง ถ้าไม่ใช่ GitHub) · event:
-  **push เท่านั้น**
+### 5.3 Webhook ที่ GitHub
+
+- ทีมพัฒนาเพิ่ม webhook ที่ repo เอง (Settings → Webhooks → Add: URL
+  `http://<jenkins-host>:8080/github-webhook/` · event: **push เท่านั้น**) —
+  Admin แค่แจ้ง Jenkins host ที่ GitHub เรียกถึงได้
 - ถ้า Jenkins เข้าถึง repo ไม่ได้ (อยู่คนละเครือข่าย) ใช้ `pollSCM` แทนได้ —
   แจ้งทีมพัฒนาถ้าต้องสลับวิธีนี้
 
@@ -365,8 +348,8 @@ pipeline จะค้างตลอดไป** ที่ขั้นรอผ�
   - `/home/docker02/appdata/ugt-voicecare-dev/storage` +
     `/home/docker02/appdata/ugt-voicecare-dev/clamav-db` (dev)
   - Deploy stage สร้าง/chown ให้เองครั้งแรกที่ deploy (idempotent) — **แต่ต้อง
-    มี `/home/docker02/appdata` เองอยู่แล้วและ jenkins user เขียนได้** (ดู §5.6
-    ถ้ายังไม่เคยตั้ง)
+    มี `/home/docker02/appdata` เองอยู่แล้วและ jenkins user เขียนได้** (server นี้
+    มีโปรเจคอื่นใช้อยู่แล้ว — น่าจะพร้อม)
   - `clamav` ต้องการ RAM ~2 GB และดาวน์โหลด signature DB ~1 GB ตอน boot ครั้งแรก
     — ถ้า host ไม่มี outbound internet ต้อง preload เอง (ดู §4.1)
 - เครือข่าย `proxy-network` (Docker external network สำหรับ reverse-proxy
@@ -391,12 +374,11 @@ ugt-nextjs-cicd-setup)
 
 | ค่า                                             | มาจากไหน                                                                                                                                                            | กรอกตรงนี้                                   |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| **→ ที่เก็บโค้ดที่จะ push repo นี้ขึ้น**        | GitHub/GitLab/Gitea ภายในองค์กร หรืออื่น ๆ — **จำเป็นก่อนตั้ง Jenkins job**                                                                                         |                                              |
-| **→ Jenkins host**                              | สำหรับตั้ง webhook ทั้งสองทาง (§5.3, §5.4)                                                                                                                          |                                              |
+| **→ Jenkins host**                              | สำหรับตั้ง webhook ทั้งสองทาง (§5.3, §5.4) — ต้องเป็น host ที่ GitHub เรียกถึงได้ ถ้าไม่ได้ แจ้งกลับเพื่อเปลี่ยนเป็น `pollSCM`                                      |                                              |
 | **→ `APP_PORT` (prod)**                         | Host port ที่จัดสรรให้บน server จริง                                                                                                                                | จำเป็น — ใช้ `3000` เป็น placeholder ไว้ก่อน |
 | **→ `APP_PORT` (dev)**                          | Host port ที่จัดสรรให้บน server dev                                                                                                                                 | จำเป็น — ใช้ `3001` เป็น placeholder ไว้ก่อน |
 | **→ App host จริง (prod/dev)**                  | โดเมน/IP จริงที่แอปจะรันอยู่ — ใช้แทนค่าปัจจุบัน `http://localhost:3000`/`:3001` ใน build args (ดูข้อ 2 ด้านบนด้วย — ใช้ค่าเดียวกับที่ส่งให้ Keycloak redirect URI) |                                              |
-| ยืนยัน Jenkins job สร้างแล้ว                    | ลิงก์ job                                                                                                                                                           |                                              |
+| ยืนยัน Jenkins jobs (prod + dev) สร้างแล้ว      | ลิงก์ job                                                                                                                                                           |                                              |
 | ยืนยัน SonarQube projects + webhook แล้ว        | ลิงก์ project                                                                                                                                                       |                                              |
 | ยืนยัน `/home/docker02/appdata` พร้อมใช้แล้ว    | `sudo mkdir -p /home/docker02/appdata && sudo chown jenkins:jenkins /home/docker02/appdata` (ครั้งแรกของ server เท่านั้น)                                           |                                              |
 | **→ มี reverse proxy หน้าแอปใน production ไหม** | ซ้ำกับ §4 ด้านบน — ยังไม่มีคำตอบ ณ ตอนติดตั้งชุดนี้                                                                                                                 |                                              |
@@ -404,8 +386,8 @@ ugt-nextjs-cicd-setup)
 ### เช็คก่อนปิดงาน (ฝั่ง Admin/DevOps)
 
 - [ ] ชื่อทุกตัวตรงกับตารางเป๊ะ (โดยเฉพาะ credential ID)
-- [ ] repo ถูก push ขึ้นที่เก็บโค้ดจริงแล้ว + Jenkins job ชี้ไปถูกที่
-- [ ] webhook ทั้งสองฝั่ง (VCS→Jenkins, SonarQube→Jenkins) ตั้งแล้ว
+- [ ] Jenkins jobs `ugt-voicecare` + `ugt-voicecare-dev` ชี้ repo/branch ถูก
+- [ ] SonarQube→Jenkins webhook ตั้งแล้ว + แจ้ง Jenkins host ให้ทีมพัฒนาตั้ง GitHub webhook
 - [ ] `APP_PORT` (prod/dev) ส่งกลับแล้ว ไม่ใช่แค่ placeholder `3000`/`3001`
 - [ ] App host จริง (prod/dev) ส่งกลับแล้ว
 - [ ] `/home/docker02/appdata` พร้อมเขียนได้แล้ว (jenkins user)
@@ -413,55 +395,5 @@ ugt-nextjs-cicd-setup)
 - [ ] ยืนยัน/ปฏิเสธเรื่อง reverse proxy แล้ว (ซ้ำ §4)
 
 ---
-
-<!-- ภาคผนวก §5.6: ใส่เฉพาะเมื่อเป็นโปรเจคแรกบน Jenkins server นี้ — ถ้าไม่ใช่
-     ลบทิ้ง -->
-
-### 5.6 ภาคผนวก — ถ้าเป็นโปรเจคแรกบน Jenkins server นี้ (server-level setup)
-
-**Jenkins plugins ที่ต้องลง**: NodeJS Plugin, SonarQube Scanner, OWASP
-Dependency-Check, JUnit Plugin, HTML Publisher, Email Extension, Pipeline,
-Git Plugin
-
-**Jenkins → Tools (ชื่อต้องตรงเป๊ะ)**:
-
-| Tool type         | ชื่อ (เป๊ะ)         | Version                        |
-| ----------------- | ------------------- | ------------------------------ |
-| NodeJS            | `NodeJS-22`         | Node 22.x                      |
-| SonarQube Scanner | `SonarQube-Scanner` | Latest                         |
-| Dependency-Check  | `Dependency-Check`  | Latest (Install automatically) |
-
-**Jenkins → System → SonarQube servers → Add**: name `SonarQube` (ต้องตรงกับ
-`withSonarQubeEnv('SonarQube')` ใน Jenkinsfile) · Server URL `http://<sonarqube-host>:9000`
-· token เป็น Secret Text credential ที่ผูกไว้ในนี้ (ไม่ใช่ hardcode ใน Jenkinsfile)
-
-**Jenkins → System → Global properties → Environment variables**:
-`NOTIFY_EMAIL` (ผู้รับอีเมลผลลัพธ์ pipeline), `SMTP_FROM` (from-address) —
-ตั้งค่า SMTP ที่ Extended E-mail Notification ด้วย
-
-**`nvd` credential** (Secret text, server-level ใช้ร่วมกันทุกโปรเจค): NVD API
-key จาก nvd.nist.gov — ถ้าไม่มี OWASP Dependency Check จะช้ามาก (rate limit
-5 req/30s)
-
-**Docker บน Jenkins host ติดตั้งผ่าน snap หรือเปล่า** (พบบน Ubuntu Core 24):
-ถ้าใช่ bind-mount `/usr/bin/docker` เข้า Jenkins container ใช้ไม่ได้ — ต้อง
-build custom Jenkins image ที่มี Docker CLI ข้างใน (รายละเอียด: ให้ทีมพัฒนา
-ส่ง `references/jenkins-one-time-setup.md` ของ skill `ugt-nextjs-cicd-setup`
-ให้ทีม Jenkins)
-
-**`docker compose` v2 หรือ `docker-compose` v1**: เช็คด้วย `docker compose version`
-— ถ้ามีแต่ v1 (legacy, EOL กลางปี 2023) แจ้งทีมพัฒนาให้แก้ Jenkinsfile กลับไปใช้
-`docker-compose` (มีขีด)
-
-**สร้าง `/home/docker02/appdata` ครั้งเดียว** (โปรเจคย่อยข้างในสร้างเองทีหลัง):
-
-```bash
-sudo mkdir -p /home/docker02/appdata && sudo chown jenkins:jenkins /home/docker02/appdata
-docker network create proxy-network
-```
-
-**NVD update strategy**: Jenkinsfile ใช้ `--noupdate` (สแกนกับ cache local
-เท่านั้น) — ต้องมี cron job แยก (`dependency-check --updateonly` รายวัน) หรือ
-รันครั้งแรกโดยไม่ใส่ `--noupdate` (ใช้เวลา 60–90 นาที) แล้วค่อยใส่กลับ
 
 <!-- /[CICD] -->
