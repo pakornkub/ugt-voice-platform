@@ -8,31 +8,25 @@ import {
   FileCode,
   Filter,
   CheckCircle2,
-  Calendar,
-  Layers,
   Sparkles,
   BarChart3,
   Lightbulb,
   ShieldCheck,
-  TrendingUp,
   Clock,
   HeartHandshake,
   Database as DatabaseIcon,
   Play,
   Terminal,
   Upload,
-  RefreshCw,
   Table,
-  Check,
 } from 'lucide-react';
-import { ComplaintTicket, GrievanceCategory, TicketStatus } from '../types';
+import { ComplaintTicket, GrievanceCategory } from '../types';
 import { CATEGORY_DEFINITIONS } from '../mockData';
 import {
   downloadSqliteDatabaseFile,
   executeSqlAnalyticsQuery,
   importSqliteDatabaseFile,
   syncAllTicketsToSqlite,
-  getSqliteDb,
 } from '../services/sqliteDb';
 
 interface ExportAnalyticsModalProps {

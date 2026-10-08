@@ -4,32 +4,26 @@ import React, { useState } from 'react';
 import {
   Shield,
   Search,
-  Filter,
   Crown,
   CheckCircle2,
   Clock,
   UserCheck,
-  ArrowUpRight,
-  AlertCircle,
-  Layers,
   FileText,
-  Paperclip,
   Edit3,
   ChevronRight,
-  Sparkles,
-  Send,
-  AlertTriangle,
+  Lock,
+  MessageSquare,
 } from 'lucide-react';
-import { ComplaintTicket, GrievanceCategory, TicketStatus, UserRole } from '../types';
+import { ComplaintTicket, GrievanceCategory, TicketStatus, UserRole, UrgencyLevel } from '../types';
 import { CATEGORY_DEFINITIONS } from '../mockData';
 import {
   getStatusBadgeText,
   getStatusColor,
+  getUrgencyBadgeText,
+  getUrgencyColor,
   updateTicketWorkflow,
   getStoredGatekeeperConfigs,
   getStoredRolePermissions,
-  getActiveGatekeeperDepartment,
-  setActiveGatekeeperDepartment,
 } from '../services/api';
 
 interface GatekeeperInboxProps {
@@ -46,11 +40,14 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
   onTicketUpdated,
 }) => {
   const rolePermissions = getStoredRolePermissions();
-  const gkConfig = rolePermissions.gatekeeper;
+  const currentRoleConfig = rolePermissions[currentRole] || rolePermissions.gatekeeper;
   const isStrictGatekeeper = currentRole === 'gatekeeper';
+  const canViewDirectCeo = currentRoleConfig?.canViewDirectCeoTickets ?? false;
   const assignedDepts =
-    gkConfig?.assignedDepartments && gkConfig.assignedDepartments.length > 0
-      ? gkConfig.assignedDepartments
+    currentRole === 'gatekeeper' &&
+    currentRoleConfig?.assignedDepartments &&
+    currentRoleConfig.assignedDepartments.length > 0
+      ? currentRoleConfig.assignedDepartments
       : (['HR'] as GrievanceCategory[]);
 
   const defaultDept = isStrictGatekeeper
@@ -75,8 +72,15 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
 
   const safeTickets = tickets || [];
 
-  // Scoped tickets based on Role & Department
+  // Scoped tickets based on Role, Assigned Departments, and Strict Whistleblower/Direct-to-CEO Security Privileges
   const scopedTickets = safeTickets.filter((t) => {
+    // 1. Strict Security & Compliance Privileges for CEO/EVP Whistleblower Escalation:
+    // If ticket is sent directly to executive and current role does NOT have canViewDirectCeoTickets permission, strictly exclude it!
+    if (t.isDirectToExecutive && !canViewDirectCeo) {
+      return false;
+    }
+
+    // 2. Departmental Scope:
     if (isStrictGatekeeper) {
       // If gatekeeper has specific assigned departments, only allow seeing those
       if (assignedDepts.length > 0 && !assignedDepts.includes(t.category)) {
@@ -106,6 +110,9 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
   const [officerName, setOfficerName] = useState('');
   const [officerEmail, setOfficerEmail] = useState('');
   const [targetStatus, setTargetStatus] = useState<TicketStatus>('in_progress');
+  const [triageUrgency, setTriageUrgency] = useState<UrgencyLevel>('Medium');
+  const [triageRiskSeverity, setTriageRiskSeverity] =
+    useState<ComplaintTicket['riskSeverity']>('Moderate');
   const [actionNote, setActionNote] = useState('');
   const [resolutionSummary, setResolutionSummary] = useState('');
   const [rootCauseCategory, setRootCauseCategory] =
@@ -146,6 +153,12 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
 
   const openTriageModal = (ticket: ComplaintTicket, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (ticket.isDirectToExecutive && !canViewDirectCeo) {
+      alert(
+        'สิทธิ์การเข้าถึงถูกจำกัด: ข้อร้องเรียนนี้ส่งตรงถึง CEO/EVP (Whistleblower Escalation) เฉพาะผู้บริหารระดับสูงหรือผู้ได้รับมอบหมายสิทธิ์เท่านั้น'
+      );
+      return;
+    }
     setTriageTicket(ticket);
 
     const gatekeeperConfigs = getStoredGatekeeperConfigs();
@@ -163,6 +176,8 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
           ? 'in_progress'
           : ticket.status
     );
+    setTriageUrgency(ticket.urgency || 'Medium');
+    setTriageRiskSeverity(ticket.riskSeverity || 'Moderate');
     setActionNote('');
     setResolutionSummary(ticket.resolutionSummary || '');
     setRootCauseCategory(ticket.rootCauseCategory || 'Process');
@@ -175,6 +190,8 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
 
     const updated = updateTicketWorkflow(triageTicket.id, {
       status: targetStatus,
+      urgency: triageUrgency,
+      riskSeverity: triageRiskSeverity,
       assignedOfficerName: officerName,
       assignedOfficerEmail: officerEmail,
       actionNote:
@@ -206,7 +223,7 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
 
   const departmentsList = [
     ...(availableCategories.length > 1
-      ? [{ key: 'ALL', label: 'ทุกหน่วยงานที่ได้รับมอบหมาย' }]
+      ? [{ key: 'ALL', label: 'ทุกหมวดหมู่ที่ได้รับมอบหมาย' }]
       : []),
     ...availableCategories.map((k) => ({
       key: k,
@@ -229,14 +246,14 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
             </span>
             {isStrictGatekeeper && (
               <span className="rounded-md border border-emerald-500/30 bg-emerald-500/20 px-2 py-0.5 text-xs font-bold text-emerald-300">
-                หน่วยงานที่รับผิดชอบ: {assignedDepts.join(', ')}
+                หมวดหมู่ที่รับผิดชอบ: {assignedDepts.join(', ')}
               </span>
             )}
           </div>
           <p className="text-xs text-slate-300 sm:text-sm">
             {isStrictGatekeeper
-              ? `ระบบคัดกรองและดำเนินการเฉพาะคำร้องที่ส่งมายังหน่วยงาน ${assignedDepts.map((d) => CATEGORY_DEFINITIONS[d]?.nameTh.split('(')[0]).join(', ')} ตามสิทธิ์ RBAC`
-              : 'ระบบคัดกรอง มอบหมายเจ้าหน้าที่ผู้รับผิดชอบ กำหนดระยะเวลา SLA และบันทึกผลการแก้ไขปัญหาตามหมวดหมู่'}
+              ? `ระบบคัดกรองและดำเนินการเฉพาะคำร้องในหมวดหมู่ ${assignedDepts.map((d) => CATEGORY_DEFINITIONS[d]?.nameTh.split('(')[0]).join(', ')} ตามสิทธิ์ RBAC`
+              : 'ระบบคัดกรอง มอบหมายเจ้าหน้าที่ผู้รับผิดชอบ และบันทึกผลการแก้ไขปัญหาตามหมวดหมู่'}
           </p>
         </div>
 
@@ -259,7 +276,7 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
                 ? 'border-amber-400 bg-amber-500/30 shadow-md ring-2 ring-amber-400/50'
                 : 'border-white/10 bg-white/10 hover:bg-white/15'
             }`}
-            title="คลิกเพื่อกรองเฉพาะรายการ 'รับเรื่อง' ตามหน่วยงานที่เลือก"
+            title="คลิกเพื่อกรองเฉพาะรายการ 'รับเรื่อง' ตามหมวดหมู่ที่เลือก"
           >
             <div className="flex items-center justify-between gap-1.5">
               <span className="block flex items-center gap-1 text-[10px] font-bold tracking-wider text-amber-200 uppercase">
@@ -295,7 +312,7 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
                 ? 'border-blue-400 bg-blue-500/30 shadow-md ring-2 ring-blue-400/50'
                 : 'border-white/10 bg-white/10 hover:bg-white/15'
             }`}
-            title="คลิกเพื่อกรองเฉพาะรายการ 'กำลังแก้ไข' ตามหน่วยงานที่เลือก"
+            title="คลิกเพื่อกรองเฉพาะรายการ 'กำลังแก้ไข' ตามหมวดหมู่ที่เลือก"
           >
             <div className="flex items-center justify-between gap-1.5">
               <span className="block flex items-center gap-1 text-[10px] font-bold tracking-wider text-blue-200 uppercase">
@@ -331,7 +348,7 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
                 ? 'border-emerald-400 bg-emerald-500/30 shadow-md ring-2 ring-emerald-400/50'
                 : 'border-white/10 bg-white/10 hover:bg-white/15'
             }`}
-            title="คลิกเพื่อกรองเฉพาะรายการ 'แก้ไขเสร็จ' ตามหน่วยงานที่เลือก"
+            title="คลิกเพื่อกรองเฉพาะรายการ 'แก้ไขเสร็จ' ตามหมวดหมู่ที่เลือก"
           >
             <div className="flex items-center justify-between gap-1.5">
               <span className="block flex items-center gap-1 text-[10px] font-bold tracking-wider text-emerald-200 uppercase">
@@ -367,7 +384,7 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
                 ? 'border-teal-300 bg-teal-500/30 shadow-md ring-2 ring-teal-400/50'
                 : 'border-white/10 bg-white/10 hover:bg-white/15'
             }`}
-            title="คลิกเพื่อกรองเฉพาะรายการ 'ปิดเรื่อง' ตามหน่วยงานที่เลือก"
+            title="คลิกเพื่อกรองเฉพาะรายการ 'ปิดเรื่อง' ตามหมวดหมู่ที่เลือก"
           >
             <div className="flex items-center justify-between gap-1.5">
               <span className="block flex items-center gap-1 text-[10px] font-bold tracking-wider text-teal-200 uppercase">
@@ -386,41 +403,57 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
             </div>
           </button>
 
-          {/* Button 5: ส่งตรง CEO */}
-          <button
-            type="button"
-            id="counter-card-ceo-direct"
-            onClick={() => {
-              if (onlyCeoDirect) {
-                setOnlyCeoDirect(false);
-              } else {
-                setOnlyCeoDirect(true);
-                setSelectedStatusFilter('ALL');
-              }
-            }}
-            className={`group cursor-pointer rounded-xl border px-3 py-2 text-center text-left transition ${
-              onlyCeoDirect
-                ? 'border-purple-300 bg-purple-500/35 shadow-md ring-2 ring-purple-400/50'
-                : 'border-white/10 bg-white/10 hover:bg-white/15'
-            }`}
-            title="คลิกเพื่อกรองเฉพาะเคส 'ส่งตรง CEO / EVP' ตามหน่วยงานที่เลือก"
-          >
-            <div className="flex items-center justify-between gap-1.5">
-              <span className="block flex items-center gap-1 text-[10px] font-bold tracking-wider text-purple-200 uppercase">
-                <Crown className="inline h-3 w-3 text-yellow-300" />
-                ส่งตรง CEO
-              </span>
-              {onlyCeoDirect && (
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-purple-300" />
-              )}
+          {/* Button 5: ส่งตรง CEO (Enforce Strict RBAC Isolation) */}
+          {canViewDirectCeo ? (
+            <button
+              type="button"
+              id="counter-card-ceo-direct"
+              onClick={() => {
+                if (onlyCeoDirect) {
+                  setOnlyCeoDirect(false);
+                } else {
+                  setOnlyCeoDirect(true);
+                  setSelectedStatusFilter('ALL');
+                }
+              }}
+              className={`group cursor-pointer rounded-xl border px-3 py-2 text-center text-left transition ${
+                onlyCeoDirect
+                  ? 'border-purple-300 bg-purple-500/35 shadow-md ring-2 ring-purple-400/50'
+                  : 'border-white/10 bg-white/10 hover:bg-white/15'
+              }`}
+              title="คลิกเพื่อกรองเฉพาะเคส 'ส่งตรง CEO / EVP' ตามหมวดหมู่ที่เลือก"
+            >
+              <div className="flex items-center justify-between gap-1.5">
+                <span className="block flex items-center gap-1 text-[10px] font-bold tracking-wider text-purple-200 uppercase">
+                  <Crown className="inline h-3 w-3 text-yellow-300" />
+                  ส่งตรง CEO
+                </span>
+                {onlyCeoDirect && (
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-purple-300" />
+                )}
+              </div>
+              <div className="mt-0.5 flex items-baseline gap-1">
+                <span className="text-lg font-black text-purple-300 transition-transform group-hover:scale-105">
+                  {ceoDirectCount}
+                </span>
+                <span className="text-[10px] font-normal text-slate-300">เคส</span>
+              </div>
+            </button>
+          ) : (
+            <div
+              id="badge-ceo-whistleblower-isolated"
+              className="flex flex-col justify-center rounded-xl border border-purple-800/40 bg-purple-950/30 px-3 py-2 text-center text-left text-purple-300/80"
+              title="ช่องทางสายตรง CEO/EVP (Whistleblower Escalation) ถูกแยกจัดเก็บเป็นความลับเฉพาะผู้บริหารระดับสูงและผู้ได้รับมอบหมายตามสิทธิ์ RBAC & ISO 37002"
+            >
+              <div className="flex items-center gap-1.5 text-[10px] font-bold tracking-wider text-purple-300 uppercase">
+                <Lock className="inline h-3 w-3 shrink-0 text-yellow-400" />
+                <span>สายตรง CEO (จำกัดสิทธิ์)</span>
+              </div>
+              <div className="mt-0.5 text-[10px] font-medium text-purple-400">
+                Whistleblower Isolated
+              </div>
             </div>
-            <div className="mt-0.5 flex items-baseline gap-1">
-              <span className="text-lg font-black text-purple-300 transition-transform group-hover:scale-105">
-                {ceoDirectCount}
-              </span>
-              <span className="text-[10px] font-normal text-slate-300">เคส</span>
-            </div>
-          </button>
+          )}
         </div>
       </div>
 
@@ -440,42 +473,42 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
             />
           </div>
 
-          {/* Special CEO Direct Toggle Filter */}
-          <button
-            type="button"
-            id="filter-ceo-direct"
-            onClick={() => {
-              if (onlyCeoDirect) {
-                setOnlyCeoDirect(false);
-              } else {
-                setOnlyCeoDirect(true);
-                setSelectedStatusFilter('ALL');
-              }
-            }}
-            className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition ${
-              onlyCeoDirect
-                ? 'border-purple-600 bg-purple-600 text-white shadow-xs ring-2 ring-purple-400/50'
-                : 'border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100'
-            }`}
-            title="กรองเฉพาะข้อร้องเรียนส่งตรง CEO/EVP ตามหน่วยงานที่เลือก"
-          >
-            <Crown className="h-3.5 w-3.5 text-yellow-500" />
-            <span>เฉพาะข้อร้องเรียนส่งตรง CEO/EVP</span>
-            <span
-              className={`py-0.2 rounded-full px-1.5 text-[10px] font-bold ${
-                onlyCeoDirect ? 'bg-white/20 text-white' : 'bg-purple-200 text-purple-900'
+          {/* Special CEO Direct Toggle Filter (Only shown if user has canViewDirectCeo permission) */}
+          {canViewDirectCeo && (
+            <button
+              type="button"
+              id="filter-ceo-direct"
+              onClick={() => {
+                if (onlyCeoDirect) {
+                  setOnlyCeoDirect(false);
+                } else {
+                  setOnlyCeoDirect(true);
+                  setSelectedStatusFilter('ALL');
+                }
+              }}
+              className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition ${
+                onlyCeoDirect
+                  ? 'border-purple-600 bg-purple-600 text-white shadow-xs ring-2 ring-purple-400/50'
+                  : 'border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100'
               }`}
+              title="กรองเฉพาะข้อร้องเรียนส่งตรง CEO/EVP ตามหมวดหมู่ที่เลือก"
             >
-              {ceoDirectCount}
-            </span>
-          </button>
+              <Crown className="h-3.5 w-3.5 text-yellow-500" />
+              <span>เฉพาะข้อร้องเรียนส่งตรง CEO/EVP</span>
+              <span
+                className={`py-0.2 rounded-full px-1.5 text-[10px] font-bold ${
+                  onlyCeoDirect ? 'bg-white/20 text-white' : 'bg-purple-200 text-purple-900'
+                }`}
+              >
+                {ceoDirectCount}
+              </span>
+            </button>
+          )}
         </div>
 
-        {/* Department Chips */}
+        {/* Category Chips */}
         <div className="no-scrollbar flex items-center gap-1.5 overflow-x-auto py-1">
-          <span className="text-xs font-semibold whitespace-nowrap text-slate-500">
-            หน่วยงาน (รับเรื่อง + กำลังแก้ไข):
-          </span>
+          <span className="text-xs font-semibold whitespace-nowrap text-slate-500">หมวดหมู่:</span>
           {departmentsList.map((d) => {
             const isTargetTicket = (t: ComplaintTicket) =>
               t.status === 'submitted' ||
@@ -627,16 +660,16 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
                         </span>
                       )}
                       <span
-                        className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
-                          t.urgency === 'Critical'
-                            ? 'bg-red-100 text-red-800'
-                            : t.urgency === 'High'
-                              ? 'bg-orange-100 text-orange-800'
-                              : 'bg-slate-100 text-slate-700'
-                        }`}
+                        className={`rounded border px-2 py-0.5 text-[10px] font-semibold ${getUrgencyColor(t.urgency)}`}
                       >
-                        {t.urgency} Urgency
+                        {getUrgencyBadgeText(t.urgency)}
                       </span>
+                      {t.anonymousMessages && t.anonymousMessages.length > 0 && (
+                        <span className="inline-flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
+                          <MessageSquare className="h-3 w-3 text-amber-600" />
+                          <span>แชทนิรนาม ({t.anonymousMessages.length})</span>
+                        </span>
+                      )}
                     </div>
 
                     <h3 className="line-clamp-1 text-xs font-bold text-slate-900 sm:text-sm">
@@ -646,8 +679,8 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
 
                     <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-slate-500">
                       <span>
-                        หน่วยงาน:{' '}
-                        <strong className="text-slate-700">{t.gatekeeperDepartment}</strong>
+                        หมวดหมู่:{' '}
+                        <strong className="text-slate-700">{catInfo?.nameTh || t.category}</strong>
                       </span>
                       <span>
                         ผู้รับผิดชอบ:{' '}
@@ -729,6 +762,50 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
                 </div>
               </div>
 
+              {/* Urgency & Risk Re-evaluation */}
+              <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3.5">
+                <label className="block text-xs font-bold text-slate-700">
+                  ทบทวนระดับความเร่งด่วนและความเสี่ยง (Urgency & Risk Assessment):
+                </label>
+                <div className="grid grid-cols-1 gap-2.5 text-xs sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold text-slate-600">
+                      ระดับความเร่งด่วน (Urgency):
+                    </label>
+                    <select
+                      value={triageUrgency}
+                      onChange={(e) => {
+                        const u = e.target.value as UrgencyLevel;
+                        setTriageUrgency(u);
+                      }}
+                      className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    >
+                      <option value="Low">🟢 ต่ำ / ทั่วไป (Low)</option>
+                      <option value="Medium">🟡 ปานกลาง (Medium)</option>
+                      <option value="High">🔴 เร่งด่วน (High)</option>
+                      <option value="Critical">🔥 วิกฤติ / ฉุกเฉิน (Critical)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold text-slate-600">
+                      ระดับความเสี่ยง (Risk Severity):
+                    </label>
+                    <select
+                      value={triageRiskSeverity}
+                      onChange={(e) =>
+                        setTriageRiskSeverity(e.target.value as ComplaintTicket['riskSeverity'])
+                      }
+                      className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    >
+                      <option value="Low">เสี่ยงต่ำ (Low)</option>
+                      <option value="Moderate">เสี่ยงปานกลาง (Moderate)</option>
+                      <option value="High">เสี่ยงสูง (High)</option>
+                      <option value="Severe">วิกฤติรุนแรง (Severe)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
               {/* Assignee Details */}
               <div className="space-y-2 text-xs">
                 {/* Fast Selector from Configured Department Officers */}
@@ -739,7 +816,7 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
                     return (
                       <div>
                         <span className="mb-1 block text-[11px] font-semibold text-slate-500">
-                          เลือกจากรายชื่อ Gatekeeper ประจำหน่วยงาน {triageTicket.category}:
+                          เลือกจากรายชื่อ Gatekeeper ประจำหมวดหมู่ {triageTicket.category}:
                         </span>
                         <div className="mb-2 flex flex-wrap gap-1.5">
                           {officers.map((o) => {
@@ -825,8 +902,8 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
                     <option value="Policy/Governance">
                       นโยบาย / กฎระเบียบบริษัท (Policy/Governance)
                     </option>
-                    <option value="Environment">
-                      สิ่งแวดล้อม / สถานที่ทางกายภาพ (Environment)
+                    <option value="Workplace/Facilities">
+                      สถานที่ทำงานและกายภาพ (Workplace/Facilities)
                     </option>
                   </select>
                 </div>

@@ -1,23 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import {
-  Layers,
-  Sparkles,
-  ShieldCheck,
-  AlertOctagon,
-  GitBranch,
-  Workflow,
-  CheckCircle2,
-  HelpCircle,
-  ChevronRight,
-  ArrowRight,
-  TrendingDown,
-  Building,
-  Target,
-} from 'lucide-react';
+import { Layers, GitBranch, CheckCircle2, ChevronRight, Target } from 'lucide-react';
 import { ComplaintTicket } from '../types';
-import { CATEGORY_DEFINITIONS } from '../mockData';
 
 interface RootCauseClusteringProps {
   tickets: ComplaintTicket[];
