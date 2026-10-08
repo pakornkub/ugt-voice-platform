@@ -7,3 +7,6 @@ lib/generated/
 public/
 *.min.js
 package-lock.json
+
+# Claude Code session worktrees (full repo copies)
+.claude/worktrees/

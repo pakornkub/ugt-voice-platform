@@ -42,7 +42,7 @@ try {
     templateKey: 'ticket.status_update',
     to: updated.submitterEmail,
     vars: {
-      appName: 'UGT VoiceCare',
+      appName: 'UGT VoicePlatform',
       recipientName: updated.submitterName,
       trackingCode: updated.trackingCode,
       notificationTitle: notifTitle,

@@ -1,5 +1,5 @@
 // ============================================================================
-// Org-standard Jenkins pipeline — 10 stages — UGT VoiceCare (ugt-voice-platform)
+// Org-standard Jenkins pipeline — 10 stages — UGT VoicePlatform (ugt-voice-platform)
 // Checkout → Install → Code Quality (parallel) → Unit Tests → Build
 //   → OWASP Dependency Check → SonarQube Analysis → Quality Gate
 //   → Docker Build → Deploy
@@ -11,7 +11,7 @@
 //
 // Sections marked [DB] are present — this project uses Prisma + SQL Server.
 // Sections marked [VOLUME] prepare persistent-data host paths before deploy —
-// `storage` (uploaded attachments). No virus scan / ClamAV (decisions.md 2026-10-09).
+// `storage` (uploaded attachments).
 // ============================================================================
 pipeline {
     agent any
@@ -33,7 +33,7 @@ pipeline {
     environment {
         CI                  = 'true'   // activates JUnit reporter + standalone output
         SKIP_ENV_VALIDATION = '1'      // bypass @t3-oss/env-nextjs in CI (never in prod container)
-        NEXT_PUBLIC_APP_NAME = 'UGT VoiceCare'
+        NEXT_PUBLIC_APP_NAME = 'UGT VoicePlatform'
         // NOTIFY_EMAIL and SMTP_FROM must be set in
         // Manage Jenkins → System → Global properties → Environment variables
         // NEXT_PUBLIC_BASE_PATH / NEXT_PUBLIC_APP_URL are resolved per-branch
@@ -154,7 +154,7 @@ pipeline {
                     def br        = (env.BRANCH_NAME ?: env.GIT_BRANCH?.tokenize('/')?.last())
                     def isProd    = (br == 'main')
                     def sonarKey  = isProd ? 'ugt-voice-platform'          : 'ugt-voice-platform-dev'
-                    def sonarName = isProd ? 'UGT VoiceCare'          : 'UGT VoiceCare (Dev)'
+                    def sonarName = isProd ? 'UGT VoicePlatform'          : 'UGT VoicePlatform (Dev)'
                     // dc-report/ already exists from the OWASP stage above — SonarQube DC
                     // plugin imports it via sonar.dependencyCheck.jsonReportPath
                     withSonarQubeEnv('SonarQube') {

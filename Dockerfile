@@ -1,4 +1,4 @@
-# Org-standard 3-stage Next.js Dockerfile (Node 22 / Alpine) — UGT VoiceCare
+# Org-standard 3-stage Next.js Dockerfile (Node 22 / Alpine) — UGT VoicePlatform
 # Stage names matter: the Jenkinsfile builds `--target builder` as a separate
 # image used for `prisma migrate deploy` at deploy time.
 #
@@ -30,7 +30,7 @@ COPY . .
 # injection has NO effect on client-side vars.
 ARG NEXT_PUBLIC_BASE_PATH=/ugt-voice-platform
 ARG NEXT_PUBLIC_APP_URL
-ARG NEXT_PUBLIC_APP_NAME="UGT VoiceCare"
+ARG NEXT_PUBLIC_APP_NAME="UGT VoicePlatform"
 
 ENV NEXT_PUBLIC_BASE_PATH=$NEXT_PUBLIC_BASE_PATH \
     NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL \
