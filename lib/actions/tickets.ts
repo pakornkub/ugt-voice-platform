@@ -22,12 +22,15 @@
 // goes out today; the wiring is correct and ready for when the call sites
 // switch from src/services/api.ts's localStorage functions to these.
 import { headers } from 'next/headers';
+import type { ticket as TicketRow } from '@prisma/client';
 import { auth } from '@/lib/auth';
 import { env } from '@/lib/env';
 import { sendTemplatedMail, type MailActor } from '@/lib/email';
 import { getUserPermissions } from '@/lib/get-user-permissions';
 import { PERMISSIONS } from '@/lib/permissions';
+import { AUDIT_ACTIONS, type AuditAction } from '@/lib/audit-actions';
 import { prisma } from '@/lib/prisma';
+import { getEmployeeById } from '@/services/employeeDirectory';
 import { mapTicket } from './mappers';
 import type {
   ComplaintTicket,
@@ -176,6 +179,33 @@ export async function getTicketByTrackingCode(
   return row ? mapTicket(row) : null;
 }
 
+/**
+ * Backend mapping of the login email, same precedence as upstream's
+ * mapLoginEmailForTicket(): explicit loginEmail → employee-directory lookup by
+ * employee id → the submitter's own email. Upstream's last resort is the mock
+ * "current login employee"; server-side that is the signed-in session user.
+ * The directory is the upstream mock until the HR view lands (decisions.md
+ * 2026-10-08).
+ */
+async function resolveLoginEmail(payload: {
+  loginEmail?: string;
+  submitterEmployeeId?: string;
+  submitterEmail?: string;
+}): Promise<string | undefined> {
+  const explicit = payload.loginEmail?.trim();
+  if (explicit) return explicit;
+  const fromDirectory = getEmployeeById(payload.submitterEmployeeId?.trim())?.loginEmail;
+  if (fromDirectory) return fromDirectory;
+  const submitterEmail = payload.submitterEmail?.trim();
+  if (submitterEmail) return submitterEmail;
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    return session?.user.email;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function submitTicket(
   payload: Omit<
     ComplaintTicket,
@@ -185,6 +215,7 @@ export async function submitTicket(
   const year = new Date().getFullYear();
   const randomCode = Math.floor(1000 + Math.random() * 9000);
   const trackingCode = `TK-${year}-${randomCode}`;
+  const finalLoginEmail = await resolveLoginEmail(payload);
 
   const created = await prisma.ticket.create({
     data: {
@@ -199,11 +230,9 @@ export async function submitTicket(
       submitterName: payload.submitterName,
       submitterEmployeeId: payload.submitterEmployeeId,
       submitterDepartment: payload.submitterDepartment,
-      submitterEmail: payload.submitterEmail,
+      submitterEmail: payload.submitterEmail || finalLoginEmail,
       submitterPhone: payload.submitterPhone,
-      // Mapped from the employee directory by the caller (upstream
-      // mapLoginEmailForTicket) — falls back to the submitter's own email.
-      loginEmail: payload.loginEmail ?? payload.submitterEmail,
+      loginEmail: finalLoginEmail,
       isAnonymousMapped:
         payload.confidentiality === 'anonymous' ? true : !!payload.isAnonymousMapped,
       gatekeeperDepartment: payload.gatekeeperDepartment,
@@ -371,9 +400,82 @@ export async function updateTicketWorkflow(
   return mapTicket(updated);
 }
 
+async function auditLog(userId: string, action: AuditAction, detail: unknown) {
+  await prisma.activityLog
+    .create({ data: { userId, action, detail: JSON.stringify(detail) } })
+    .catch(() => {});
+}
+
+const STAFF_ROLES: UserRole[] = ['gatekeeper', 'executive', 'admin'];
+
+type ChatTicket = Pick<
+  TicketRow,
+  | 'confidentiality'
+  | 'submitterName'
+  | 'assignedOfficerName'
+  | 'gatekeeperDepartment'
+  | 'category'
+  | 'loginEmail'
+  | 'submitterEmail'
+>;
+
+/**
+ * session → permission for the anonymous chat. This project's "permission" for
+ * ticket workflow is the app role on the user row (`user.appRole`, assigned
+ * from /admin/users): the caller may only post as the role they hold, and an
+ * employee only on a ticket that is theirs (login email / submitter email).
+ * Per-department scoping for gatekeepers lands with the rewiring, together with
+ * the other ticket actions (see handoff.md → Next).
+ */
+async function requireChatAccess(ticket: ChatTicket, senderRole: UserRole) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) throw new Error('UNAUTHORIZED');
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { appRole: true },
+  });
+  if (user?.appRole !== senderRole) throw new Error('FORBIDDEN');
+
+  if (senderRole === 'employee') {
+    const email = session.user.email.toLowerCase();
+    const owns = [ticket.loginEmail, ticket.submitterEmail].some(
+      (candidate) => candidate?.toLowerCase() === email
+    );
+    if (!owns) throw new Error('FORBIDDEN');
+  }
+  return session;
+}
+
+function defaultChatSenderName(ticket: ChatTicket, senderRole: UserRole): string {
+  switch (senderRole) {
+    case 'employee':
+      return ticket.confidentiality === 'anonymous' ||
+        ticket.confidentiality === 'confidential_restricted'
+        ? 'ผู้ยื่นเรื่อง (ไม่เปิดเผยตัวตน / Anonymous)'
+        : ticket.submitterName || 'ผู้ยื่นเรื่อง (Employee)';
+    case 'gatekeeper':
+      return ticket.assignedOfficerName
+        ? `Gatekeeper (${ticket.assignedOfficerName})`
+        : `Gatekeeper ประจำฝ่าย ${ticket.gatekeeperDepartment || ticket.category}`;
+    case 'executive':
+      return 'คณะกรรมการตรวจสอบ / ผู้บริหารระดับสูง (Audit Committee)';
+    default:
+      return 'เจ้าหน้าที่ผู้ดูแลระบบ (System Admin)';
+  }
+}
+
+const TIMELINE_ACTOR_ROLE: Record<UserRole, string> = {
+  employee: 'Employee',
+  executive: 'Executive',
+  gatekeeper: 'Gatekeeper',
+  admin: 'Gatekeeper',
+};
+
 // Anonymous 2-way chat (Complainant <-> Gatekeeper/Executive) — port of
-// src/services/api.ts sendAnonymousChatMessage. Appends the message, a
-// timeline entry and a counterpart notification in one transaction.
+// src/services/api.ts sendAnonymousChatMessage. Guard order per org contract:
+// session → permission → action → audit log. The message, its timeline entry
+// and the counterpart notification are written in one transaction.
 export async function sendAnonymousChatMessage(
   ticketId: string,
   messageText: string,
@@ -383,72 +485,63 @@ export async function sendAnonymousChatMessage(
   const current = await prisma.ticket.findUnique({ where: { id: ticketId } });
   if (!current) return null;
 
-  const isStaff =
-    senderRole === 'gatekeeper' || senderRole === 'executive' || senderRole === 'admin';
+  const session = await requireChatAccess(current, senderRole);
+
+  const isStaff = STAFF_ROLES.includes(senderRole);
   const text = messageText.trim();
+  const finalSenderName = senderDisplayName || defaultChatSenderName(current, senderRole);
 
-  let defaultName: string;
-  if (senderRole === 'employee') {
-    defaultName =
-      current.confidentiality === 'anonymous' ||
-      current.confidentiality === 'confidential_restricted'
-        ? 'ผู้ยื่นเรื่อง (ไม่เปิดเผยตัวตน / Anonymous)'
-        : current.submitterName || 'ผู้ยื่นเรื่อง (Employee)';
-  } else if (senderRole === 'gatekeeper') {
-    defaultName = current.assignedOfficerName
-      ? `Gatekeeper (${current.assignedOfficerName})`
-      : `Gatekeeper ประจำฝ่าย ${current.gatekeeperDepartment || current.category}`;
-  } else if (senderRole === 'executive') {
-    defaultName = 'คณะกรรมการตรวจสอบ / ผู้บริหารระดับสูง (Audit Committee)';
-  } else {
-    defaultName = 'เจ้าหน้าที่ผู้ดูแลระบบ (System Admin)';
-  }
-  const finalSenderName = senderDisplayName || defaultName;
-
-  let actorRole = 'Gatekeeper';
-  if (senderRole === 'employee') actorRole = 'Employee';
-  else if (senderRole === 'executive') actorRole = 'Executive';
-
-  const updated = await prisma.ticket.update({
-    where: { id: ticketId },
-    data: {
-      anonymousMessages: {
-        create: {
-          senderRole,
-          senderDisplayName: finalSenderName,
-          message: text,
-          isStaff,
-          isReadByEmployee: !isStaff,
-          isReadByStaff: isStaff,
+  const updated = await prisma.$transaction(async (tx) => {
+    const ticket = await tx.ticket.update({
+      where: { id: ticketId },
+      data: {
+        anonymousMessages: {
+          create: {
+            senderRole,
+            senderDisplayName: finalSenderName,
+            message: text,
+            isStaff,
+            isReadByEmployee: !isStaff,
+            isReadByStaff: isStaff,
+          },
+        },
+        timeline: {
+          create: {
+            status: current.status,
+            action: isStaff
+              ? 'เจ้าหน้าที่ส่งข้อความสอบถาม/ชี้แจงผ่านช่องทางนิรนาม'
+              : 'ผู้ยื่นเรื่องตอบกลับผ่านช่องทางสื่อสารนิรนาม',
+            actor: finalSenderName,
+            actorRole: TIMELINE_ACTOR_ROLE[senderRole],
+            notes: `[Anonymous Q&A] ${text.length > 80 ? text.substring(0, 80) + '...' : text}`,
+          },
         },
       },
-      timeline: {
-        create: {
-          status: current.status,
-          action: isStaff
-            ? 'เจ้าหน้าที่ส่งข้อความสอบถาม/ชี้แจงผ่านช่องทางนิรนาม'
-            : 'ผู้ยื่นเรื่องตอบกลับผ่านช่องทางสื่อสารนิรนาม',
-          actor: finalSenderName,
-          actorRole,
-          notes: `[Anonymous Q&A] ${text.length > 80 ? text.substring(0, 80) + '...' : text}`,
-        },
+      include: TICKET_INCLUDE,
+    });
+
+    await tx.notification.create({
+      data: {
+        ticketId: ticket.id,
+        trackingCode: ticket.trackingCode,
+        title: isStaff
+          ? `[ข้อความใหม่จากเจ้าหน้าที่] ${ticket.trackingCode}`
+          : `[ข้อความใหม่จากผู้ร้องเรียน] ${ticket.trackingCode}`,
+        message: `${finalSenderName}: ${text.substring(0, 75)}${text.length > 75 ? '...' : ''}`,
+        type: 'status_update',
+        recipientRole: isStaff ? 'employee' : 'gatekeeper',
+        recipientEmail: isStaff ? ticket.submitterEmail : null,
       },
-    },
-    include: TICKET_INCLUDE,
+    });
+
+    return ticket;
   });
 
-  await prisma.notification.create({
-    data: {
-      ticketId: updated.id,
-      trackingCode: updated.trackingCode,
-      title: isStaff
-        ? `[ข้อความใหม่จากเจ้าหน้าที่] ${updated.trackingCode}`
-        : `[ข้อความใหม่จากผู้ร้องเรียน] ${updated.trackingCode}`,
-      message: `${finalSenderName}: ${text.substring(0, 75)}${text.length > 75 ? '...' : ''}`,
-      type: 'status_update',
-      recipientRole: isStaff ? 'employee' : 'gatekeeper',
-      recipientEmail: isStaff ? updated.submitterEmail : null,
-    },
+  // Never log the message body — anonymous submitters rely on it staying out of logs.
+  await auditLog(session.user.id, AUDIT_ACTIONS.TICKETS_CHAT_SEND, {
+    ticketId,
+    trackingCode: updated.trackingCode,
+    senderRole,
   });
 
   return mapTicket(updated);
