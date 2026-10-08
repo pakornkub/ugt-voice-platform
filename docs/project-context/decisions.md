@@ -514,3 +514,11 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   holds), and `/admin/mail-templates` + the 5 `NotificationItem['type']`-keyed templates are
   retired in favour of this page · rejected: keeping our template editor and only borrowing
   ideas (user wants upstream's behaviour).
+- 2026-10-08 **No shadow database; separate `UGT_VoiceCare_DEV`** — databases are
+  `UGT_VoiceCare` (prod, `main`) and `UGT_VoiceCare_DEV` (dev, `develop` + local), the org
+  naming used by sibling projects; the project owner creates both himself and never
+  provisions a shadow DB. Migrations keep being generated offline (`prisma migrate diff`
+  schema→schema, as every migration so far was) and applied with `prisma migrate deploy`;
+  `prisma migrate dev` is not part of the workflow · cost: no automatic drift detection —
+  never hand-edit tables · rejected: `UGT_VoiceCare_Shadow` (unneeded with the offline
+  workflow).

@@ -11,7 +11,7 @@
 
 | #   | ระบบ        | งาน                                                                          | ใช้เวลาโดยประมาณ |
 | --- | ----------- | ---------------------------------------------------------------------------- | ---------------- |
-| 1   | SQL Server  | สร้าง database prod + dev (+ shadow ถ้าจำเป็น) + login 1 ตัว + สิทธิ์        | ~10 นาที         |
+| 1   | SQL Server  | สร้าง database prod + dev + login 1 ตัว + สิทธิ์                             | ~10 นาที         |
 | 1.4 | HR view     | view ข้อมูลพนักงาน (อ่านอย่างเดียว) ให้ login ของแอป `SELECT` ได้ (ดู §1.4)  | ประสาน HR        |
 | 2   | Keycloak    | สร้าง client 1 ตัวในระบบ SSO กลางขององค์กร (Client ID `ugt-voicecare`)       | ~10 นาที         |
 | 3   | SMTP        | ให้ host/port ของ SMTP relay + ที่อยู่อีเมลผู้ส่งที่ relay อนุญาต            | ~5 นาที          |
@@ -31,12 +31,11 @@ script **พร้อมใช้งานทันที** ที่ได้�
 
 ### 1.1 สิ่งที่ต้องสร้าง
 
-| อะไร                                                                        | ชื่อที่แนะนำ             | หมายเหตุ                                                                                                                                                                                                                             |
-| --------------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Database prod (branch `main`)                                               | `UGT_VoiceCare`          | ชื่อตามรูปแบบองค์กร — **ถ้า DBA อยากใช้ชื่ออื่น แจ้งกลับแทนที่จะเปลี่ยนเงียบ ๆ** (ชื่ออยู่ใน `DATABASE_URL` เท่านั้น ทีมพัฒนาต้องอัปเดต `.env`/Jenkins secret ให้ตรง)                                                                |
-| Database dev (branch `develop` + พัฒนาในเครื่อง)                            | `UGT_VoiceCare_DEV`      | ฐานแยกจาก prod บน instance เดียวกันได้ (รูปแบบเดียวกับโปรเจคอื่น เช่น `UGT_RDVelocity_DEV`) — ใช้ใน secret `env-ugt-voicecare-dev` (§5.1)                                                                                            |
-| Database เปล่าสำหรับ shadow (**dev เท่านั้น**, ใช้โดย `prisma migrate dev`) | `UGT_VoiceCare_Shadow`   | Prisma จะ**ล้างข้อมูลทั้งหมด**ในฐานนี้ทุกครั้งที่รัน migrate dev — ห้ามชี้ไปฐานที่มีข้อมูลจริงเด็ดขาด ไม่ต้องสร้างถ้า login มีสิทธิ์ `CREATE DATABASE` เองอยู่แล้ว (Prisma จะสร้าง/ลบเองอัตโนมัติ)                                   |
-| SQL Login สำหรับแอป                                                         | เช่น `ugt_voicecare_app` | ต้องมีสิทธิ์ `db_datareader`/`db_datawriter`/`db_ddladmin` บนฐาน prod และ dev (ddladmin เพื่อให้ `prisma migrate deploy` สร้าง/แก้ตารางได้) และสิทธิ์เต็มบนฐาน shadow (ถ้าใช้ทางเลือกฐาน shadow แยก ไม่ใช่ `CREATE DATABASE` โดยตรง) |
+| อะไร                                             | ชื่อที่แนะนำ             | หมายเหตุ                                                                                                                                                                                                       |
+| ------------------------------------------------ | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Database prod (branch `main`)                    | `UGT_VoiceCare`          | ชื่อตามรูปแบบองค์กร — **ถ้า DBA อยากใช้ชื่ออื่น แจ้งกลับแทนที่จะเปลี่ยนเงียบ ๆ** (ชื่ออยู่ใน `DATABASE_URL` เท่านั้น ทีมพัฒนาต้องอัปเดต `.env`/Jenkins secret ให้ตรง)                                          |
+| Database dev (branch `develop` + พัฒนาในเครื่อง) | `UGT_VoiceCare_DEV`      | ฐานแยกจาก prod บน instance เดียวกันได้ (รูปแบบเดียวกับโปรเจคอื่น เช่น `UGT_RDVelocity_DEV`) — ใช้ใน secret `env-ugt-voicecare-dev` (§5.1)                                                                      |
+| SQL Login สำหรับแอป                              | เช่น `ugt_voicecare_app` | ต้องมีสิทธิ์ `db_datareader`/`db_datawriter`/`db_ddladmin` บนฐาน prod และ dev (ddladmin เพื่อให้ `prisma migrate deploy` สร้าง/แก้ตารางได้) — ไม่ต้องมี shadow database (โปรเจคนี้สร้าง migration แบบ offline) |
 
 ### 1.2 เชื่อมต่อแบบไหน
 
@@ -68,21 +67,19 @@ certificate มาให้ตั้ง trust chain จริง (แนะน�
 
 ## ✅ ค่าที่ต้องส่งกลับให้ทีมพัฒนา (กรอกแล้วส่งไฟล์นี้คืน)
 
-| ค่า                                      | มาจากไหน                                                                                                | กรอกตรงนี้                              |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| **→ SQL Server host/instance**           | เช่น `10.20.x.x` หรือ `sql01.company.local\INSTANCE`                                                    |                                         |
-| **→ Port**                               | ปกติ `1433` เว้นแต่ตั้งพอร์ตอื่น                                                                        |                                         |
-| **→ ชื่อ database prod**                 | ยืนยันว่าใช้ `UGT_VoiceCare` ตามที่เสนอ หรือแจ้งชื่อจริง                                                |                                         |
-| **→ ชื่อ database dev**                  | ยืนยันว่าใช้ `UGT_VoiceCare_DEV` ตามที่เสนอ หรือแจ้งชื่อจริง                                            |                                         |
-| **→ ชื่อ database shadow (ถ้าสร้างแยก)** | ยืนยันว่าใช้ `UGT_VoiceCare_Shadow` หรือแจ้งชื่อจริง — เว้นว่างถ้า login มีสิทธิ์ `CREATE DATABASE` เอง |                                         |
-| **→ Username**                           | SQL Login ที่สร้างให้แอป                                                                                |                                         |
-| **→ Password**                           | รหัสผ่านของ login ด้านบน                                                                                | **ส่งช่องทางปลอดภัย อย่ากรอกในไฟล์นี้** |
-| **→ TLS**                                | `trustServerCertificate=true` (self-signed/dev) หรือแนบไฟล์ CA cert (`.pem`/`.crt`)                     |                                         |
+| ค่า                            | มาจากไหน                                                                            | กรอกตรงนี้                              |
+| ------------------------------ | ----------------------------------------------------------------------------------- | --------------------------------------- |
+| **→ SQL Server host/instance** | เช่น `10.20.x.x` หรือ `sql01.company.local\INSTANCE`                                |                                         |
+| **→ Port**                     | ปกติ `1433` เว้นแต่ตั้งพอร์ตอื่น                                                    |                                         |
+| **→ ชื่อ database prod**       | ยืนยันว่าใช้ `UGT_VoiceCare` ตามที่เสนอ หรือแจ้งชื่อจริง                            |                                         |
+| **→ ชื่อ database dev**        | ยืนยันว่าใช้ `UGT_VoiceCare_DEV` ตามที่เสนอ หรือแจ้งชื่อจริง                        |                                         |
+| **→ Username**                 | SQL Login ที่สร้างให้แอป                                                            |                                         |
+| **→ Password**                 | รหัสผ่านของ login ด้านบน                                                            | **ส่งช่องทางปลอดภัย อย่ากรอกในไฟล์นี้** |
+| **→ TLS**                      | `trustServerCertificate=true` (self-signed/dev) หรือแนบไฟล์ CA cert (`.pem`/`.crt`) |                                         |
 
 ## เช็คก่อนปิดงาน (ฝั่ง Admin/DBA)
 
 - [ ] Database prod + dev สร้างแล้ว ชื่อยืนยันตรงกับที่แจ้งกลับ
-- [ ] Database shadow สร้างแล้ว **หรือ** login ได้สิทธิ์ `CREATE DATABASE` แทน
 - [ ] SQL Login สร้างแล้ว พร้อมสิทธิ์ตามตาราง 1.1
 - [ ] `encrypt=true` เปิดใช้งานบน SQL Server (ไม่ใช่ plaintext connection)
 - [ ] ตัดสินใจเรื่อง TLS แล้ว (self-signed ยอมรับ หรือส่ง CA cert)
@@ -92,11 +89,11 @@ certificate มาให้ตั้ง trust chain จริง (แนะน�
 
 ```bash
 # ใส่ค่าจริงใน .env.local (host/port/database/user/password ตามตารางด้านบน)
-npx prisma migrate resolve --applied 20260902000000_init
+npx prisma migrate deploy
 npx prisma generate
 npx prisma db seed
-# schema เปลี่ยนเพิ่มเติมในอนาคต ใช้ปกติ:
-# npx prisma migrate dev --name <describes_the_change>
+# schema เปลี่ยนในอนาคต: สร้าง migration แบบ offline (ไม่ใช้ migrate dev — ไม่มี shadow)
+# npx prisma migrate diff --from-schema <schema เดิม> --to-schema prisma/schema.prisma --script > prisma/migrations/<ts>_<name>/migration.sql
 ```
 
 <!-- /[DATABASE] -->
