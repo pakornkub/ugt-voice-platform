@@ -517,13 +517,26 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
 - 2026-10-08 **Upstream port, phase 1 (shared layer) landed — deviations from a literal copy** —
   (a) `ticket.sla_warning` mail template/key dropped with the `sla_warning` notification type
   (`NotificationItem['type']` lost it upstream); the 2026-09-02 mail-setup entry that kept it
-  "for parity" is superseded · (b) upstream's duplicated category-keyword list (`server.ts` +
-  `api.ts`) is one module, `src/services/categoryHeuristics.ts`, rule order preserved ·
+  "for parity" is superseded · (b) upstream's two category-keyword lists (`server.ts`: 7 rules; `api.ts` client
+  catch-path: the last 5 of those) live in one module, `src/services/categoryHeuristics.ts`,
+  as `SERVER_ONLY_RULES` + `SHARED_RULES` — each consumer keeps exactly upstream's behaviour
+  (server fallback = both lists, client fallback = shared only; `ฮั้ว`/`พูดจาดูถูก` are
+  server-only); rule order is preserved within each list ·
   (c) Gemini helpers live in `lib/gemini.ts` (typed `unknown` errors, throws a real `Error` if
   every model returns empty text) instead of inline in each route · (d) `navigateTab()` exempts
   the four RBAC-permission `admin_*` tabs from the `allowedTabs` check · (e) Prisma migration
-  `20261008000000_port_upstream_p1` drops SLA columns, adds `LoginEmail`/`IsAnonymousMapped`/
-  `CanViewAnonymousSubmitterEmail` and `TicketAnonymousMessages`; it does **not** remap rows with
-  retired categories (no DB existed) — remap `Tickets.Category` first if a DB with rows ever
-  gets it · rejected: copying upstream files verbatim (would re-add `any`, duplicated rule lists
+  `20261008000000_port_upstream_p1` drops SLA columns (**intended data loss**: `SlaTargetHours`/
+  `SlaDueDate`/`SlaStatus`/`DefaultSlaHours`), adds `LoginEmail`/`IsAnonymousMapped`/
+  `CanViewAnonymousSubmitterEmail` and `TicketAnonymousMessages`, and starts with a hand-written
+  data step mirroring upstream's localStorage migrations: Environment → Compliance (+
+  `GatekeeperDepartment`), IT/Safety tickets soft-deleted (upstream discards them with its v5 key
+  bump), retired gatekeeper configs/officers soft-deleted, retired categories stripped from
+  `RoleAccessConfigs.AssignedDepartmentsJson`, `sla_warning` notifications + its
+  `AppSettings` template override removed, new flag defaulted on for executive/admin ·
+  (f) `lib/actions/tickets.ts` `sendAnonymousChatMessage` has the full session → permission →
+  action → audit chain (permission = caller's `user.appRole` equals `senderRole`, employees only
+  on their own ticket; audit `tickets.chat-send` never logs the message body) and runs in one
+  `prisma.$transaction`; `submitTicket` resolves `loginEmail` in upstream's order (explicit →
+  directory by employee id → submitter email → session email in place of the mock "current login
+  employee") · rejected: copying upstream files verbatim (would re-add `any`, duplicated rule lists
   and SSR-unsafe `localStorage` access).

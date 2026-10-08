@@ -23,9 +23,10 @@
 - `src/services/employeeDirectory.ts` — mock corporate employee DB (`EMPLOYEE_DATABASE`,
   `mapLoginEmailForTicket`, `getCurrentLoginEmployee`) ported unchanged from upstream; to be
   replaced by a read-only HR view (decision 2026-10-08, `docs/admin-handoff.md` §1.4).
-- `src/services/categoryHeuristics.ts` — keyword → category rules, used by the
-  `/api/ai/suggest-category` fallback and by `suggestCategoryWithAI()` when the fetch fails
-  (upstream duplicated the list in `server.ts` and `api.ts`; one copy here).
+- `src/services/categoryHeuristics.ts` — keyword → category rules: `analyzeWithHeuristics()`
+  (server fallback of `/api/ai/suggest-category`, 7 rules) and `analyzeWithClientHeuristics()`
+  (client catch-path of `suggestCategoryWithAI()`, the shared 5 rules) — the two lists upstream
+  keeps in `server.ts` / `api.ts`, sharing one copy of the common rules.
 - `src/components/` — one component per feature screen/modal, all `'use client'`. Unchanged
   logic from the pre-migration Vite SPA (see decisions.md, 2026-09-02 migration).
 - `src/services/api.ts` — **still the live data layer** (localStorage) that every component

@@ -23,6 +23,10 @@ Last updated: 2026-10-08
   - `get/setActiveGatekeeperDepartment` → plain React state, not a Server Action.
   - `src/app/(shell)/shell.tsx`'s `eslint-disable react-hooks/set-state-in-effect` on the
     mount-time localStorage read goes away with this rewiring.
+  - Other tickets actions still have no session/permission guard — copy the chain from
+    `sendAnonymousChatMessage` (`requireChatAccess`) and add department scoping for gatekeepers.
+  - `resolveLoginEmail()` in `lib/actions/tickets.ts` uses the upstream mock
+    `employeeDirectory` — swap for the HR employee view when DBA provides it.
 - Redesign `ExportAnalyticsModal`'s SQL Query Studio as preset reports before wiring it to a
   real SQL Server (decided — see `decisions.md`).
 - Create the Jenkins Multibranch Pipeline job + VCS→Jenkins webhook against
