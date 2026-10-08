@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { FileText, Printer, Copy, Check, X, Shield, CheckCircle2, Lock } from 'lucide-react';
-import { ComplaintTicket } from '../types';
+import { ComplaintTicket, ConfidentialityLevel } from '../types';
 import { CATEGORY_DEFINITIONS } from '../mockData';
 import { getStatusBadgeText, getUrgencyBadgeText, getRiskSeverityBadgeText } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
@@ -12,31 +13,192 @@ interface InvestigationReportModalProps {
   onClose: () => void;
 }
 
-export const InvestigationReportModal: React.FC<Readonly<InvestigationReportModalProps>> = ({
-  ticket,
-  onClose,
-}) => {
-  const { lang } = useLanguage();
-  const [copied, setCopied] = useState(false);
+type Evaluation = NonNullable<ComplaintTicket['evaluation']>;
 
-  if (!ticket) return null;
+const PROTECTION_SUMMARY_TEXT: Record<ConfidentialityLevel, string> = {
+  anonymous: 'ไม่ระบุตัวตน (Anonymous)',
+  confidential_restricted: 'ปกปิดตัวตนพิเศษ (Confidential)',
+  standard_named: 'ระบุตัวตน (Standard Named)',
+};
 
+const ProtectionBadge: React.FC<Readonly<{ level: ConfidentialityLevel }>> = ({ level }) => {
+  if (level === 'anonymous') {
+    return (
+      <span className="flex items-center gap-1 rounded-full border border-purple-200 bg-purple-100 px-2.5 py-0.5 text-[11px] font-bold text-purple-800">
+        <Lock className="h-3 w-3" />
+        <span>ไม่ระบุตัวตน (100% Anonymous Protected)</span>
+      </span>
+    );
+  }
+  if (level === 'confidential_restricted') {
+    return (
+      <span className="flex items-center gap-1 rounded-full border border-amber-200 bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-800">
+        <Shield className="h-3 w-3" />
+        <span>ปกปิดตัวตนพิเศษ (Confidential Restricted)</span>
+      </span>
+    );
+  }
+  return (
+    <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-700">
+      ระบุตัวตน (Standard Named)
+    </span>
+  );
+};
+
+function getProtectionNote(ticket: ComplaintTicket): string {
+  if (ticket.confidentiality === 'anonymous') {
+    return 'คำร้องนี้ใช้สิทธิ์ไม่เปิดเผยตัวตน ข้อมูลอัตลักษณ์ส่วนบุคคลไม่ปรากฏในสำนวนการสอบสวน';
+  }
+  if (ticket.confidentiality === 'confidential_restricted') {
+    return 'ข้อมูลตัวตนผู้ยื่นเรื่องถูกเข้ารหัสลับและจำกัดสิทธิ์เข้าถึงเฉพาะคณะกรรมการสอบสวนที่ได้รับมอบหมาย';
+  }
+  return `ผู้ยื่นเรื่อง: ${ticket.submitterName || 'ไม่ระบุชื่อ'} (${ticket.submitterEmployeeId || 'N/A'}) - ฝ่าย ${ticket.submitterDepartment || 'ไม่ระบุ'}`;
+}
+
+const SectionTitle: React.FC<Readonly<{ index: number; children: React.ReactNode }>> = ({
+  index,
+  children,
+}) => (
+  <div className="flex items-center gap-2 border-b border-slate-200 pb-1 text-xs font-bold tracking-wider text-slate-900 uppercase">
+    <span className="flex h-5 w-5 items-center justify-center rounded bg-slate-900 text-[10px] text-white">
+      {index}
+    </span>
+    <span>{children}</span>
+  </div>
+);
+
+const SignatureBlock: React.FC<Readonly<{ signature: string; name: string; role: string }>> = ({
+  signature,
+  name,
+  role,
+}) => (
+  <div className="space-y-8">
+    <div className="flex h-10 items-end justify-center border-b border-dashed border-slate-400 pb-1">
+      <span className="font-serif text-sm text-slate-700 italic">{signature}</span>
+    </div>
+    <div>
+      <div className="text-xs font-bold text-slate-900">({name})</div>
+      <div className="text-[11px] text-slate-500">{role}</div>
+      <div className="mt-1 text-[10.5px] text-slate-400">วันที่: ....../....../............</div>
+    </div>
+  </div>
+);
+
+const ScoreCell: React.FC<
+  Readonly<{ label: string; value: number; valueClass: string; suffix: string }>
+> = ({ label, value, valueClass, suffix }) => (
+  <div className="rounded-lg border border-slate-200 bg-white p-2">
+    <span className="block text-[10.5px] text-slate-500">{label}</span>
+    <span className={valueClass}>
+      {value} {suffix}
+    </span>
+  </div>
+);
+
+const CsatSection: React.FC<Readonly<{ evaluation: Evaluation }>> = ({ evaluation }) => (
+  <div className="space-y-2.5">
+    <SectionTitle index={6}>ผลการประเมินความพึงพอใจการให้บริการ (CSAT Verification)</SectionTitle>
+
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs print:bg-white">
+      <div className="grid grid-cols-2 gap-3 border-b border-slate-200 pb-3 text-center sm:grid-cols-5">
+        <ScoreCell
+          label="ภาพรวมการบริการ"
+          value={evaluation.overallScore}
+          valueClass="text-base font-black text-amber-600"
+          suffix="/ 5 ★"
+        />
+        <ScoreCell
+          label="1. ความรวดเร็ว"
+          value={evaluation.speedRating}
+          valueClass="text-sm font-bold text-slate-800"
+          suffix="/ 5"
+        />
+        <ScoreCell
+          label="2. คุณภาพการแก้ปัญหา"
+          value={evaluation.resolutionQualityRating}
+          valueClass="text-sm font-bold text-slate-800"
+          suffix="/ 5"
+        />
+        <ScoreCell
+          label="3. กิริยามารยาท"
+          value={evaluation.serviceMannerRating}
+          valueClass="text-sm font-bold text-slate-800"
+          suffix="/ 5"
+        />
+        <ScoreCell
+          label="4. ความชัดเจน"
+          value={evaluation.clarityRating}
+          valueClass="text-sm font-bold text-slate-800"
+          suffix="/ 5"
+        />
+      </div>
+
+      {evaluation.feedbackComment && (
+        <div className="mt-3 rounded-lg border border-slate-200 bg-white p-2.5 text-[11px] text-slate-600">
+          <strong className="text-slate-800">ความคิดเห็นเพิ่มเติมจากพนักงาน:</strong> &quot;
+          {evaluation.feedbackComment}&quot;
+        </div>
+      )}
+    </div>
+  </div>
+);
+
+const AuditTrailTable: React.FC<
+  Readonly<{ timeline: ComplaintTicket['timeline']; locale: string }>
+> = ({ timeline, locale }) => (
+  <div className="overflow-hidden rounded-xl border border-slate-200">
+    <table className="w-full text-left text-[11px]">
+      <thead className="border-b border-slate-200 bg-slate-100 font-semibold text-slate-700">
+        <tr>
+          <th className="w-32 px-3 py-2">วันและเวลา</th>
+          <th className="w-40 px-3 py-2">ผู้ปฏิบัติงาน / บทบาท</th>
+          <th className="px-3 py-2">การดำเนินงานและข้อความบันทึก</th>
+          <th className="w-28 px-3 py-2 text-center">สถานะ</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-slate-100">
+        {timeline.map((log) => (
+          <tr key={log.id} className="hover:bg-slate-50/50">
+            <td className="px-3 py-2 font-mono whitespace-nowrap text-slate-500">
+              {new Date(log.timestamp).toLocaleString(locale, {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </td>
+            <td className="px-3 py-2 font-medium text-slate-800">
+              {log.actor} <span className="text-[10px] text-slate-400">({log.actorRole})</span>
+            </td>
+            <td className="px-3 py-2 text-slate-700">
+              <span className="font-semibold text-slate-900">{log.action}</span>
+              {log.notes && (
+                <span className="mt-0.5 block text-[10.5px] text-slate-500">{log.notes}</span>
+              )}
+            </td>
+            <td className="px-3 py-2 text-center">
+              <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+                {getStatusBadgeText(log.status)}
+              </span>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+);
+
+function buildTextSummary(
+  ticket: ComplaintTicket,
+  reportDocNo: string,
+  currentDateFormatted: string
+): string {
   const categoryInfo = CATEGORY_DEFINITIONS[ticket.category];
-  const isAnonymous = ticket.confidentiality === 'anonymous';
-  const isConfidential = ticket.confidentiality === 'confidential_restricted';
-  const reportDocNo = `REP-INV-${ticket.trackingCode.replace('TK-', '')}-${new Date(ticket.createdAt).getFullYear()}`;
-  const currentDateFormatted = new Date().toLocaleDateString(lang === 'en' ? 'en-US' : 'th-TH', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+  const evaluation = ticket.evaluation
+    ? `\n6. ผลการประเมินความพึงพอใจ: ${ticket.evaluation.overallScore}/5 ดาว (ความรวดเร็ว: ${ticket.evaluation.speedRating}, คุณภาพ: ${ticket.evaluation.resolutionQualityRating}, มารยาท: ${ticket.evaluation.serviceMannerRating}, ความชัดเจน: ${ticket.evaluation.clarityRating})`
+    : '';
 
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const handleCopySummary = () => {
-    const textSummary = `
+  return `
 ============================================================
 รายงานสรุปผลการสอบสวนและข้อเท็จจริง (INVESTIGATION SUMMARY REPORT)
 เลขที่เอกสาร: ${reportDocNo}
@@ -49,7 +211,7 @@ export const InvestigationReportModal: React.FC<Readonly<InvestigationReportModa
 - หมวดหมู่: ${categoryInfo.nameTh}
 - ความเร่งด่วน: ${ticket.urgency} | ความเสี่ยง: ${ticket.riskSeverity}
 - ช่องทาง: ${ticket.isDirectToExecutive ? 'สายตรงผู้บริหาร (Whistleblower Direct to Executive)' : 'ช่องทางรับเรื่องทั่วไป'}
-- สถานะคุ้มครองตัวตน: ${isAnonymous ? 'ไม่ระบุตัวตน (Anonymous)' : isConfidential ? 'ปกปิดตัวตนพิเศษ (Confidential)' : 'ระบุตัวตน (Standard Named)'}
+- สถานะคุ้มครองตัวตน: ${PROTECTION_SUMMARY_TEXT[ticket.confidentiality]}
 
 2. สาระสำคัญของเรื่อง
 - หัวข้อ: ${ticket.title}
@@ -66,24 +228,54 @@ export const InvestigationReportModal: React.FC<Readonly<InvestigationReportModa
 - แนวทางแก้ไขและป้องกัน: ${ticket.preventiveActionPlan || ticket.resolutionSummary || 'ดำเนินมาตรการตาม SOP'}
 
 5. สถานะปัจจุบัน: ${getStatusBadgeText(ticket.status)}
-${ticket.evaluation ? `\n6. ผลการประเมินความพึงพอใจ: ${ticket.evaluation.overallScore}/5 ดาว (ความรวดเร็ว: ${ticket.evaluation.speedRating}, คุณภาพ: ${ticket.evaluation.resolutionQualityRating}, มารยาท: ${ticket.evaluation.serviceMannerRating}, ความชัดเจน: ${ticket.evaluation.clarityRating})` : ''}
+${evaluation}
 
 ============================================================
 รับรองความถูกต้องโดย คณะทำงานกำกับดูแลและคุ้มครองพยาน
 ============================================================
     `.trim();
+}
 
-    navigator.clipboard.writeText(textSummary);
+export const InvestigationReportModal: React.FC<Readonly<InvestigationReportModalProps>> = ({
+  ticket,
+  onClose,
+}) => {
+  const { lang } = useLanguage();
+  const [copied, setCopied] = useState(false);
+
+  if (!ticket) return null;
+
+  const categoryInfo = CATEGORY_DEFINITIONS[ticket.category];
+  const locale = lang === 'en' ? 'en-US' : 'th-TH';
+  const reportDocNo = `REP-INV-${ticket.trackingCode.replace('TK-', '')}-${new Date(ticket.createdAt).getFullYear()}`;
+  const currentDateFormatted = new Date().toLocaleDateString(locale, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleCopySummary = () => {
+    navigator.clipboard.writeText(buildTextSummary(ticket, reportDocNo, currentDateFormatted));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/75 p-2 backdrop-blur-xs sm:p-4 print:static print:bg-white print:p-0">
+  const copyLabel = copied
+    ? { en: 'Copied!', th: 'คัดลอกแล้ว' }
+    : { en: 'Copy Text', th: 'คัดลอกข้อความ' };
+
+  // Rendered into <body> (portal) so `@media print` in globals.css can hide the rest of the
+  // app and print only this report, un-clipped by the tracking modal's fixed/overflow wrappers.
+  return createPortal(
+    <div className="print-report-root fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/75 p-2 backdrop-blur-xs sm:p-4 print:static print:block print:overflow-visible print:bg-white print:p-0">
       {/* Container - Styled as Paper Document */}
       <div
         id="printable-investigation-report"
-        className="animate-in fade-in zoom-in-95 my-auto w-full max-w-4xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl print:w-full print:max-w-none print:rounded-none print:border-none print:shadow-none"
+        className="animate-in fade-in zoom-in-95 my-auto w-full max-w-4xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl print:w-full print:max-w-none print:overflow-visible print:rounded-none print:border-none print:shadow-none"
       >
         {/* Top Control Bar (Hidden on Print) */}
         <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900 px-5 py-3.5 text-white print:hidden">
@@ -116,15 +308,7 @@ ${ticket.evaluation ? `\n6. ผลการประเมินความพ�
               ) : (
                 <Copy className="h-3.5 w-3.5" />
               )}
-              <span>
-                {copied
-                  ? lang === 'en'
-                    ? 'Copied!'
-                    : 'คัดลอกแล้ว'
-                  : lang === 'en'
-                    ? 'Copy Text'
-                    : 'คัดลอกข้อความ'}
-              </span>
+              <span>{copyLabel[lang]}</span>
             </button>
 
             <button
@@ -140,6 +324,7 @@ ${ticket.evaluation ? `\n6. ผลการประเมินความพ�
             <button
               type="button"
               id="btn-close-report-modal"
+              aria-label={lang === 'en' ? 'Close report' : 'ปิดรายงาน'}
               onClick={onClose}
               className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-800 hover:text-white"
             >
@@ -196,12 +381,9 @@ ${ticket.evaluation ? `\n6. ผลการประเมินความพ�
 
           {/* Section 1: Case Profile Matrix */}
           <div className="space-y-2.5">
-            <div className="flex items-center gap-2 border-b border-slate-200 pb-1 text-xs font-bold tracking-wider text-slate-900 uppercase">
-              <span className="flex h-5 w-5 items-center justify-center rounded bg-slate-900 text-[10px] text-white">
-                1
-              </span>
-              <span>ข้อมูลสารบบคำร้อง (Case Identification & Classification)</span>
-            </div>
+            <SectionTitle index={1}>
+              ข้อมูลสารบบคำร้อง (Case Identification & Classification)
+            </SectionTitle>
 
             <div className="grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs sm:grid-cols-4 print:bg-white">
               <div>
@@ -213,14 +395,11 @@ ${ticket.evaluation ? `\n6. ผลการประเมินความพ�
               <div>
                 <span className="block text-[11px] text-slate-500">วันที่รับเรื่องเข้าระบบ:</span>
                 <span className="font-medium text-slate-800">
-                  {new Date(ticket.createdAt).toLocaleDateString(
-                    lang === 'en' ? 'en-US' : 'th-TH',
-                    {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                    }
-                  )}
+                  {new Date(ticket.createdAt).toLocaleDateString(locale, {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                  })}
                 </span>
               </div>
               <div>
@@ -267,42 +446,19 @@ ${ticket.evaluation ? `\n6. ผลการประเมินความพ�
 
           {/* Section 2: Submitter & Witness Protection Status */}
           <div className="space-y-2.5">
-            <div className="flex items-center gap-2 border-b border-slate-200 pb-1 text-xs font-bold tracking-wider text-slate-900 uppercase">
-              <span className="flex h-5 w-5 items-center justify-center rounded bg-slate-900 text-[10px] text-white">
-                2
-              </span>
-              <span>สถานะการคุ้มครองพยานและผู้ยื่นเรื่อง (Witness & Privacy Protection)</span>
-            </div>
+            <SectionTitle index={2}>
+              สถานะการคุ้มครองพยานและผู้ยื่นเรื่อง (Witness & Privacy Protection)
+            </SectionTitle>
 
             <div className="flex flex-col justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 text-xs sm:flex-row sm:items-center print:bg-white">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  {isAnonymous ? (
-                    <span className="flex items-center gap-1 rounded-full border border-purple-200 bg-purple-100 px-2.5 py-0.5 text-[11px] font-bold text-purple-800">
-                      <Lock className="h-3 w-3" />
-                      <span>ไม่ระบุตัวตน (100% Anonymous Protected)</span>
-                    </span>
-                  ) : isConfidential ? (
-                    <span className="flex items-center gap-1 rounded-full border border-amber-200 bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-800">
-                      <Shield className="h-3 w-3" />
-                      <span>ปกปิดตัวตนพิเศษ (Confidential Restricted)</span>
-                    </span>
-                  ) : (
-                    <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-700">
-                      ระบุตัวตน (Standard Named)
-                    </span>
-                  )}
+                  <ProtectionBadge level={ticket.confidentiality} />
                   <span className="text-[11px] text-slate-500">
                     มาตรฐานคุ้มครองข้อมูล PDPA มาตรา 26
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-600">
-                  {isAnonymous
-                    ? 'คำร้องนี้ใช้สิทธิ์ไม่เปิดเผยตัวตน ข้อมูลอัตลักษณ์ส่วนบุคคลไม่ปรากฏในสำนวนการสอบสวน'
-                    : isConfidential
-                      ? 'ข้อมูลตัวตนผู้ยื่นเรื่องถูกเข้ารหัสลับและจำกัดสิทธิ์เข้าถึงเฉพาะคณะกรรมการสอบสวนที่ได้รับมอบหมาย'
-                      : `ผู้ยื่นเรื่อง: ${ticket.submitterName || 'ไม่ระบุชื่อ'} (${ticket.submitterEmployeeId || 'N/A'}) - ฝ่าย ${ticket.submitterDepartment || 'ไม่ระบุ'}`}
-                </p>
+                <p className="text-[11px] text-slate-600">{getProtectionNote(ticket)}</p>
               </div>
 
               <div className="shrink-0 border-t pt-2 text-[11px] text-slate-500 sm:border-t-0 sm:border-l sm:border-slate-200 sm:pt-0 sm:pl-4 sm:text-right">
@@ -320,12 +476,9 @@ ${ticket.evaluation ? `\n6. ผลการประเมินความพ�
 
           {/* Section 3: Summary of Allegation / Fact Statement */}
           <div className="space-y-2.5">
-            <div className="flex items-center gap-2 border-b border-slate-200 pb-1 text-xs font-bold tracking-wider text-slate-900 uppercase">
-              <span className="flex h-5 w-5 items-center justify-center rounded bg-slate-900 text-[10px] text-white">
-                3
-              </span>
-              <span>สาระสำคัญของข้อเท็จจริงที่ได้รับแจ้ง (Statement of Incident / Grievance)</span>
-            </div>
+            <SectionTitle index={3}>
+              สาระสำคัญของข้อเท็จจริงที่ได้รับแจ้ง (Statement of Incident / Grievance)
+            </SectionTitle>
 
             <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs print:bg-white">
               <div>
@@ -351,7 +504,7 @@ ${ticket.evaluation ? `\n6. ผลการประเมินความพ�
                 </p>
               </div>
 
-              {ticket.attachments && ticket.attachments.length > 0 && (
+              {!!ticket.attachments?.length && (
                 <div>
                   <span className="block text-[11px] font-medium text-slate-500">
                     เอกสารและหลักฐานประกอบสำนวน:
@@ -375,14 +528,9 @@ ${ticket.evaluation ? `\n6. ผลการประเมินความพ�
 
           {/* Section 4: Investigation Findings & Root Cause Analysis */}
           <div className="space-y-2.5">
-            <div className="flex items-center gap-2 border-b border-slate-200 pb-1 text-xs font-bold tracking-wider text-slate-900 uppercase">
-              <span className="flex h-5 w-5 items-center justify-center rounded bg-slate-900 text-[10px] text-white">
-                4
-              </span>
-              <span>
-                ผลการสอบสวนข้อเท็จจริงและสาเหตุรากเหง้า (Investigation Findings & Root Cause)
-              </span>
-            </div>
+            <SectionTitle index={4}>
+              ผลการสอบสวนข้อเท็จจริงและสาเหตุรากเหง้า (Investigation Findings & Root Cause)
+            </SectionTitle>
 
             <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-3">
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 print:bg-white">
@@ -422,14 +570,9 @@ ${ticket.evaluation ? `\n6. ผลการประเมินความพ�
 
           {/* Section 5: Corrective & Preventive Action Plan (CAPA) */}
           <div className="space-y-2.5">
-            <div className="flex items-center gap-2 border-b border-slate-200 pb-1 text-xs font-bold tracking-wider text-slate-900 uppercase">
-              <span className="flex h-5 w-5 items-center justify-center rounded bg-slate-900 text-[10px] text-white">
-                5
-              </span>
-              <span>
-                มาตรการแก้ไขและป้องกันการเกิดซ้ำ (Corrective & Preventive Action Plan - CAPA)
-              </span>
-            </div>
+            <SectionTitle index={5}>
+              มาตรการแก้ไขและป้องกันการเกิดซ้ำ (Corrective & Preventive Action Plan - CAPA)
+            </SectionTitle>
 
             <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs print:bg-white">
               <div className="flex items-start gap-2">
@@ -450,116 +593,18 @@ ${ticket.evaluation ? `\n6. ผลการประเมินความพ�
           </div>
 
           {/* Section 6: Employee CSAT Satisfaction Evaluation (If applicable) */}
-          {ticket.evaluation && (
-            <div className="space-y-2.5">
-              <div className="flex items-center gap-2 border-b border-slate-200 pb-1 text-xs font-bold tracking-wider text-slate-900 uppercase">
-                <span className="flex h-5 w-5 items-center justify-center rounded bg-slate-900 text-[10px] text-white">
-                  6
-                </span>
-                <span>ผลการประเมินความพึงพอใจการให้บริการ (CSAT Verification)</span>
-              </div>
-
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs print:bg-white">
-                <div className="grid grid-cols-2 gap-3 border-b border-slate-200 pb-3 text-center sm:grid-cols-5">
-                  <div className="rounded-lg border border-slate-200 bg-white p-2">
-                    <span className="block text-[10.5px] text-slate-500">ภาพรวมการบริการ</span>
-                    <span className="text-base font-black text-amber-600">
-                      {ticket.evaluation.overallScore} / 5 ★
-                    </span>
-                  </div>
-                  <div className="rounded-lg border border-slate-200 bg-white p-2">
-                    <span className="block text-[10.5px] text-slate-500">1. ความรวดเร็ว</span>
-                    <span className="text-sm font-bold text-slate-800">
-                      {ticket.evaluation.speedRating} / 5
-                    </span>
-                  </div>
-                  <div className="rounded-lg border border-slate-200 bg-white p-2">
-                    <span className="block text-[10.5px] text-slate-500">2. คุณภาพการแก้ปัญหา</span>
-                    <span className="text-sm font-bold text-slate-800">
-                      {ticket.evaluation.resolutionQualityRating} / 5
-                    </span>
-                  </div>
-                  <div className="rounded-lg border border-slate-200 bg-white p-2">
-                    <span className="block text-[10.5px] text-slate-500">3. กิริยามารยาท</span>
-                    <span className="text-sm font-bold text-slate-800">
-                      {ticket.evaluation.serviceMannerRating} / 5
-                    </span>
-                  </div>
-                  <div className="rounded-lg border border-slate-200 bg-white p-2">
-                    <span className="block text-[10.5px] text-slate-500">4. ความชัดเจน</span>
-                    <span className="text-sm font-bold text-slate-800">
-                      {ticket.evaluation.clarityRating} / 5
-                    </span>
-                  </div>
-                </div>
-
-                {ticket.evaluation.feedbackComment && (
-                  <div className="mt-3 rounded-lg border border-slate-200 bg-white p-2.5 text-[11px] text-slate-600">
-                    <strong className="text-slate-800">ความคิดเห็นเพิ่มเติมจากพนักงาน:</strong>{' '}
-                    &quot;
-                    {ticket.evaluation.feedbackComment}&quot;
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+          {ticket.evaluation && <CsatSection evaluation={ticket.evaluation} />}
 
           {/* Section 7: Chronological Audit Trail Log */}
           <div className="space-y-2.5">
-            <div className="flex items-center gap-2 border-b border-slate-200 pb-1 text-xs font-bold tracking-wider text-slate-900 uppercase">
-              <span className="flex h-5 w-5 items-center justify-center rounded bg-slate-900 text-[10px] text-white">
-                7
-              </span>
-              <span>บันทึกลำดับเหตุการณ์และประวัติการดำเนินงาน (Chronological Audit Trail)</span>
-            </div>
-
-            <div className="overflow-hidden rounded-xl border border-slate-200">
-              <table className="w-full text-left text-[11px]">
-                <thead className="border-b border-slate-200 bg-slate-100 font-semibold text-slate-700">
-                  <tr>
-                    <th className="w-32 px-3 py-2">วันและเวลา</th>
-                    <th className="w-40 px-3 py-2">ผู้ปฏิบัติงาน / บทบาท</th>
-                    <th className="px-3 py-2">การดำเนินงานและข้อความบันทึก</th>
-                    <th className="w-28 px-3 py-2 text-center">สถานะ</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {ticket.timeline.map((log) => (
-                    <tr key={log.id} className="hover:bg-slate-50/50">
-                      <td className="px-3 py-2 font-mono whitespace-nowrap text-slate-500">
-                        {new Date(log.timestamp).toLocaleString(lang === 'en' ? 'en-US' : 'th-TH', {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </td>
-                      <td className="px-3 py-2 font-medium text-slate-800">
-                        {log.actor}{' '}
-                        <span className="text-[10px] text-slate-400">({log.actorRole})</span>
-                      </td>
-                      <td className="px-3 py-2 text-slate-700">
-                        <span className="font-semibold text-slate-900">{log.action}</span>
-                        {log.notes && (
-                          <span className="mt-0.5 block text-[10.5px] text-slate-500">
-                            {log.notes}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-center">
-                        <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
-                          {getStatusBadgeText(log.status)}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <SectionTitle index={7}>
+              บันทึกลำดับเหตุการณ์และประวัติการดำเนินงาน (Chronological Audit Trail)
+            </SectionTitle>
+            <AuditTrailTable timeline={ticket.timeline} locale={locale} />
           </div>
 
           {/* Section 8: Formal Signatures & Endorsements */}
-          <div className="page-break-inside-avoid space-y-4 border-t-2 border-slate-800 pt-8">
+          <div className="break-inside-avoid-page space-y-4 border-t-2 border-slate-800 pt-8">
             <div className="text-center text-xs font-medium text-slate-500">
               รายงานนี้จัดทำขึ้นตามระเบียบคณะกรรมการกำกับดูแลจริยธรรมและการรับเรื่องร้องเรียน
               ผ่านการตรวจสอบข้อเท็จจริงตามมาตรฐานสากล
@@ -567,72 +612,39 @@ ${ticket.evaluation ? `\n6. ผลการประเมินความพ�
 
             <div className="grid grid-cols-1 gap-6 pt-4 text-center sm:grid-cols-3">
               {/* Officer Signature */}
-              <div className="space-y-8">
-                <div className="flex h-10 items-end justify-center border-b border-dashed border-slate-400 pb-1">
-                  <span className="font-serif text-sm text-slate-700 italic">
-                    {ticket.assignedOfficerName || 'มนตรี ธนบดีกุล'}
-                  </span>
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-slate-900">
-                    ({ticket.assignedOfficerName || 'นิติกรอาวุโส / เจ้าหน้าที่สอบสวน'})
-                  </div>
-                  <div className="text-[11px] text-slate-500">เจ้าหน้าที่ผู้สอบสวนข้อเท็จจริง</div>
-                  <div className="mt-1 text-[10.5px] text-slate-400">
-                    วันที่: ....../....../............
-                  </div>
-                </div>
-              </div>
+              <SignatureBlock
+                signature={ticket.assignedOfficerName || 'มนตรี ธนบดีกุล'}
+                name={ticket.assignedOfficerName || 'นิติกรอาวุโส / เจ้าหน้าที่สอบสวน'}
+                role="เจ้าหน้าที่ผู้สอบสวนข้อเท็จจริง"
+              />
 
               {/* Gatekeeper Lead Signature */}
-              <div className="space-y-8">
-                <div className="flex h-10 items-end justify-center border-b border-dashed border-slate-400 pb-1">
-                  <span className="font-serif text-sm text-slate-700 italic">
-                    ภานุมาศ สัจจาภิรมย์
-                  </span>
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-slate-900">(ภานุมาศ สัจจาภิรมย์)</div>
-                  <div className="text-[11px] text-slate-500">
-                    หัวหน้าฝ่าย Gatekeeper ประจำสายงาน
-                  </div>
-                  <div className="mt-1 text-[10.5px] text-slate-400">
-                    วันที่: ....../....../............
-                  </div>
-                </div>
-              </div>
+              <SignatureBlock
+                signature="ภานุมาศ สัจจาภิรมย์"
+                name="ภานุมาศ สัจจาภิรมย์"
+                role="หัวหน้าฝ่าย Gatekeeper ประจำสายงาน"
+              />
 
               {/* Executive / GRC Chair Signature */}
-              <div className="space-y-8">
-                <div className="flex h-10 items-end justify-center border-b border-dashed border-slate-400 pb-1">
-                  <span className="font-serif text-sm text-slate-700 italic">
-                    ดร. ปิยะวัฒน์ วิเชียรเกื้อ
-                  </span>
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-slate-900">
-                    (ดร. ปิยะวัฒน์ วิเชียรเกื้อ)
-                  </div>
-                  <div className="text-[11px] text-slate-500">
-                    ประธานคณะกรรมการตรวจสอบและธรรมาภิบาล (GRC)
-                  </div>
-                  <div className="mt-1 text-[10.5px] text-slate-400">
-                    วันที่: ....../....../............
-                  </div>
-                </div>
-              </div>
+              <SignatureBlock
+                signature="ดร. ปิยะวัฒน์ วิเชียรเกื้อ"
+                name="ดร. ปิยะวัฒน์ วิเชียรเกื้อ"
+                role="ประธานคณะกรรมการตรวจสอบและธรรมาภิบาล (GRC)"
+              />
             </div>
 
             {/* Official Security Stamp Footer */}
             <div className="flex items-center justify-between border-t border-slate-200 pt-6 font-mono text-[10px] text-slate-400">
               <div>
-                HASH: SHA256-INV-SEC-{ticket.trackingCode.replace(/[^A-Za-z0-9]/g, '')}-ENTERPRISE
+                HASH: SHA256-INV-SEC-{ticket.trackingCode.replaceAll(/[^A-Za-z0-9]/g, '')}
+                -ENTERPRISE
               </div>
               <div>CONFIDENTIAL DOCUMENT • INTERNAL AUDIT TRAIL VERIFIED</div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

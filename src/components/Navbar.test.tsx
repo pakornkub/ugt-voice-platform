@@ -24,7 +24,7 @@ describe('Navbar', () => {
   it('renders the brand and the employee-role navigation tabs (TH default)', () => {
     renderNavbar();
 
-    expect(screen.getByText('UGT VoiceCare')).toBeInTheDocument();
+    expect(screen.getByText('UGT VoicePlatform')).toBeInTheDocument();
     expect(screen.getByText('ยื่นข้อร้องเรียน / ข้อเสนอแนะ')).toBeInTheDocument();
     expect(screen.getByText('คู่มือ & ผังขั้นตอน (SOP)')).toBeInTheDocument();
   });

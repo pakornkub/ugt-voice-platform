@@ -12,6 +12,19 @@ import {
 } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 
+type StatusFilter = 'ALL' | 'ACTIVE' | 'RESOLVED' | 'CLOSED';
+
+const STATUS_FILTER_TABS: { key: StatusFilter; labelTh: string; labelEn: string }[] = [
+  { key: 'ALL', labelTh: 'ทั้งหมด', labelEn: 'All' },
+  { key: 'ACTIVE', labelTh: 'อยู่ระหว่างดำเนินการ', labelEn: 'In Progress' },
+  {
+    key: 'RESOLVED',
+    labelTh: '⭐ รอการประเมิน (Resolved)',
+    labelEn: '⭐ Awaiting CSAT (Resolved)',
+  },
+  { key: 'CLOSED', labelTh: 'ปิดเคสแล้ว', labelEn: 'Closed' },
+];
+
 interface MyTicketsListProps {
   tickets: ComplaintTicket[];
   onOpenTracking: (trackingCode: string) => void;
@@ -27,7 +40,7 @@ export const MyTicketsList: React.FC<Readonly<MyTicketsListProps>> = ({
 }) => {
   const { lang } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'RESOLVED' | 'CLOSED'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
 
   const safeTickets = tickets || [];
 
@@ -94,20 +107,11 @@ export const MyTicketsList: React.FC<Readonly<MyTicketsListProps>> = ({
         </div>
 
         <div className="no-scrollbar flex w-full items-center gap-1.5 overflow-x-auto sm:w-auto">
-          {[
-            { key: 'ALL', labelTh: 'ทั้งหมด', labelEn: 'All' },
-            { key: 'ACTIVE', labelTh: 'อยู่ระหว่างดำเนินการ', labelEn: 'In Progress' },
-            {
-              key: 'RESOLVED',
-              labelTh: '⭐ รอการประเมิน (Resolved)',
-              labelEn: '⭐ Awaiting CSAT (Resolved)',
-            },
-            { key: 'CLOSED', labelTh: 'ปิดเคสแล้ว', labelEn: 'Closed' },
-          ].map((tab) => (
+          {STATUS_FILTER_TABS.map((tab) => (
             <button
               key={tab.key}
               type="button"
-              onClick={() => setStatusFilter(tab.key as 'ALL' | 'ACTIVE' | 'RESOLVED' | 'CLOSED')}
+              onClick={() => setStatusFilter(tab.key)}
               className={`rounded-lg px-3 py-1.5 text-xs font-medium whitespace-nowrap transition ${
                 statusFilter === tab.key
                   ? 'bg-indigo-600 font-bold text-white shadow-xs'

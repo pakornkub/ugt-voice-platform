@@ -42,6 +42,200 @@ import {
 import { EMPLOYEE_DATABASE, getCurrentLoginEmployee } from '../services/employeeDirectory';
 import { useLanguage } from '../context/LanguageContext';
 
+type RiskSeverity = ComplaintTicket['riskSeverity'];
+type PresetType = 'quality_issue' | 'compliance_alert' | 'welfare_idea' | 'fraud_alert';
+interface Bilingual {
+  en: string;
+  th: string;
+}
+
+// Risk severity that goes with each urgency level (used by the urgency buttons,
+// the quick presets and "apply AI category").
+const RISK_BY_URGENCY: Record<UrgencyLevel, RiskSeverity> = {
+  Low: 'Low',
+  Medium: 'Moderate',
+  High: 'High',
+  Critical: 'Severe',
+};
+
+const PRESETS: Record<
+  PresetType,
+  {
+    type: SubmissionType;
+    category: GrievanceCategory;
+    urgency: UrgencyLevel;
+    isDirectToExecutive: boolean;
+    title: Bilingual;
+    description: Bilingual;
+    location: Bilingual;
+  }
+> = {
+  quality_issue: {
+    type: 'complaint',
+    category: 'Quality',
+    urgency: 'Medium',
+    isDirectToExecutive: false,
+    title: {
+      en: 'Discrepancy in batch LOT-2026-Q3 exceeds QC tolerances',
+      th: 'พบชิ้นงานล็อต LOT-2026-Q3 มีค่าความคลาดเคลื่อนเกินเกณฑ์มาตรฐาน QC',
+    },
+    description: {
+      en: 'Daily QA/QC inspection detected thickness and sealing defects violating ISO 9001. Risk of leakage and customer rejection. Request urgent batch quarantine and calibration of gauges.',
+      th: 'จากการสุ่มตรวจชิ้นงานประกอบและแพ็กเกจสินค้าในกระบวนการ QA/QC ประจำวัน พบว่าค่าความหนาและการผนึกบรรจุภัณฑ์ไม่ผ่านเกณฑ์มาตรฐาน ISO 9001 เสี่ยงต่อการรั่วซึมและการปฏิเสธสินค้าจากลูกค้าปลายทาง เสนอให้ระงับการปล่อยล็อตและสอบเทียบเครื่องมือวัดด่วน',
+    },
+    location: {
+      en: 'Production Plant Line 2, QA/QC Division',
+      th: 'โรงงานผลิต สายการผลิตที่ 2 ฝ่ายควบคุมคุณภาพ (QA/QC)',
+    },
+  },
+  compliance_alert: {
+    type: 'complaint',
+    category: 'Compliance',
+    urgency: 'High',
+    isDirectToExecutive: true,
+    title: {
+      en: 'Unrestricted access to customer contracts and PII in shared folder (PDPA Risk)',
+      th: 'ตรวจพบการจัดเก็บเอกสารสัญญาและข้อมูลส่วนบุคคลลูกค้าในโฟลเดอร์ที่ไม่จำกัดสิทธิ์ตาม PDPA',
+    },
+    description: {
+      en: 'Department Shared Drive folder has public access without encryption to customer ID copies and PII. Violates security policy and PDPA regulations. Urgent compliance review requested.',
+      th: 'พบว่าโฟลเดอร์ Shared Drive ส่วนกลางของหน่วยงานมีการเปิด Public Access ให้เข้าถึงเอกสารสำเนาบัตรประชาชนและข้อมูลส่วนบุคคล (PII) ของลูกค้าโดยไม่มีการเข้ารหัสผ่าน ซึ่งขัดต่อนโยบายความปลอดภัยและกฎหมาย PDPA จึงขอให้ฝ่ายกำกับดูแลเข้าตรวจสอบและแก้ไขด่วน',
+    },
+    location: {
+      en: 'Customer Care Center & Central Records',
+      th: 'ศูนย์บริการลูกค้าและคลังเอกสารสัญญาส่วนกลาง',
+    },
+  },
+  welfare_idea: {
+    type: 'suggestion',
+    category: 'HR',
+    urgency: 'Low',
+    isDirectToExecutive: false,
+    title: {
+      en: 'Proposal: Green Relaxation Corner & Eye Wellness Zone for workstation staff',
+      th: 'เสนอจัดตั้งพื้นที่ Green Relaxation Corner & โซนพักสายตาสำหรับสายงานคอมพิวเตอร์',
+    },
+    description: {
+      en: 'To promote ergonomic employee wellbeing and alleviate Office Syndrome, propose air-purifying greenery and massage recliners in common rest areas.',
+      th: 'เพื่อส่งเสริมสุขภาวะพนักงานตามหลัก Ergonomics เสนอให้จัดพื้นที่สีเขียวพร้อมต้นไม้ฟอกอากาศและเก้าอี้นวดผ่อนคลายกล้ามเนื้อสายตา เพื่อลดภาวะ Office Syndrome',
+    },
+    location: {
+      en: 'Floor 10 Common Area, All Towers',
+      th: 'พื้นที่ส่วนกลาง ชั้น 10 ทุกอาคาร',
+    },
+  },
+  fraud_alert: {
+    type: 'complaint',
+    category: 'Fraud',
+    urgency: 'Critical',
+    isDirectToExecutive: true,
+    title: {
+      en: 'Suspected procurement overpricing of conveyor maintenance parts by 300%',
+      th: 'ข้อสงสัยเกี่ยวกับการจัดซื้ออะไหล่ซ่อมบำรุงที่ราคาสูงกว่าท้องตลาด 300%',
+    },
+    description: {
+      en: 'Conveyor belt invoice INV-8890 shows abnormally inflated prices from a supplier incorporated only 1 month ago. Related-party conflict of interest concern.',
+      th: 'พบการเบิกจ่ายค่าอะไหล่สายพานลำเลียงในใบแจ้งหนี้เลขที่ INV-8890 ราคาสูงผิดปกติและบริษัทคู่ค้าเพิ่งจดทะเบียนได้เพียง 1 เดือน โดยผู้มีอำนาจอนุมัติมีความเกี่ยวข้องทางเครือญาติ',
+    },
+    location: {
+      en: 'Eastern Regional Distribution Center',
+      th: 'ศูนย์กระจายสินค้าภาคตะวันออก',
+    },
+  },
+};
+
+const URGENCY_OPTIONS: {
+  level: UrgencyLevel;
+  id: string;
+  selectedClass: string;
+  titleClass: string;
+  badgeClass: string;
+  title: Bilingual;
+  description: Bilingual;
+}[] = [
+  {
+    level: 'Low',
+    id: 'urgency-btn-low',
+    selectedClass:
+      'border-slate-400 bg-slate-100 text-slate-900 shadow-xs ring-2 ring-slate-400/30',
+    titleClass: 'text-slate-700',
+    badgeClass: 'bg-slate-200/80 text-slate-600',
+    title: { en: '🟢 Low / General', th: '🟢 ต่ำ / ทั่วไป' },
+    description: {
+      en: 'General inquiry or suggestion; does not affect daily operations',
+      th: 'ข้อเสนอแนะ / สอบถามทั่วไป ไม่กระทบงานประจำวัน',
+    },
+  },
+  {
+    level: 'Medium',
+    id: 'urgency-btn-medium',
+    selectedClass: 'border-amber-400 bg-amber-50 text-amber-950 shadow-xs ring-2 ring-amber-400/40',
+    titleClass: 'text-amber-800',
+    badgeClass: 'bg-amber-100 text-amber-800',
+    title: { en: '🟡 Medium', th: '🟡 ปานกลาง' },
+    description: {
+      en: 'Begins to affect workflow, processes, or minor equipment fault',
+      th: 'เริ่มกระทบขั้นตอนการทำงาน หรืออุปกรณ์ขัดข้อง',
+    },
+  },
+  {
+    level: 'High',
+    id: 'urgency-btn-high',
+    selectedClass: 'border-rose-400 bg-rose-50 text-rose-950 shadow-xs ring-2 ring-rose-400/40',
+    titleClass: 'text-rose-800',
+    badgeClass: 'bg-rose-100 text-rose-800',
+    title: { en: '🔴 High / Urgent', th: '🔴 เร่งด่วน' },
+    description: {
+      en: 'Affects safety, employee wellness, or causes operational halt',
+      th: 'กระทบความปลอดภัย สุขภาพพนักงาน หรือหยุดชะงัก',
+    },
+  },
+  {
+    level: 'Critical',
+    id: 'urgency-btn-critical',
+    selectedClass: 'border-red-500 bg-red-100 text-red-950 shadow-xs ring-2 ring-red-500/50',
+    titleClass: 'text-red-800',
+    badgeClass: 'bg-red-200 font-bold text-red-900',
+    title: { en: '🔥 Critical / Emergency', th: '🔥 วิกฤติ / ฉุกเฉิน' },
+    description: {
+      en: 'Severe crisis, corruption, legal liability or human safety threat',
+      th: 'เหตุฉุกเฉินร้ายแรง ทุจริต หรือความเสี่ยงกฎหมาย',
+    },
+  },
+];
+
+const UrgencyLevelButton: React.FC<
+  Readonly<{
+    option: (typeof URGENCY_OPTIONS)[number];
+    isSelected: boolean;
+    lang: 'th' | 'en';
+    onSelect: (level: UrgencyLevel) => void;
+  }>
+> = ({ option, isSelected, lang, onSelect }) => (
+  <button
+    type="button"
+    id={option.id}
+    onClick={() => onSelect(option.level)}
+    className={`flex cursor-pointer flex-col justify-between rounded-xl border p-3 text-left transition ${
+      isSelected
+        ? option.selectedClass
+        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+    }`}
+  >
+    <div>
+      <div className="mb-1 flex items-center justify-between">
+        <span className={`flex items-center gap-1 text-xs font-bold ${option.titleClass}`}>
+          {option.title[lang]}
+        </span>
+        <span className={`rounded px-1 font-mono text-[9px] ${option.badgeClass}`}>
+          {option.level}
+        </span>
+      </div>
+      <p className="text-[10.5px] leading-snug text-slate-500">{option.description[lang]}</p>
+    </div>
+  </button>
+);
+
 interface EmployeeSubmitFormProps {
   onTicketCreated: (ticket: ComplaintTicket) => void;
   onOpenTracking: (trackingCode: string) => void;
@@ -52,12 +246,11 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
   onOpenTracking,
 }) => {
   const { lang } = useLanguage();
+  const tr = (en: string, th: string) => (lang === 'en' ? en : th);
   const [submissionType, setSubmissionType] = useState<SubmissionType>('complaint');
   const [category, setCategory] = useState<GrievanceCategory>('HR');
   const [urgency, setUrgency] = useState<UrgencyLevel>('Medium');
-  const [riskSeverity, setRiskSeverity] = useState<'Low' | 'Moderate' | 'High' | 'Severe'>(
-    'Moderate'
-  );
+  const [riskSeverity, setRiskSeverity] = useState<RiskSeverity>('Moderate');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [locationOrUnit, setLocationOrUnit] = useState('');
@@ -108,8 +301,8 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
   const [aiHelperNotice, setAiHelperNotice] = useState<string | null>(null);
 
   const handleSuggestCategoryWithAI = async (customTitle?: string, customDesc?: string) => {
-    const textTitle = customTitle !== undefined ? customTitle : title;
-    const textDesc = customDesc !== undefined ? customDesc : description;
+    const textTitle = customTitle ?? title;
+    const textDesc = customDesc ?? description;
 
     if (!textTitle.trim() && !textDesc.trim()) {
       setAiHelperNotice(
@@ -146,10 +339,7 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
     setCategory(catKey);
     if (aiCategoryResult?.suggestedUrgency) {
       setUrgency(aiCategoryResult.suggestedUrgency);
-      if (aiCategoryResult.suggestedUrgency === 'Critical') setRiskSeverity('Severe');
-      else if (aiCategoryResult.suggestedUrgency === 'High') setRiskSeverity('High');
-      else if (aiCategoryResult.suggestedUrgency === 'Medium') setRiskSeverity('Moderate');
-      else setRiskSeverity('Low');
+      setRiskSeverity(RISK_BY_URGENCY[aiCategoryResult.suggestedUrgency]);
     }
     setAiCategoryApplied(true);
     setTimeout(() => {
@@ -158,90 +348,16 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
   };
 
   // Quick preset templates for rapid testing
-  const handleApplyPreset = (
-    presetType: 'quality_issue' | 'compliance_alert' | 'welfare_idea' | 'fraud_alert'
-  ) => {
-    if (presetType === 'quality_issue') {
-      setSubmissionType('complaint');
-      setCategory('Quality');
-      setUrgency('Medium');
-      setRiskSeverity('Moderate');
-      setTitle(
-        lang === 'en'
-          ? 'Discrepancy in batch LOT-2026-Q3 exceeds QC tolerances'
-          : 'พบชิ้นงานล็อต LOT-2026-Q3 มีค่าความคลาดเคลื่อนเกินเกณฑ์มาตรฐาน QC'
-      );
-      setDescription(
-        lang === 'en'
-          ? 'Daily QA/QC inspection detected thickness and sealing defects violating ISO 9001. Risk of leakage and customer rejection. Request urgent batch quarantine and calibration of gauges.'
-          : 'จากการสุ่มตรวจชิ้นงานประกอบและแพ็กเกจสินค้าในกระบวนการ QA/QC ประจำวัน พบว่าค่าความหนาและการผนึกบรรจุภัณฑ์ไม่ผ่านเกณฑ์มาตรฐาน ISO 9001 เสี่ยงต่อการรั่วซึมและการปฏิเสธสินค้าจากลูกค้าปลายทาง เสนอให้ระงับการปล่อยล็อตและสอบเทียบเครื่องมือวัดด่วน'
-      );
-      setLocationOrUnit(
-        lang === 'en'
-          ? 'Production Plant Line 2, QA/QC Division'
-          : 'โรงงานผลิต สายการผลิตที่ 2 ฝ่ายควบคุมคุณภาพ (QA/QC)'
-      );
-      setIsDirectToExecutive(false);
-    } else if (presetType === 'compliance_alert') {
-      setSubmissionType('complaint');
-      setCategory('Compliance');
-      setUrgency('High');
-      setRiskSeverity('High');
-      setTitle(
-        lang === 'en'
-          ? 'Unrestricted access to customer contracts and PII in shared folder (PDPA Risk)'
-          : 'ตรวจพบการจัดเก็บเอกสารสัญญาและข้อมูลส่วนบุคคลลูกค้าในโฟลเดอร์ที่ไม่จำกัดสิทธิ์ตาม PDPA'
-      );
-      setDescription(
-        lang === 'en'
-          ? 'Department Shared Drive folder has public access without encryption to customer ID copies and PII. Violates security policy and PDPA regulations. Urgent compliance review requested.'
-          : 'พบว่าโฟลเดอร์ Shared Drive ส่วนกลางของหน่วยงานมีการเปิด Public Access ให้เข้าถึงเอกสารสำเนาบัตรประชาชนและข้อมูลส่วนบุคคล (PII) ของลูกค้าโดยไม่มีการเข้ารหัสผ่าน ซึ่งขัดต่อนโยบายความปลอดภัยและกฎหมาย PDPA จึงขอให้ฝ่ายกำกับดูแลเข้าตรวจสอบและแก้ไขด่วน'
-      );
-      setLocationOrUnit(
-        lang === 'en'
-          ? 'Customer Care Center & Central Records'
-          : 'ศูนย์บริการลูกค้าและคลังเอกสารสัญญาส่วนกลาง'
-      );
-      setIsDirectToExecutive(true);
-    } else if (presetType === 'welfare_idea') {
-      setSubmissionType('suggestion');
-      setCategory('HR');
-      setUrgency('Low');
-      setRiskSeverity('Low');
-      setTitle(
-        lang === 'en'
-          ? 'Proposal: Green Relaxation Corner & Eye Wellness Zone for workstation staff'
-          : 'เสนอจัดตั้งพื้นที่ Green Relaxation Corner & โซนพักสายตาสำหรับสายงานคอมพิวเตอร์'
-      );
-      setDescription(
-        lang === 'en'
-          ? 'To promote ergonomic employee wellbeing and alleviate Office Syndrome, propose air-purifying greenery and massage recliners in common rest areas.'
-          : 'เพื่อส่งเสริมสุขภาวะพนักงานตามหลัก Ergonomics เสนอให้จัดพื้นที่สีเขียวพร้อมต้นไม้ฟอกอากาศและเก้าอี้นวดผ่อนคลายกล้ามเนื้อสายตา เพื่อลดภาวะ Office Syndrome'
-      );
-      setLocationOrUnit(
-        lang === 'en' ? 'Floor 10 Common Area, All Towers' : 'พื้นที่ส่วนกลาง ชั้น 10 ทุกอาคาร'
-      );
-      setIsDirectToExecutive(false);
-    } else if (presetType === 'fraud_alert') {
-      setSubmissionType('complaint');
-      setCategory('Fraud');
-      setUrgency('Critical');
-      setRiskSeverity('Severe');
-      setTitle(
-        lang === 'en'
-          ? 'Suspected procurement overpricing of conveyor maintenance parts by 300%'
-          : 'ข้อสงสัยเกี่ยวกับการจัดซื้ออะไหล่ซ่อมบำรุงที่ราคาสูงกว่าท้องตลาด 300%'
-      );
-      setDescription(
-        lang === 'en'
-          ? 'Conveyor belt invoice INV-8890 shows abnormally inflated prices from a supplier incorporated only 1 month ago. Related-party conflict of interest concern.'
-          : 'พบการเบิกจ่ายค่าอะไหล่สายพานลำเลียงในใบแจ้งหนี้เลขที่ INV-8890 ราคาสูงผิดปกติและบริษัทคู่ค้าเพิ่งจดทะเบียนได้เพียง 1 เดือน โดยผู้มีอำนาจอนุมัติมีความเกี่ยวข้องทางเครือญาติ'
-      );
-      setLocationOrUnit(
-        lang === 'en' ? 'Eastern Regional Distribution Center' : 'ศูนย์กระจายสินค้าภาคตะวันออก'
-      );
-      setIsDirectToExecutive(true);
-    }
+  const handleApplyPreset = (presetType: PresetType) => {
+    const preset = PRESETS[presetType];
+    setSubmissionType(preset.type);
+    setCategory(preset.category);
+    setUrgency(preset.urgency);
+    setRiskSeverity(RISK_BY_URGENCY[preset.urgency]);
+    setTitle(preset.title[lang]);
+    setDescription(preset.description[lang]);
+    setLocationOrUnit(preset.location[lang]);
+    setIsDirectToExecutive(preset.isDirectToExecutive);
   };
 
   const handleAddMockAttachment = () => {
@@ -307,9 +423,7 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
       isDirectToExecutive,
       confidentiality: isAnonymous ? 'anonymous' : 'standard_named',
       submitterName: isAnonymous
-        ? lang === 'en'
-          ? 'Anonymous Submitter'
-          : 'ผู้ยื่นเรื่อง (ไม่ระบุตัวตน)'
+        ? tr('Anonymous Submitter', 'ผู้ยื่นเรื่อง (ไม่ระบุตัวตน)')
         : submitterName.trim(),
       submitterEmployeeId: isAnonymous ? selectedEmployee.employeeId : submitterEmployeeId.trim(),
       submitterDepartment: isAnonymous ? selectedEmployee.department : submitterDepartment.trim(),
@@ -349,6 +463,18 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
     }
   };
 
+  const aiSecondaryCategory = aiCategoryResult?.secondaryCategory;
+
+  const getApplyAiCategoryLabel = (suggested: GrievanceCategory) => {
+    if (category === suggested) {
+      return tr('✓ Applied (Step 2 Selected)', '✓ เลือกหมวดหมู่นี้ในข้อ 2 แล้ว');
+    }
+    return tr(
+      'Apply This Category (Step 2)',
+      `นำหมวดหมู่นี้ไปใช้ (เลือกเป็น ${CATEGORY_DEFINITIONS[suggested]?.nameTh})`
+    );
+  };
+
   if (createdTicket) {
     return (
       <div className="animate-in fade-in zoom-in-95 mx-auto max-w-3xl px-4 py-8 duration-200">
@@ -359,12 +485,8 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
 
           <h2 className="mb-2 text-xl font-bold text-slate-900 sm:text-2xl">
             {createdTicket.type === 'complaint'
-              ? lang === 'en'
-                ? 'Grievance Recorded Successfully'
-                : 'บันทึกข้อร้องเรียนเรียบร้อยแล้ว'
-              : lang === 'en'
-                ? 'Suggestion Recorded Successfully'
-                : 'บันทึกข้อเสนอแนะเรียบร้อยแล้ว'}
+              ? tr('Grievance Recorded Successfully', 'บันทึกข้อร้องเรียนเรียบร้อยแล้ว')
+              : tr('Suggestion Recorded Successfully', 'บันทึกข้อเสนอแนะเรียบร้อยแล้ว')}
           </h2>
           <p className="mx-auto mb-6 max-w-md text-sm text-slate-600">
             {lang === 'en'
@@ -526,12 +648,8 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
                 </label>
                 <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
                   {submissionType === 'complaint'
-                    ? lang === 'en'
-                      ? 'Grievance'
-                      : 'ข้อร้องเรียน'
-                    : lang === 'en'
-                      ? 'Suggestion'
-                      : 'ข้อเสนอแนะ'}
+                    ? tr('Grievance', 'ข้อร้องเรียน')
+                    : tr('Suggestion', 'ข้อเสนอแนะ')}
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -657,129 +775,18 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
           </div>
 
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-            {/* Level 1: Low */}
-            <button
-              type="button"
-              id="urgency-btn-low"
-              onClick={() => {
-                setUrgency('Low');
-                setRiskSeverity('Low');
-              }}
-              className={`flex cursor-pointer flex-col justify-between rounded-xl border p-3 text-left transition ${
-                urgency === 'Low'
-                  ? 'border-slate-400 bg-slate-100 text-slate-900 shadow-xs ring-2 ring-slate-400/30'
-                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              <div>
-                <div className="mb-1 flex items-center justify-between">
-                  <span className="flex items-center gap-1 text-xs font-bold text-slate-700">
-                    {lang === 'en' ? '🟢 Low / General' : '🟢 ต่ำ / ทั่วไป'}
-                  </span>
-                  <span className="rounded bg-slate-200/80 px-1 font-mono text-[9px] text-slate-600">
-                    Low
-                  </span>
-                </div>
-                <p className="text-[10.5px] leading-snug text-slate-500">
-                  {lang === 'en'
-                    ? 'General inquiry or suggestion; does not affect daily operations'
-                    : 'ข้อเสนอแนะ / สอบถามทั่วไป ไม่กระทบงานประจำวัน'}
-                </p>
-              </div>
-            </button>
-
-            {/* Level 2: Medium */}
-            <button
-              type="button"
-              id="urgency-btn-medium"
-              onClick={() => {
-                setUrgency('Medium');
-                setRiskSeverity('Moderate');
-              }}
-              className={`flex cursor-pointer flex-col justify-between rounded-xl border p-3 text-left transition ${
-                urgency === 'Medium'
-                  ? 'border-amber-400 bg-amber-50 text-amber-950 shadow-xs ring-2 ring-amber-400/40'
-                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              <div>
-                <div className="mb-1 flex items-center justify-between">
-                  <span className="flex items-center gap-1 text-xs font-bold text-amber-800">
-                    {lang === 'en' ? '🟡 Medium' : '🟡 ปานกลาง'}
-                  </span>
-                  <span className="rounded bg-amber-100 px-1 font-mono text-[9px] text-amber-800">
-                    Medium
-                  </span>
-                </div>
-                <p className="text-[10.5px] leading-snug text-slate-500">
-                  {lang === 'en'
-                    ? 'Begins to affect workflow, processes, or minor equipment fault'
-                    : 'เริ่มกระทบขั้นตอนการทำงาน หรืออุปกรณ์ขัดข้อง'}
-                </p>
-              </div>
-            </button>
-
-            {/* Level 3: High */}
-            <button
-              type="button"
-              id="urgency-btn-high"
-              onClick={() => {
-                setUrgency('High');
-                setRiskSeverity('High');
-              }}
-              className={`flex cursor-pointer flex-col justify-between rounded-xl border p-3 text-left transition ${
-                urgency === 'High'
-                  ? 'border-rose-400 bg-rose-50 text-rose-950 shadow-xs ring-2 ring-rose-400/40'
-                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              <div>
-                <div className="mb-1 flex items-center justify-between">
-                  <span className="flex items-center gap-1 text-xs font-bold text-rose-800">
-                    {lang === 'en' ? '🔴 High / Urgent' : '🔴 เร่งด่วน'}
-                  </span>
-                  <span className="rounded bg-rose-100 px-1 font-mono text-[9px] text-rose-800">
-                    High
-                  </span>
-                </div>
-                <p className="text-[10.5px] leading-snug text-slate-500">
-                  {lang === 'en'
-                    ? 'Affects safety, employee wellness, or causes operational halt'
-                    : 'กระทบความปลอดภัย สุขภาพพนักงาน หรือหยุดชะงัก'}
-                </p>
-              </div>
-            </button>
-
-            {/* Level 4: Critical */}
-            <button
-              type="button"
-              id="urgency-btn-critical"
-              onClick={() => {
-                setUrgency('Critical');
-                setRiskSeverity('Severe');
-              }}
-              className={`flex cursor-pointer flex-col justify-between rounded-xl border p-3 text-left transition ${
-                urgency === 'Critical'
-                  ? 'border-red-500 bg-red-100 text-red-950 shadow-xs ring-2 ring-red-500/50'
-                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              <div>
-                <div className="mb-1 flex items-center justify-between">
-                  <span className="flex items-center gap-1 text-xs font-bold text-red-800">
-                    {lang === 'en' ? '🔥 Critical / Emergency' : '🔥 วิกฤติ / ฉุกเฉิน'}
-                  </span>
-                  <span className="rounded bg-red-200 px-1 font-mono text-[9px] font-bold text-red-900">
-                    Critical
-                  </span>
-                </div>
-                <p className="text-[10.5px] leading-snug text-slate-500">
-                  {lang === 'en'
-                    ? 'Severe crisis, corruption, legal liability or human safety threat'
-                    : 'เหตุฉุกเฉินร้ายแรง ทุจริต หรือความเสี่ยงกฎหมาย'}
-                </p>
-              </div>
-            </button>
+            {URGENCY_OPTIONS.map((option) => (
+              <UrgencyLevelButton
+                key={option.level}
+                option={option}
+                isSelected={urgency === option.level}
+                lang={lang}
+                onSelect={(level) => {
+                  setUrgency(level);
+                  setRiskSeverity(RISK_BY_URGENCY[level]);
+                }}
+              />
+            ))}
           </div>
         </div>
 
@@ -1211,6 +1218,7 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
 
                 <button
                   type="button"
+                  aria-label={tr('Dismiss', 'ปิดกล่องแนะนำ')}
                   onClick={() => setAiCategoryResult(null)}
                   className="cursor-pointer rounded-md p-1 text-slate-400 transition hover:bg-white/80 hover:text-slate-600"
                   title={lang === 'en' ? 'Dismiss' : 'ปิดกล่องแนะนำ'}
@@ -1253,15 +1261,7 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
                       }`}
                     >
                       <CheckCircle2 className="h-3.5 w-3.5" />
-                      <span>
-                        {category === aiCategoryResult.suggestedCategory
-                          ? lang === 'en'
-                            ? '✓ Applied (Step 2 Selected)'
-                            : '✓ เลือกหมวดหมู่นี้ในข้อ 2 แล้ว'
-                          : lang === 'en'
-                            ? 'Apply This Category (Step 2)'
-                            : `นำหมวดหมู่นี้ไปใช้ (เลือกเป็น ${CATEGORY_DEFINITIONS[aiCategoryResult.suggestedCategory]?.nameTh})`}
-                      </span>
+                      <span>{getApplyAiCategoryLabel(aiCategoryResult.suggestedCategory)}</span>
                     </button>
                     {aiCategoryResult.suggestedUrgency && (
                       <span className="text-[10px] text-slate-500">
@@ -1275,14 +1275,14 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
 
                 {/* Keywords Detected Chips & Secondary Category */}
                 <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2 text-xs">
-                  {aiCategoryResult.keywords && aiCategoryResult.keywords.length > 0 && (
+                  {!!aiCategoryResult.keywords?.length && (
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="text-[10.5px] font-medium text-slate-500">
                         {lang === 'en' ? 'Key terms detected:' : 'คำสำคัญที่พบ:'}
                       </span>
-                      {aiCategoryResult.keywords.map((kw, i) => (
+                      {aiCategoryResult.keywords.map((kw) => (
                         <span
-                          key={i}
+                          key={kw}
                           className="rounded-md border border-slate-200/50 bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700"
                         >
                           #{kw}
@@ -1291,18 +1291,18 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
                     </div>
                   )}
 
-                  {aiCategoryResult.secondaryCategory &&
-                    aiCategoryResult.secondaryCategory !== aiCategoryResult.suggestedCategory && (
+                  {aiSecondaryCategory &&
+                    aiSecondaryCategory !== aiCategoryResult.suggestedCategory && (
                       <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
                         <span>
                           {lang === 'en' ? 'Alternative category:' : 'หรือเลือกหมวดหมู่ใกล้เคียง:'}
                         </span>
                         <button
                           type="button"
-                          onClick={() => handleApplyAICategory(aiCategoryResult.secondaryCategory!)}
+                          onClick={() => handleApplyAICategory(aiSecondaryCategory)}
                           className="cursor-pointer rounded-lg border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700 transition hover:bg-indigo-50 hover:text-indigo-700"
                         >
-                          {CATEGORY_DEFINITIONS[aiCategoryResult.secondaryCategory]?.nameTh}
+                          {CATEGORY_DEFINITIONS[aiSecondaryCategory]?.nameTh}
                         </button>
                       </div>
                     )}
@@ -1321,6 +1321,7 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
                 </div>
                 <button
                   type="button"
+                  aria-label={tr('Dismiss', 'ปิด')}
                   onClick={() => setAiHelperNotice(null)}
                   className="cursor-pointer text-amber-600 hover:text-amber-800"
                 >
@@ -1398,9 +1399,10 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
             </div>
 
             {attachments.length === 0 ? (
-              <div
+              <button
+                type="button"
                 onClick={handleAddMockAttachment}
-                className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-slate-200 p-2.5 text-center text-xs text-slate-500 transition hover:border-indigo-400 hover:bg-slate-50/50"
+                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-slate-200 p-2.5 text-center text-xs text-slate-500 transition hover:border-indigo-400 hover:bg-slate-50/50"
               >
                 <Paperclip className="h-4 w-4 text-slate-400" />
                 <span>
@@ -1408,7 +1410,7 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
                     ? 'Click to attach evidence (PNG, JPG, PDF, DOCX up to 25 MB)'
                     : 'คลิกเพื่อแนบไฟล์หลักฐาน (PNG, JPG, PDF, DOCX ขนาดไม่เกิน 25 MB)'}
                 </span>
-              </div>
+              </button>
             ) : (
               <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                 {attachments.map((att) => (
@@ -1425,6 +1427,7 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
                     </div>
                     <button
                       type="button"
+                      aria-label={tr('Remove file', 'ลบไฟล์')}
                       onClick={() => handleRemoveAttachment(att.id)}
                       className="p-1 text-slate-400 hover:text-rose-600"
                     >

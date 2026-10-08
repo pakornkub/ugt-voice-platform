@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { TrackingTimelineModal } from './TrackingTimelineModal';
 import { LanguageProvider } from '../context/LanguageContext';
 import { INITIAL_COMPLAINTS } from '../mockData';
-import type { UserRole } from '../types';
+import type { ComplaintTicket, UserRole } from '../types';
 
 // saveStoredTickets mirrors into sql.js, which would fetch its WASM from a CDN
 vi.mock('../services/sqliteDb', () => ({
@@ -12,12 +12,8 @@ vi.mock('../services/sqliteDb', () => ({
 }));
 
 const byId = (id: string) => document.getElementById(id) as HTMLElement;
-const directCeoTicket = INITIAL_COMPLAINTS.find((t) => t.isDirectToExecutive) as NonNullable<
-  (typeof INITIAL_COMPLAINTS)[number]
->;
-const resolvedTicket = INITIAL_COMPLAINTS.find((t) => t.status === 'resolved') as NonNullable<
-  (typeof INITIAL_COMPLAINTS)[number]
->;
+const directCeoTicket = INITIAL_COMPLAINTS.find((t) => t.isDirectToExecutive) as ComplaintTicket;
+const resolvedTicket = INITIAL_COMPLAINTS.find((t) => t.status === 'resolved') as ComplaintTicket;
 
 function renderModal(ticket = directCeoTicket, currentRole: UserRole = 'employee') {
   const props = {
@@ -102,5 +98,35 @@ describe('TrackingTimelineModal', () => {
     await user.click(byId('btn-open-csat-top'));
 
     expect(props.onOpenSatisfactionModal).toHaveBeenCalledWith(resolvedTicket);
+  });
+
+  describe('submitter card (RBAC confidentiality)', () => {
+    const open = { ...directCeoTicket, isDirectToExecutive: false };
+
+    it('shields the login email of an anonymous submitter from roles without permission', () => {
+      renderModal({ ...open, confidentiality: 'anonymous' }, 'employee');
+      expect(screen.getByText(/ปกปิดตามสิทธิ์/)).toBeInTheDocument();
+    });
+
+    it('shows the mapped login email of an anonymous submitter to a permitted role', () => {
+      renderModal({ ...open, confidentiality: 'anonymous' }, 'admin');
+      expect(screen.getByText(/ได้รับสิทธิ์/)).toBeInTheDocument();
+    });
+
+    it('hides a confidential submitter from a gatekeeper without access', () => {
+      renderModal({ ...open, confidentiality: 'confidential_restricted' }, 'gatekeeper');
+      expect(screen.getByText('Confidential Restricted')).toBeInTheDocument();
+      expect(screen.queryByText(open.submitterName as string)).not.toBeInTheDocument();
+    });
+
+    it('reveals a confidential submitter to a role with access', () => {
+      renderModal({ ...open, confidentiality: 'confidential_restricted' }, 'admin');
+      expect(screen.getByText(/สิทธิ์ปลดล็อก/)).toBeInTheDocument();
+    });
+
+    it('shows the named submitter for a standard ticket', () => {
+      renderModal({ ...open, confidentiality: 'standard_named' }, 'employee');
+      expect(screen.getByText('Standard Named')).toBeInTheDocument();
+    });
   });
 });

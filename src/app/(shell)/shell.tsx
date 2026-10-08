@@ -257,7 +257,7 @@ export default function Shell({
               <div className="flex items-center justify-between bg-slate-800 px-4 py-1 font-mono text-[11px] text-white">
                 <span>9:41 AM</span>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[10px]">UGT VoiceCare Mobile</span>
+                  <span className="text-[10px]">UGT VoicePlatform Mobile</span>
                   <Smartphone className="h-3 w-3 text-indigo-400" />
                 </div>
               </div>

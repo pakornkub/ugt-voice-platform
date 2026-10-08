@@ -59,6 +59,48 @@ const DEFAULT_IDENTITY: ShellIdentity = {
   permissions: [],
 };
 
+const INDIGO_TAB_ACTIVE = 'bg-indigo-50 font-semibold text-indigo-700';
+
+// Unread / history count bubble ("9+" once past nine).
+const CountBadge: React.FC<Readonly<{ count: number; className: string }>> = ({
+  count,
+  className,
+}) => (count > 0 ? <span className={className}>{count > 9 ? '9+' : count}</span> : null);
+
+const NavTabButton: React.FC<
+  Readonly<{
+    id: string;
+    isActive: boolean;
+    onSelect: () => void;
+    icon: React.ReactNode;
+    label: string;
+    activeClass?: string;
+    inactiveClass?: string;
+    weightClass?: string;
+  }>
+> = ({
+  id,
+  isActive,
+  onSelect,
+  icon,
+  label,
+  activeClass = INDIGO_TAB_ACTIVE,
+  inactiveClass = 'text-slate-600 hover:bg-slate-50 hover:text-slate-900',
+  weightClass = 'font-medium',
+}) => (
+  <button
+    id={id}
+    type="button"
+    onClick={onSelect}
+    className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition ${weightClass} ${
+      isActive ? activeClass : inactiveClass
+    }`}
+  >
+    {icon}
+    <span>{label}</span>
+  </button>
+);
+
 export const Navbar: React.FC<Readonly<NavbarProps>> = ({
   currentRole = 'employee',
   identity = DEFAULT_IDENTITY,
@@ -147,6 +189,67 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
   const canSeeMailTemplates = identity.permissions.includes('mail-templates:manage');
   const hasAdminSection = canSeeUsers || canSeeRoles || canSeeAuditLogs || canSeeMailTemplates;
 
+  // Tabs governed by RoleAccessConfigs.allowedTabs (upstream matrix), in display order.
+  const mainTabs: {
+    tab: AppTabId;
+    domId: string;
+    icon: React.ReactNode;
+    label: string;
+    activeClass?: string;
+    inactiveClass?: string;
+    weightClass?: string;
+  }[] = [
+    {
+      tab: 'submit',
+      domId: 'nav-tab-submit',
+      icon: <FileText className="h-3.5 w-3.5" />,
+      label: t('tab.submit'),
+    },
+    {
+      tab: 'my_tickets',
+      domId: 'nav-tab-my-tickets',
+      icon: <LifeBuoy className="h-3.5 w-3.5" />,
+      label: t('tab.my_tickets'),
+    },
+    {
+      tab: 'gatekeeper',
+      domId: 'nav-tab-gatekeeper',
+      icon: <Shield className="h-3.5 w-3.5 text-emerald-600" />,
+      label: t('tab.gatekeeper'),
+      activeClass: 'bg-emerald-50 font-semibold text-emerald-800',
+    },
+    {
+      tab: 'clustering',
+      domId: 'nav-tab-clustering',
+      icon: <Layers className="h-3.5 w-3.5" />,
+      label: t('tab.clustering'),
+    },
+    {
+      tab: 'admin_gatekeeper',
+      domId: 'nav-tab-admin-gatekeeper',
+      icon: <Users className="h-3.5 w-3.5" />,
+      label: t('tab.admin_gatekeeper'),
+    },
+    // this app's own tab-visibility settings (RoleAccessConfigs), unchanged
+    {
+      tab: 'rbac_management',
+      domId: 'nav-tab-rbac-management',
+      icon: <SlidersHorizontal className="h-3.5 w-3.5 text-rose-600" />,
+      label: t('tab.rbac_management'),
+      activeClass: 'bg-rose-50 font-bold text-rose-800 ring-1 ring-rose-300',
+      inactiveClass: 'text-rose-700 hover:bg-rose-50/60 hover:text-rose-900',
+      weightClass: 'font-bold',
+    },
+    // คู่มือ — upstream moved it from a quick button to a tab
+    {
+      tab: 'workflow',
+      domId: 'nav-tab-workflow',
+      icon: <GitBranch className="h-3.5 w-3.5 text-indigo-600" />,
+      label: t('tab.workflow'),
+      activeClass: `${INDIGO_TAB_ACTIVE} ring-1 ring-indigo-300`,
+    },
+  ];
+
   const adminTabs = [
     {
       id: 'admin_users',
@@ -196,7 +299,7 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-base font-bold tracking-tight text-slate-900 sm:text-lg">
-                  UGT VoiceCare
+                  UGT VoicePlatform
                 </span>
                 <span className="hidden items-center rounded border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 sm:inline-flex">
                   Grievance & Whistleblower
@@ -224,6 +327,7 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
                   onClick={() => setSearchQuery('')}
                   className="absolute right-2 text-slate-400 hover:text-slate-600"
                   title="Clear search"
+                  aria-label="Clear search"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -239,11 +343,10 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
               title={t('nav.recent_searches_tooltip')}
             >
               <History className="h-4 w-4 text-indigo-600" />
-              {recentSearchesCount > 0 && (
-                <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-indigo-600 px-1 text-[10px] font-bold text-white">
-                  {recentSearchesCount > 9 ? '9+' : recentSearchesCount}
-                </span>
-              )}
+              <CountBadge
+                count={recentSearchesCount}
+                className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-indigo-600 px-1 text-[10px] font-bold text-white"
+              />
             </button>
           </div>
 
@@ -258,11 +361,10 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
               title={t('nav.recent_searches_tooltip')}
             >
               <History className="h-4 w-4 text-indigo-600" />
-              {recentSearchesCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white shadow-xs">
-                  {recentSearchesCount > 9 ? '9+' : recentSearchesCount}
-                </span>
-              )}
+              <CountBadge
+                count={recentSearchesCount}
+                className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white shadow-xs"
+              />
             </button>
 
             {/* Quick Dashboard Button (only visible if allowed by the Screen Visibility Matrix) */}
@@ -426,125 +528,21 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
         {/* Dynamic RBAC-Filtered Navigation Tabs */}
         {!isMobileSimulator && (
           <nav className="no-scrollbar flex space-x-1 overflow-x-auto border-t border-slate-100 py-1.5 sm:space-x-2">
-            {/* Tab: Submit */}
-            {allowedTabs.includes('submit') && (
-              <button
-                id="nav-tab-submit"
-                type="button"
-                onClick={() => handleTabSelect('submit')}
-                className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                  activeTab === 'submit'
-                    ? 'bg-indigo-50 font-semibold text-indigo-700'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <FileText className="h-3.5 w-3.5" />
-                <span>{t('tab.submit')}</span>
-              </button>
-            )}
-
-            {/* Tab: My Tickets */}
-            {allowedTabs.includes('my_tickets') && (
-              <button
-                id="nav-tab-my-tickets"
-                type="button"
-                onClick={() => handleTabSelect('my_tickets')}
-                className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                  activeTab === 'my_tickets'
-                    ? 'bg-indigo-50 font-semibold text-indigo-700'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <LifeBuoy className="h-3.5 w-3.5" />
-                <span>{t('tab.my_tickets')}</span>
-              </button>
-            )}
-
-            {/* Tab: Gatekeeper Portal */}
-            {allowedTabs.includes('gatekeeper') && (
-              <button
-                id="nav-tab-gatekeeper"
-                type="button"
-                onClick={() => handleTabSelect('gatekeeper')}
-                className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                  activeTab === 'gatekeeper'
-                    ? 'bg-emerald-50 font-semibold text-emerald-800'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <Shield className="h-3.5 w-3.5 text-emerald-600" />
-                <span>{t('tab.gatekeeper')}</span>
-              </button>
-            )}
-
-            {/* Tab: Root Cause & CAPA */}
-            {allowedTabs.includes('clustering') && (
-              <button
-                id="nav-tab-clustering"
-                type="button"
-                onClick={() => handleTabSelect('clustering')}
-                className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                  activeTab === 'clustering'
-                    ? 'bg-indigo-50 font-semibold text-indigo-700'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <Layers className="h-3.5 w-3.5" />
-                <span>{t('tab.clustering')}</span>
-              </button>
-            )}
-
-            {/* Tab: Personnel & Governance Directory */}
-            {allowedTabs.includes('admin_gatekeeper') && (
-              <button
-                id="nav-tab-admin-gatekeeper"
-                type="button"
-                onClick={() => handleTabSelect('admin_gatekeeper')}
-                className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                  activeTab === 'admin_gatekeeper'
-                    ? 'bg-indigo-50 font-semibold text-indigo-700'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <Users className="h-3.5 w-3.5" />
-                <span>{t('tab.admin_gatekeeper')}</span>
-              </button>
-            )}
-
-            {/* Tab: Role-Based Access Control (RBAC) — this app's own
-                tab-visibility settings (RoleAccessConfigs), unchanged */}
-            {allowedTabs.includes('rbac_management') && (
-              <button
-                id="nav-tab-rbac-management"
-                type="button"
-                onClick={() => handleTabSelect('rbac_management')}
-                className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                  activeTab === 'rbac_management'
-                    ? 'bg-rose-50 font-bold text-rose-800 ring-1 ring-rose-300'
-                    : 'text-rose-700 hover:bg-rose-50/60 hover:text-rose-900'
-                }`}
-              >
-                <SlidersHorizontal className="h-3.5 w-3.5 text-rose-600" />
-                <span>{t('tab.rbac_management')}</span>
-              </button>
-            )}
-
-            {/* Tab: Workflow & SOP Manual (คู่มือ — upstream moved it from a quick button to a tab) */}
-            {allowedTabs.includes('workflow') && (
-              <button
-                id="nav-tab-workflow"
-                type="button"
-                onClick={() => handleTabSelect('workflow')}
-                className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                  activeTab === 'workflow'
-                    ? 'bg-indigo-50 font-semibold text-indigo-700 ring-1 ring-indigo-300'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <GitBranch className="h-3.5 w-3.5 text-indigo-600" />
-                <span>{t('tab.workflow')}</span>
-              </button>
-            )}
+            {mainTabs
+              .filter((tab) => allowedTabs.includes(tab.tab))
+              .map((tab) => (
+                <NavTabButton
+                  key={tab.tab}
+                  id={tab.domId}
+                  isActive={activeTab === tab.tab}
+                  onSelect={() => handleTabSelect(tab.tab)}
+                  icon={tab.icon}
+                  label={tab.label}
+                  activeClass={tab.activeClass}
+                  inactiveClass={tab.inactiveClass}
+                  weightClass={tab.weightClass}
+                />
+              ))}
 
             {/* ugt-nextjs-auth-setup (2026-09-02): admin section — visibility
                 from RBAC permissions (identity.permissions), not allowedTabs */}
@@ -557,20 +555,15 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
             {adminTabs
               .filter((tab) => tab.visible)
               .map((tab) => (
-                <button
+                <NavTabButton
                   key={tab.id}
                   id={tab.domId}
-                  type="button"
-                  onClick={() => handleTabSelect(tab.id)}
-                  className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                    activeTab === tab.id
-                      ? 'bg-slate-800 font-semibold text-white'
-                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                  }`}
-                >
-                  {tab.icon}
-                  <span>{tab.label}</span>
-                </button>
+                  isActive={activeTab === tab.id}
+                  onSelect={() => handleTabSelect(tab.id)}
+                  icon={tab.icon}
+                  label={tab.label}
+                  activeClass="bg-slate-800 font-semibold text-white"
+                />
               ))}
           </nav>
         )}

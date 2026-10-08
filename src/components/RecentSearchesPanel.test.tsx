@@ -3,38 +3,29 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RecentSearchesPanel } from './RecentSearchesPanel';
 import { LanguageProvider } from '../context/LanguageContext';
+import { INITIAL_COMPLAINTS } from '../mockData';
 import { addRecentSearch, getRecentSearches } from '../services/api';
 
-function renderPanel(isOpen: boolean, overrides: Record<string, unknown> = {}) {
+function renderPanel(isOpen: boolean) {
   const props = {
     isOpen,
     onClose: vi.fn(),
     onSelectTicket: vi.fn(),
     onSearchAgain: vi.fn(),
-    ...overrides,
   };
-  render(
+  const view = render(
     <LanguageProvider>
       <RecentSearchesPanel {...props} />
     </LanguageProvider>
   );
-  return props;
+  return { ...props, ...view };
 }
 
 describe('RecentSearchesPanel', () => {
   beforeEach(() => localStorage.clear());
 
   it('renders nothing while closed', () => {
-    const { container } = render(
-      <LanguageProvider>
-        <RecentSearchesPanel
-          isOpen={false}
-          onClose={vi.fn()}
-          onSelectTicket={vi.fn()}
-          onSearchAgain={vi.fn()}
-        />
-      </LanguageProvider>
-    );
+    const { container } = renderPanel(false);
     expect(container).toBeEmptyDOMElement();
   });
 
@@ -45,19 +36,56 @@ describe('RecentSearchesPanel', () => {
 
     const props = renderPanel(true);
 
-    const row = screen.getByText('TK-NOPE-0001');
-    await user.click(row);
+    await user.click(screen.getByRole('button', { name: 'TK-NOPE-0001' }));
 
     expect(props.onSearchAgain).toHaveBeenCalledWith('TK-NOPE-0001');
     expect(props.onClose).toHaveBeenCalled();
   });
 
-  it('closes on Escape', async () => {
+  it('opens the ticket directly when the searched code exists', async () => {
+    const user = userEvent.setup();
+    const known = INITIAL_COMPLAINTS[0];
+    addRecentSearch(known.trackingCode, known);
+
+    const props = renderPanel(true);
+    await user.click(screen.getByRole('button', { name: known.trackingCode }));
+
+    expect(props.onSelectTicket).toHaveBeenCalledWith(expect.objectContaining({ id: known.id }));
+    expect(props.onSearchAgain).not.toHaveBeenCalled();
+  });
+
+  it('removes a single history item and filters the list', async () => {
+    const user = userEvent.setup();
+    addRecentSearch('TK-AAA-1111', undefined);
+    addRecentSearch('TK-BBB-2222', undefined);
+    renderPanel(true);
+
+    await user.type(screen.getByPlaceholderText('กรองประวัติการค้นหา...'), 'AAA');
+    expect(screen.queryByRole('button', { name: 'TK-BBB-2222' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'ลบรายการนี้' }));
+    expect(getRecentSearches().map((s) => s.query)).toEqual(['TK-BBB-2222']);
+  });
+
+  it('shows the empty state with sample tickets and picks one', async () => {
+    const user = userEvent.setup();
+    const props = renderPanel(true);
+
+    expect(screen.getByText('ยังไม่มีประวัติการค้นหาคำร้อง')).toBeInTheDocument();
+    await user.click(
+      screen.getByRole('button', { name: new RegExp(INITIAL_COMPLAINTS[0].trackingCode) })
+    );
+
+    expect(props.onSelectTicket).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes on Escape and via the backdrop', async () => {
     const user = userEvent.setup();
     const props = renderPanel(true);
 
     await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('button', { name: 'ปิด' }));
 
-    expect(props.onClose).toHaveBeenCalledTimes(1);
+    expect(props.onClose).toHaveBeenCalledTimes(2);
   });
 });
