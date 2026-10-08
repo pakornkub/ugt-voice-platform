@@ -20,6 +20,8 @@ const eslintConfig = defineConfig([
     'next-env.d.ts',
     // ours: vitest coverage reports are not source
     'coverage/**',
+    // ours: Claude Code session worktrees (full repo copies incl. .next/) live here
+    '.claude/**',
   ]),
 ]);
 
