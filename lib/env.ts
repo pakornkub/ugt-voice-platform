@@ -80,11 +80,10 @@ export const env = createEnv({
    * Must be prefixed with NEXT_PUBLIC_.
    */
   client: {
-    // This app is deployed standalone (no shared-domain basePath) as of this
-    // chunk — see docs/admin-handoff.md §2 and .claude/state/handoff.md. Kept
-    // here (defaulting to '') rather than hardcoded so a future basePath
-    // decision (tracked in ugt-nextjs-cicd-setup's queue) is a one-line env
-    // change, not a code change.
+    // basePath: /ugt-voice-platform (prod) · /ugt-voice-platform-dev (dev) on
+    // https://ugtweb.ube.co.th, empty locally (decisions.md 2026-10-09). Kept
+    // here (defaulting to '') rather than hardcoded so the basePath
+    // is a build arg per branch, not a code change.
     NEXT_PUBLIC_BASE_PATH: z.string().default(''),
     NEXT_PUBLIC_APP_NAME: z.string().optional(),
   },

@@ -2,8 +2,8 @@
 # Stage names matter: the Jenkinsfile builds `--target builder` as a separate
 # image used for `prisma migrate deploy` at deploy time.
 #
-# No basePath (standalone deploy), no Sentry — see
-# docs/project-context/decisions.md (ugt-nextjs-cicd-setup, 2026-09-02).
+# basePath /ugt-voice-platform (prod default; dev passes /ugt-voice-platform-dev as a build arg), no Sentry — see
+# docs/project-context/decisions.md (2026-10-09).
 
 # ─── Stage 1: Install dependencies ───────────────────────────────────────────
 FROM node:22-alpine AS deps
@@ -28,7 +28,7 @@ COPY . .
 # Build-time env vars (PUBLIC/client-side only — baked into the JS bundle).
 # These MUST arrive as --build-arg from the Jenkinsfile; runtime environment
 # injection has NO effect on client-side vars.
-ARG NEXT_PUBLIC_BASE_PATH=""
+ARG NEXT_PUBLIC_BASE_PATH=/ugt-voice-platform
 ARG NEXT_PUBLIC_APP_URL
 ARG NEXT_PUBLIC_APP_NAME="UGT VoiceCare"
 
@@ -75,10 +75,10 @@ ENV PORT=3000 \
 
 # Health check on the app's health endpoint.
 # - Use 127.0.0.1, NOT localhost (Alpine resolves localhost to ::1/IPv6 only)
-# - No basePath in this project — path is the bare /api/health.
+# - Path includes the prod basePath; compose overrides it per environment.
 # - docker-compose healthcheck (per environment) overrides this one; keep both
 #   in sync.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD wget -qO- http://127.0.0.1:3000/api/health || exit 1
+  CMD wget -qO- http://127.0.0.1:3000/ugt-voice-platform/api/health || exit 1
 
 CMD ["node", "server.js"]

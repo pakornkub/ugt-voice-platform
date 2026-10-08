@@ -56,14 +56,14 @@ services:
       # line. This is an infra decision, NOT a secret — set it here directly,
       # never inside the env-ugt-voice-platform Jenkins Secret File credential.
       # NODE_EXTRA_CA_CERTS: /etc/ssl/certs/org-ca.pem   # preferred — mount the cert; needs a matching volumes: bind
-      # NODE_TLS_REJECT_UNAUTHORIZED: '0'                # closed intranet only, admin-confirmed — disables TLS verification for the whole container
+      NODE_TLS_REJECT_UNAUTHORIZED: '0' # closed intranet only, admin-confirmed — disables TLS verification for the whole container
     depends_on:
       clamav:
         condition: service_healthy
     healthcheck:
       # Always 127.0.0.1 (NOT localhost — Alpine resolves it to IPv6 ::1) and
       # always internal port 3000 (container-internal, not the host port)
-      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/api/health || exit 1']
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/ugt-voice-platform/api/health || exit 1']
       interval: 30s
       timeout: 10s
       retries: 5

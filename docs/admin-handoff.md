@@ -108,26 +108,25 @@ npx prisma db seed
 local ในระบบ (มติ: `docs/project-context/decisions.md`) ระบบ Login/RBAC ทั้งชุด
 (Better Auth + ตาราง User/Session/Account/Role/Permission ฯลฯ) ถูกสร้างไว้พร้อม
 ใช้งานแล้วในโค้ด แต่ **ยังไม่มี Keycloak client จริงให้เชื่อมต่อ** — ค่าที่ใช้ตอนนี้ใน
-`.env.local` เป็น placeholder ทั้งหมด (`__KEYCLOAK_HOST__`/`__REALM__`/
-`__KEYCLOAK_CLIENT_SECRET__`)
+`.env.local` เป็น placeholder ทั้งหมด
 
 ### 2.1 สิ่งที่ต้องขอจากทีม Keycloak องค์กร
 
-| อะไร                               | ค่าที่ต้องระบุ                                           | หมายเหตุ                                                                |
-| ---------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------- |
-| Client ใหม่ในระบบ Keycloak กลาง    | Client ID: `ugt-voice-platform`                          | โปรเจคนี้มี client เป็นของตัวเอง — **ห้ามใช้ client ร่วมกับโปรเจคอื่น** |
-| Client authentication              | เปิด (Confidential client — มี client secret)            |                                                                         |
-| Standard flow (Authorization Code) | เปิด                                                     | ปิด direct access grants / implicit flow / service accounts — ไม่ใช้    |
-| PKCE                               | S256                                                     | ตั้งที่ Advanced → Proof Key for Code Exchange Code Challenge Method    |
-| Valid redirect URIs                | ดูตารางด้านล่าง (ต้องตรงตัวอักษรทุกตัว รวม `/` ท้าย URI) |                                                                         |
-| Web origins                        | origin จริงของแอปที่ deploy (เช่น `https://<app-host>`)  |                                                                         |
+| อะไร                               | ค่าที่ต้องระบุ                                                          | หมายเหตุ                                                                |
+| ---------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Client ใหม่ในระบบ Keycloak กลาง    | Client ID: `ugt-voice-platform`                                         | โปรเจคนี้มี client เป็นของตัวเอง — **ห้ามใช้ client ร่วมกับโปรเจคอื่น** |
+| Client authentication              | เปิด (Confidential client — มี client secret)                           |                                                                         |
+| Standard flow (Authorization Code) | เปิด                                                                    | ปิด direct access grants / implicit flow / service accounts — ไม่ใช้    |
+| PKCE                               | S256                                                                    | ตั้งที่ Advanced → Proof Key for Code Exchange Code Challenge Method    |
+| Valid redirect URIs                | ดูตารางด้านล่าง (ต้องตรงตัวอักษรทุกตัว รวม `/` ท้าย URI)                |                                                                         |
+| Web origins                        | `https://ugtweb.ube.co.th` (และ `http://localhost:3000` สำหรับนักพัฒนา) |                                                                         |
 
-**Redirect URI** (โปรเจคนี้ไม่มี basePath — deploy standalone ตามที่ตกลงไว้ตอนนี้ —
-ยืนยันซ้ำอีกครั้งใน §5 ของหัวข้อ CI/CD ด้านล่าง):
+**Redirect URI** (แอปอยู่ใต้ basePath บน `https://ugtweb.ube.co.th` เหมือนโปรเจคอื่น):
 
 ```
-http://localhost:3000/api/auth/callback/keycloak        (dev — ค่า placeholder ก่อน admin แจ้ง APP_PORT/host จริง)
-https://<app-host>/api/auth/callback/keycloak            (prod — แจ้ง host จริงกลับมาด้วย ดูตาราง "ค่าที่ต้องส่งกลับ" ของ §5)
+https://ugtweb.ube.co.th/ugt-voice-platform/api/auth/callback/keycloak        (prod)
+https://ugtweb.ube.co.th/ugt-voice-platform-dev/api/auth/callback/keycloak    (dev)
+http://localhost:3000/api/auth/callback/keycloak                              (นักพัฒนารันในเครื่อง)
 ```
 
 **Logout**: ไม่ต้องตั้งค่า Valid post logout redirect URIs — แอปใช้ backchannel
@@ -147,7 +146,6 @@ intranet ปิด — ตัดสินใจนี้เป็นของท
 | **→ KEYCLOAK_ISSUER**        | `https://<keycloak host>/realms/<realm>` — ตรวจด้วยการเปิด `<issuer>/.well-known/openid-configuration` ในเบราว์เซอร์ |                                         |
 | **→ KEYCLOAK_CLIENT_ID**     | ยืนยันว่าใช้ `ugt-voice-platform` ตามที่เสนอ หรือแจ้งชื่อจริง                                                        |                                         |
 | **→ KEYCLOAK_CLIENT_SECRET** | จาก client → tab Credentials                                                                                         | **ส่งช่องทางปลอดภัย อย่ากรอกในไฟล์นี้** |
-| **→ App host จริง (prod)**   | สำหรับลงทะเบียน redirect URI ที่ถูกต้อง                                                                              |                                         |
 | **→ TLS**                    | internal CA cert (`.pem`/`.crt`) หรือยืนยันว่าเป็น intranet ปิด                                                      |                                         |
 
 เมื่อได้ค่าครบ ใส่ใน `.env.local` แทนที่ `KEYCLOAK_ISSUER`/`KEYCLOAK_CLIENT_ID`/
@@ -178,12 +176,12 @@ intranet ปิด — ตัดสินใจนี้เป็นของท
 
 ### 3.1 สิ่งที่ต้องขอจากทีม IT/Network
 
-| อะไร                       | ค่าที่ต้องระบุ                                                          | หมายเหตุ                                                                                                                                           |
-| -------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| SMTP relay host/port       | เช่น `smtp.company.local` พอร์ต `25`/`587`/`465`                        | relay ภายในองค์กรส่วนใหญ่รับอีเมลจากเครื่องในเครือข่ายโดยไม่ต้อง auth — ถ้า relay ต้อง auth แจ้ง username/password กลับมาด้วย (ส่งช่องทางปลอดภัย)  |
-| TLS                        | STARTTLS (พอร์ต 25/587, ปกติ) หรือ Implicit TLS (พอร์ต 465)             | ถ้าเป็น 465 ต้องตั้ง `SMTP_SECURE=true`                                                                                                            |
-| ที่อยู่อีเมลผู้ส่ง (From)  | ที่อยู่ที่ relay **อนุญาตให้ส่งในนามนี้** เช่น `no-reply@company.co.th` | ถ้าใช้ที่อยู่ที่ relay ไม่อนุญาต อีเมลจะถูกปฏิเสธทั้งหมดโดยไม่มีใครในระบบเห็น error                                                                |
-| ผู้ติดต่อสนับสนุน (footer) | ทีม/อีเมลที่จะโชว์ท้ายอีเมลทุกฉบับ ("หากพบปัญหากรุณาติดต่อ...")         | ค่าเริ่มต้นตอนนี้คือ "ทีม HR/IT Support" — ยืนยันหรือแจ้งชื่อ/อีเมลจริงกลับมา (แก้ที่ `lib/types/mail-templates.ts`'s `__SUPPORT_CONTACT_EMAIL__`) |
+| อะไร                       | ค่าที่ต้องระบุ                                                          | หมายเหตุ                                                                                                                                          |
+| -------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SMTP relay host/port       | เช่น `smtp.company.local` พอร์ต `25`/`587`/`465`                        | relay ภายในองค์กรส่วนใหญ่รับอีเมลจากเครื่องในเครือข่ายโดยไม่ต้อง auth — ถ้า relay ต้อง auth แจ้ง username/password กลับมาด้วย (ส่งช่องทางปลอดภัย) |
+| TLS                        | STARTTLS (พอร์ต 25/587, ปกติ) หรือ Implicit TLS (พอร์ต 465)             | ถ้าเป็น 465 ต้องตั้ง `SMTP_SECURE=true`                                                                                                           |
+| ที่อยู่อีเมลผู้ส่ง (From)  | ที่อยู่ที่ relay **อนุญาตให้ส่งในนามนี้** เช่น `no-reply@company.co.th` | ถ้าใช้ที่อยู่ที่ relay ไม่อนุญาต อีเมลจะถูกปฏิเสธทั้งหมดโดยไม่มีใครในระบบเห็น error                                                               |
+| ผู้ติดต่อสนับสนุน (footer) | ทีม/อีเมลที่จะโชว์ท้ายอีเมลทุกฉบับ ("หากพบปัญหากรุณาติดต่อ...")         | ค่าเริ่มต้นตอนนี้คือ "ทีม HR/IT Support" — ยืนยันหรือแจ้งชื่อ/อีเมลจริงกลับมา (แก้ที่ `lib/types/mail-templates.ts`)                              |
 
 ### 3.2 ไม่ต้องทำ (ตอนนี้)
 
@@ -242,25 +240,23 @@ intranet ปิด — ตัดสินใจนี้เป็นของท
   image) — boot ครั้งแรกดาวน์โหลด signature DB ~1 GB จากอินเทอร์เน็ต ถ้า host ไม่มี
   outbound internet ต้อง preload ไฟล์ signature เอง (รายละเอียดใน
   `ugt-nextjs-upload-setup`'s SKILL.md §7)
-- **ถ้ามี reverse proxy (nginx/traefik) อยู่หน้าแอปใน production ต้องปรับ body-size
-  limit ของ proxy ให้ ≥ 25 MB** (`UPLOAD_MAX_BYTES` ปัจจุบัน) เช่น nginx
-  `client_max_body_size 25m;` — มิฉะนั้นไฟล์แนบขนาดใหญ่จะถูก proxy ปฏิเสธด้วย 413 ก่อน
-  ถึงแอปเลย โดยที่แอปไม่เห็น error ใด ๆ — **ยังไม่ยืนยันว่า production มี reverse proxy
-  หรือไม่** (basePath ตัดสินแล้วว่าไม่มี — deploy ที่ root path) — ถือว่าคำแนะนำนี้
-  ใช้ได้ไม่ว่าคำตอบจะเป็นอะไร
+- **reverse proxy ของ `ugtweb.ube.co.th` ต้องตั้ง body-size limit ให้ ≥ 25 MB**
+  สำหรับ path `/ugt-voice-platform` และ `/ugt-voice-platform-dev` (`UPLOAD_MAX_BYTES`
+  ปัจจุบัน) เช่น nginx `client_max_body_size 25m;` — มิฉะนั้นไฟล์แนบขนาดใหญ่จะถูก proxy
+  ปฏิเสธด้วย 413 ก่อนถึงแอป โดยที่แอปไม่เห็น error ใด ๆ
 
 ### ✅ ค่าที่ต้องส่งกลับให้ทีมพัฒนา (กรอกแล้วส่งไฟล์นี้คืน)
 
-| ค่า                                                                               | มาจากไหน                                                                                                               | กรอกตรงนี้ |
-| --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------- |
-| **→ มี reverse proxy หน้าแอปใน production ไหม**                                   | เช่น nginx/traefik ที่ terminate TLS หรือ route หลาย path บน domain เดียวกัน — ถ้ามี ต้องปรับ body-size limit ตาม §4.1 |            |
-| **→ ใครรับผิดชอบ backup ของ `/home/docker02/appdata/ugt-voice-platform/storage`** | ไม่ใช่ backup เดียวกับ database — ต้องมีแผนแยก                                                                         |            |
-| **→ host มี outbound internet ให้ ClamAV ดาวน์โหลด signature DB ไหม**             | ถ้าไม่มี ต้อง preload ไฟล์ signature เอง — ดู SKILL.md §7 ของ `ugt-nextjs-upload-setup`                                |            |
+| ค่า                                                                               | มาจากไหน                                                                                | กรอกตรงนี้ |
+| --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ---------- |
+| **→ ตั้ง body-size limit ≥ 25 MB บน proxy แล้ว**                                  | ตาม §4.1                                                                                |            |
+| **→ ใครรับผิดชอบ backup ของ `/home/docker02/appdata/ugt-voice-platform/storage`** | ไม่ใช่ backup เดียวกับ database — ต้องมีแผนแยก                                          |            |
+| **→ host มี outbound internet ให้ ClamAV ดาวน์โหลด signature DB ไหม**             | ถ้าไม่มี ต้อง preload ไฟล์ signature เอง — ดู SKILL.md §7 ของ `ugt-nextjs-upload-setup` |            |
 
 ## เช็คก่อนปิดงาน (ฝั่ง Admin/DevOps)
 
 - [ ] มีแผน backup แยกสำหรับโฟลเดอร์ storage (ไม่ใช่แผนเดียวกับ database)
-- [ ] ยืนยัน/ปฏิเสธเรื่อง reverse proxy แล้ว — ถ้ามี ปรับ body-size limit แล้ว
+- [ ] ปรับ body-size limit ของ reverse proxy (`ugtweb.ube.co.th`) ≥ 25 MB แล้ว
 - [ ] ยืนยันแล้วว่า host มี/ไม่มี outbound internet สำหรับ ClamAV signature DB
 
 <!-- /[UPLOAD] -->
@@ -275,8 +271,9 @@ intranet ปิด — ตัดสินใจนี้เป็นของท
 > โปรเจค: `ugt-voice-platform` · repo: `https://github.com/pakornkub/ugt-voice-platform`
 > (branch `main` = prod, `develop` = dev)
 >
-> โปรเจคนี้**ไม่มี basePath** (deploy standalone ที่ root path) และ**ไม่ใช้
-> Sentry** — ยืนยันแล้วในชุดนี้ (มติ: `docs/project-context/decisions.md`)
+> URL: prod `https://ugtweb.ube.co.th/ugt-voice-platform` · dev
+> `https://ugtweb.ube.co.th/ugt-voice-platform-dev` (basePath `/ugt-voice-platform`,
+> `/ugt-voice-platform-dev`) · **ไม่ใช้ Sentry** (มติ: `docs/project-context/decisions.md`)
 > ชื่อทุกตัวด้านล่างถูก generate ให้ตรงกับค่าที่ตั้งไว้ในโปรเจคแล้ว —
 > **กรุณาใช้ชื่อตามนี้เป๊ะ ๆ** (ต่างแม้ตัวเดียว pipeline จะไม่ทำงาน)
 
@@ -334,10 +331,11 @@ pipeline จะค้างตลอดไป** ที่ขั้นรอผ�
 
 ### 5.5 Docker host
 
-- โปรเจคนี้**ไม่มี basePath** — deploy ที่ root path ตรง ๆ ไม่ผ่าน reverse-proxy
-  subpath ใด ๆ (ยืนยันแล้ว มติใน `docs/project-context/decisions.md`) ถ้า
-  ภายหลังต้องการ subpath ต้องแจ้งทีมพัฒนากลับมาเพื่อเปิด `NEXT_PUBLIC_BASE_PATH`
-  ใน `next.config.ts`/Jenkinsfile/compose ใหม่
+- reverse proxy ของ `ugtweb.ube.co.th` ต้อง route **โดยไม่ตัด path ทิ้ง**:
+  `/ugt-voice-platform` → container `ugt-voice-platform` (prod) และ
+  `/ugt-voice-platform-dev` → container `ugt-voice-platform-dev` (dev) — แอปถูก build
+  ให้รู้จัก basePath นี้เองแล้ว (เช่น nginx `proxy_pass http://<host>:<APP_PORT>;`
+  ไม่มี `/` ท้าย) · ส่ง header `X-Forwarded-Proto` ด้วย
 - Host port ที่ทีมพัฒนาใช้เป็นค่าเริ่มต้นตอนนี้: prod `3000`, dev `3001` — ถ้า
   server จริงมี port อื่นที่จัดสรรให้แล้ว **แจ้งกลับ** (ดูตารางท้ายหัวข้อ)
 - **ไฟล์แนบจริง (ClamAV + storage volume) ต่อเข้ากับ compose ในชุดนี้แล้ว**
@@ -354,9 +352,7 @@ pipeline จะค้างตลอดไป** ที่ขั้นรอผ�
 - เครือข่าย `proxy-network` (Docker external network สำหรับ reverse-proxy
   ที่ใช้ร่วมกันทั้ง host) ต้องสร้างไว้แล้ว: `docker network create proxy-network`
   (ครั้งเดียวต่อ host — ข้ามได้ถ้ามีโปรเจคอื่นสร้างไว้แล้ว)
-- **ยังไม่ยืนยันว่ามี reverse proxy หน้าแอปใน production หรือไม่** — ถ้ามี
-  ต้องปรับ body-size limit ให้ ≥ 25 MB (nginx `client_max_body_size 25m;`)
-  ตาม §4.1 — แจ้งกลับในตาราง "ค่าที่ต้องส่งกลับ" ท้ายหัวข้อนี้
+- body-size limit ของ proxy ≥ 25 MB ตาม §4.1
 
 ### ผู้ดูแลระบบคนแรก
 
@@ -371,16 +367,15 @@ ugt-nextjs-cicd-setup)
 
 ### ✅ ค่าที่ต้องส่งกลับให้ทีมพัฒนา (กรอกแล้วส่งไฟล์นี้คืน)
 
-| ค่า                                             | มาจากไหน                                                                                                                                                            | กรอกตรงนี้                                   |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| **→ Jenkins host**                              | สำหรับตั้ง webhook ทั้งสองทาง (§5.3, §5.4) — ต้องเป็น host ที่ GitHub เรียกถึงได้ ถ้าไม่ได้ แจ้งกลับเพื่อเปลี่ยนเป็น `pollSCM`                                      |                                              |
-| **→ `APP_PORT` (prod)**                         | Host port ที่จัดสรรให้บน server จริง                                                                                                                                | จำเป็น — ใช้ `3000` เป็น placeholder ไว้ก่อน |
-| **→ `APP_PORT` (dev)**                          | Host port ที่จัดสรรให้บน server dev                                                                                                                                 | จำเป็น — ใช้ `3001` เป็น placeholder ไว้ก่อน |
-| **→ App host จริง (prod/dev)**                  | โดเมน/IP จริงที่แอปจะรันอยู่ — ใช้แทนค่าปัจจุบัน `http://localhost:3000`/`:3001` ใน build args (ดูข้อ 2 ด้านบนด้วย — ใช้ค่าเดียวกับที่ส่งให้ Keycloak redirect URI) |                                              |
-| ยืนยัน Jenkins jobs (prod + dev) สร้างแล้ว      | ลิงก์ job                                                                                                                                                           |                                              |
-| ยืนยัน SonarQube projects + webhook แล้ว        | ลิงก์ project                                                                                                                                                       |                                              |
-| ยืนยัน `/home/docker02/appdata` พร้อมใช้แล้ว    | `sudo mkdir -p /home/docker02/appdata && sudo chown jenkins:jenkins /home/docker02/appdata` (ครั้งแรกของ server เท่านั้น)                                           |                                              |
-| **→ มี reverse proxy หน้าแอปใน production ไหม** | ซ้ำกับ §4 ด้านบน — ยังไม่มีคำตอบ ณ ตอนติดตั้งชุดนี้                                                                                                                 |                                              |
+| ค่า                                          | มาจากไหน                                                                                                                       | กรอกตรงนี้                                   |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- |
+| **→ Jenkins host**                           | สำหรับตั้ง webhook ทั้งสองทาง (§5.3, §5.4) — ต้องเป็น host ที่ GitHub เรียกถึงได้ ถ้าไม่ได้ แจ้งกลับเพื่อเปลี่ยนเป็น `pollSCM` |                                              |
+| **→ `APP_PORT` (prod)**                      | Host port ที่จัดสรรให้บน server จริง                                                                                           | จำเป็น — ใช้ `3000` เป็น placeholder ไว้ก่อน |
+| **→ `APP_PORT` (dev)**                       | Host port ที่จัดสรรให้บน server dev                                                                                            | จำเป็น — ใช้ `3001` เป็น placeholder ไว้ก่อน |
+| ยืนยัน route บน reverse proxy แล้ว           | `/ugt-voice-platform` → prod, `/ugt-voice-platform-dev` → dev (ตาม §5.5)                                                       |                                              |
+| ยืนยัน Jenkins jobs (prod + dev) สร้างแล้ว   | ลิงก์ job                                                                                                                      |                                              |
+| ยืนยัน SonarQube projects + webhook แล้ว     | ลิงก์ project                                                                                                                  |                                              |
+| ยืนยัน `/home/docker02/appdata` พร้อมใช้แล้ว | `sudo mkdir -p /home/docker02/appdata && sudo chown jenkins:jenkins /home/docker02/appdata` (ครั้งแรกของ server เท่านั้น)      |                                              |
 
 ### เช็คก่อนปิดงาน (ฝั่ง Admin/DevOps)
 
@@ -388,10 +383,10 @@ ugt-nextjs-cicd-setup)
 - [ ] Jenkins jobs `ugt-voice-platform` + `ugt-voice-platform-dev` ชี้ repo/branch ถูก
 - [ ] SonarQube→Jenkins webhook ตั้งแล้ว + แจ้ง Jenkins host ให้ทีมพัฒนาตั้ง GitHub webhook
 - [ ] `APP_PORT` (prod/dev) ส่งกลับแล้ว ไม่ใช่แค่ placeholder `3000`/`3001`
-- [ ] App host จริง (prod/dev) ส่งกลับแล้ว
+- [ ] reverse proxy route `/ugt-voice-platform` + `/ugt-voice-platform-dev` แล้ว (ไม่ตัด path)
 - [ ] `/home/docker02/appdata` พร้อมเขียนได้แล้ว (jenkins user)
 - [ ] `proxy-network` (Docker external network) สร้างแล้ว
-- [ ] ยืนยัน/ปฏิเสธเรื่อง reverse proxy แล้ว (ซ้ำ §4)
+- [ ] body-size limit ของ proxy ≥ 25 MB แล้ว (ซ้ำ §4)
 
 ---
 
