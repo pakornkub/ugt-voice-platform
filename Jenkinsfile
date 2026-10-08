@@ -11,7 +11,7 @@
 //
 // Sections marked [DB] are present — this project uses Prisma + SQL Server.
 // Sections marked [VOLUME] prepare persistent-data host paths before deploy —
-// `storage` (uploaded attachments) and `clamav-db` (virus-scanner signatures).
+// `storage` (uploaded attachments). No virus scan / ClamAV (decisions.md 2026-10-09).
 // ============================================================================
 pipeline {
     agent any
@@ -263,7 +263,6 @@ pipeline {
                         // เพราะ jenkins ไม่ใช่ root แต่อยู่ใน docker group; admin เตรียม /home/docker02/appdata แล้ว
                         //
                         // storage    = ไฟล์แนบจริง (ugt-nextjs-upload-setup, bind-mounted /app/storage)
-                        // clamav-db  = signature DB ของ ClamAV (ไม่ให้โหลดใหม่ ~1GB ทุกครั้งที่ deploy)
                         //
                         // สำคัญ: เช็ค **ทีละ subdir ที่ compose bind จริง** ไม่ใช่เช็คที่ระดับโปรเจค —
                         // guard แบบเดิม (`if [ ! -d <project> ]`) กลายเป็น no-op ถาวรทันทีที่ deploy
@@ -272,7 +271,7 @@ pipeline {
                         // เขียนไม่ได้ (PermissionError) ทั้งที่ container ขึ้น healthy ปกติ
                         sh """
                           APP_UID=\$(docker run --rm ${imageName}:${buildNum} id -u)
-                          for p in /home/docker02/appdata/${containerName}/storage /home/docker02/appdata/${containerName}/clamav-db; do
+                          for p in /home/docker02/appdata/${containerName}/storage; do
                             if [ ! -d "\$p" ]; then
                               mkdir -p "\$p"
                               docker run --rm -v "\$p":/d alpine chown -R "\$APP_UID" /d

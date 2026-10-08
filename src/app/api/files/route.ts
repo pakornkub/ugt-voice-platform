@@ -5,9 +5,9 @@
 // once someone uploads a real document.
 //
 // Order is fixed (org guard order, extended for uploads):
-//   session → permission → read bytes → SCAN → write to volume → row → audit log
-// The scan happens before a single byte reaches the volume, so an infected
-// file is never stored, not even briefly. See .claude/rules/ugt-nextjs-upload.md.
+//   session → permission → read bytes → write to volume → row → audit log
+// No virus scan in this project (owner decision 2026-10-09 — the skill's opt-in
+// [SCAN] stays off); rows are stored as scanStatus 'unscanned'. See .claude/rules/ugt-nextjs-upload.md.
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { env } from '@/lib/env';
@@ -16,7 +16,6 @@ import { getUserPermissions } from '@/lib/get-user-permissions';
 import { PERMISSIONS } from '@/lib/permissions';
 import { AUDIT_ACTIONS, type AuditAction } from '@/lib/audit-actions';
 import { checksum, newStorageKey, safeDisplayName, writeStoredFile } from '@/lib/storage';
-import { scanBuffer } from '@/lib/virus-scan';
 
 async function auditLog(userId: string, action: AuditAction, detail: unknown) {
   await prisma.activityLog
@@ -89,29 +88,6 @@ export async function POST(request: Request) {
 
   const bytes = Buffer.from(await file.arrayBuffer());
 
-  // FAIL CLOSED: anything other than a definite "clean" refuses the upload.
-  // A scanner that is down must block uploads, never wave them through.
-  // เมื่อ upload โดน SCANNER_UNAVAILABLE — สาเหตุจริงอยู่ใน log บรรทัดข้างล่าง
-  // นี้เสมอ (ไล่ตามตาราง SKILL.md §7 ของ ugt-nextjs-upload-setup) อย่าเดาจาก
-  // docker ps
-  const scan = await scanBuffer(bytes);
-  if (scan.status === 'infected') {
-    await auditLog(session.user.id, AUDIT_ACTIONS.FILES_UPLOAD_REJECTED, {
-      ticketId,
-      timelineLogId,
-      fileName: file.name,
-      signature: scan.signature,
-    });
-    return NextResponse.json({ success: false, error: { code: 'FILE_INFECTED' } }, { status: 422 });
-  }
-  if (scan.status === 'error') {
-    console.error('virus scan unavailable', scan.message);
-    return NextResponse.json(
-      { success: false, error: { code: 'SCANNER_UNAVAILABLE' } },
-      { status: 503 }
-    );
-  }
-
   const storageKey = newStorageKey();
   await writeStoredFile(storageKey, bytes);
 
@@ -124,8 +100,7 @@ export async function POST(request: Request) {
       contentType: file.type || 'application/octet-stream',
       fileSize: bytes.length,
       checksum: checksum(bytes),
-      scanStatus: 'clean',
-      scannedAt: new Date(),
+      scanStatus: 'unscanned',
       createdBy: session.user.email ?? session.user.id,
     },
     select: { id: true, fileName: true, fileSize: true, contentType: true },
