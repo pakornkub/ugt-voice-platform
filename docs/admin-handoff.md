@@ -1,4 +1,4 @@
-# คำขอตั้งค่าระบบ — UGT VoiceCare (`ugt-voice-platform`)
+# คำขอตั้งค่าระบบ — UGT VoicePlatform (`ugt-voice-platform`)
 
 > **เอกสารส่งต่อทีม Admin / DBA / DevOps** · สร้างครั้งแรกเมื่อ 2026-09-02
 > (chunk: `ugt-nextjs-database-setup`) — ไฟล์นี้จะถูกเติมต่อโดย chunk ถัดไป
@@ -51,7 +51,10 @@ certificate มาให้ตั้ง trust chain จริง (แนะน�
 - ไม่ต้อง seed ข้อมูลเอง — ทีมพัฒนามี `prisma/seed.ts` รันเองผ่าน
   `npx prisma db seed` ทันทีที่ได้ `DATABASE_URL` จริง
 
-### 1.4 View ข้อมูลพนักงานจาก HR (เพิ่ม 2026-10-08)
+### 1.4 View ข้อมูลพนักงานจาก HR (เพิ่ม 2026-10-08 — ✅ ได้รับแล้ว 2026-10-09)
+
+พนักงาน: `[thrygsd002].[ICTPortal_PRD].[dbo].[vwHR_SC_Employee]` · สายอนุมัติ (ยังไม่ใช้):
+`[thrygsd002].[ICTPortal_PRD].[dbo].[HR_SC_AuthorizeEmployee_ms]` — login ของแอปอ่านได้ทั้งสองตัวแล้ว
 
 แอปต้องจับคู่อีเมลที่ login (Keycloak) กับข้อมูลพนักงาน (รหัส ชื่อ แผนก ตำแหน่ง)
 ตอนนี้ใช้ข้อมูลจำลองอยู่ ขอให้ DBA/HR เตรียม **view แบบอ่านอย่างเดียว** ให้ SQL Login
@@ -223,7 +226,7 @@ intranet ปิด — ตัดสินใจนี้เป็นของท
 ## 4. ไฟล์แนบ (Upload)
 
 โปรเจคนี้เก็บไฟล์แนบจริงบน Docker volume (ไม่ใช่ใน database, ไม่ใช่ใน image) — **ไม่มีการ
-สแกนไวรัส / ไม่มี ClamAV** (มติเจ้าของโปรเจค) โค้ดฝั่งแอปพร้อมใช้งานแล้ว
+สแกนไวรัส** (มติเจ้าของโปรเจค) โค้ดฝั่งแอปพร้อมใช้งานแล้ว
 (`lib/storage.ts`, `src/app/api/files/**`) และ volume bind-mount อยู่ในทั้งสอง compose แล้ว —
 ฝั่ง Admin เตรียมแค่โฟลเดอร์/backup ตาม §4.1 และ §5.5
 
@@ -307,10 +310,10 @@ credential, `NOTIFY_EMAIL`, `/home/docker02/appdata`, `proxy-network` — ทำ
 
 **สร้าง Projects** (Administration → Projects → Create):
 
-| Project Key              | Display name        |
-| ------------------------ | ------------------- |
-| `ugt-voice-platform`     | UGT VoiceCare       |
-| `ugt-voice-platform-dev` | UGT VoiceCare (Dev) |
+| Project Key              | Display name            |
+| ------------------------ | ----------------------- |
+| `ugt-voice-platform`     | UGT VoicePlatform       |
+| `ugt-voice-platform-dev` | UGT VoicePlatform (Dev) |
 
 **ผูก Quality Gate**: ใช้ gate มาตรฐานองค์กร (`new_coverage ≥ 60%`,
 `new_violations = 0`, `new_duplicated_lines_density ≤ 3%`,

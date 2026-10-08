@@ -41,7 +41,7 @@ import type {
   UserRole,
 } from '@/types';
 
-const APP_NAME = env.NEXT_PUBLIC_APP_NAME ?? 'UGT VoiceCare';
+const APP_NAME = env.NEXT_PUBLIC_APP_NAME ?? 'UGT VoicePlatform';
 
 /** Full URL for a link inside an email — email opens outside the app, so a
  *  relative path is useless there (org rule, .claude/rules/ugt-nextjs-mail.md). */

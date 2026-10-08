@@ -109,7 +109,7 @@ export const EMPLOYEE_DATABASE: EmployeeRecord[] = [
   },
 ];
 
-export const CURRENT_LOGIN_EMPLOYEE_STORAGE_KEY = 'voicecare_current_login_employee';
+export const CURRENT_LOGIN_EMPLOYEE_STORAGE_KEY = 'voiceplatform_current_login_employee';
 
 /**
  * ดึงข้อมูลพนักงานทั้งหมด
