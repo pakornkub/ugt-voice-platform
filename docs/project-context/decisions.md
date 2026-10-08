@@ -522,3 +522,7 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   `prisma migrate dev` is not part of the workflow · cost: no automatic drift detection —
   never hand-edit tables · rejected: `UGT_VoiceCare_Shadow` (unneeded with the offline
   workflow).
+- 2026-10-08 **Database names are `UGT_VoicePlatform` (prod) / `UGT_VoicePlatform_DEV` (dev)**
+  (owner decision) — replaces the `UGT_VoiceCare` / `UGT_VoiceCare_DEV` names in the entry
+  above; everything else in it (no shadow, offline migrations) stands. The app/project id
+  stays `ugt-voicecare` (Jenkins jobs, SonarQube keys, Keycloak client, Docker paths).

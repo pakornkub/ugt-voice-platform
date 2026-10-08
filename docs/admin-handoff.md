@@ -33,8 +33,8 @@ script **พร้อมใช้งานทันที** ที่ได้�
 
 | อะไร                                             | ชื่อที่แนะนำ             | หมายเหตุ                                                                                                                                                                                                       |
 | ------------------------------------------------ | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Database prod (branch `main`)                    | `UGT_VoiceCare`          | ชื่อตามรูปแบบองค์กร — **ถ้า DBA อยากใช้ชื่ออื่น แจ้งกลับแทนที่จะเปลี่ยนเงียบ ๆ** (ชื่ออยู่ใน `DATABASE_URL` เท่านั้น ทีมพัฒนาต้องอัปเดต `.env`/Jenkins secret ให้ตรง)                                          |
-| Database dev (branch `develop` + พัฒนาในเครื่อง) | `UGT_VoiceCare_DEV`      | ฐานแยกจาก prod บน instance เดียวกันได้ (รูปแบบเดียวกับโปรเจคอื่น เช่น `UGT_RDVelocity_DEV`) — ใช้ใน secret `env-ugt-voicecare-dev` (§5.1)                                                                      |
+| Database prod (branch `main`)                    | `UGT_VoicePlatform`      | ชื่อตามรูปแบบองค์กร — **ถ้า DBA อยากใช้ชื่ออื่น แจ้งกลับแทนที่จะเปลี่ยนเงียบ ๆ** (ชื่ออยู่ใน `DATABASE_URL` เท่านั้น ทีมพัฒนาต้องอัปเดต `.env`/Jenkins secret ให้ตรง)                                          |
+| Database dev (branch `develop` + พัฒนาในเครื่อง) | `UGT_VoicePlatform_DEV`  | ฐานแยกจาก prod บน instance เดียวกันได้ (รูปแบบเดียวกับโปรเจคอื่น เช่น `UGT_RDVelocity_DEV`) — ใช้ใน secret `env-ugt-voicecare-dev` (§5.1)                                                                      |
 | SQL Login สำหรับแอป                              | เช่น `ugt_voicecare_app` | ต้องมีสิทธิ์ `db_datareader`/`db_datawriter`/`db_ddladmin` บนฐาน prod และ dev (ddladmin เพื่อให้ `prisma migrate deploy` สร้าง/แก้ตารางได้) — ไม่ต้องมี shadow database (โปรเจคนี้สร้าง migration แบบ offline) |
 
 ### 1.2 เชื่อมต่อแบบไหน
@@ -71,8 +71,8 @@ certificate มาให้ตั้ง trust chain จริง (แนะน�
 | ------------------------------ | ----------------------------------------------------------------------------------- | --------------------------------------- |
 | **→ SQL Server host/instance** | เช่น `10.20.x.x` หรือ `sql01.company.local\INSTANCE`                                |                                         |
 | **→ Port**                     | ปกติ `1433` เว้นแต่ตั้งพอร์ตอื่น                                                    |                                         |
-| **→ ชื่อ database prod**       | ยืนยันว่าใช้ `UGT_VoiceCare` ตามที่เสนอ หรือแจ้งชื่อจริง                            |                                         |
-| **→ ชื่อ database dev**        | ยืนยันว่าใช้ `UGT_VoiceCare_DEV` ตามที่เสนอ หรือแจ้งชื่อจริง                        |                                         |
+| **→ ชื่อ database prod**       | ยืนยันว่าใช้ `UGT_VoicePlatform` ตามที่เสนอ หรือแจ้งชื่อจริง                        |                                         |
+| **→ ชื่อ database dev**        | ยืนยันว่าใช้ `UGT_VoicePlatform_DEV` ตามที่เสนอ หรือแจ้งชื่อจริง                    |                                         |
 | **→ Username**                 | SQL Login ที่สร้างให้แอป                                                            |                                         |
 | **→ Password**                 | รหัสผ่านของ login ด้านบน                                                            | **ส่งช่องทางปลอดภัย อย่ากรอกในไฟล์นี้** |
 | **→ TLS**                      | `trustServerCertificate=true` (self-signed/dev) หรือแนบไฟล์ CA cert (`.pem`/`.crt`) |                                         |
