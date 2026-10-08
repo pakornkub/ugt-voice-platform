@@ -22,6 +22,15 @@ vi.mock('../services/api', async (importOriginal) => ({
 
 const byId = (id: string) => document.getElementById(id) as HTMLElement;
 
+// paste instead of typing key-by-key: keeps these form tests fast under CPU load
+async function fill(user: ReturnType<typeof userEvent.setup>, id: string, text: string) {
+  await user.click(byId(id));
+  await user.paste(text);
+}
+
+// the form is large; full-suite runs with coverage on a loaded CI box need headroom
+vi.setConfig({ testTimeout: 20000 });
+
 function renderForm() {
   const onTicketCreated = vi.fn();
   const onOpenTracking = vi.fn();
@@ -44,7 +53,7 @@ describe('EmployeeSubmitForm', () => {
   });
 
   it('shows English copy when the stored language preference is en', async () => {
-    localStorage.setItem('voicecare_lang_preference_v2', 'en');
+    localStorage.setItem('voiceplatform_lang_preference_v2', 'en');
     renderForm();
     expect(await screen.findByText('Submit Grievance / Suggestion')).toBeInTheDocument();
   });
@@ -64,8 +73,8 @@ describe('EmployeeSubmitForm', () => {
     const { onTicketCreated } = renderForm();
 
     // `required` stops the native submit on empty values; whitespace passes it but not the handler
-    await user.type(byId('input-ticket-title'), ' ');
-    await user.type(byId('input-ticket-description'), ' ');
+    await fill(user, 'input-ticket-title', ' ');
+    await fill(user, 'input-ticket-description', ' ');
     await user.click(byId('btn-submit-ticket-final'));
 
     expect(alertSpy).toHaveBeenCalled();
@@ -77,8 +86,8 @@ describe('EmployeeSubmitForm', () => {
     const user = userEvent.setup();
     const { onTicketCreated, onOpenTracking } = renderForm();
 
-    await user.type(byId('input-ticket-title'), 'ปัญหาทดสอบ');
-    await user.type(byId('input-ticket-description'), 'รายละเอียดข้อเท็จจริงสำหรับการทดสอบระบบ');
+    await fill(user, 'input-ticket-title', 'ปัญหาทดสอบ');
+    await fill(user, 'input-ticket-description', 'รายละเอียดข้อเท็จจริงสำหรับการทดสอบระบบ');
     await user.click(byId('btn-submit-ticket-final'));
 
     expect(onTicketCreated).toHaveBeenCalledTimes(1);
@@ -97,8 +106,8 @@ describe('EmployeeSubmitForm', () => {
 
     await user.click(byId('btn-choice-anonymous'));
     await user.click(byId('urgency-btn-critical'));
-    await user.type(byId('input-ticket-title'), 'เรื่องลับ');
-    await user.type(byId('input-ticket-description'), 'รายละเอียดลับ');
+    await fill(user, 'input-ticket-title', 'เรื่องลับ');
+    await fill(user, 'input-ticket-description', 'รายละเอียดลับ');
     await user.click(byId('btn-submit-ticket-final'));
 
     const created = onTicketCreated.mock.calls[0][0];
@@ -121,7 +130,7 @@ describe('EmployeeSubmitForm', () => {
     const user = userEvent.setup();
     renderForm();
 
-    await user.type(byId('input-ticket-title'), 'สงสัยทุจริตจัดซื้อ');
+    await fill(user, 'input-ticket-title', 'สงสัยทุจริตจัดซื้อ');
     await user.click(byId('btn-ai-category-suggest'));
     await user.click(await screen.findByRole('button', { name: /นำหมวดหมู่นี้ไปใช้/ }));
 

@@ -63,7 +63,7 @@ describe('MyTicketsList', () => {
   });
 
   it('renders English copy when the language preference is en', async () => {
-    localStorage.setItem('voicecare_lang_preference_v2', 'en');
+    localStorage.setItem('voiceplatform_lang_preference_v2', 'en');
     renderList([]);
 
     expect(await screen.findByText('My Grievance & Suggestion History')).toBeInTheDocument();
