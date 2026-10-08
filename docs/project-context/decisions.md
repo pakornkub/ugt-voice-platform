@@ -76,7 +76,7 @@
   there is no real authentication yet, so no session user id exists to stamp · deferred:
   tighten to required (or default to a system actor) once `ugt-nextjs-auth-setup` lands and
   every Server Action in `src/lib/actions/` can receive a real user id.
-- 2026-09-02 `eslint-config-next` is pinned to `^15.5.0` (not npm's default-latest 16.x) and
+- **[superseded 2026-10-08 — Next 16 upgrade, see below]** 2026-09-02 `eslint-config-next` is pinned to `^15.5.0` (not npm's default-latest 16.x) and
   `eslint.config.mjs` uses `@eslint/eslintrc`'s `FlatCompat` shim instead of the
   `ugt-nextjs-test-lint-setup` asset's default direct flat-config import — **because** this
   project pins `next@^15.5.0` (Phase A migration), and `eslint-config-next` only ships native
@@ -154,7 +154,7 @@
   component surfaces itself) — `middleware.ts` + the `(shell)` layout's server-side session check
   on every navigation cover the real case (an expired cookie on the next page load) · revisit if a
   later chunk adds client-side data fetching that can 401 while a page stays open.
-- 2026-09-02 This project pins `next@^15.5.0` (not 16.x), so the auth-setup skill's `proxy.ts`
+- **[superseded 2026-10-08 — Next 16 upgrade, see below]** 2026-09-02 This project pins `next@^15.5.0` (not 16.x), so the auth-setup skill's `proxy.ts`
   asset was installed as **`src/middleware.ts`** (Next.js ≤15 filename/location; `proxy.ts` is a
   Next 16-only convention) — **because** on <16 Next.js never loads a file named `proxy.ts`, so
   keeping that name would silently disable all route protection with no error anywhere · revisit
@@ -465,3 +465,14 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   chose to wait for the real one instead). A full file-by-function audit of what still
   needs rewiring is recorded in `.claude/state/handoff.md` → Next, ready to execute as soon
   as `DATABASE_URL` is real.
+- 2026-10-08 Upgraded `next` and `eslint-config-next` from 15.x to the 16.x line together —
+  **because** no reason for pinning 15 was ever recorded (Phase A just picked it, and the two
+  later entries above only worked around the pin), and doing the framework bump now, before
+  the `src/services/api.ts` → `lib/actions/*` rewiring, keeps a framework regression and a
+  data-layer regression separable (same reasoning as Phase A's port-first split). Supersedes
+  both 2026-09-02 entries marked above: `eslint.config.mjs` now imports
+  `eslint-config-next/core-web-vitals` + `/typescript` flat configs directly (`FlatCompat` and
+  `@eslint/eslintrc` removed), and the route guard is `src/proxy.ts` exporting `proxy()`
+  (Next 16 convention; nodejs runtime only; lives under `src/` beside `src/app`, not the repo
+  root, because this project uses the `src/` layout) · rejected: staying on 15.x with security
+  backports — no blocker to upgrading existed and the gap only grows.

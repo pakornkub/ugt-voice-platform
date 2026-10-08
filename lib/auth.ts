@@ -12,7 +12,7 @@ import { AUDIT_ACTIONS } from '@/lib/audit-actions';
 
 // Derive a unique cookie prefix from NEXT_PUBLIC_BASE_PATH (empty in this
 // project — standalone deploy, no shared domain, see docs/admin-handoff.md
-// §2). Falls back to 'better-auth'. MUST stay in sync with middleware.ts
+// §2). Falls back to 'better-auth'. MUST stay in sync with src/proxy.ts
 // (getSessionCookie) and lib/actions/auth.ts (SESSION_COOKIE_NAME).
 const cookiePrefix = (env.NEXT_PUBLIC_BASE_PATH || '').replace(/^\//, '') || 'better-auth';
 

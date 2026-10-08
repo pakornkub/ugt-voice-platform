@@ -56,14 +56,18 @@ export default function Shell({
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    refreshData();
-  }, []);
-
   const refreshData = () => {
     setTickets(getTickets() || []);
     setNotifications(getNotifications() || []);
   };
+
+  // localStorage is client-only: reading it after mount (not in useState)
+  // keeps SSR and hydration markup identical. Goes away with the
+  // localStorage → Server Action rewiring (.claude/state/handoff.md → Next).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    refreshData();
+  }, []);
 
   const showNotification = (msg: string) => {
     setToastMessage(msg);

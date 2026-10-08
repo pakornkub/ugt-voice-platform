@@ -11,7 +11,7 @@ paths:
   - 'lib/actions/admin-setup.ts'
   - 'lib/actions/admin-users.ts'
   - 'lib/actions/admin-roles.ts'
-  - 'src/middleware.ts'
+  - 'src/proxy.ts'
   - 'src/app/login/**'
   - 'src/app/admin/setup/**'
   - 'src/app/(shell)/admin/users/**'
@@ -22,11 +22,11 @@ paths:
 
 <!-- Owned by ugt-nextjs-auth-setup — may be overwritten wholesale on /plugin update.
      ADAPTED from the skill's default asset (which assumes SSO+LDAP+Local, a
-     linked-server employee directory, an approval chain, and `proxy.ts` on
-     Next 16): this project is SSO (Keycloak)-only, has no employee directory /
-     approval-chain integration, and pins next@^15.5.0 so the file is
-     `src/middleware.ts`, not `proxy.ts` — see docs/project-context/decisions.md
-     (2026-09-02). Sections that don't apply here (LDAP, local password/reset,
+     linked-server employee directory, and an approval chain): this project is
+     SSO (Keycloak)-only and has no employee directory / approval-chain
+     integration. The guard is `src/proxy.ts` (src/ layout; was
+     `src/middleware.ts` until the Next 16 upgrade — see
+     docs/project-context/decisions.md, 2026-10-08). Sections that don't apply here (LDAP, local password/reset,
      data-scope-by-employee-code, directory enrichment, approval chain) are
      dropped rather than left describing code that doesn't exist. -->
 
@@ -75,7 +75,7 @@ basePath, see `docs/admin-handoff.md` §2) — falls back to `'better-auth'`.
 | File                  | What uses the prefix                                         |
 | --------------------- | ------------------------------------------------------------ |
 | `lib/auth.ts`         | `advanced.cookiePrefix` (Better Auth writes cookies with it) |
-| `src/middleware.ts`   | `getSessionCookie(request, { cookiePrefix })`                |
+| `src/proxy.ts`        | `getSessionCookie(request, { cookiePrefix })`                |
 | `lib/actions/auth.ts` | `SESSION_COOKIE_NAME` for `ssoLogoutAction`                  |
 
 Mismatch = `ERR_TOO_MANY_REDIRECTS` in production (local never shows it
@@ -98,7 +98,7 @@ unreachable, the local session still clears and the user still lands on
   cookie token first (`substring(0, lastIndexOf('.'))`) — the DB stores the
   raw token, not the signed cookie value.
 
-## `src/middleware.ts` (not `proxy.ts` — see the ADAPTED note at the top)
+## `src/proxy.ts`
 
 - Cookie-**presence** check only (`getSessionCookie`), never
   `auth.api.getSession()` — this function runs on every non-static request; a

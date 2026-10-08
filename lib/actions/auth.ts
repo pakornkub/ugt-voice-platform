@@ -11,7 +11,7 @@ import { env } from '@/lib/env';
 
 // ─── Cookie naming ───────────────────────────────────────────────────────────
 // Derive cookie prefix from NEXT_PUBLIC_BASE_PATH — MUST stay in sync with
-// lib/auth.ts (advanced.cookiePrefix) and middleware.ts (getSessionCookie call).
+// lib/auth.ts (advanced.cookiePrefix) and src/proxy.ts (getSessionCookie call).
 const APP_COOKIE_PREFIX = (env.NEXT_PUBLIC_BASE_PATH || '').replace(/^\//, '') || 'better-auth';
 // Better Auth uses the __Secure- prefix when BETTER_AUTH_URL starts with
 // https:// — this MUST match what Better Auth computes internally.

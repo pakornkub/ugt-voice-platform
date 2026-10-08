@@ -1,5 +1,5 @@
 // app/login/page.tsx — ugt-nextjs-auth-setup (2026-09-02). Public route
-// (listed in AUTH_ONLY_PATHS in src/middleware.ts) — no shell/Navbar chrome.
+// (listed in AUTH_ONLY_PATHS in src/proxy.ts) — no shell/Navbar chrome.
 import { LoginForm } from '@/components/LoginForm';
 
 export default async function LoginPage({

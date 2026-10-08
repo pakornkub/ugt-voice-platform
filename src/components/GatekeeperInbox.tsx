@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Shield,
   Search,
@@ -64,16 +64,14 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [onlyCeoDirect, setOnlyCeoDirect] = useState<boolean>(false);
 
-  useEffect(() => {
-    if (isStrictGatekeeper && assignedDepts.length > 0) {
-      if (
-        selectedDeptFilter !== 'ALL' &&
-        !assignedDepts.includes(selectedDeptFilter as GrievanceCategory)
-      ) {
-        setSelectedDeptFilter(assignedDepts.length === 1 ? assignedDepts[0] : 'ALL');
-      }
-    }
-  }, [isStrictGatekeeper, assignedDepts.join(','), selectedDeptFilter]);
+  // A strict gatekeeper's selection outside their assigned depts falls back
+  // at render time — derived, not reset via an effect.
+  const activeDeptFilter =
+    isStrictGatekeeper &&
+    selectedDeptFilter !== 'ALL' &&
+    !assignedDepts.includes(selectedDeptFilter as GrievanceCategory)
+      ? defaultDept
+      : selectedDeptFilter;
 
   const safeTickets = tickets || [];
 
@@ -88,9 +86,9 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
     return true;
   });
 
-  // Department-scoped tickets (dynamically changes when selectedDeptFilter changes)
+  // Department-scoped tickets (dynamically changes when activeDeptFilter changes)
   const deptScopedTickets = scopedTickets.filter((t) => {
-    if (selectedDeptFilter !== 'ALL' && t.category !== selectedDeptFilter) return false;
+    if (activeDeptFilter !== 'ALL' && t.category !== activeDeptFilter) return false;
     return true;
   });
 
@@ -496,7 +494,7 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
                 id={`filter-dept-${d.key}`}
                 onClick={() => setSelectedDeptFilter(d.key)}
                 className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium whitespace-nowrap transition ${
-                  selectedDeptFilter === d.key
+                  activeDeptFilter === d.key
                     ? 'border-indigo-600 bg-indigo-600 text-white shadow-xs'
                     : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
                 }`}
@@ -504,7 +502,7 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
                 <span>{d.label}</span>
                 <span
                   className={`py-0.2 rounded-full px-1.5 text-[10px] font-bold ${
-                    selectedDeptFilter === d.key
+                    activeDeptFilter === d.key
                       ? 'bg-white/20 text-white'
                       : count > 0
                         ? 'bg-blue-100 text-blue-800'

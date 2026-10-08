@@ -79,7 +79,7 @@
     `UserRole`).
   - `lib/audit-actions.ts` — `ActivityLogs.action` constants: `login.success`/`logout`/
     `logout.sso`/`users.role-assign`/`users.app-role-assign`/`roles.create/update/delete`.
-  - `src/middleware.ts` — route guard (Next.js ≤15 filename — see ⚠ deviation), cookie-presence
+  - `src/proxy.ts` — route guard (Next.js 16 proxy, was `src/middleware.ts` until 2026-10-08), cookie-presence
     check + security headers on every response.
   - `src/app/login/page.tsx` + `src/components/LoginForm.tsx` — public SSO login page.
   - `src/app/admin/setup/` — first-admin bootstrap (`/admin/setup`), outside the `(shell)` group

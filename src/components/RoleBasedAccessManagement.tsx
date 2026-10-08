@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   SlidersHorizontal,
   Shield,
@@ -93,12 +93,6 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
   const [execCanViewConfidential, setExecCanViewConfidential] = useState(true);
 
   const gatekeeperConfigs = getStoredGatekeeperConfigs();
-
-  useEffect(() => {
-    setPermissions(getStoredRolePermissions());
-    setActiveGkDept(getActiveGatekeeperDepartment());
-    setExecutives(getStoredExecutives());
-  }, []);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);

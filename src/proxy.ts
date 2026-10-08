@@ -1,7 +1,6 @@
-// src/middleware.ts — Next.js 15 route protection (ugt-nextjs-auth-setup,
-// 2026-09-02). Next.js 16 renames this file `proxy.ts` — this project pins
-// next@^15.5.0 (see docs/project-context/decisions.md), so it stays
-// `middleware.ts`; rename it if/when the project upgrades to Next 16.
+// src/proxy.ts — Next.js 16 route protection (ugt-nextjs-auth-setup,
+// 2026-09-02; renamed from src/middleware.ts on the Next 16 upgrade,
+// 2026-10-08). Proxy runs on the nodejs runtime only.
 //
 // Cookie-presence check only (no DB call) + the standard security headers on
 // every response. Why presence-only, never auth.api.getSession(): this
@@ -65,7 +64,7 @@ function applySecurityHeaders(
   return response;
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   // Standalone deploy, no basePath, as of this chunk (docs/admin-handoff.md
   // §2) — kept for parity with the org pattern in case a shared-domain
   // basePath is adopted later.
