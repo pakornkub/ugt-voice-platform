@@ -235,9 +235,9 @@ model attachment {
   checksum    String @map("Checksum") @db.NVarChar(64)
 
   /**
-   * "clean" | "infected" | "error" — only "clean" rows are ever served.
-   * Virus scanning is installed in this project (ClamAV, org default,
-   * 2026-08-09) — see lib/virus-scan.ts and docs/admin-handoff.md.
+   * "unscanned" | "clean" | "infected" — no virus scan in this project
+   * (owner decision 2026-10-09): uploads write "unscanned"; only "infected"
+   * rows are blocked from download. Column default left as-is (no migration).
    */
   scanStatus    String    @default("clean") @map("ScanStatus") @db.NVarChar(20)
   scanSignature String?   @map("ScanSignature") @db.NVarChar(200)

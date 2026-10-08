@@ -2,7 +2,7 @@
 // 2026-09-02). Every byte leaves through here — files are on a volume, not in
 // `public/`, precisely so this guard cannot be bypassed by knowing a URL.
 //
-// session → permission → per-ticket scope → clean-scan check → stream + audit
+// session → permission → per-ticket scope → not-infected check → stream + audit
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
@@ -52,7 +52,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ success: false, error: { code: 'NOT_FOUND' } }, { status: 404 });
   }
 
-  if (attachment.scanStatus !== 'clean') {
+  // No virus scan (decisions.md 2026-10-09): new rows are 'unscanned' and download
+  // normally; only a row explicitly marked 'infected' stays blocked.
+  if (attachment.scanStatus === 'infected') {
     return NextResponse.json(
       { success: false, error: { code: 'FILE_NOT_AVAILABLE' } },
       { status: 409 }

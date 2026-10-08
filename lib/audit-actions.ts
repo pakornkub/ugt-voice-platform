@@ -38,7 +38,6 @@ export const AUDIT_ACTIONS = {
   // File attachments — written by src/app/api/files/route.ts and
   // src/app/api/files/[id]/route.ts (ugt-nextjs-upload-setup, 2026-09-02)
   FILES_UPLOAD: 'files.upload',
-  FILES_UPLOAD_REJECTED: 'files.upload-rejected',
   FILES_DOWNLOAD: 'files.download',
 
   // Anonymous ticket chat — written by lib/actions/tickets.ts (upstream port, 2026-10-08)
