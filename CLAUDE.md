@@ -9,7 +9,7 @@
 Next.js (App Router) · TypeScript · React · Prisma → SQL Server ·
 Better Auth (SSO Keycloak) · Vitest · Jenkins + SonarQube + Docker
 
-Project `ugt-voicecare` · basePath: none (standalone deploy, no shared domain)
+Project `ugt-voice-platform` · basePath: none (standalone deploy, no shared domain)
 
 ## Commands
 

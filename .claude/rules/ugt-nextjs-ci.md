@@ -49,7 +49,7 @@ worse than no gate because it manufactures false confidence.
   especially inside `sh """..."""` where Groovy interpolates every `${}`)
 - Temp files holding secrets are deleted in `post { always }`
 - `NOTIFY_EMAIL` / `SMTP_FROM` are Jenkins Global env vars — never hardcode
-- Credential naming: `nvd` · `env-ugt-voicecare` · `env-ugt-voicecare-dev`
+- Credential naming: `nvd` · `env-ugt-voice-platform` · `env-ugt-voice-platform-dev`
   (no `sentry-dsn-*` — this project has no Sentry)
 
 ## Branch / per-branch values

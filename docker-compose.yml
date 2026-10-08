@@ -10,10 +10,10 @@ services:
     build:
       context: .
       target: runner
-    image: ugt-voicecare:latest
+    image: ugt-voice-platform:latest
     # Image is built locally by Jenkins — never pull from Docker Hub
     pull_policy: never
-    container_name: ugt-voicecare
+    container_name: ugt-voice-platform
     restart: unless-stopped
     ports:
       # Host port comes from .env (APP_PORT) with a default; container port is
@@ -23,7 +23,7 @@ services:
       # Real attachment bytes (ugt-nextjs-upload-setup) — bind mount only,
       # never a named volume (org contract §2.8): not in the image, not in the
       # database, needs its own backup job — see docs/admin-handoff.md.
-      - /home/docker02/appdata/ugt-voicecare/storage:/app/storage
+      - /home/docker02/appdata/ugt-voice-platform/storage:/app/storage
     networks:
       - proxy-network
     environment:
@@ -54,7 +54,7 @@ services:
       # [METHOD: SSO] Internal-CA TLS — decide with admin via
       # docs/admin-handoff.md ("TLS ภายในองค์กร") before uncommenting either
       # line. This is an infra decision, NOT a secret — set it here directly,
-      # never inside the env-ugt-voicecare Jenkins Secret File credential.
+      # never inside the env-ugt-voice-platform Jenkins Secret File credential.
       # NODE_EXTRA_CA_CERTS: /etc/ssl/certs/org-ca.pem   # preferred — mount the cert; needs a matching volumes: bind
       # NODE_TLS_REJECT_UNAUTHORIZED: '0'                # closed intranet only, admin-confirmed — disables TLS verification for the whole container
     depends_on:
@@ -88,14 +88,14 @@ services:
   # (depends_on above).
   clamav:
     image: clamav/clamav:stable
-    container_name: ugt-voicecare-clamav
+    container_name: ugt-voice-platform-clamav
     restart: unless-stopped
     networks:
       - proxy-network
     volumes:
       # Keep the signature DB across restarts — re-downloading it on every
       # deploy costs minutes of refused uploads (the app fails closed).
-      - /home/docker02/appdata/ugt-voicecare/clamav-db:/var/lib/clamav
+      - /home/docker02/appdata/ugt-voice-platform/clamav-db:/var/lib/clamav
     healthcheck:
       test: ['CMD-SHELL', 'clamdscan --ping 1 || exit 1']
       interval: 30s

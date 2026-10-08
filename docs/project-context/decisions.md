@@ -552,3 +552,11 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   directory by employee id → submitter email → session email in place of the mock "current login
   employee") · rejected: copying upstream files verbatim (would re-add `any`, duplicated rule lists
   and SSR-unsafe `localStorage` access).
+- 2026-10-09 **App/project id is `ugt-voice-platform`** (owner decision; matches the repo
+  name) — replaces `ugt-voicecare` everywhere it was an identifier: `package.json` name,
+  Jenkins job + Secret File credentials (`env-ugt-voice-platform[-dev]`), SonarQube project
+  keys, Docker image/container names, `/home/docker02/appdata/ugt-voice-platform[-dev]` paths,
+  Keycloak client id, SQL login suggestion `ugt_voice_platform_app`. Supersedes the
+  2026-09-02 "project name `ugt-voicecare`" entry and the id remark in the database-name entry
+  above. Unchanged: display name "UGT VoiceCare" and upstream's localStorage keys
+  (`voicecare_*`, kept for parity).

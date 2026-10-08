@@ -7,15 +7,15 @@ services:
     build:
       context: .
       target: runner
-    image: ugt-voicecare-dev:latest
+    image: ugt-voice-platform-dev:latest
     pull_policy: never
-    container_name: ugt-voicecare-dev
+    container_name: ugt-voice-platform-dev
     restart: unless-stopped
     ports:
       - '${APP_PORT:-3001}:3000'
     volumes:
       # Separate dev storage — never shares a path with prod (see prod compose).
-      - /home/docker02/appdata/ugt-voicecare-dev/storage:/app/storage
+      - /home/docker02/appdata/ugt-voice-platform-dev/storage:/app/storage
     networks:
       - proxy-network
     environment:
@@ -73,12 +73,12 @@ services:
 
   clamav:
     image: clamav/clamav:stable
-    container_name: ugt-voicecare-dev-clamav
+    container_name: ugt-voice-platform-dev-clamav
     restart: unless-stopped
     networks:
       - proxy-network
     volumes:
-      - /home/docker02/appdata/ugt-voicecare-dev/clamav-db:/var/lib/clamav
+      - /home/docker02/appdata/ugt-voice-platform-dev/clamav-db:/var/lib/clamav
     healthcheck:
       test: ['CMD-SHELL', 'clamdscan --ping 1 || exit 1']
       interval: 30s
