@@ -41,6 +41,9 @@ export const AUDIT_ACTIONS = {
   FILES_UPLOAD_REJECTED: 'files.upload-rejected',
   FILES_DOWNLOAD: 'files.download',
 
+  // Anonymous ticket chat — written by lib/actions/tickets.ts (upstream port, 2026-10-08)
+  TICKETS_CHAT_SEND: 'tickets.chat-send',
+
   // EXTENSION POINT: project-domain actions here, same `<resource>.<verb>` shape
 } as const;
 

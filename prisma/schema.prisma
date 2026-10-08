@@ -44,7 +44,7 @@ model ticket {
   trackingCode String @unique @map("TrackingCode") @db.NVarChar(20)
 
   type           String  @map("Type") @db.NVarChar(20) // SubmissionType: 'complaint' | 'suggestion'
-  category       String  @map("Category") @db.NVarChar(30) // GrievanceCategory (9 fixed values — src/types.ts)
+  category       String  @map("Category") @db.NVarChar(30) // GrievanceCategory (6 fixed values — src/types.ts)
   title          String  @map("Title") @db.NVarChar(500)
   description    String  @map("Description") @db.NVarChar(Max)
   locationOrUnit String? @map("LocationOrUnit") @db.NVarChar(300)
@@ -59,14 +59,15 @@ model ticket {
   submitterDepartment String? @map("SubmitterDepartment") @db.NVarChar(300)
   submitterEmail      String? @map("SubmitterEmail") @db.NVarChar(200)
   submitterPhone      String? @map("SubmitterPhone") @db.NVarChar(50)
+  // Authenticated login email mapped from the employee directory — lets
+  // permitted staff resolve an anonymous submitter (canViewAnonymousSubmitterEmail).
+  loginEmail          String? @map("LoginEmail") @db.NVarChar(200)
+  isAnonymousMapped   Boolean @default(false) @map("IsAnonymousMapped")
 
   // Triage & gatekeeper handling
-  gatekeeperDepartment String    @map("GatekeeperDepartment") @db.NVarChar(300)
-  assignedOfficerName  String?   @map("AssignedOfficerName") @db.NVarChar(200)
-  assignedOfficerEmail String?   @map("AssignedOfficerEmail") @db.NVarChar(200)
-  slaTargetHours       Int       @default(48) @map("SlaTargetHours")
-  slaDueDate           DateTime  @map("SlaDueDate")
-  slaStatus            String    @default("on_track") @map("SlaStatus") @db.NVarChar(30) // on_track|approaching_deadline|overdue|met
+  gatekeeperDepartment String  @map("GatekeeperDepartment") @db.NVarChar(300)
+  assignedOfficerName  String? @map("AssignedOfficerName") @db.NVarChar(200)
+  assignedOfficerEmail String? @map("AssignedOfficerEmail") @db.NVarChar(200)
 
   // State & assessment
   status       String  @default("submitted") @map("Status") @db.NVarChar(30) // TicketStatus
@@ -92,8 +93,9 @@ model ticket {
   // entityType/entityId shape.
   attachments attachment[]
 
-  timeline   ticketTimelineLog[]
-  evaluation ticketEvaluation?
+  timeline          ticketTimelineLog[]
+  evaluation        ticketEvaluation?
+  anonymousMessages ticketAnonymousMessage[]
 
   // Standard audit columns. CreatedBy/UpdatedBy are nullable project-wide
   // right now — there is no real session user yet (SSO lands in
@@ -158,6 +160,33 @@ model ticketEvaluation {
   @@map("TicketEvaluations")
 }
 
+// Anonymous 2-way chat / Q&A between a (possibly anonymous) submitter and the
+// gatekeeper team — AnonymousChatMessage in src/types.ts. Unlike the timeline
+// log this IS mutated (read flags flip), so it carries the full audit set.
+// The app's `timestamp` is CreatedAt (TIMESTAMP is a T-SQL reserved word).
+model ticketAnonymousMessage {
+  id       String @id @default(cuid()) @map("Id")
+  ticketId String @map("TicketId")
+  ticket   ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  senderRole        String  @map("SenderRole") @db.NVarChar(20) // UserRole
+  senderDisplayName String  @map("SenderDisplayName") @db.NVarChar(200)
+  message           String  @map("Message") @db.NVarChar(Max)
+  isStaff           Boolean @default(false) @map("IsStaff")
+  isReadByEmployee  Boolean @default(false) @map("IsReadByEmployee")
+  isReadByStaff     Boolean @default(false) @map("IsReadByStaff")
+
+  isActive  Boolean  @default(true) @map("IsActive")
+  isDeleted Boolean  @default(false) @map("IsDeleted")
+  createdBy String?  @map("CreatedBy")
+  createdAt DateTime @default(now()) @map("CreatedAt")
+  updatedBy String?  @map("UpdatedBy")
+  updatedAt DateTime @updatedAt @map("UpdatedAt")
+
+  @@index([ticketId])
+  @@map("TicketAnonymousMessages")
+}
+
 // ─── File attachments (ugt-nextjs-upload-setup, 2026-09-02) ───────────────
 // Real file storage on a Docker volume — replaces `Tickets.AttachmentsJson`.
 // The row is the source of truth: the file on the volume is opaque bytes
@@ -189,21 +218,29 @@ model attachment {
   timelineLogId String?            @map("TimelineLogId")
   timelineLog   ticketTimelineLog? @relation(fields: [timelineLogId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  /** Generated path on the volume ("2026/09/<uuid>") — never derived from the
-   *  uploaded filename; see lib/storage.ts. */
-  storageKey  String @unique @db.NVarChar(300) @map("StorageKey")
-  /** Original filename — display and the download header only. */
-  fileName    String @db.NVarChar(255) @map("FileName")
-  /** Client-declared type. Advisory only — never trusted for how we serve it. */
-  contentType String @db.NVarChar(150) @map("ContentType")
-  fileSize    Int @map("FileSize")
-  checksum    String @db.NVarChar(64) @map("Checksum")
+  /**
+   * Generated path on the volume ("2026/09/<uuid>") — never derived from the
+   * uploaded filename; see lib/storage.ts.
+   */
+  storageKey  String @unique @map("StorageKey") @db.NVarChar(300)
+  /**
+   * Original filename — display and the download header only.
+   */
+  fileName    String @map("FileName") @db.NVarChar(255)
+  /**
+   * Client-declared type. Advisory only — never trusted for how we serve it.
+   */
+  contentType String @map("ContentType") @db.NVarChar(150)
+  fileSize    Int    @map("FileSize")
+  checksum    String @map("Checksum") @db.NVarChar(64)
 
-  /** "clean" | "infected" | "error" — only "clean" rows are ever served.
-   *  Virus scanning is installed in this project (ClamAV, org default,
-   *  2026-08-09) — see lib/virus-scan.ts and docs/admin-handoff.md. */
-  scanStatus    String    @default("clean") @db.NVarChar(20) @map("ScanStatus")
-  scanSignature String?   @db.NVarChar(200) @map("ScanSignature")
+  /**
+   * "clean" | "infected" | "error" — only "clean" rows are ever served.
+   * Virus scanning is installed in this project (ClamAV, org default,
+   * 2026-08-09) — see lib/virus-scan.ts and docs/admin-handoff.md.
+   */
+  scanStatus    String    @default("clean") @map("ScanStatus") @db.NVarChar(20)
+  scanSignature String?   @map("ScanSignature") @db.NVarChar(200)
   scannedAt     DateTime? @map("ScannedAt")
 
   // Standard audit columns. CreatedBy/UpdatedBy nullable project-wide — see
@@ -223,18 +260,17 @@ model attachment {
   @@map("Attachments")
 }
 
-// ─── Gatekeeper directory (9 fixed department categories) ─────────────────
+// ─── Gatekeeper directory (6 fixed department categories) ─────────────────
 
 model departmentGatekeeperConfig {
-  id String @id @default(cuid()) @map("Id")
-  // One row per GrievanceCategory (9 total) — the "lead officer" for a
+  id       String @id @default(cuid()) @map("Id")
+  // One row per GrievanceCategory (6 total) — the "lead officer" for a
   // department is derived at read time as officers.find(o => o.isLead),
   // not a separate FK (mirrors the original sqlite draft's design).
   category String @unique @map("Category") @db.NVarChar(30)
 
   departmentName         String  @map("DepartmentName") @db.NVarChar(300)
   departmentCode         String  @map("DepartmentCode") @db.NVarChar(50)
-  defaultSlaHours        Int     @default(48) @map("DefaultSlaHours")
   autoAssignMode         String  @default("lead_manual") @map("AutoAssignMode") @db.NVarChar(30) // round_robin|lead_manual|workload_balanced
   escalationEmail        String? @map("EscalationEmail") @db.NVarChar(200)
   notificationWebhookUrl String? @map("NotificationWebhookUrl") @db.NVarChar(500)
@@ -363,22 +399,23 @@ model roleAccessConfig {
   id   String @id @default(cuid()) @map("Id")
   role String @unique @map("RoleKey") @db.NVarChar(20) // UserRole: employee|gatekeeper|executive|admin
 
-  roleTitleTh    String  @map("RoleTitleTh") @db.NVarChar(200)
-  roleTitleEn    String  @map("RoleTitleEn") @db.NVarChar(200)
-  descriptionTh  String  @map("DescriptionTh") @db.NVarChar(Max)
-  badgeColor     String  @map("BadgeColor") @db.NVarChar(200)
+  roleTitleTh     String @map("RoleTitleTh") @db.NVarChar(200)
+  roleTitleEn     String @map("RoleTitleEn") @db.NVarChar(200)
+  descriptionTh   String @map("DescriptionTh") @db.NVarChar(Max)
+  badgeColor      String @map("BadgeColor") @db.NVarChar(200)
   // JSON array of AppTabId strings (src/types.ts:RolePermissionConfig.allowedTabs)
   allowedTabsJson String @default("[]") @map("AllowedTabsJson") @db.NVarChar(Max)
 
-  canViewAllDepartments Boolean @default(false) @map("CanViewAllDepartments")
+  canViewAllDepartments   Boolean @default(false) @map("CanViewAllDepartments")
   // JSON array of GrievanceCategory strings (assignedDepartments)
   assignedDepartmentsJson String? @default("[]") @map("AssignedDepartmentsJson") @db.NVarChar(Max)
 
-  canViewDirectCeoTickets       Boolean @default(false) @map("CanViewDirectCeoTickets")
-  canViewConfidentialIdentities Boolean @default(false) @map("CanViewConfidentialIdentities")
-  canEditRootCauseAndCapa       Boolean @default(false) @map("CanEditRootCauseAndCapa")
-  canManageGatekeeperOfficers   Boolean @default(false) @map("CanManageGatekeeperOfficers")
-  canManageRolePermissions      Boolean @default(false) @map("CanManageRolePermissions")
+  canViewDirectCeoTickets        Boolean @default(false) @map("CanViewDirectCeoTickets")
+  canViewConfidentialIdentities  Boolean @default(false) @map("CanViewConfidentialIdentities")
+  canViewAnonymousSubmitterEmail Boolean @default(false) @map("CanViewAnonymousSubmitterEmail")
+  canEditRootCauseAndCapa        Boolean @default(false) @map("CanEditRootCauseAndCapa")
+  canManageGatekeeperOfficers    Boolean @default(false) @map("CanManageGatekeeperOfficers")
+  canManageRolePermissions       Boolean @default(false) @map("CanManageRolePermissions")
 
   isActive  Boolean  @default(true) @map("IsActive")
   isDeleted Boolean  @default(false) @map("IsDeleted")
@@ -411,13 +448,13 @@ model roleAccessConfig {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model user {
-  id            String   @id @default(cuid())            @map("Id")
-  name          String                                    @map("Name")
-  email         String   @unique                          @map("Email")
-  emailVerified Boolean  @default(false)                  @map("EmailVerified")
-  image         String?  @db.NVarChar(Max)                @map("Image")
-  createdAt     DateTime @default(now())                  @map("CreatedAt")
-  updatedAt     DateTime @updatedAt                        @map("UpdatedAt")
+  id            String   @id @default(cuid()) @map("Id")
+  name          String   @map("Name")
+  email         String   @unique @map("Email")
+  emailVerified Boolean  @default(false) @map("EmailVerified")
+  image         String?  @map("Image") @db.NVarChar(Max)
+  createdAt     DateTime @default(now()) @map("CreatedAt")
+  updatedAt     DateTime @updatedAt @map("UpdatedAt")
 
   // Auth — last login method. SSO only in this project today, but kept as a
   // free string (not a Prisma enum — MSSQL connector doesn't support them)
@@ -435,7 +472,7 @@ model user {
   // role-switcher dropdown that used to let anyone pick any role client-side.
   // Nullable = not yet assigned by an admin (mirrors roleId's "no access
   // until assigned" pattern) — see docs/project-context/decisions.md.
-  appRole String? @db.NVarChar(20) @map("AppRole")
+  appRole String? @map("AppRole") @db.NVarChar(20)
 
   // Directory username (Keycloak preferred_username) — identity anchor used
   // to link an SSO login back to the same row across sessions.
@@ -449,33 +486,33 @@ model user {
 
 model session {
   id        String   @id @default(cuid()) @map("Id")
-  expiresAt DateTime                       @map("ExpiresAt")
-  token     String   @unique              @map("Token")
-  createdAt DateTime @default(now())      @map("CreatedAt")
-  updatedAt DateTime @updatedAt           @map("UpdatedAt")
-  ipAddress String?                        @map("IpAddress")
-  userAgent String?  @db.NVarChar(Max)    @map("UserAgent")
-  userId    String                         @map("UserId")
+  expiresAt DateTime @map("ExpiresAt")
+  token     String   @unique @map("Token")
+  createdAt DateTime @default(now()) @map("CreatedAt")
+  updatedAt DateTime @updatedAt @map("UpdatedAt")
+  ipAddress String?  @map("IpAddress")
+  userAgent String?  @map("UserAgent") @db.NVarChar(Max)
+  userId    String   @map("UserId")
   user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("Session")
 }
 
 model account {
-  id                    String    @id @default(cuid())  @map("Id")
-  accountId             String                           @map("AccountId")
-  providerId            String                           @map("ProviderId")
-  userId                String                           @map("UserId")
+  id                    String    @id @default(cuid()) @map("Id")
+  accountId             String    @map("AccountId")
+  providerId            String    @map("ProviderId")
+  userId                String    @map("UserId")
   user                  user      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  accessToken           String?   @db.NVarChar(Max)     @map("AccessToken")
-  refreshToken          String?   @db.NVarChar(Max)     @map("RefreshToken")
-  idToken               String?   @db.NVarChar(Max)     @map("IdToken")
-  accessTokenExpiresAt  DateTime?                        @map("AccessTokenExpiresAt")
-  refreshTokenExpiresAt DateTime?                        @map("RefreshTokenExpiresAt")
-  scope                 String?                          @map("Scope")
-  password              String?   @db.NVarChar(Max)     @map("Password")
-  createdAt             DateTime  @default(now())        @map("CreatedAt")
-  updatedAt             DateTime  @updatedAt             @map("UpdatedAt")
+  accessToken           String?   @map("AccessToken") @db.NVarChar(Max)
+  refreshToken          String?   @map("RefreshToken") @db.NVarChar(Max)
+  idToken               String?   @map("IdToken") @db.NVarChar(Max)
+  accessTokenExpiresAt  DateTime? @map("AccessTokenExpiresAt")
+  refreshTokenExpiresAt DateTime? @map("RefreshTokenExpiresAt")
+  scope                 String?   @map("Scope")
+  password              String?   @map("Password") @db.NVarChar(Max)
+  createdAt             DateTime  @default(now()) @map("CreatedAt")
+  updatedAt             DateTime  @updatedAt @map("UpdatedAt")
 
   @@unique([providerId, accountId])
   @@map("Account")
@@ -483,11 +520,11 @@ model account {
 
 model verification {
   id         String    @id @default(cuid()) @map("Id")
-  identifier String                          @map("Identifier")
-  value      String    @db.NVarChar(Max)    @map("VerificationValue")
-  expiresAt  DateTime                        @map("ExpiresAt")
-  createdAt  DateTime? @default(now())       @map("CreatedAt")
-  updatedAt  DateTime? @updatedAt            @map("UpdatedAt")
+  identifier String    @map("Identifier")
+  value      String    @map("VerificationValue") @db.NVarChar(Max)
+  expiresAt  DateTime  @map("ExpiresAt")
+  createdAt  DateTime? @default(now()) @map("CreatedAt")
+  updatedAt  DateTime? @updatedAt @map("UpdatedAt")
 
   @@map("Verification")
 }
@@ -497,11 +534,11 @@ model verification {
 
 model role {
   id          String   @id @default(cuid()) @map("Id")
-  name        String   @unique              @map("Name")
-  description String?  @db.NVarChar(Max)   @map("Description")
-  isSystem    Boolean  @default(false)      @map("IsSystem") // system roles (Administrator) cannot be deleted
-  createdAt   DateTime @default(now())      @map("CreatedAt")
-  updatedAt   DateTime @updatedAt           @map("UpdatedAt")
+  name        String   @unique @map("Name")
+  description String?  @map("Description") @db.NVarChar(Max)
+  isSystem    Boolean  @default(false) @map("IsSystem") // system roles (Administrator) cannot be deleted
+  createdAt   DateTime @default(now()) @map("CreatedAt")
+  updatedAt   DateTime @updatedAt @map("UpdatedAt")
 
   users       user[]
   permissions rolePermission[]
@@ -511,9 +548,9 @@ model role {
 
 model permission {
   id    String @id @default(cuid()) @map("Id")
-  key   String @unique              @map("PermKey")   // e.g. "users:read" — KEY is T-SQL reserved
-  label String                      @map("Label")
-  group String                      @map("GroupName") // GROUP is T-SQL reserved
+  key   String @unique @map("PermKey") // e.g. "users:read" — KEY is T-SQL reserved
+  label String @map("Label")
+  group String @map("GroupName") // GROUP is T-SQL reserved
 
   roles rolePermission[]
 
@@ -524,8 +561,8 @@ model rolePermission {
   roleId       String @map("RoleId")
   permissionId String @map("PermissionId")
 
-  role         role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permission   permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role       role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
   @@id([roleId, permissionId])
   @@map("RolePermission")
@@ -537,10 +574,10 @@ model rolePermission {
 // Auth sends an `id` field on insert; `key String @id` throws at runtime.
 
 model rateLimit {
-  id          String  @id          @map("Id")
-  key         String?              @map("BucketKey")
-  count       Int                  @map("RequestCount")
-  lastRequest BigInt               @map("LastRequest")
+  id          String  @id @map("Id")
+  key         String? @map("BucketKey")
+  count       Int     @map("RequestCount")
+  lastRequest BigInt  @map("LastRequest")
 
   @@map("RateLimit")
 }
@@ -553,7 +590,7 @@ model activityLog {
   id        Int      @id @default(autoincrement()) @map("Id")
   userId    String   @map("UserId")
   action    String   @map("Action")
-  detail    String?  @db.NVarChar(Max) @map("Detail")
+  detail    String?  @map("Detail") @db.NVarChar(Max)
   createdAt DateTime @default(now()) @map("CreatedAt")
 
   @@index([createdAt])

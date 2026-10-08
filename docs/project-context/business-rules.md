@@ -7,8 +7,9 @@
 
 ## การยื่นคำร้อง (Submission)
 
-- ทุกคำร้องต้องเลือกประเภท (ข้อร้องเรียน/ข้อเสนอแนะ) และหมวดหมู่ 1 ใน 9 หมวด
-  (HR/IT/Safety/Compliance/Ethics/Harassment/Fraud/Quality/Environment) — implement ที่
+- ทุกคำร้องต้องเลือกประเภท (ข้อร้องเรียน/ข้อเสนอแนะ) และหมวดหมู่ 1 ใน 6 หมวด
+  (HR/Compliance/Ethics/Fraud/Harassment/Quality — IT/Safety/Environment ถูกตัดตาม upstream
+  `8d885a3`, 2026-10-08; ticket เก่าหมวด Environment ถูก migrate เป็น Compliance ตอนโหลด) — implement ที่
   `src/components/EmployeeSubmitForm.tsx`, นิยามหมวดหมู่ที่ `src/mockData.ts:CATEGORY_DEFINITIONS`
 - ระดับความลับมี 3 แบบ: anonymous / confidential_restricted / standard_named — implement
   ที่ `src/types.ts:ConfidentialityLevel`, ใช้ใน `src/components/EmployeeSubmitForm.tsx`
@@ -16,10 +17,23 @@
   implement ที่ `src/types.ts:ComplaintTicket.isDirectToExecutive`, แสดงผลที่
   `src/components/ExecutiveDashboard.tsx` (assumption: ไม่ได้ไล่อ่าน routing logic ทุกจุด)
 
-## Gatekeeper triage & SLA
+## Gatekeeper triage
 
-- แต่ละคำร้องมี `slaTargetHours`/`slaDueDate`/`slaStatus` (on_track / approaching_deadline /
-  overdue / met) — implement ที่ `src/types.ts:ComplaintTicket`
+- **ไม่มี SLA แล้ว** (ตัดทั้งระบบตาม upstream `8d885a3`, 2026-10-08): ไม่มี
+  `slaTargetHours`/`slaDueDate`/`slaStatus`/`defaultSlaHours`/`slaComplianceRate` และไม่มี
+  notification `sla_warning` — ความเร่งด่วนดูจาก `urgency` (Low/Medium/High/Critical) +
+  `riskSeverity` ที่ Gatekeeper แก้ได้ผ่าน `updateTicketWorkflow()`
+  (`src/services/api.ts`) — implement ที่ `src/types.ts:ComplaintTicket`
+- ผู้ยื่นแบบ anonymous ถูก map อีเมลล็อกอินหลังบ้านจากฐานข้อมูลพนักงาน
+  (`ComplaintTicket.loginEmail`/`isAnonymousMapped`, `src/services/employeeDirectory.ts`) —
+  เฉพาะ role ที่มี `canViewAnonymousSubmitterEmail` (executive/admin โดย default) เห็นอีเมลนี้
+  (UI = งาน Phase 2); มีช่องแชทนิรนามสองทาง `anonymousMessages` ระหว่างผู้ยื่นกับเจ้าหน้าที่
+  (`sendAnonymousChatMessage()`)
+- แจ้งเตือนอีเมลตามการตั้งค่า (`EmailNotificationSettings`): `onTicketSubmitted` → Lead
+  Gatekeeper ของหมวด, `onTicketResolved` → ผู้ยื่น; ยังเป็น localStorage + log จำลองการส่ง
+  (`dispatchEmailOn*` ใน api.ts) จนกว่าจะสลับเป็น `AppSettings` + SMTP (decisions.md 2026-10-08)
+- ปุ่มสลับแท็บถูกกรองด้วย `allowedTabs` ของ role (`shell.tsx:navigateTab`), การแจ้งเตือนสายตรง
+  CEO เห็นเฉพาะ role ที่มี `canViewDirectCeoTickets`
 - Gatekeeper เห็นเฉพาะคำร้องในหน่วยงานที่ตนรับผิดชอบ ยกเว้นมี `canViewAllDepartments` —
   implement ที่ `src/components/GatekeeperInbox.tsx`, config ที่
   `src/types.ts:RolePermissionConfig`/`DepartmentGatekeeperConfig` (assumption: filter logic

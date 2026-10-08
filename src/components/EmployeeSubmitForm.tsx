@@ -13,16 +13,13 @@ import {
   FileText,
   Lightbulb,
   HelpCircle,
-  Laptop,
   Users,
   Scale,
   AlertOctagon,
   FileWarning,
-  Leaf,
   FileCheck2,
   X,
   ArrowRight,
-  Clock,
   ShieldCheck,
   ChevronDown,
 } from 'lucide-react';
@@ -184,11 +181,6 @@ export const EmployeeSubmitForm: React.FC<EmployeeSubmitFormProps> = ({
     }
 
     const deptInfo = CATEGORY_DEFINITIONS[category];
-    const slaHours = isDirectToExecutive
-      ? 12
-      : category === 'Safety' || category === 'Fraud' || category === 'Harassment'
-        ? 24
-        : 48;
 
     const newTicket = submitTicket({
       type: submissionType,
@@ -204,12 +196,7 @@ export const EmployeeSubmitForm: React.FC<EmployeeSubmitFormProps> = ({
       submitterEmail,
       submitterPhone,
       gatekeeperDepartment: deptInfo.responsibleDept,
-      slaTargetHours: slaHours,
-      urgency: isDirectToExecutive
-        ? 'High'
-        : category === 'Safety' || category === 'Harassment'
-          ? 'High'
-          : 'Medium',
+      urgency: isDirectToExecutive || category === 'Harassment' ? 'High' : 'Medium',
       riskSeverity: isDirectToExecutive ? 'High' : 'Moderate',
       sentiment: submissionType === 'suggestion' ? 'Constructive' : 'Concerned',
       attachments,
@@ -223,10 +210,6 @@ export const EmployeeSubmitForm: React.FC<EmployeeSubmitFormProps> = ({
     switch (catKey) {
       case 'HR':
         return <Users className="h-4 w-4" />;
-      case 'IT':
-        return <Laptop className="h-4 w-4" />;
-      case 'Safety':
-        return <ShieldAlert className="h-4 w-4" />;
       case 'Compliance':
         return <FileCheck2 className="h-4 w-4" />;
       case 'Ethics':
@@ -237,8 +220,6 @@ export const EmployeeSubmitForm: React.FC<EmployeeSubmitFormProps> = ({
         return <FileWarning className="h-4 w-4" />;
       case 'Quality':
         return <CheckCircle2 className="h-4 w-4" />;
-      case 'Environment':
-        return <Leaf className="h-4 w-4" />;
     }
   };
 
@@ -283,13 +264,6 @@ export const EmployeeSubmitForm: React.FC<EmployeeSubmitFormProps> = ({
                 <div className="mt-0.5 flex items-center gap-1 font-medium text-blue-700">
                   <span className="h-2 w-2 animate-ping rounded-full bg-blue-600" />
                   ยื่นเรื่องแล้ว (Submitted)
-                </div>
-              </div>
-              <div>
-                <span className="text-slate-500">เป้าหมายเวลา SLA:</span>
-                <div className="mt-0.5 flex items-center gap-1 font-medium text-slate-800">
-                  <Clock className="h-3.5 w-3.5 text-slate-400" />
-                  ภายใน {createdTicket.slaTargetHours} ชั่วโมง
                 </div>
               </div>
               {createdTicket.isDirectToExecutive && (
@@ -491,9 +465,6 @@ export const EmployeeSubmitForm: React.FC<EmployeeSubmitFormProps> = ({
                 <strong className="font-semibold text-indigo-900">
                   {CATEGORY_DEFINITIONS[category]?.responsibleDept}
                 </strong>
-              </span>
-              <span className="ml-2 shrink-0 rounded border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
-                SLA: ~{category === 'Safety' || category === 'Compliance' ? '12-24' : '24-48'}h
               </span>
             </div>
           </div>

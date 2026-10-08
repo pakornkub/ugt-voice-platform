@@ -11,10 +11,12 @@ import type {
   notification as NotificationRow,
   roleAccessConfig as RoleAccessRow,
   ticket as TicketRow,
+  ticketAnonymousMessage as AnonymousMessageRow,
   ticketEvaluation as EvaluationRow,
   ticketTimelineLog as TimelineRow,
 } from '@prisma/client';
 import type {
+  AnonymousChatMessage,
   Attachment,
   ComplaintTicket,
   DepartmentGatekeeperConfig,
@@ -36,6 +38,20 @@ function parseJsonArray<T>(json: string | null | undefined, fallback: T[] = []):
   } catch {
     return fallback;
   }
+}
+
+export function mapAnonymousMessage(row: AnonymousMessageRow): AnonymousChatMessage {
+  return {
+    id: row.id,
+    ticketId: row.ticketId,
+    senderRole: row.senderRole as AnonymousChatMessage['senderRole'],
+    senderDisplayName: row.senderDisplayName,
+    message: row.message,
+    timestamp: row.createdAt.toISOString(),
+    isStaff: row.isStaff,
+    isReadByEmployee: row.isReadByEmployee,
+    isReadByStaff: row.isReadByStaff,
+  };
 }
 
 export function mapTimeline(row: TimelineRow): TimelineLog {
@@ -101,6 +117,7 @@ export function mapTicket(
     timeline?: TimelineRow[];
     evaluation?: EvaluationRow | null;
     attachments?: AttachmentRow[];
+    anonymousMessages?: AnonymousMessageRow[];
   }
 ): ComplaintTicket {
   return {
@@ -118,12 +135,11 @@ export function mapTicket(
     submitterDepartment: row.submitterDepartment ?? undefined,
     submitterEmail: row.submitterEmail ?? undefined,
     submitterPhone: row.submitterPhone ?? undefined,
+    loginEmail: row.loginEmail ?? undefined,
+    isAnonymousMapped: row.isAnonymousMapped,
     gatekeeperDepartment: row.gatekeeperDepartment,
     assignedOfficerName: row.assignedOfficerName ?? undefined,
     assignedOfficerEmail: row.assignedOfficerEmail ?? undefined,
-    slaTargetHours: row.slaTargetHours,
-    slaDueDate: row.slaDueDate.toISOString(),
-    slaStatus: row.slaStatus as ComplaintTicket['slaStatus'],
     status: row.status as ComplaintTicket['status'],
     urgency: row.urgency as ComplaintTicket['urgency'],
     riskSeverity: row.riskSeverity as ComplaintTicket['riskSeverity'],
@@ -138,6 +154,7 @@ export function mapTicket(
     evaluation: row.evaluation ? mapEvaluation(row.evaluation) : undefined,
     attachments: (row.attachments ?? []).map(mapAttachment),
     timeline: (row.timeline ?? []).map(mapTimeline),
+    anonymousMessages: (row.anonymousMessages ?? []).map(mapAnonymousMessage),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -179,7 +196,6 @@ export function mapDepartmentConfig(
     category: row.category as GrievanceCategory,
     departmentName: row.departmentName,
     departmentCode: row.departmentCode,
-    defaultSlaHours: row.defaultSlaHours,
     leadOfficer: lead as GatekeeperOfficer,
     officers,
     autoAssignMode: row.autoAssignMode as DepartmentGatekeeperConfig['autoAssignMode'],
@@ -237,6 +253,7 @@ export function mapRoleAccessConfig(row: RoleAccessRow): RolePermissionConfig {
     assignedDepartments: parseJsonArray<GrievanceCategory>(row.assignedDepartmentsJson),
     canViewDirectCeoTickets: row.canViewDirectCeoTickets,
     canViewConfidentialIdentities: row.canViewConfidentialIdentities,
+    canViewAnonymousSubmitterEmail: row.canViewAnonymousSubmitterEmail,
     canEditRootCauseAndCapa: row.canEditRootCauseAndCapa,
     canManageGatekeeperOfficers: row.canManageGatekeeperOfficers,
     canManageRolePermissions: row.canManageRolePermissions,

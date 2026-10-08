@@ -8,7 +8,7 @@ import { POST } from './route';
 // route.ts without calling the real Gemini API — proving the pipeline (and
 // this route) work without needing any secret.
 describe('POST /api/ai/analyze-complaint (fallback path, no GEMINI_API_KEY)', () => {
-  it('returns static heuristic triage data instead of calling Gemini', async () => {
+  it('returns the default triage data instead of calling Gemini', async () => {
     const request = new NextRequest('http://localhost/api/ai/analyze-complaint', {
       method: 'POST',
       body: JSON.stringify({
@@ -27,26 +27,39 @@ describe('POST /api/ai/analyze-complaint (fallback path, no GEMINI_API_KEY)', ()
       urgencyScore: 'Medium',
       sentiment: 'Concerned',
       riskLevel: 'Moderate',
-      suggestedDepartment: 'HR Operations',
+      suggestedDepartment: 'ฝ่ายบริหารทรัพยากรบุคคล (HR)',
+      isDirectExecutiveWorthy: false,
     });
     expect(Array.isArray(body.keyKeywords)).toBe(true);
     expect(Array.isArray(body.recommendedActions)).toBe(true);
   });
 
-  it('falls back to the submitted category when none is heuristically overridden', async () => {
+  it('echoes the submitted category and title', async () => {
     const request = new NextRequest('http://localhost/api/ai/analyze-complaint', {
       method: 'POST',
       body: JSON.stringify({
-        title: 'ข้อเสนอแนะเรื่องความปลอดภัย',
+        title: 'ข้อเสนอแนะเรื่องคุณภาพ',
         description: '',
-        category: 'Safety',
+        category: 'Quality',
       }),
     });
 
     const response = await POST(request);
     const body = await response.json();
 
-    expect(body.suggestedCategory).toBe('Safety');
-    expect(body.summary).toBe('ข้อเสนอแนะเรื่องความปลอดภัย');
+    expect(body.suggestedCategory).toBe('Quality');
+    expect(body.summary).toBe('ข้อเสนอแนะเรื่องคุณภาพ');
+  });
+
+  it('still answers 200 with defaults when the body is not JSON', async () => {
+    const request = new NextRequest('http://localhost/api/ai/analyze-complaint', {
+      method: 'POST',
+      body: 'not json',
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).suggestedCategory).toBe('HR');
   });
 });

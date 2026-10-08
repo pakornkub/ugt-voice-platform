@@ -1,13 +1,4 @@
-export type GrievanceCategory =
-  | 'HR'
-  | 'IT'
-  | 'Safety'
-  | 'Compliance'
-  | 'Ethics'
-  | 'Harassment'
-  | 'Fraud'
-  | 'Quality'
-  | 'Environment';
+export type GrievanceCategory = 'HR' | 'Compliance' | 'Ethics' | 'Fraud' | 'Harassment' | 'Quality';
 
 export type SubmissionType = 'complaint' | 'suggestion';
 
@@ -64,6 +55,7 @@ export interface RolePermissionConfig {
   // Executive / Special privileges
   canViewDirectCeoTickets: boolean;
   canViewConfidentialIdentities: boolean;
+  canViewAnonymousSubmitterEmail: boolean; // Permission to view login email for anonymous submissions (mapped from employee database)
   canEditRootCauseAndCapa: boolean;
   canManageGatekeeperOfficers: boolean;
   canManageRolePermissions: boolean;
@@ -122,14 +114,13 @@ export interface ComplaintTicket {
   submitterDepartment?: string;
   submitterEmail?: string;
   submitterPhone?: string;
+  loginEmail?: string; // Authenticated login email mapped from employee database
+  isAnonymousMapped?: boolean; // Flag indicating backend mapping was applied for anonymous submission
 
   // Triage & Gatekeeper handling
   gatekeeperDepartment: string;
   assignedOfficerName?: string;
   assignedOfficerEmail?: string;
-  slaTargetHours: number;
-  slaDueDate: string;
-  slaStatus: 'on_track' | 'approaching_deadline' | 'overdue' | 'met';
 
   // State & Assessment
   status: TicketStatus;
@@ -140,7 +131,7 @@ export interface ComplaintTicket {
   // Root cause analysis & clustering
   clusterGroup?: string;
   rootCauseCategory?:
-    'Process' | 'People' | 'Equipment/Tools' | 'Policy/Governance' | 'Environment';
+    'Process' | 'People' | 'Equipment/Tools' | 'Policy/Governance' | 'Workplace/Facilities';
   rootCauseSummary?: string;
   preventiveActionPlan?: string;
 
@@ -158,9 +149,24 @@ export interface ComplaintTicket {
   // Real-time timeline log
   timeline: TimelineLog[];
 
+  // Anonymous 2-way chat / Q&A messages
+  anonymousMessages?: AnonymousChatMessage[];
+
   // Meta
   createdAt: string;
   updatedAt: string;
+}
+
+export interface AnonymousChatMessage {
+  id: string;
+  ticketId: string;
+  senderRole: UserRole;
+  senderDisplayName: string;
+  message: string;
+  timestamp: string;
+  isStaff: boolean;
+  isReadByEmployee?: boolean;
+  isReadByStaff?: boolean;
 }
 
 export interface NotificationItem {
@@ -171,8 +177,7 @@ export interface NotificationItem {
   message: string;
   timestamp: string;
   read: boolean;
-  type:
-    'status_update' | 'new_ticket' | 'direct_ceo_alert' | 'satisfaction_pending' | 'sla_warning';
+  type: 'status_update' | 'new_ticket' | 'direct_ceo_alert' | 'satisfaction_pending';
   recipientRole?: UserRole;
   recipientEmail?: string;
 }
@@ -233,7 +238,6 @@ export interface DepartmentGatekeeperConfig {
   category: GrievanceCategory;
   departmentName: string;
   departmentCode: string;
-  defaultSlaHours: number;
   leadOfficer: GatekeeperOfficer;
   officers: GatekeeperOfficer[];
   autoAssignMode: 'round_robin' | 'lead_manual' | 'workload_balanced';
@@ -248,7 +252,6 @@ export interface ExecutiveMetrics {
   resolvedTickets: number;
   directCeoTickets: number;
   avgResolutionDays: number;
-  slaComplianceRate: number; // percentage (e.g. 94.2)
   avgCsatScore: number; // 1-5 (e.g. 4.6)
   complaintCount: number;
   suggestionCount: number;
@@ -283,4 +286,57 @@ export interface AiClusterInsights {
   topRiskClusters: AiRiskCluster[];
   executiveSummary: string;
   strategicRecommendations: string[];
+}
+
+export interface EmailNotificationTemplate {
+  enabled: boolean;
+  subject: string;
+  body: string;
+}
+
+export interface EmailNotificationSettings {
+  masterEnabled: boolean;
+  onTicketSubmitted: EmailNotificationTemplate;
+  onTicketResolved: EmailNotificationTemplate;
+  updatedAt: string;
+}
+
+export interface EmailDispatchLog {
+  id: string;
+  timestamp: string;
+  trigger: 'ticket_submitted' | 'ticket_resolved' | 'test_dispatch';
+  ticketId: string;
+  trackingCode: string;
+  recipientEmail: string;
+  recipientName: string;
+  recipientRole: 'gatekeeper' | 'employee' | 'admin' | 'test';
+  subject: string;
+  body: string;
+  status: 'sent' | 'failed' | 'disabled';
+  deliveryChannel?: string;
+}
+
+export interface RecentSearchItem {
+  id: string;
+  query: string;
+  timestamp: string;
+  ticketId?: string;
+  trackingCode?: string;
+  title?: string;
+  category?: GrievanceCategory;
+  urgency?: UrgencyLevel;
+  status?: TicketStatus;
+  found: boolean;
+  submitterName?: string;
+}
+
+export interface EmployeeRecord {
+  employeeId: string;
+  nameTh: string;
+  nameEn: string;
+  loginEmail: string;
+  department: string;
+  position: string;
+  phone: string;
+  status: 'active' | 'inactive';
 }

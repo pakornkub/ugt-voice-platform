@@ -31,7 +31,6 @@ export async function updateDepartmentGatekeeperConfig(
       DepartmentGatekeeperConfig,
       | 'departmentName'
       | 'departmentCode'
-      | 'defaultSlaHours'
       | 'autoAssignMode'
       | 'escalationEmail'
       | 'notificationWebhookUrl'

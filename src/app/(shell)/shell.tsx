@@ -6,13 +6,23 @@ import { Navbar } from '@/components/Navbar';
 import { TrackingTimelineModal } from '@/components/TrackingTimelineModal';
 import { SatisfactionModal } from '@/components/SatisfactionModal';
 import { ExportAnalyticsModal } from '@/components/ExportAnalyticsModal';
-import { ComplaintTicket, NotificationItem } from '@/types';
 import {
+  AppTabId,
+  ComplaintTicket,
+  NotificationItem,
+  RolePermissionConfig,
+  UserRole,
+} from '@/types';
+import {
+  INITIAL_ROLE_PERMISSIONS,
   getTickets,
   getTicketByTrackingCode,
   getNotifications,
   markNotificationAsRead,
   markAllNotificationsAsRead,
+  getStoredRolePermissions,
+  addRecentSearch,
+  getRecentSearches,
 } from '@/services/api';
 import {
   FileText,
@@ -26,7 +36,13 @@ import {
   Smartphone,
   X,
 } from 'lucide-react';
-import { PATH_TO_TAB, ShellContext, ShellIdentity, TAB_TO_PATH } from '../shell-context';
+import {
+  PATH_TO_TAB,
+  RBAC_PERMISSION_TABS,
+  ShellContext,
+  ShellIdentity,
+  TAB_TO_PATH,
+} from '../shell-context';
 
 export default function Shell({
   identity,
@@ -53,12 +69,24 @@ export default function Shell({
   const [selectedTicketForSatisfaction, setSelectedTicketForSatisfaction] =
     useState<ComplaintTicket | null>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isRecentSearchesOpen, setIsRecentSearchesOpen] = useState(false);
+  const [recentSearchesCount, setRecentSearchesCount] = useState(0);
+
+  // Seeded with the defaults (not getStoredRolePermissions()) so SSR and
+  // hydration markup match; refreshData() swaps in the stored matrix after mount.
+  const [rolePermissions, setRolePermissions] =
+    useState<Record<UserRole, RolePermissionConfig>>(INITIAL_ROLE_PERMISSIONS);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const refreshRecentSearchesCount = () => {
+    setRecentSearchesCount(getRecentSearches().length);
+  };
 
   const refreshData = () => {
     setTickets(getTickets() || []);
     setNotifications(getNotifications() || []);
+    setRolePermissions(getStoredRolePermissions());
   };
 
   // localStorage is client-only: reading it after mount (not in useState)
@@ -67,6 +95,7 @@ export default function Shell({
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshData();
+    refreshRecentSearchesCount();
   }, []);
 
   const showNotification = (msg: string) => {
@@ -74,7 +103,23 @@ export default function Shell({
     setTimeout(() => setToastMessage(null), 4000);
   };
 
+  // Safe navigation with RBAC permission enforcement (upstream App.tsx
+  // handleNavigateTab). The four admin_* tabs added by auth/mail setup are
+  // governed by RBAC permission keys (checked in Navbar), not allowedTabs, so
+  // they bypass the allowedTabs matrix here.
   const navigateTab = (tab: string) => {
+    const currentConfig = rolePermissions[currentRole];
+    const isAllowed =
+      RBAC_PERMISSION_TABS.includes(tab as AppTabId) ||
+      currentConfig?.allowedTabs?.includes(tab as AppTabId);
+
+    // If the target tab is not permitted for the active role, do NOT elevate
+    if (!isAllowed) {
+      showNotification(
+        `⚠️ บัญชีในบทบาท "${currentConfig?.roleTitleTh || currentRole}" ไม่มีสิทธิ์เข้าถึงหน้านี้ตามเมทริกซ์สิทธิ์`
+      );
+      return;
+    }
     router.push(TAB_TO_PATH[tab as keyof typeof TAB_TO_PATH] || '/submit');
   };
 
@@ -93,10 +138,16 @@ export default function Shell({
 
   const openTrackingByCode = (code: string) => {
     const found = getTicketByTrackingCode(code);
+
+    // Automatically log this search into recent searches
+    addRecentSearch(code, found);
+    refreshRecentSearchesCount();
+
     if (found) {
       setSelectedTicketForTracking(found);
     } else {
-      alert(`ไม่พบรหัสติดตาม "${code}" ในระบบ กรุณาตรวจสอบความถูกต้อง`);
+      showNotification(`ไม่พบรหัสติดตาม "${code}" ในระบบ (บันทึกลงประวัติค้นหาแล้ว)`);
+      setIsRecentSearchesOpen(true);
     }
   };
 
@@ -114,13 +165,41 @@ export default function Shell({
     setNotifications(markAllNotificationsAsRead());
   };
 
+  const openRecentSearches = () => {
+    refreshRecentSearchesCount();
+    setIsRecentSearchesOpen(true);
+  };
+
+  const currentRoleConfig = rolePermissions[currentRole] || rolePermissions.employee;
+  const allowedTabs: AppTabId[] = currentRoleConfig?.allowedTabs || [
+    'submit',
+    'my_tickets',
+    'workflow',
+  ];
+  const canViewDirectCeo = currentRoleConfig?.canViewDirectCeoTickets ?? false;
+
+  const visibleNotifications = (notifications || []).filter((n) => {
+    if (n.type === 'direct_ceo_alert' || n.recipientRole === 'executive') {
+      return canViewDirectCeo;
+    }
+    return true;
+  });
+
   return (
     <ShellContext.Provider
       value={{
         currentRole,
         identity,
         tickets,
-        notifications,
+        notifications: visibleNotifications,
+        rolePermissions,
+        recentSearchesCount,
+        isRecentSearchesOpen,
+        openRecentSearches,
+        closeRecentSearches: () => {
+          setIsRecentSearchesOpen(false);
+          refreshRecentSearchesCount();
+        },
         isMobileSimulator,
         activeTab,
         refreshData,
@@ -142,11 +221,16 @@ export default function Shell({
           onSelectTab={navigateTab}
           isMobileSimulator={isMobileSimulator}
           onToggleMobileSimulator={() => setIsMobileSimulator(!isMobileSimulator)}
-          notifications={notifications}
+          notifications={visibleNotifications}
           onSelectTrackingCode={openTrackingByCode}
           onSearchTrackingCode={openTrackingByCode}
           onOpenNotifications={() => setIsNotificationsOpen(true)}
           onOpenExport={() => setIsExportModalOpen(true)}
+          // PHASE 2 (Navbar port): also pass upstream's
+          //   onOpenRecentSearches={openRecentSearches}
+          //   recentSearchesCount={recentSearchesCount}
+          //   rolePermissions={rolePermissions}
+          // (all three already live in ShellContext / this component).
         />
 
         {/* Floating Global Toast Notification */}
@@ -184,62 +268,72 @@ export default function Shell({
           </div>
         </main>
 
-        {/* Mobile Responsive Bottom Navigation Bar */}
+        {/* Mobile Responsive Bottom Navigation Bar (filtered strictly by the screen visibility matrix) */}
         <div className="fixed right-0 bottom-0 left-0 z-40 flex items-center justify-around border-t border-slate-200 bg-white/95 px-2 py-1.5 backdrop-blur-md md:hidden">
-          <button
-            type="button"
-            onClick={() => navigateTab('submit')}
-            className={`flex flex-col items-center rounded-lg p-1.5 text-[10px] font-medium transition ${
-              activeTab === 'submit' ? 'font-bold text-indigo-600' : 'text-slate-500'
-            }`}
-          >
-            <FileText className="h-4 w-4" />
-            <span>ยื่นเรื่อง</span>
-          </button>
+          {allowedTabs.includes('submit') && (
+            <button
+              type="button"
+              onClick={() => navigateTab('submit')}
+              className={`flex flex-col items-center rounded-lg p-1.5 text-[10px] font-medium transition ${
+                activeTab === 'submit' ? 'font-bold text-indigo-600' : 'text-slate-500'
+              }`}
+            >
+              <FileText className="h-4 w-4" />
+              <span>ยื่นเรื่อง</span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => navigateTab('my_tickets')}
-            className={`flex flex-col items-center rounded-lg p-1.5 text-[10px] font-medium transition ${
-              activeTab === 'my_tickets' ? 'font-bold text-indigo-600' : 'text-slate-500'
-            }`}
-          >
-            <ListChecks className="h-4 w-4" />
-            <span>คำร้องของฉัน</span>
-          </button>
+          {allowedTabs.includes('my_tickets') && (
+            <button
+              type="button"
+              onClick={() => navigateTab('my_tickets')}
+              className={`flex flex-col items-center rounded-lg p-1.5 text-[10px] font-medium transition ${
+                activeTab === 'my_tickets' ? 'font-bold text-indigo-600' : 'text-slate-500'
+              }`}
+            >
+              <ListChecks className="h-4 w-4" />
+              <span>คำร้องของฉัน</span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => navigateTab('gatekeeper')}
-            className={`flex flex-col items-center rounded-lg p-1.5 text-[10px] font-medium transition ${
-              activeTab === 'gatekeeper' ? 'font-bold text-indigo-600' : 'text-slate-500'
-            }`}
-          >
-            <Shield className="h-4 w-4" />
-            <span>Gatekeeper</span>
-          </button>
+          {allowedTabs.includes('gatekeeper') && (
+            <button
+              type="button"
+              onClick={() => navigateTab('gatekeeper')}
+              className={`flex flex-col items-center rounded-lg p-1.5 text-[10px] font-medium transition ${
+                activeTab === 'gatekeeper' ? 'font-bold text-indigo-600' : 'text-slate-500'
+              }`}
+            >
+              <Shield className="h-4 w-4" />
+              <span>Gatekeeper</span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => navigateTab('executive')}
-            className={`flex flex-col items-center rounded-lg p-1.5 text-[10px] font-medium transition ${
-              activeTab === 'executive' ? 'font-bold text-indigo-600' : 'text-slate-500'
-            }`}
-          >
-            <Crown className="h-4 w-4 text-purple-600" />
-            <span>Dashboard</span>
-          </button>
+          {allowedTabs.includes('executive') && (
+            <button
+              type="button"
+              onClick={() => navigateTab('executive')}
+              className={`flex flex-col items-center rounded-lg p-1.5 text-[10px] font-medium transition ${
+                activeTab === 'executive' ? 'font-bold text-indigo-600' : 'text-slate-500'
+              }`}
+            >
+              <Crown className="h-4 w-4 text-purple-600" />
+              <span>Dashboard</span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => navigateTab('clustering')}
-            className={`flex flex-col items-center rounded-lg p-1.5 text-[10px] font-medium transition ${
-              activeTab === 'clustering' ? 'font-bold text-indigo-600' : 'text-slate-500'
-            }`}
-          >
-            <Layers className="h-4 w-4" />
-            <span>สาเหตุ CAPA</span>
-          </button>
+          {allowedTabs.includes('clustering') && (
+            <button
+              type="button"
+              onClick={() => navigateTab('clustering')}
+              className={`flex flex-col items-center rounded-lg p-1.5 text-[10px] font-medium transition ${
+                activeTab === 'clustering' ? 'font-bold text-indigo-600' : 'text-slate-500'
+              }`}
+            >
+              <Layers className="h-4 w-4" />
+              <span>สาเหตุ CAPA</span>
+            </button>
+          )}
         </div>
 
         {/* Notifications Drawer / Slide-Over Modal */}
@@ -265,7 +359,7 @@ export default function Shell({
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {notifications.some((n) => !n.read) && (
+                  {visibleNotifications.some((n) => !n.read) && (
                     <button
                       type="button"
                       onClick={handleMarkAllRead}
@@ -285,13 +379,13 @@ export default function Shell({
               </div>
 
               <div className="flex-1 space-y-3 overflow-y-auto p-4">
-                {notifications.length === 0 ? (
+                {visibleNotifications.length === 0 ? (
                   <div className="py-12 text-center text-slate-400">
                     <Bell className="mx-auto mb-2 h-10 w-10 opacity-30" />
                     <p className="text-xs">ยังไม่มีการแจ้งเตือนในขณะนี้</p>
                   </div>
                 ) : (
-                  notifications.map((item) => (
+                  visibleNotifications.map((item) => (
                     <div
                       key={item.id}
                       onClick={() => handleNotificationClick(item)}
@@ -346,6 +440,7 @@ export default function Shell({
         {selectedTicketForTracking && (
           <TrackingTimelineModal
             ticket={selectedTicketForTracking}
+            // PHASE 2 (TrackingTimelineModal port): upstream also passes currentRole={currentRole}
             onClose={() => setSelectedTicketForTracking(null)}
             onOpenSatisfactionModal={(t) => {
               setSelectedTicketForTracking(null);
@@ -367,14 +462,21 @@ export default function Shell({
           />
         )}
 
-        {/* Export & Analytics Data Hub Modal */}
-        {isExportModalOpen && (
+        {/* Export & Analytics Data Hub Modal (HR Admin only) */}
+        {isExportModalOpen && currentRole === 'admin' && (
           <ExportAnalyticsModal
             isOpen={isExportModalOpen}
             onClose={() => setIsExportModalOpen(false)}
             tickets={tickets}
           />
         )}
+
+        {/* PHASE 2 (RecentSearchesPanel port): render upstream's
+            <RecentSearchesPanel isOpen={isRecentSearchesOpen}
+              onClose={closeRecentSearches}
+              onSelectTicket={setSelectedTicketForTracking}
+              onSearchAgain={openTrackingByCode} />
+            here — state + handlers are wired in this shell already. */}
       </div>
     </ShellContext.Provider>
   );

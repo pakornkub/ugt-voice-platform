@@ -174,6 +174,7 @@ const ROLE_ACCESS_CONFIGS: Array<{
   assignedDepartments: GrievanceCategory[];
   canViewDirectCeoTickets: boolean;
   canViewConfidentialIdentities: boolean;
+  canViewAnonymousSubmitterEmail: boolean;
   canEditRootCauseAndCapa: boolean;
   canManageGatekeeperOfficers: boolean;
   canManageRolePermissions: boolean;
@@ -190,6 +191,7 @@ const ROLE_ACCESS_CONFIGS: Array<{
     assignedDepartments: [],
     canViewDirectCeoTickets: false,
     canViewConfidentialIdentities: false,
+    canViewAnonymousSubmitterEmail: false,
     canEditRootCauseAndCapa: false,
     canManageGatekeeperOfficers: false,
     canManageRolePermissions: false,
@@ -203,19 +205,10 @@ const ROLE_ACCESS_CONFIGS: Array<{
     badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     allowedTabs: ['gatekeeper', 'my_tickets', 'workflow'],
     canViewAllDepartments: true,
-    assignedDepartments: [
-      'IT',
-      'HR',
-      'Safety',
-      'Compliance',
-      'Ethics',
-      'Harassment',
-      'Fraud',
-      'Quality',
-      'Environment',
-    ],
+    assignedDepartments: ['HR', 'Compliance', 'Ethics', 'Fraud', 'Harassment', 'Quality'],
     canViewDirectCeoTickets: false,
     canViewConfidentialIdentities: false,
+    canViewAnonymousSubmitterEmail: false,
     canEditRootCauseAndCapa: true,
     canManageGatekeeperOfficers: false,
     canManageRolePermissions: false,
@@ -232,6 +225,7 @@ const ROLE_ACCESS_CONFIGS: Array<{
     assignedDepartments: [],
     canViewDirectCeoTickets: true,
     canViewConfidentialIdentities: false,
+    canViewAnonymousSubmitterEmail: true,
     canEditRootCauseAndCapa: true,
     canManageGatekeeperOfficers: false,
     canManageRolePermissions: false,
@@ -257,6 +251,7 @@ const ROLE_ACCESS_CONFIGS: Array<{
     assignedDepartments: [],
     canViewDirectCeoTickets: true,
     canViewConfidentialIdentities: true,
+    canViewAnonymousSubmitterEmail: true,
     canEditRootCauseAndCapa: true,
     canManageGatekeeperOfficers: true,
     canManageRolePermissions: true,
@@ -269,7 +264,6 @@ async function seedGatekeeperConfigs() {
     const configData = {
       departmentName: cfg.departmentName,
       departmentCode: cfg.departmentCode,
-      defaultSlaHours: cfg.defaultSlaHours,
       autoAssignMode: cfg.autoAssignMode,
       escalationEmail: cfg.escalationEmail ?? null,
       notificationWebhookUrl: cfg.notificationWebhookUrl ?? null,
@@ -320,12 +314,11 @@ async function seedTickets() {
       submitterDepartment: ticket.submitterDepartment ?? null,
       submitterEmail: ticket.submitterEmail ?? null,
       submitterPhone: ticket.submitterPhone ?? null,
+      loginEmail: ticket.loginEmail ?? null,
+      isAnonymousMapped: ticket.isAnonymousMapped ?? false,
       gatekeeperDepartment: ticket.gatekeeperDepartment,
       assignedOfficerName: ticket.assignedOfficerName ?? null,
       assignedOfficerEmail: ticket.assignedOfficerEmail ?? null,
-      slaTargetHours: ticket.slaTargetHours,
-      slaDueDate: new Date(ticket.slaDueDate),
-      slaStatus: ticket.slaStatus,
       status: ticket.status,
       urgency: ticket.urgency,
       riskSeverity: ticket.riskSeverity,
@@ -369,6 +362,24 @@ async function seedTickets() {
         where: { id: log.id },
         create: { id: log.id, ...logData },
         update: logData,
+      });
+    }
+
+    for (const msg of ticket.anonymousMessages ?? []) {
+      const msgData = {
+        ticketId: ticket.id,
+        senderRole: msg.senderRole,
+        senderDisplayName: msg.senderDisplayName,
+        message: msg.message,
+        isStaff: msg.isStaff,
+        isReadByEmployee: msg.isReadByEmployee ?? false,
+        isReadByStaff: msg.isReadByStaff ?? false,
+        createdAt: new Date(msg.timestamp),
+      };
+      await prisma.ticketAnonymousMessage.upsert({
+        where: { id: msg.id },
+        create: { id: msg.id, ...msgData },
+        update: msgData,
       });
     }
 
@@ -475,6 +486,7 @@ async function seedRoleAccessConfigs() {
       assignedDepartmentsJson: JSON.stringify(cfg.assignedDepartments ?? []),
       canViewDirectCeoTickets: cfg.canViewDirectCeoTickets,
       canViewConfidentialIdentities: cfg.canViewConfidentialIdentities,
+      canViewAnonymousSubmitterEmail: cfg.canViewAnonymousSubmitterEmail,
       canEditRootCauseAndCapa: cfg.canEditRootCauseAndCapa,
       canManageGatekeeperOfficers: cfg.canManageGatekeeperOfficers,
       canManageRolePermissions: cfg.canManageRolePermissions,

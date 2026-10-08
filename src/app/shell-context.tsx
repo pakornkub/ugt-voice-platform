@@ -1,7 +1,13 @@
 'use client';
 
 import { createContext, useContext } from 'react';
-import { AppTabId, ComplaintTicket, NotificationItem, UserRole } from '@/types';
+import {
+  AppTabId,
+  ComplaintTicket,
+  NotificationItem,
+  RolePermissionConfig,
+  UserRole,
+} from '@/types';
 
 export const TAB_TO_PATH: Record<AppTabId, string> = {
   submit: '/submit',
@@ -19,6 +25,14 @@ export const TAB_TO_PATH: Record<AppTabId, string> = {
   // ugt-nextjs-mail-setup (2026-09-02)
   admin_mail_templates: '/admin/mail-templates',
 };
+
+/** Tabs governed by RBAC permission keys (Navbar checks them), not by RolePermissionConfig.allowedTabs. */
+export const RBAC_PERMISSION_TABS: AppTabId[] = [
+  'admin_users',
+  'admin_roles',
+  'admin_audit_logs',
+  'admin_mail_templates',
+];
 
 export const PATH_TO_TAB: Record<string, AppTabId> = Object.fromEntries(
   Object.entries(TAB_TO_PATH).map(([tab, path]) => [path, tab as AppTabId])
@@ -40,7 +54,13 @@ export interface ShellContextValue {
   currentRole: UserRole;
   identity: ShellIdentity;
   tickets: ComplaintTicket[];
+  /** Already filtered by canViewDirectCeoTickets. */
   notifications: NotificationItem[];
+  rolePermissions: Record<UserRole, RolePermissionConfig>;
+  recentSearchesCount: number;
+  isRecentSearchesOpen: boolean;
+  openRecentSearches: () => void;
+  closeRecentSearches: () => void;
   isMobileSimulator: boolean;
   activeTab: string;
   refreshData: () => void;
