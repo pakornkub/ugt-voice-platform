@@ -73,7 +73,7 @@ export function safeDisplayName(name: string): string {
     .replaceAll('\\', '/')
     .split('/')
     .pop()!
-    .replaceAll(/[\x00-\x1f\x7f]/g, '')
+    .replaceAll(/[\x00-\x1f\x7f]/g, '') // NOSONAR typescript:S6324 — stripping control chars from a user-supplied filename is the point
     .replaceAll(/\s+/g, ' ')
     .trim();
   return (cleaned || 'file').slice(0, 200);

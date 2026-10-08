@@ -5,34 +5,23 @@ import {
   Shield,
   Users,
   UserPlus,
-  UserCheck,
   Crown,
   Trash2,
   Mail,
   Phone,
-  Briefcase,
   Building,
   CheckCircle2,
-  AlertTriangle,
-  Settings2,
-  Sliders,
-  Layers,
-  Sparkles,
   Zap,
   Info,
   ChevronRight,
-  User,
-  Plus,
   SlidersHorizontal,
   Lock,
   Eye,
-  Bell,
   Check,
   X,
   Edit2,
   RotateCcw,
   Search,
-  Filter,
 } from 'lucide-react';
 import {
   ComplaintTicket,
@@ -602,7 +591,6 @@ export const AdminGatekeeperManagement: React.FC<AdminGatekeeperManagementProps>
                   const cfg = configs[catKey];
                   const isSelected = selectedCategory === catKey;
                   const officerCount = cfg?.officers?.length || 1;
-                  const deptTickets = tickets.filter((t) => t.category === catKey).length;
 
                   return (
                     <button

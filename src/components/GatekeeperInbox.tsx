@@ -900,7 +900,6 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [onlyCeoDirect, setOnlyCeoDirect] = useState<boolean>(false);
   const [triageTicket, setTriageTicket] = useState<ComplaintTicket | null>(null);
-  const [accessNotice, setAccessNotice] = useState<string | null>(null);
 
   // A strict gatekeeper's selection outside their assigned depts falls back
   // at render time — derived, not reset via an effect.
@@ -965,10 +964,9 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
   const openTriageModal = (ticket: ComplaintTicket, e: React.MouseEvent) => {
     e.stopPropagation();
     if (ticket.isDirectToExecutive && !canViewDirectCeo) {
-      setAccessNotice(DIRECT_CEO_RESTRICTED_NOTICE);
+      globalThis.alert(DIRECT_CEO_RESTRICTED_NOTICE); // same blocking alert as upstream
       return;
     }
-    setAccessNotice(null);
     setTriageTicket(ticket);
   };
 
@@ -1054,22 +1052,6 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
         statusChips={statusChips}
         onSelectStatus={selectStatusChip}
       />
-
-      {accessNotice && (
-        <div
-          role="alert"
-          className="flex items-start justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-medium text-rose-800"
-        >
-          <span>{accessNotice}</span>
-          <button
-            type="button"
-            onClick={() => setAccessNotice(null)}
-            className="shrink-0 font-semibold text-rose-600 hover:underline"
-          >
-            ปิด
-          </button>
-        </div>
-      )}
 
       {/* Tickets Table / List */}
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">

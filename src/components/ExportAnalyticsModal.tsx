@@ -52,7 +52,6 @@ export const ExportAnalyticsModal: React.FC<Readonly<ExportAnalyticsModalProps>>
   const [filters, setFilters] = useState<ExportFilters>(INITIAL_FILTERS);
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [exportSuccess, setExportSuccess] = useState<boolean>(false);
-  const [exportError, setExportError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ExportTabId>('export');
 
   // SQL Studio State
@@ -127,14 +126,13 @@ export const ExportAnalyticsModal: React.FC<Readonly<ExportAnalyticsModalProps>>
 
   const handleDownload = async () => {
     setIsExporting(true);
-    setExportError(null);
     try {
       await exportInSelectedFormat();
       setExportSuccess(true);
       setTimeout(() => setExportSuccess(false), 4000);
     } catch (err) {
       console.error('Export failed:', err);
-      setExportError(EXPORT_ERROR_MESSAGE);
+      globalThis.alert(EXPORT_ERROR_MESSAGE); // same blocking alert as upstream
     } finally {
       setIsExporting(false);
     }
@@ -241,8 +239,6 @@ export const ExportAnalyticsModal: React.FC<Readonly<ExportAnalyticsModalProps>>
               metrics={metrics}
               isExporting={isExporting}
               exportSuccess={exportSuccess}
-              exportError={exportError}
-              onDismissError={() => setExportError(null)}
               onDownload={handleDownload}
             />
           )}

@@ -284,10 +284,12 @@ export function MailTemplatesManager({ items }: Readonly<{ items: MailTemplateIt
       {preview && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/60 p-3 backdrop-blur-xs sm:p-6"
+          role="presentation"
           onClick={() => setPreview(null)}
         >
           <div
             className="animate-in fade-in zoom-in-95 flex h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+            role="presentation"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 p-4">

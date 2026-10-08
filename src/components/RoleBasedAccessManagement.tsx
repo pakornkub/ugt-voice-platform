@@ -14,24 +14,17 @@ import {
   RotateCcw,
   Save,
   Eye,
-  HelpCircle,
-  Building2,
   Info,
   FileText,
   ListChecks,
   GitBranch,
   Layers,
-  Sparkles,
   ChevronRight,
-  AlertTriangle,
-  FileCheck2,
   Scale,
-  Plus,
   Trash2,
   Mail,
   Phone,
   UserPlus,
-  Briefcase,
   Building,
   Edit2,
   EyeOff,
@@ -48,22 +41,18 @@ import {
 import { EMPLOYEE_DATABASE } from '../services/employeeDirectory';
 import {
   APP_TABS,
-  INITIAL_ROLE_PERMISSIONS,
   getStoredRolePermissions,
   saveStoredRolePermissions,
   resetRolePermissionsToDefault,
-  getActiveGatekeeperDepartment,
-  setActiveGatekeeperDepartment,
-  getStoredGatekeeperConfigs,
   getStoredExecutives,
   addExecutiveMember,
   updateExecutiveMember,
   deleteExecutiveMember,
-  getStoredHrAdmins,
 } from '../services/api';
 import { CATEGORY_DEFINITIONS } from '../mockData';
 import { useConfirmDialog } from './ConfirmDialog';
 import { ExecStatusSelect, ExecutiveStatus, useExecutivesSync } from './executiveShared';
+import { clickableProps } from './clickableProps';
 
 const rolesList: UserRole[] = ['employee', 'gatekeeper', 'executive', 'admin'];
 
@@ -183,11 +172,8 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
     getStoredRolePermissions()
   );
   const [selectedRoleForDetail, setSelectedRoleForDetail] = useState<UserRole>('employee');
-  const [activeGkDept, setActiveGkDept] = useState<GrievanceCategory>(
-    getActiveGatekeeperDepartment()
-  );
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [isSaved, setIsSaved] = useState(true);
+  const [, setIsSaved] = useState(true);
 
   // Executive Management Direct In-Box State
   const [executives, setExecutives] = useState<ExecutiveMember[]>(() => getStoredExecutives());
@@ -207,8 +193,6 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
   const [simulatedRoleForAnonymous, setSimulatedRoleForAnonymous] =
     useState<UserRole>('gatekeeper');
   const [showEmployeeDirectoryModal, setShowEmployeeDirectoryModal] = useState(false);
-
-  const gatekeeperConfigs = getStoredGatekeeperConfigs();
 
   // In-app confirmation dialog (replaces window.confirm — see ConfirmDialog.tsx)
   const { askConfirm, confirmDialog } = useConfirmDialog();
@@ -430,15 +414,6 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
     commitPermissions(updated, toastMsg);
   };
 
-  const handleSetGatekeeperViewDept = (cat: GrievanceCategory) => {
-    setActiveGkDept(cat);
-    setActiveGatekeeperDepartment(cat);
-    showToast(
-      `ตั้งค่าจำลองมุมมอง Gatekeeper ประจำฝ่าย: ${CATEGORY_DEFINITIONS[cat].nameTh.split('(')[0]}`
-    );
-    notifyPermissionsUpdated();
-  };
-
   const handleResetDefaults = () => {
     askConfirm({
       title: 'ยืนยันการรีเซ็ตสิทธิ์ RBAC',
@@ -557,7 +532,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
           return (
             <div
               key={roleKey}
-              onClick={() => setSelectedRoleForDetail(roleKey)}
+              {...clickableProps(() => setSelectedRoleForDetail(roleKey))}
               className={`relative flex cursor-pointer flex-col justify-between rounded-xl border p-4 transition-all ${
                 selectedRoleForDetail === roleKey
                   ? 'border-rose-500 bg-white shadow-md ring-2 ring-rose-400/30'
@@ -639,7 +614,6 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
               {APP_TABS.map((tab) => {
-                const isCoreTab = tab.category === 'core';
                 return (
                   <tr key={tab.id} className="transition hover:bg-slate-50/70">
                     <td className="px-4 py-3">
@@ -783,7 +757,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                 return (
                   <div
                     key={cat}
-                    onClick={() => handleGatekeeperDeptToggle(cat)}
+                    {...clickableProps(() => handleGatekeeperDeptToggle(cat))}
                     className={`flex cursor-pointer items-center justify-between gap-2.5 rounded-xl border p-2.5 transition ${
                       isAssigned
                         ? 'border-emerald-300 bg-emerald-50/70 shadow-2xs ring-1 ring-emerald-400/20'

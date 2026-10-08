@@ -97,7 +97,9 @@ describe('Navbar', () => {
     expect(document.getElementById('nav-tab-admin-users')).not.toBeNull();
     expect(document.getElementById('btn-role-dropdown')).toBeNull();
 
-    await user.click(screen.getByText('Admin Tester'));
+    // Button shows the role label (upstream parity); name + email live in the menu.
+    await user.click(document.getElementById('btn-identity-menu')!);
+    expect(screen.getByText('Admin Tester')).toBeInTheDocument();
     expect(screen.getByText('admin@example.com')).toBeInTheDocument();
     expect(document.getElementById('btn-sign-out')).not.toBeNull();
   });

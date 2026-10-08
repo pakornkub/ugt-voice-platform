@@ -616,3 +616,14 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   `ugt-voice-platform[-dev]` poll GitHub (webhook not reachable from the internal network), so a
   push is the deploy trigger · rejected: pushing `main` overnight (prod DB never migrated, app
   still connects as `sa`).
+- 2026-10-09 **Upstream parity re-verified page by page; two UX deltas reverted** — an automated
+  jsdom harness rendered our shell for every role × tab × TH/EN (+ dashboard, tracking modal, chat,
+  CSAT, email settings) and diffed visible text against text captured from the running upstream
+  app: identical except the owner-sanctioned product name and the SSO identity menu (no
+  role-switch buttons). Reverted to upstream behaviour: blocking `alert()` again in
+  `GatekeeperInbox`/`ExportAnalyticsModal` (supersedes the "inline notice" delta above; Sonar S1442
+  is not in the server profile) and the identity button shows the role label like upstream's role
+  button (name/email stay in the menu). Kept: the investigation report prints the full document
+  (upstream clipped to one viewport — a bug, not a design). Dependency hardening: `nodemailer`
+  9 → 10 (`lib/email.ts` type import), npm `overrides` `deepmerge-ts` ^8 / `mysql2` ^3.24.5;
+  remaining npm-audit highs are only `eslint-config-next`'s dev-tool chain (`braces` has no fix).

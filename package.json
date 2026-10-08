@@ -28,7 +28,7 @@
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "next": "^16.4.0",
-    "nodemailer": "^9.1.1",
+    "nodemailer": "^10.0.16",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "sql.js": "^1.14.2",
@@ -67,5 +67,9 @@
     "*.{json,md,css,yml,yaml}": [
       "prettier --write"
     ]
+  },
+  "overrides": {
+    "deepmerge-ts": "^8.0.2",
+    "mysql2": "^3.24.5"
   }
 }

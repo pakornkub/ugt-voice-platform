@@ -29,6 +29,7 @@ import { getStoredRolePermissions } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 import type { ShellIdentity } from '../app/shell-context';
 import { ssoLogoutAction } from '@/lib/actions/auth';
+import { clickableProps } from './clickableProps';
 
 interface NavbarProps {
   currentRole: UserRole;
@@ -288,10 +289,10 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
           {/* Logo & Brand */}
           <div
             className="flex shrink-0 cursor-pointer items-center gap-3"
-            onClick={() => {
+            {...clickableProps(() => {
               if (allowedTabs.includes('submit')) handleTabSelect('submit');
               else if (allowedTabs[0]) handleTabSelect(allowedTabs[0]);
-            }}
+            })}
           >
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-blue-700 text-white shadow-sm shadow-indigo-200">
               <Shield className="h-5 w-5" />
@@ -477,7 +478,10 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
               >
                 <div className="flex items-center gap-1.5">
                   {roleLabels[currentRole].icon}
-                  <span className="max-w-[8rem] truncate font-semibold">{identity.name}</span>
+                  {/* Same label as upstream's role button; name/email live in the menu below. */}
+                  <span className="font-semibold">
+                    {roleLabels[currentRole].label.split('(')[0]}
+                  </span>
                 </div>
                 <ChevronDown className="h-3.5 w-3.5 opacity-70" />
               </button>
@@ -485,6 +489,7 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
               {isIdentityMenuOpen && (
                 <>
                   <div
+                    aria-hidden="true"
                     className="fixed inset-0 z-40"
                     onClick={() => setIsIdentityMenuOpen(false)}
                   />

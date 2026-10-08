@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ExportAnalyticsModal } from './ExportAnalyticsModal';
 import { INITIAL_COMPLAINTS } from '../mockData';
@@ -392,7 +392,7 @@ describe('downloading', () => {
     expect(downloads[0]).toMatch(/^grievance_data_operational_ops_\d{4}-\d{2}-\d{2}\.json$/);
   });
 
-  it('shows an inline dismissible alert instead of window.alert when the export fails', async () => {
+  it('alerts the user like upstream when the export fails', async () => {
     const user = userEvent.setup();
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -402,20 +402,18 @@ describe('downloading', () => {
 
     await user.click(button(/^ดาวน์โหลดไฟล์ SQLite/));
 
-    const banner = await screen.findByRole('alert');
-    expect(banner).toHaveTextContent('เกิดข้อผิดพลาดในการส่งออกไฟล์ กรุณาลองใหม่อีกครั้ง');
-    expect(alertSpy).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(alertSpy).toHaveBeenCalledWith('เกิดข้อผิดพลาดในการส่งออกไฟล์ กรุณาลองใหม่อีกครั้ง')
+    );
     expect(error).toHaveBeenCalledWith('Export failed:', expect.any(Error));
     expect(screen.queryByText('ดาวน์โหลดสำเร็จ!')).not.toBeInTheDocument();
     expect(button(/^ดาวน์โหลดไฟล์ SQLite/)).toBeEnabled();
-
-    await user.click(within(banner).getByRole('button', { name: 'ปิดข้อความแจ้งเตือน' }));
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('clears a previous failure when a new export starts and shows progress meanwhile', async () => {
+  it('shows progress on a retry after a failed export', async () => {
     const user = userEvent.setup();
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
     const pending = deferred();
     vi.mocked(downloadSqliteDatabaseFile)
       .mockRejectedValueOnce(new Error('first fails'))
@@ -423,10 +421,9 @@ describe('downloading', () => {
     renderModal();
 
     await user.click(button(/^ดาวน์โหลดไฟล์ SQLite/));
-    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    await waitFor(() => expect(alertSpy).toHaveBeenCalledTimes(1));
 
     await user.click(button(/^ดาวน์โหลดไฟล์ SQLite/));
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(button('กำลังประมวลผล...')).toBeDisabled();
 
     await act(async () => pending.resolve());

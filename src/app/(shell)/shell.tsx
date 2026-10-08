@@ -44,6 +44,7 @@ import {
   ShellIdentity,
   TAB_TO_PATH,
 } from '../shell-context';
+import { clickableProps } from '@/components/clickableProps';
 
 export default function Shell({
   identity,
@@ -339,6 +340,7 @@ export default function Shell({
         {isNotificationsOpen && (
           <div className="fixed inset-0 z-50 flex justify-end">
             <div
+              aria-hidden="true"
               className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity"
               onClick={() => setIsNotificationsOpen(false)}
             />
@@ -387,7 +389,7 @@ export default function Shell({
                   visibleNotifications.map((item) => (
                     <div
                       key={item.id}
-                      onClick={() => handleNotificationClick(item)}
+                      {...clickableProps(() => handleNotificationClick(item))}
                       className={`flex cursor-pointer gap-3 rounded-xl border p-3.5 transition ${
                         item.read
                           ? 'border-slate-200 bg-white hover:border-slate-300'

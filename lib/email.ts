@@ -1,6 +1,6 @@
 // lib/email.ts — ugt-nextjs-mail-setup (2026-09-02).
 // source: ugt-hrms lib/email.ts — installed by ugt-nextjs-mail-setup
-import nodemailer from 'nodemailer';
+import nodemailer, { type SendMailOptions } from 'nodemailer';
 import { env } from '@/lib/env';
 import {
   buildDevBanner,
@@ -25,7 +25,7 @@ export interface MailOptions {
   html: string;
   cc?: string | string[];
   bcc?: string | string[];
-  attachments?: nodemailer.SendMailOptions['attachments'];
+  attachments?: SendMailOptions['attachments'];
 }
 
 /**
