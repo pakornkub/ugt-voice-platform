@@ -71,7 +71,7 @@ describe('ConfirmDialog', () => {
   });
 
   it('uses English default labels when the language is en', () => {
-    localStorage.setItem('voicecare_lang_preference_v2', 'en');
+    localStorage.setItem('voiceplatform_lang_preference_v2', 'en');
     renderDialog();
     return screen
       .findByRole('button', { name: 'Confirm' })
