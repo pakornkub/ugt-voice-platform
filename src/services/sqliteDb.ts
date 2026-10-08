@@ -1,13 +1,5 @@
 import initSqlJs, { Database, SqlJsStatic } from 'sql.js';
-import {
-  ComplaintTicket,
-  ExecutiveMember,
-  GatekeeperOfficer,
-  HrAdminMember,
-  NotificationItem,
-  DepartmentGatekeeperConfig,
-  GrievanceCategory,
-} from '../types';
+import { ComplaintTicket } from '../types';
 import { INITIAL_COMPLAINTS, INITIAL_GATEKEEPER_CONFIGS, INITIAL_NOTIFICATIONS } from '../mockData';
 import { INITIAL_EXECUTIVES, INITIAL_HR_ADMINS } from './api';
 import { safeStorage } from './safeStorage';
@@ -122,8 +114,6 @@ function bootstrapSchema(db: Database) {
       submitter_department TEXT,
       submitter_email TEXT,
       submitter_phone TEXT,
-      sla_target_hours INTEGER DEFAULT 48,
-      sla_status TEXT DEFAULT 'on_track',
       root_cause_category TEXT,
       root_cause_summary TEXT,
       preventive_action_plan TEXT,
@@ -232,7 +222,6 @@ function bootstrapSchema(db: Database) {
     -- Indexes for high-speed analytical queries
     CREATE INDEX IF NOT EXISTS idx_tickets_category ON tickets(category);
     CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
-    CREATE INDEX IF NOT EXISTS idx_tickets_sla_status ON tickets(sla_status);
     CREATE INDEX IF NOT EXISTS idx_tickets_created_at ON tickets(created_at);
     CREATE INDEX IF NOT EXISTS idx_timeline_code ON ticket_timeline(ticket_tracking_code);
   `;
@@ -348,16 +337,16 @@ export function insertOrUpdateTicketInSqlite(db: Database, ticket: ComplaintTick
       is_direct_to_executive, urgency, risk_severity, sentiment, status,
       gatekeeper_department, assigned_officer_name, assigned_officer_email,
       location_or_unit, submitter_name, submitter_department, submitter_email, submitter_phone,
-      sla_target_hours, sla_status, root_cause_category, root_cause_summary,
-      preventive_action_plan, cluster_group, resolution_summary, resolved_at, closed_at,
+      root_cause_category, root_cause_summary, preventive_action_plan,
+      cluster_group, resolution_summary, resolved_at, closed_at,
       created_at, updated_at, attachments_json, timeline_json, evaluation_json, raw_json
     ) VALUES (
       ?, ?, ?, ?, ?, ?,
       ?, ?, ?, ?, ?,
       ?, ?, ?,
       ?, ?, ?, ?, ?,
+      ?, ?, ?,
       ?, ?, ?, ?,
-      ?, ?, ?, ?, ?,
       ?, ?, ?, ?, ?, ?
     )
   `;
@@ -382,8 +371,6 @@ export function insertOrUpdateTicketInSqlite(db: Database, ticket: ComplaintTick
     ticket.submitterDepartment || '',
     ticket.submitterEmail || '',
     ticket.submitterPhone || '',
-    ticket.slaTargetHours || 48,
-    ticket.slaStatus || 'on_track',
     ticket.rootCauseCategory || '',
     ticket.rootCauseSummary || '',
     ticket.preventiveActionPlan || '',
