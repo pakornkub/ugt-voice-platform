@@ -514,3 +514,16 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   holds), and `/admin/mail-templates` + the 5 `NotificationItem['type']`-keyed templates are
   retired in favour of this page · rejected: keeping our template editor and only borrowing
   ideas (user wants upstream's behaviour).
+- 2026-10-08 **Upstream port, phase 1 (shared layer) landed — deviations from a literal copy** —
+  (a) `ticket.sla_warning` mail template/key dropped with the `sla_warning` notification type
+  (`NotificationItem['type']` lost it upstream); the 2026-09-02 mail-setup entry that kept it
+  "for parity" is superseded · (b) upstream's duplicated category-keyword list (`server.ts` +
+  `api.ts`) is one module, `src/services/categoryHeuristics.ts`, rule order preserved ·
+  (c) Gemini helpers live in `lib/gemini.ts` (typed `unknown` errors, throws a real `Error` if
+  every model returns empty text) instead of inline in each route · (d) `navigateTab()` exempts
+  the four RBAC-permission `admin_*` tabs from the `allowedTabs` check · (e) Prisma migration
+  `20261008000000_port_upstream_p1` drops SLA columns, adds `LoginEmail`/`IsAnonymousMapped`/
+  `CanViewAnonymousSubmitterEmail` and `TicketAnonymousMessages`; it does **not** remap rows with
+  retired categories (no DB existed) — remap `Tickets.Category` first if a DB with rows ever
+  gets it · rejected: copying upstream files verbatim (would re-add `any`, duplicated rule lists
+  and SSR-unsafe `localStorage` access).

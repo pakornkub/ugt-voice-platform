@@ -4,8 +4,12 @@ Last updated: 2026-10-08
 
 ## In progress
 
-- Nothing in progress. All 7 `ugt-nextjs-full-setup` modules + harness are installed, and
-  the project is on Next 16 (2026-10-08).
+- **Upstream port** (`pisanu90853-cmd/UGTVoice-platform` `8d885a3` + `d20ca0b`, decisions
+  2026-10-08): phase 1 (shared layer — types/mockData/api/AI routes/shell/Prisma/docs) done on
+  branch `claude/port-upstream-p1-shared-a9eea4`, not merged yet. Phase 2 = port the component
+  groups (employee UI, gatekeeper/exec UI, admin UI); `// PHASE 2` comments in `shell.tsx` mark
+  the Navbar/TrackingTimelineModal props + `RecentSearchesPanel` still to wire. Leftover SLA /
+  9-category wording in component text is for those sessions to replace.
 
 ## Next
 

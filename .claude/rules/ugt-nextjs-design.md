@@ -26,8 +26,9 @@ skill (`frontend-design`, `impeccable`). The short version:
   admin screens) must follow the hand-built pattern below too, not
   introduce a second component system.
 - **Match the existing hand-built pattern**: Tailwind utility classes
-  directly (no CSS-in-JS, no raw `<style>`), `lucide-react` icons, Thai UI
-  copy hardcoded in JSX (no i18n catalog). Colors follow the role/status
+  directly (no CSS-in-JS, no raw `<style>`), `lucide-react` icons, UI copy
+  bilingual TH/EN via `useLanguage()` from `src/context/LanguageContext.tsx` (`lang === 'en' ? … : …`
+  or `t()`; default Thai — decision 2026-10-08, `docs/DESIGN.md` §10; no `next-intl`). Colors follow the role/status
   mapping in `docs/DESIGN.md` §1 (indigo = primary/interactive, slate =
   neutral, emerald/blue/purple/rose = role colors) — reuse those, don't
   invent new ones without a reason.

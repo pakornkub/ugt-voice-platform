@@ -12,9 +12,20 @@
   mobile bottom nav) shared across every route.
 - `src/app/shell-context.tsx` — React Context bridging the Shell's state/handlers down to
   each route's page component; also the tab-id ↔ URL-path maps (`TAB_TO_PATH`/`PATH_TO_TAB`).
-- `src/app/api/` — Route Handlers: `health/route.ts`, `ai/analyze-complaint/route.ts`,
-  `ai/cluster-insights/route.ts` (Gemini calls via `@google/genai`); read `GEMINI_API_KEY` via
-  `@/lib/env`, not `process.env` directly.
+- `src/app/api/` — Route Handlers: `health/route.ts`, `ai/suggest-category/route.ts`,
+  `ai/analyze-complaint/route.ts`, `ai/cluster-insights/route.ts` (Gemini calls via
+  `@google/genai`, shared `getGeminiClient()` + `generateGeminiContentWithFallback()` in
+  `lib/gemini.ts`); read `GEMINI_API_KEY` via `@/lib/env`, not `process.env` directly.
+- `src/context/LanguageContext.tsx` — TH/EN UI language (ported as-is from upstream, decision
+  2026-10-08): `LanguageProvider` wraps the whole app in `src/app/layout.tsx`; `useLanguage()`
+  → `lang`/`t()`/`getCategoryName()`/... ; preference in localStorage (`voicecare_lang_preference_v2`,
+  default `th`).
+- `src/services/employeeDirectory.ts` — mock corporate employee DB (`EMPLOYEE_DATABASE`,
+  `mapLoginEmailForTicket`, `getCurrentLoginEmployee`) ported unchanged from upstream; to be
+  replaced by a read-only HR view (decision 2026-10-08, `docs/admin-handoff.md` §1.4).
+- `src/services/categoryHeuristics.ts` — keyword → category rules, used by the
+  `/api/ai/suggest-category` fallback and by `suggestCategoryWithAI()` when the fetch fails
+  (upstream duplicated the list in `server.ts` and `api.ts`; one copy here).
 - `src/components/` — one component per feature screen/modal, all `'use client'`. Unchanged
   logic from the pre-migration Vite SPA (see decisions.md, 2026-09-02 migration).
 - `src/services/api.ts` — **still the live data layer** (localStorage) that every component
@@ -27,7 +38,7 @@
 - `src/types.ts` — domain model (`ComplaintTicket`, `NotificationItem`, `RolePermissionConfig`,
   `DepartmentGatekeeperConfig`, `ExecutiveMember`, `HrAdminMember`, ...) — authoritative for
   field-level types; mirrored into `prisma/schema.prisma` (see below).
-- `src/mockData.ts` — seed data: `CATEGORY_DEFINITIONS` (9 grievance categories),
+- `src/mockData.ts` — seed data: `CATEGORY_DEFINITIONS` (6 grievance categories: HR/Compliance/Ethics/Fraud/Harassment/Quality),
   `INITIAL_COMPLAINTS`, `INITIAL_GATEKEEPER_CONFIGS`, `INITIAL_NOTIFICATIONS` — also the
   source `prisma/seed.ts` seeds from.
 - `docs/DESIGN.md` (added 2026-09-02, `ugt-nextjs-design-setup`, existing-project scan mode)
@@ -38,7 +49,8 @@
   the next `ugt-nextjs-auth-setup` chunk's generated login/admin pages) — see ⚠ deviation below.
 - **Database layer (added 2026-09-02, `ugt-nextjs-database-setup`) — installed but not the
   live data source yet, see ⚠ deviation below:**
-  - `prisma/schema.prisma` — 9 tables (`Tickets`, `TicketTimelineLogs`, `TicketEvaluations`,
+  - `prisma/schema.prisma` — 10 tables (`Tickets`, `TicketTimelineLogs`, `TicketEvaluations`,
+    `TicketAnonymousMessages` (added 2026-10-08, upstream port — anonymous 2-way chat),
     `DepartmentGatekeeperConfigs`, `GatekeeperOfficers`, `ExecutiveMembers`, `HrAdminMembers`,
     `Notifications`, `RoleAccessConfigs`); SQL Server has no native enum, so every
     enum-shaped column (`GrievanceCategory`, `TicketStatus`, ...) is `String` validated
@@ -108,9 +120,9 @@ resolve --applied` once real DB values land, see `docs/admin-handoff.md`.
   - `lib/mail-templates.ts` — token substitution (`{{token}}`, HTML-escaped by default),
     `getMailTemplate` (AppSettings override else in-code default, fail-open on a corrupt
     override), `renderComposedMail` (chrome + content, same renderer used by send and preview).
-  - `lib/types/mail-templates.ts` — 5 template keys 1:1 with `NotificationItem['type']`
+  - `lib/types/mail-templates.ts` — 4 template keys 1:1 with `NotificationItem['type']`
     (`ticket.new_ticket`/`ticket.status_update`/`ticket.satisfaction_pending`/
-    `ticket.direct_ceo_alert`/`ticket.sla_warning`), each with its definition (variables,
+    `ticket.direct_ceo_alert`; `ticket.sla_warning` was dropped 2026-10-08 with SLA), each with its definition (variables,
     banner, CTA) and in-code default subject/body. Fixed chrome (header/footer/banner/CTA,
     `composeEmail`) is not admin-editable. No `auth.password-reset` key — this project is
     SSO-only, no local accounts.
@@ -207,6 +219,23 @@ up` testing.
 
 ## Data flow หลัก
 
+- (2026-10-08, upstream port phase 1) `ComplaintTicket` has **no SLA fields**
+  (`slaTargetHours`/`slaDueDate`/`slaStatus`, `defaultSlaHours`, `slaComplianceRate`,
+  `sla_warning` removed system-wide) and gains `loginEmail`/`isAnonymousMapped`
+  (`mapLoginEmailForTicket()` from `employeeDirectory.ts` runs inside `submitTicket()`),
+  `anonymousMessages` (`sendAnonymousChatMessage()`), and `updateTicketWorkflow()` accepts
+  `urgency`/`riskSeverity`. `src/services/api.ts` also owns the email-notification settings +
+  dispatch log (`dispatchEmailOnTicketSubmitted/Resolved`, `sendTestEmailNotification`;
+  localStorage, simulated delivery) and the recent-searches list — all localStorage until the
+  DB rewiring. localStorage keys bumped: tickets `_v5` (+ legacy `Environment` → `Compliance`
+  migration), gatekeeper configs drop `Environment`, RBAC is deep-merged per role so new flags
+  (`canViewAnonymousSubmitterEmail`) get defaults.
+- Shell (`src/app/(shell)/shell.tsx` = upstream `App.tsx`): `navigateTab()` rejects tabs outside
+  the role's `allowedTabs` with a toast (the four RBAC-permission `admin_*` tabs bypass it —
+  `RBAC_PERMISSION_TABS` in `shell-context.tsx`), notifications are filtered by
+  `canViewDirectCeoTickets`, bottom-nav buttons by `allowedTabs`, every tracking-code lookup is
+  recorded via `addRecentSearch()`, ExportAnalytics modal opens for `admin` only.
+
 - ยื่นคำร้อง: `EmployeeSubmitForm` (`src/components/EmployeeSubmitForm.tsx`) →
   `submitTicket()` in `src/services/api.ts` → `localStorage` → async mirror to sql.js via
   `syncAllTicketsToSqlite()` in `src/services/sqliteDb.ts`.
@@ -238,15 +267,16 @@ up` testing.
 
 ## ตารางหลัก → feature
 
-| ตาราง (Prisma `@@map`)                                 | feature                                                                                      |
-| ------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| `Tickets` / `TicketTimelineLogs` / `TicketEvaluations` | ยื่นคำร้อง, ติดตามสถานะ, CSAT — `EmployeeSubmitForm`, `GatekeeperInbox`, `SatisfactionModal` |
-| `DepartmentGatekeeperConfigs` / `GatekeeperOfficers`   | จัดการผู้รับผิดชอบ 9 หน่วยงาน — `admin_gatekeeper` tab                                       |
-| `ExecutiveMembers`                                     | CEO/EVP whistleblower directory — `admin_gatekeeper` tab                                     |
-| `HrAdminMembers`                                       | HR admin directory — `admin_gatekeeper` tab                                                  |
-| `Notifications`                                        | in-app notification drawer                                                                   |
-| `RoleAccessConfigs`                                    | `RoleBasedAccessManagement` (`rbac_management` tab)                                          |
-| `Attachments`                                          | ticket + timeline-note file uploads — `FileUpload.tsx`, `/api/files*`                        |
+| ตาราง (Prisma `@@map`)                                 | feature                                                                                              |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `Tickets` / `TicketTimelineLogs` / `TicketEvaluations` | ยื่นคำร้อง, ติดตามสถานะ, CSAT — `EmployeeSubmitForm`, `GatekeeperInbox`, `SatisfactionModal`         |
+| `TicketAnonymousMessages`                              | แชทนิรนามผู้ยื่นเรื่อง ↔ เจ้าหน้าที่ (`ComplaintTicket.anonymousMessages`) — `TrackingTimelineModal` |
+| `DepartmentGatekeeperConfigs` / `GatekeeperOfficers`   | จัดการผู้รับผิดชอบ 6 หน่วยงาน — `admin_gatekeeper` tab                                               |
+| `ExecutiveMembers`                                     | CEO/EVP whistleblower directory — `admin_gatekeeper` tab                                             |
+| `HrAdminMembers`                                       | HR admin directory — `admin_gatekeeper` tab                                                          |
+| `Notifications`                                        | in-app notification drawer                                                                           |
+| `RoleAccessConfigs`                                    | `RoleBasedAccessManagement` (`rbac_management` tab)                                                  |
+| `Attachments`                                          | ticket + timeline-note file uploads — `FileUpload.tsx`, `/api/files*`                                |
 
 ยังไม่ใช่ live source — ดู ⚠ deviation ด้านล่าง (schema/migration/seed พร้อมใช้แล้ว แต่
 component ทั้งหมดยังอ่าน/เขียน `localStorage` ผ่าน `src/services/api.ts` เหมือนเดิม)
