@@ -560,3 +560,15 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   2026-09-02 "project name `ugt-voicecare`" entry and the id remark in the database-name entry
   above. Unchanged: display name "UGT VoiceCare" and upstream's localStorage keys
   (`voicecare_*`, kept for parity).
+- 2026-10-09 **Deployed under a basePath on the shared org domain** (owner decision) —
+  prod `https://ugtweb.ube.co.th/ugt-voice-platform`, dev
+  `https://ugtweb.ube.co.th/ugt-voice-platform-dev`, same pattern as every other org project.
+  **Supersedes** the "no basePath / standalone" parts of the 2026-09-02 auth entry and the
+  2026-09-03 CI/CD entry — those were installer defaults taken without asking (no
+  `AskUserQuestion` in those runs), not owner decisions. Wiring: `next.config.ts`
+  `basePath` from `NEXT_PUBLIC_BASE_PATH` (empty locally), Jenkinsfile build args per branch,
+  compose/Dockerfile healthchecks under the basePath, client `fetch`/tracking URLs in
+  `src/services/api.ts` prefixed (`BASE_PATH` from `@/lib/env`), `(shell)/layout.tsx` uses
+  `next/link`. Env: `BETTER_AUTH_URL` and `APP_URL` stay the **bare origin**
+  (`https://ugtweb.ube.co.th`) — auth and email links append the basePath themselves.
+  Keycloak redirect URIs + reverse-proxy routing requested in `docs/admin-handoff.md` §2/§5.5.

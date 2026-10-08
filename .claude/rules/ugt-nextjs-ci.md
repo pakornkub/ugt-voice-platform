@@ -12,7 +12,8 @@ paths:
 
 # CI/CD rules (loads when touching Jenkinsfile / Docker / Sonar config)
 
-This project: no basePath (standalone deploy), no Sentry, Prisma/SQL Server
+This project: basePath `/ugt-voice-platform` (prod) · `/ugt-voice-platform-dev` (dev) on
+https://ugtweb.ube.co.th (decisions.md 2026-10-09), no Sentry, Prisma/SQL Server
 present — see `docs/project-context/decisions.md` (2026-09-02,
 `ugt-nextjs-cicd-setup`) for why. Storage (`/app/storage`) and ClamAV
 (`clamav` service) are wired into both compose files already — see

@@ -4,9 +4,9 @@
 //   → OWASP Dependency Check → SonarQube Analysis → Quality Gate
 //   → Docker Build → Deploy
 //
-// No basePath (standalone deploy) and no Sentry as of this chunk — see
-// docs/project-context/decisions.md (2026-09-02, ugt-nextjs-cicd-setup) for
-// why, and docs/admin-handoff.md for the placeholder app URLs/ports pending
+// basePath /ugt-voice-platform (prod) · /ugt-voice-platform-dev (dev) under
+// https://ugtweb.ube.co.th (decisions.md 2026-10-09); no Sentry. See
+// docs/admin-handoff.md for the placeholder host ports pending
 // real values from Admin/DevOps.
 //
 // Sections marked [DB] are present — this project uses Prisma + SQL Server.
@@ -190,8 +190,8 @@ pipeline {
                     // Branch-specific build args — NEXT_PUBLIC_* (any client-side var)
                     // are baked into the bundle at compile time → MUST be build args,
                     // never runtime environment
-                    def basePath  = isProd ? '' : ''
-                    def appUrl    = isProd ? 'http://localhost:3000' : 'http://localhost:3001'
+                    def basePath  = isProd ? '/ugt-voice-platform' : '/ugt-voice-platform-dev'
+                    def appUrl    = isProd ? 'https://ugtweb.ube.co.th/ugt-voice-platform' : 'https://ugtweb.ube.co.th/ugt-voice-platform-dev'
                     def imageName = isProd ? 'ugt-voice-platform'   : 'ugt-voice-platform-dev'
                     def buildNum  = env.BUILD_NUMBER
                     // Image 1: builder target — keeps node_modules + prisma/migrations

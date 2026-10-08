@@ -47,12 +47,13 @@ services:
       # (docs/admin-handoff.md "TLS ภายในองค์กร"); dev may use a different
       # Keycloak endpoint, confirm separately if so.
       # NODE_EXTRA_CA_CERTS: /etc/ssl/certs/org-ca.pem
-      # NODE_TLS_REJECT_UNAUTHORIZED: '0'
+      NODE_TLS_REJECT_UNAUTHORIZED: '0'
     depends_on:
       clamav:
         condition: service_healthy
     healthcheck:
-      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/api/health || exit 1']
+      test:
+        ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/ugt-voice-platform-dev/api/health || exit 1']
       interval: 30s
       timeout: 10s
       retries: 5

@@ -69,8 +69,8 @@ used. There is no sign-up page, no `/reset-password`, no
 
 ## Cookie prefix — keep identical across 3 files
 
-Derived from `NEXT_PUBLIC_BASE_PATH` (currently empty — standalone deploy, no
-basePath, see `docs/admin-handoff.md` §2) — falls back to `'better-auth'`.
+Derived from `NEXT_PUBLIC_BASE_PATH` (`ugt-voice-platform` / `ugt-voice-platform-dev` when
+deployed, empty locally — decisions.md 2026-10-09) — falls back to `'better-auth'`.
 
 | File                  | What uses the prefix                                         |
 | --------------------- | ------------------------------------------------------------ |
