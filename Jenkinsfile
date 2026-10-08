@@ -1,5 +1,5 @@
 // ============================================================================
-// Org-standard Jenkins pipeline — 10 stages — UGT VoiceCare (ugt-voicecare)
+// Org-standard Jenkins pipeline — 10 stages — UGT VoiceCare (ugt-voice-platform)
 // Checkout → Install → Code Quality (parallel) → Unit Tests → Build
 //   → OWASP Dependency Check → SonarQube Analysis → Quality Gate
 //   → Docker Build → Deploy
@@ -153,7 +153,7 @@ pipeline {
                 script {
                     def br        = (env.BRANCH_NAME ?: env.GIT_BRANCH?.tokenize('/')?.last())
                     def isProd    = (br == 'main')
-                    def sonarKey  = isProd ? 'ugt-voicecare'          : 'ugt-voicecare-dev'
+                    def sonarKey  = isProd ? 'ugt-voice-platform'          : 'ugt-voice-platform-dev'
                     def sonarName = isProd ? 'UGT VoiceCare'          : 'UGT VoiceCare (Dev)'
                     // dc-report/ already exists from the OWASP stage above — SonarQube DC
                     // plugin imports it via sonar.dependencyCheck.jsonReportPath
@@ -192,7 +192,7 @@ pipeline {
                     // never runtime environment
                     def basePath  = isProd ? '' : ''
                     def appUrl    = isProd ? 'http://localhost:3000' : 'http://localhost:3001'
-                    def imageName = isProd ? 'ugt-voicecare'   : 'ugt-voicecare-dev'
+                    def imageName = isProd ? 'ugt-voice-platform'   : 'ugt-voice-platform-dev'
                     def buildNum  = env.BUILD_NUMBER
                     // Image 1: builder target — keeps node_modules + prisma/migrations
                     //          for the [DB] migrate step in Deploy.
@@ -233,10 +233,10 @@ pipeline {
                     def br            = (env.BRANCH_NAME ?: env.GIT_BRANCH?.tokenize('/')?.last())
                     def isProd        = (br == 'main')
                     // Branch-specific deployment targets
-                    def envCredId     = isProd ? 'env-ugt-voicecare'  : 'env-ugt-voicecare-dev'
-                    def imageName     = isProd ? 'ugt-voicecare'      : 'ugt-voicecare-dev'
+                    def envCredId     = isProd ? 'env-ugt-voice-platform'  : 'env-ugt-voice-platform-dev'
+                    def imageName     = isProd ? 'ugt-voice-platform'      : 'ugt-voice-platform-dev'
                     def composeFile   = isProd ? 'docker-compose.yml' : 'docker-compose.dev.yml'
-                    def containerName = isProd ? 'ugt-voicecare'      : 'ugt-voicecare-dev'
+                    def containerName = isProd ? 'ugt-voice-platform'      : 'ugt-voice-platform-dev'
                     def buildNum      = env.BUILD_NUMBER
                     def migImage      = "${imageName}:${buildNum}-builder"
 

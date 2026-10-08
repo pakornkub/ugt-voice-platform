@@ -198,7 +198,7 @@ resolve --applied` once real DB values land, see `docs/admin-handoff.md`.
     against `/api/health`.
   - `docker-compose.yml` / `docker-compose.dev.yml` — `app` + `clamav` services,
     `pull_policy: never` (image built locally by Jenkins), bind-mount
-    `/home/docker02/appdata/ugt-voicecare(-dev)/storage:/app/storage` and
+    `/home/docker02/appdata/ugt-voice-platform(-dev)/storage:/app/storage` and
     `.../clamav-db:/var/lib/clamav`, `app`'s `depends_on: clamav: condition:
 service_healthy`.
   - `owasp-suppressions.xml` — empty skeleton (suppressions added only after a

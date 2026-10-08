@@ -1,4 +1,4 @@
-# คำขอตั้งค่าระบบ — UGT VoiceCare (`ugt-voicecare`)
+# คำขอตั้งค่าระบบ — UGT VoiceCare (`ugt-voice-platform`)
 
 > **เอกสารส่งต่อทีม Admin / DBA / DevOps** · สร้างครั้งแรกเมื่อ 2026-09-02
 > (chunk: `ugt-nextjs-database-setup`) — ไฟล์นี้จะถูกเติมต่อโดย chunk ถัดไป
@@ -13,7 +13,7 @@
 | --- | ----------- | ---------------------------------------------------------------------------- | ---------------- |
 | 1   | SQL Server  | สร้าง database prod + dev + login 1 ตัว + สิทธิ์                             | ~10 นาที         |
 | 1.4 | HR view     | view ข้อมูลพนักงาน (อ่านอย่างเดียว) ให้ login ของแอป `SELECT` ได้ (ดู §1.4)  | ประสาน HR        |
-| 2   | Keycloak    | สร้าง client 1 ตัวในระบบ SSO กลางขององค์กร (Client ID `ugt-voicecare`)       | ~10 นาที         |
+| 2   | Keycloak    | สร้าง client 1 ตัวในระบบ SSO กลางขององค์กร (Client ID `ugt-voice-platform`)  | ~10 นาที         |
 | 3   | SMTP        | ให้ host/port ของ SMTP relay + ที่อยู่อีเมลผู้ส่งที่ relay อนุญาต            | ~5 นาที          |
 | 4   | Jenkins     | สร้าง credentials 2 ตัว + pipeline job + webhook (ดูข้อ 5)                   | ~15 นาที         |
 | 5   | SonarQube   | สร้าง 2 projects + ผูก Quality Gate + webhook (ดูข้อ 5)                      | ~10 นาที         |
@@ -31,11 +31,11 @@ script **พร้อมใช้งานทันที** ที่ได้�
 
 ### 1.1 สิ่งที่ต้องสร้าง
 
-| อะไร                                             | ชื่อที่แนะนำ             | หมายเหตุ                                                                                                                                                                                                       |
-| ------------------------------------------------ | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Database prod (branch `main`)                    | `UGT_VoicePlatform`      | ชื่อตามรูปแบบองค์กร — **ถ้า DBA อยากใช้ชื่ออื่น แจ้งกลับแทนที่จะเปลี่ยนเงียบ ๆ** (ชื่ออยู่ใน `DATABASE_URL` เท่านั้น ทีมพัฒนาต้องอัปเดต `.env`/Jenkins secret ให้ตรง)                                          |
-| Database dev (branch `develop` + พัฒนาในเครื่อง) | `UGT_VoicePlatform_DEV`  | ฐานแยกจาก prod บน instance เดียวกันได้ (รูปแบบเดียวกับโปรเจคอื่น เช่น `UGT_RDVelocity_DEV`) — ใช้ใน secret `env-ugt-voicecare-dev` (§5.1)                                                                      |
-| SQL Login สำหรับแอป                              | เช่น `ugt_voicecare_app` | ต้องมีสิทธิ์ `db_datareader`/`db_datawriter`/`db_ddladmin` บนฐาน prod และ dev (ddladmin เพื่อให้ `prisma migrate deploy` สร้าง/แก้ตารางได้) — ไม่ต้องมี shadow database (โปรเจคนี้สร้าง migration แบบ offline) |
+| อะไร                                             | ชื่อที่แนะนำ                  | หมายเหตุ                                                                                                                                                                                                       |
+| ------------------------------------------------ | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Database prod (branch `main`)                    | `UGT_VoicePlatform`           | ชื่อตามรูปแบบองค์กร — **ถ้า DBA อยากใช้ชื่ออื่น แจ้งกลับแทนที่จะเปลี่ยนเงียบ ๆ** (ชื่ออยู่ใน `DATABASE_URL` เท่านั้น ทีมพัฒนาต้องอัปเดต `.env`/Jenkins secret ให้ตรง)                                          |
+| Database dev (branch `develop` + พัฒนาในเครื่อง) | `UGT_VoicePlatform_DEV`       | ฐานแยกจาก prod บน instance เดียวกันได้ (รูปแบบเดียวกับโปรเจคอื่น เช่น `UGT_RDVelocity_DEV`) — ใช้ใน secret `env-ugt-voice-platform-dev` (§5.1)                                                                 |
+| SQL Login สำหรับแอป                              | เช่น `ugt_voice_platform_app` | ต้องมีสิทธิ์ `db_datareader`/`db_datawriter`/`db_ddladmin` บนฐาน prod และ dev (ddladmin เพื่อให้ `prisma migrate deploy` สร้าง/แก้ตารางได้) — ไม่ต้องมี shadow database (โปรเจคนี้สร้าง migration แบบ offline) |
 
 ### 1.2 เชื่อมต่อแบบไหน
 
@@ -115,7 +115,7 @@ local ในระบบ (มติ: `docs/project-context/decisions.md`) ระ
 
 | อะไร                               | ค่าที่ต้องระบุ                                           | หมายเหตุ                                                                |
 | ---------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------- |
-| Client ใหม่ในระบบ Keycloak กลาง    | Client ID: `ugt-voicecare`                               | โปรเจคนี้มี client เป็นของตัวเอง — **ห้ามใช้ client ร่วมกับโปรเจคอื่น** |
+| Client ใหม่ในระบบ Keycloak กลาง    | Client ID: `ugt-voice-platform`                          | โปรเจคนี้มี client เป็นของตัวเอง — **ห้ามใช้ client ร่วมกับโปรเจคอื่น** |
 | Client authentication              | เปิด (Confidential client — มี client secret)            |                                                                         |
 | Standard flow (Authorization Code) | เปิด                                                     | ปิด direct access grants / implicit flow / service accounts — ไม่ใช้    |
 | PKCE                               | S256                                                     | ตั้งที่ Advanced → Proof Key for Code Exchange Code Challenge Method    |
@@ -145,7 +145,7 @@ intranet ปิด — ตัดสินใจนี้เป็นของท
 | ค่า                          | มาจากไหน                                                                                                             | กรอกตรงนี้                              |
 | ---------------------------- | -------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
 | **→ KEYCLOAK_ISSUER**        | `https://<keycloak host>/realms/<realm>` — ตรวจด้วยการเปิด `<issuer>/.well-known/openid-configuration` ในเบราว์เซอร์ |                                         |
-| **→ KEYCLOAK_CLIENT_ID**     | ยืนยันว่าใช้ `ugt-voicecare` ตามที่เสนอ หรือแจ้งชื่อจริง                                                             |                                         |
+| **→ KEYCLOAK_CLIENT_ID**     | ยืนยันว่าใช้ `ugt-voice-platform` ตามที่เสนอ หรือแจ้งชื่อจริง                                                        |                                         |
 | **→ KEYCLOAK_CLIENT_SECRET** | จาก client → tab Credentials                                                                                         | **ส่งช่องทางปลอดภัย อย่ากรอกในไฟล์นี้** |
 | **→ App host จริง (prod)**   | สำหรับลงทะเบียน redirect URI ที่ถูกต้อง                                                                              |                                         |
 | **→ TLS**                    | internal CA cert (`.pem`/`.crt`) หรือยืนยันว่าเป็น intranet ปิด                                                      |                                         |
@@ -233,7 +233,7 @@ intranet ปิด — ตัดสินใจนี้เป็นของท
 
 ### 4.1 สิ่งที่ทีม Admin/DevOps ต้องรู้ (สำคัญ — ผลกระทบจริงเมื่อ deploy)
 
-- **`/home/docker02/appdata/ugt-voicecare/storage` คือสำเนาไฟล์แนบชุดเดียวเท่านั้น**
+- **`/home/docker02/appdata/ugt-voice-platform/storage` คือสำเนาไฟล์แนบชุดเดียวเท่านั้น**
   ไม่ได้อยู่ใน image และไม่ได้อยู่ใน database จึง**ไม่อยู่ในแผน backup ของฐานข้อมูล** —
   ต้องมี backup job แยกต่างหากสำหรับโฟลเดอร์นี้
 - ลบโฟลเดอร์นี้บน host = ไฟล์แนบทุกไฟล์หายถาวร (container ลบ/สร้างใหม่ได้อิสระ
@@ -251,11 +251,11 @@ intranet ปิด — ตัดสินใจนี้เป็นของท
 
 ### ✅ ค่าที่ต้องส่งกลับให้ทีมพัฒนา (กรอกแล้วส่งไฟล์นี้คืน)
 
-| ค่า                                                                          | มาจากไหน                                                                                                               | กรอกตรงนี้ |
-| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------- |
-| **→ มี reverse proxy หน้าแอปใน production ไหม**                              | เช่น nginx/traefik ที่ terminate TLS หรือ route หลาย path บน domain เดียวกัน — ถ้ามี ต้องปรับ body-size limit ตาม §4.1 |            |
-| **→ ใครรับผิดชอบ backup ของ `/home/docker02/appdata/ugt-voicecare/storage`** | ไม่ใช่ backup เดียวกับ database — ต้องมีแผนแยก                                                                         |            |
-| **→ host มี outbound internet ให้ ClamAV ดาวน์โหลด signature DB ไหม**        | ถ้าไม่มี ต้อง preload ไฟล์ signature เอง — ดู SKILL.md §7 ของ `ugt-nextjs-upload-setup`                                |            |
+| ค่า                                                                               | มาจากไหน                                                                                                               | กรอกตรงนี้ |
+| --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------- |
+| **→ มี reverse proxy หน้าแอปใน production ไหม**                                   | เช่น nginx/traefik ที่ terminate TLS หรือ route หลาย path บน domain เดียวกัน — ถ้ามี ต้องปรับ body-size limit ตาม §4.1 |            |
+| **→ ใครรับผิดชอบ backup ของ `/home/docker02/appdata/ugt-voice-platform/storage`** | ไม่ใช่ backup เดียวกับ database — ต้องมีแผนแยก                                                                         |            |
+| **→ host มี outbound internet ให้ ClamAV ดาวน์โหลด signature DB ไหม**             | ถ้าไม่มี ต้อง preload ไฟล์ signature เอง — ดู SKILL.md §7 ของ `ugt-nextjs-upload-setup`                                |            |
 
 ## เช็คก่อนปิดงาน (ฝั่ง Admin/DevOps)
 
@@ -272,7 +272,7 @@ intranet ปิด — ตัดสินใจนี้เป็นของท
 ## 5. Jenkins / SonarQube / Docker host — CI/CD
 
 > สร้างอัตโนมัติเมื่อ 2026-09-02 · ผู้ขอ: pakornwo@ube.co.th
-> โปรเจค: `ugt-voicecare` · repo: `https://github.com/pakornkub/ugt-voice-platform`
+> โปรเจค: `ugt-voice-platform` · repo: `https://github.com/pakornkub/ugt-voice-platform`
 > (branch `main` = prod, `develop` = dev)
 >
 > โปรเจคนี้**ไม่มี basePath** (deploy standalone ที่ root path) และ**ไม่ใช้
@@ -286,19 +286,19 @@ credential, `NOTIFY_EMAIL`, `/home/docker02/appdata`, `proxy-network` — ทำ
 
 ### 5.1 Jenkins — Credentials (Manage Jenkins → Credentials → Global)
 
-| ชื่อ credential (ID)    | ชนิด            | ใส่อะไร                                                                              |
-| ----------------------- | --------------- | ------------------------------------------------------------------------------------ |
-| `env-ugt-voicecare`     | **Secret file** | ไฟล์ `.env` ของ **prod** (ทีมพัฒนาแนบให้ / นัดส่งช่องทางปลอดภัย)                     |
-| `env-ugt-voicecare-dev` | **Secret file** | ไฟล์ `.env` ของ **dev** — ห้ามใช้ไฟล์เดียวกับ prod (คนละ `DATABASE_URL` คนละ secret) |
+| ชื่อ credential (ID)         | ชนิด            | ใส่อะไร                                                                              |
+| ---------------------------- | --------------- | ------------------------------------------------------------------------------------ |
+| `env-ugt-voice-platform`     | **Secret file** | ไฟล์ `.env` ของ **prod** (ทีมพัฒนาแนบให้ / นัดส่งช่องทางปลอดภัย)                     |
+| `env-ugt-voice-platform-dev` | **Secret file** | ไฟล์ `.env` ของ **dev** — ห้ามใช้ไฟล์เดียวกับ prod (คนละ `DATABASE_URL` คนละ secret) |
 
-(ไม่มีแถว `sentry-dsn-ugt-voicecare` — โปรเจคนี้ไม่ใช้ Sentry)
+(ไม่มีแถว `sentry-dsn-ugt-voice-platform` — โปรเจคนี้ไม่ใช้ Sentry)
 
 ### 5.2 Jenkins — Pipeline jobs (2 ตัว ตามรูปแบบโปรเจคอื่นบน server นี้)
 
 | ชื่อ job (New Item → **Pipeline**) | Repo                                              | Branch    | Script Path   |
 | ---------------------------------- | ------------------------------------------------- | --------- | ------------- |
-| `ugt-voicecare`                    | `https://github.com/pakornkub/ugt-voice-platform` | `main`    | `Jenkinsfile` |
-| `ugt-voicecare-dev`                | `https://github.com/pakornkub/ugt-voice-platform` | `develop` | `Jenkinsfile` |
+| `ugt-voice-platform`               | `https://github.com/pakornkub/ugt-voice-platform` | `main`    | `Jenkinsfile` |
+| `ugt-voice-platform-dev`           | `https://github.com/pakornkub/ugt-voice-platform` | `develop` | `Jenkinsfile` |
 
 - Definition: **Pipeline script from SCM** (Git) · ถ้า repo เป็น private ทีมพัฒนาจะ
   ส่ง GitHub credential ให้ (ยังเป็น public อยู่ตอนนี้ — แจ้งถ้าต้องการให้เป็น private)
@@ -318,10 +318,10 @@ credential, `NOTIFY_EMAIL`, `/home/docker02/appdata`, `proxy-network` — ทำ
 
 **สร้าง Projects** (Administration → Projects → Create):
 
-| Project Key         | Display name        |
-| ------------------- | ------------------- |
-| `ugt-voicecare`     | UGT VoiceCare       |
-| `ugt-voicecare-dev` | UGT VoiceCare (Dev) |
+| Project Key              | Display name        |
+| ------------------------ | ------------------- |
+| `ugt-voice-platform`     | UGT VoiceCare       |
+| `ugt-voice-platform-dev` | UGT VoiceCare (Dev) |
 
 **ผูก Quality Gate**: ใช้ gate มาตรฐานองค์กร (`new_coverage ≥ 60%`,
 `new_violations = 0`, `new_duplicated_lines_density ≤ 3%`,
@@ -342,10 +342,10 @@ pipeline จะค้างตลอดไป** ที่ขั้นรอผ�
   server จริงมี port อื่นที่จัดสรรให้แล้ว **แจ้งกลับ** (ดูตารางท้ายหัวข้อ)
 - **ไฟล์แนบจริง (ClamAV + storage volume) ต่อเข้ากับ compose ในชุดนี้แล้ว**
   (ไม่ได้ค้างเป็น deferred อีกต่อไป — ดู §4 ด้านบน) ต้องเตรียม:
-  - `/home/docker02/appdata/ugt-voicecare/storage` +
-    `/home/docker02/appdata/ugt-voicecare/clamav-db` (prod)
-  - `/home/docker02/appdata/ugt-voicecare-dev/storage` +
-    `/home/docker02/appdata/ugt-voicecare-dev/clamav-db` (dev)
+  - `/home/docker02/appdata/ugt-voice-platform/storage` +
+    `/home/docker02/appdata/ugt-voice-platform/clamav-db` (prod)
+  - `/home/docker02/appdata/ugt-voice-platform-dev/storage` +
+    `/home/docker02/appdata/ugt-voice-platform-dev/clamav-db` (dev)
   - Deploy stage สร้าง/chown ให้เองครั้งแรกที่ deploy (idempotent) — **แต่ต้อง
     มี `/home/docker02/appdata` เองอยู่แล้วและ jenkins user เขียนได้** (server นี้
     มีโปรเจคอื่นใช้อยู่แล้ว — น่าจะพร้อม)
@@ -385,7 +385,7 @@ ugt-nextjs-cicd-setup)
 ### เช็คก่อนปิดงาน (ฝั่ง Admin/DevOps)
 
 - [ ] ชื่อทุกตัวตรงกับตารางเป๊ะ (โดยเฉพาะ credential ID)
-- [ ] Jenkins jobs `ugt-voicecare` + `ugt-voicecare-dev` ชี้ repo/branch ถูก
+- [ ] Jenkins jobs `ugt-voice-platform` + `ugt-voice-platform-dev` ชี้ repo/branch ถูก
 - [ ] SonarQube→Jenkins webhook ตั้งแล้ว + แจ้ง Jenkins host ให้ทีมพัฒนาตั้ง GitHub webhook
 - [ ] `APP_PORT` (prod/dev) ส่งกลับแล้ว ไม่ใช่แค่ placeholder `3000`/`3001`
 - [ ] App host จริง (prod/dev) ส่งกลับแล้ว

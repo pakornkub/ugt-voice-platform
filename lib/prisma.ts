@@ -34,7 +34,7 @@ function parseSqlServerUrl(url: string): sql.config {
       encrypt: pairs['encrypt'] === 'true',
       trustServerCertificate: pairs['trustservercertificate'] === 'true',
     },
-    // ugt-voicecare decision (2026-09-02): no stored procedures / linked
+    // ugt-voice-platform decision (2026-09-02): no stored procedures / linked
     // server in this app — kept at the mssql library default (15s) instead
     // of the kit's usual 5-minute SP allowance. Raise this if a future chunk
     // introduces long-running `EXEC usp_*` calls.
