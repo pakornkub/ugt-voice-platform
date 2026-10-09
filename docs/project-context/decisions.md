@@ -790,3 +790,8 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   decision that left admin pages, the manual and export Thai-only. Thai copy stays verbatim as the
   `th` branch; server-written text already stored in Thai (timeline/notifications) is mapped to EN on
   the client · rejected: rewriting stored rows (history would change under audit).
+- 2026-10-09 **Auto-assign defaults to `off`** (owner) — new and existing categories start with no
+  auto-assignment, i.e. the behaviour users had before auto-assign became real; an admin opts a
+  category in on the Gatekeeper page (migration `20261009160000_auto_assign_default_off`) · rejected:
+  keeping upstream's `lead_manual` default (every category would silently start assigning to its Lead
+  on the next deploy).
