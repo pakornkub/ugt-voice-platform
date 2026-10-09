@@ -2,8 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
-import { getUserPermissions, isAdminInitialized } from '@/lib/get-user-permissions';
+import { isAdminInitialized, permissionsForAppRole } from '@/lib/get-user-permissions';
 import { ssoLogoutAction } from '@/lib/actions/auth';
 import { getRoleAccessConfigs } from '@/lib/actions/role-access';
 import { getDepartmentGatekeeperConfigs } from '@/lib/actions/gatekeeper';
@@ -27,14 +26,9 @@ export default async function ShellLayout({ children }: { children: React.ReactN
   if (!(await isAdminInitialized())) redirect('/admin/setup');
 
   // Role + ticket scope come from resolveViewer only (slice 2 swaps it to the people rosters).
-  const [user, permissions, viewer] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { name: true, email: true, userRole: { select: { name: true } } },
-    }),
-    getUserPermissions(session.user.id),
-    resolveViewer(session),
-  ]);
+  // The user row is read once, inside resolveViewer; permission keys follow its role.
+  const viewer = await resolveViewer(session);
+  const permissions = permissionsForAppRole(viewer?.role ?? null);
   const appRole = viewer?.role ?? null;
 
   // Not yet assigned an app-level role by an admin (SSO rows appear on first
@@ -50,7 +44,7 @@ export default async function ShellLayout({ children }: { children: React.ReactN
         </div>
         <h1 className="text-lg font-bold text-slate-900">รอผู้ดูแลระบบกำหนดสิทธิ์การใช้งาน</h1>
         <p className="max-w-md text-sm text-slate-500">
-          บัญชี <strong className="font-semibold text-slate-700">{user?.email}</strong>{' '}
+          บัญชี <strong className="font-semibold text-slate-700">{session.user.email}</strong>{' '}
           เข้าสู่ระบบสำเร็จแล้ว แต่ยังไม่ได้รับมอบหมายบทบาทการใช้งาน (พนักงาน / Gatekeeper /
           ผู้บริหาร / Admin) กรุณาติดต่อผู้ดูแลระบบเพื่อกำหนดสิทธิ์ให้จากหน้า
           &quot;จัดการผู้ใช้&quot;
@@ -84,17 +78,20 @@ export default async function ShellLayout({ children }: { children: React.ReactN
     getDepartmentGatekeeperConfigs(),
   ]);
   const tickets = await listVisibleTickets(viewer);
-  const notifications = await listVisibleNotifications(tickets.map((t) => t.id));
+  const notifications = await listVisibleNotifications(
+    viewer,
+    tickets.map((t) => t.id)
+  );
   const { gatekeeperCategories } = viewer;
 
   return (
     <Shell
       data={{ tickets, notifications, rolePermissions, gatekeeperConfigs, gatekeeperCategories }}
       identity={{
-        name: user?.name ?? session.user.name,
-        email: user?.email ?? session.user.email,
+        name: viewer.name,
+        email: viewer.email,
         appRole,
-        roleName: user?.userRole?.name ?? null,
+        roleName: viewer.rbacRoleName,
         permissions,
       }}
     >

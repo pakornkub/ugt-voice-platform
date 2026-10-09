@@ -14,13 +14,19 @@ vi.mock('next/headers', () => ({ headers: async () => new Headers() }));
 vi.mock('@/lib/auth', () => ({ auth: { api: { getSession: mocks.getSession } } }));
 vi.mock('@/lib/prisma', () => ({ prisma: mocks.prisma }));
 
-const { getTicketViewer, listVisibleNotifications, requireTicketViewer } =
+const { getTicketViewer, listVisibleNotifications, listVisibleTickets, requireTicketViewer } =
   await import('./ticket-access');
+const { INITIAL_ROLE_PERMISSIONS } = await import('@/services/api');
 const { markAllNotificationsAsRead, markNotificationAsRead } =
   await import('./actions/notifications');
 
 const NOW = new Date('2026-10-09T00:00:00Z');
-const notif = (id: string, ticketId: string | null, isRead = false) => ({
+const notif = (
+  id: string,
+  ticketId: string | null,
+  isRead = false,
+  recipientEmail: string | null = null
+) => ({
   id,
   ticketId,
   trackingCode: 'TK-2026-1111',
@@ -28,7 +34,7 @@ const notif = (id: string, ticketId: string | null, isRead = false) => ({
   message: 'm',
   type: 'status_update',
   recipientRole: 'employee',
-  recipientEmail: null,
+  recipientEmail,
   isRead,
   createdAt: NOW,
   updatedAt: NOW,
@@ -52,8 +58,10 @@ describe('getTicketViewer', () => {
   it('carries the role and its RoleAccessConfigs row', async () => {
     mocks.getSession.mockResolvedValueOnce({ user: { id: 'u1' } });
     mocks.prisma.user.findUnique.mockResolvedValueOnce({
+      name: 'Gate Keeper',
       email: 'a@ube.co.th',
       appRole: 'gatekeeper',
+      userRole: { name: 'Administrator' },
     });
     mocks.prisma.roleAccessConfig.findFirst.mockResolvedValueOnce({
       role: 'gatekeeper',
@@ -67,10 +75,63 @@ describe('getTicketViewer', () => {
     expect(viewer).toMatchObject({
       userId: 'u1',
       email: 'a@ube.co.th',
+      name: 'Gate Keeper',
+      rbacRoleName: 'Administrator',
       role: 'gatekeeper',
       config: { allowedTabs: ['gatekeeper'], assignedDepartments: ['Quality'] },
       gatekeeperCategories: ['Quality'],
     });
+  });
+});
+
+const employee = {
+  userId: 'u1',
+  email: 'a@ube.co.th',
+  name: 'A',
+  rbacRoleName: null,
+  role: 'employee' as const,
+  config: INITIAL_ROLE_PERMISSIONS.employee,
+  gatekeeperCategories: [],
+};
+
+describe('listVisibleTickets', () => {
+  it('redacts identities the viewer may not see before they leave the server', async () => {
+    mocks.prisma.ticket.findMany.mockResolvedValueOnce([
+      {
+        id: 't1',
+        trackingCode: 'TK-2026-0001',
+        type: 'complaint',
+        category: 'HR',
+        title: 't',
+        description: 'd',
+        isDirectToExecutive: false,
+        confidentiality: 'anonymous',
+        submitterName: 'Real Name',
+        submitterEmployeeId: 'EMP9',
+        submitterEmail: 'whistle@ube.co.th',
+        loginEmail: 'whistle@ube.co.th',
+        isAnonymousMapped: true,
+        gatekeeperDepartment: 'HR',
+        status: 'submitted',
+        urgency: 'Medium',
+        riskSeverity: 'Moderate',
+        createdAt: NOW,
+        updatedAt: NOW,
+      },
+    ]);
+    const gatekeeper = {
+      ...employee,
+      email: 'gk@ube.co.th',
+      role: 'gatekeeper' as const,
+      config: INITIAL_ROLE_PERMISSIONS.gatekeeper,
+      gatekeeperCategories: ['HR' as const],
+    };
+
+    const [ticket] = await listVisibleTickets(gatekeeper);
+
+    expect(ticket.loginEmail).toBeUndefined();
+    expect(ticket.submitterEmployeeId).toBeUndefined();
+    expect(ticket.submitterName).toBe('ผู้ยื่นเรื่อง (ไม่ระบุตัวตน)');
   });
 });
 
@@ -84,13 +145,20 @@ describe('notifications follow ticket visibility', () => {
       notif('n1', 'mine'),
       notif('n2', 'theirs'),
       notif('n3', null),
-      notif('n4', 'mine', true),
+      notif('n4', 'mine', true, 'someone.else@ube.co.th'),
+      notif('n5', 'mine', true, 'A@ube.co.th'),
     ]);
   });
 
   it('lists only notifications of visible tickets', async () => {
-    const list = await listVisibleNotifications(['mine']);
-    expect(list.map((n) => n.id)).toEqual(['n1', 'n4']);
+    const list = await listVisibleNotifications(employee, ['mine']);
+    expect(list.map((n) => n.id)).toEqual(['n1', 'n4', 'n5']);
+  });
+
+  it('strips the recipient email from notifications addressed to someone else', async () => {
+    const list = await listVisibleNotifications(employee, ['mine']);
+    expect(list.find((n) => n.id === 'n4')?.recipientEmail).toBeUndefined();
+    expect(list.find((n) => n.id === 'n5')?.recipientEmail).toBe('A@ube.co.th');
   });
 
   it('marks one visible notification and refuses others', async () => {

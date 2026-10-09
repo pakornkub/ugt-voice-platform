@@ -20,7 +20,16 @@ import {
   requireTicketViewer,
   TICKET_INCLUDE,
 } from '@/lib/ticket-access';
-import { canSubmit, canTriage, touchesTriageFields } from '@/lib/ticket-scope';
+import {
+  canSubmit,
+  canTriage,
+  isOwnTicket,
+  ownTicketsWhere,
+  PROTECTED_ACTOR_NAME,
+  redactTicketForViewer,
+  touchesTriageFields,
+  type TicketViewer,
+} from '@/lib/ticket-scope';
 import { z } from 'zod';
 import { mapTicket } from './mappers';
 import type {
@@ -109,17 +118,54 @@ function isUniqueViolation(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
 }
 
-/** TK-YYYY-NNNN is random (upstream format) and unique-indexed — retry the rare collision. */
-async function createWithTrackingCode(
+type CreatedTicket = Prisma.ticketGetPayload<{ include: typeof TICKET_INCLUDE }>;
+
+function submissionNotifications(created: CreatedTicket): Prisma.notificationCreateManyInput[] {
+  const notifs: Prisma.notificationCreateManyInput[] = [
+    {
+      ticketId: created.id,
+      trackingCode: created.trackingCode,
+      title: `ยื่นเรื่องสำเร็จ: ${created.title.substring(0, 40)}...`,
+      message: `รหัสติดตามของคุณคือ ${created.trackingCode} หน่วยงาน ${created.gatekeeperDepartment} ได้รับเรื่องเข้าสู่ระบบเรียบร้อยแล้ว`,
+      type: 'new_ticket',
+      recipientRole: 'employee',
+      recipientEmail: created.submitterEmail,
+    },
+  ];
+  if (created.isDirectToExecutive) {
+    notifs.push({
+      ticketId: created.id,
+      trackingCode: created.trackingCode,
+      title: '[CEO/EVP Alert] ข้อร้องเรียนสำคัญส่งตรงถึงผู้บริหาร',
+      message: `เรื่อง: ${created.title} (หมวดหมู่: ${created.category}, ความเร่งด่วน: ${created.urgency})`,
+      type: 'direct_ceo_alert',
+      recipientRole: 'executive',
+    });
+  }
+  return notifs;
+}
+
+/**
+ * Ticket + its notifications in one transaction. TK-YYYY-NNNN is random (upstream format) and
+ * unique-indexed — a collision rolls the transaction back and retries with a new code.
+ */
+async function createTicketWithNotifications(
   data: Omit<Prisma.ticketCreateInput, 'trackingCode'>,
   attemptsLeft = 5
-) {
+): Promise<CreatedTicket> {
   const trackingCode = `TK-${new Date().getFullYear()}-${randomInt(1000, 10000)}`;
   try {
-    return await prisma.ticket.create({ data: { ...data, trackingCode }, include: TICKET_INCLUDE });
+    return await prisma.$transaction(async (tx) => {
+      const created = await tx.ticket.create({
+        data: { ...data, trackingCode },
+        include: TICKET_INCLUDE,
+      });
+      await tx.notification.createMany({ data: submissionNotifications(created) });
+      return created;
+    });
   } catch (error) {
     if (!isUniqueViolation(error) || attemptsLeft <= 1) throw error;
-    return createWithTrackingCode(data, attemptsLeft - 1);
+    return createTicketWithNotifications(data, attemptsLeft - 1);
   }
 }
 
@@ -181,36 +227,13 @@ export async function submitTicket(payload: SubmitPayload): Promise<ComplaintTic
     timeline: { create: submissionTimeline(payload, isAnonymous) },
   };
 
-  const created = await createWithTrackingCode(data);
-
-  const notifs: Prisma.notificationCreateManyInput[] = [
-    {
-      ticketId: created.id,
-      trackingCode: created.trackingCode,
-      title: `ยื่นเรื่องสำเร็จ: ${created.title.substring(0, 40)}...`,
-      message: `รหัสติดตามของคุณคือ ${created.trackingCode} หน่วยงาน ${created.gatekeeperDepartment} ได้รับเรื่องเข้าสู่ระบบเรียบร้อยแล้ว`,
-      type: 'new_ticket',
-      recipientRole: 'employee',
-      recipientEmail: created.submitterEmail,
-    },
-  ];
-  if (created.isDirectToExecutive) {
-    notifs.push({
-      ticketId: created.id,
-      trackingCode: created.trackingCode,
-      title: '[CEO/EVP Alert] ข้อร้องเรียนสำคัญส่งตรงถึงผู้บริหาร',
-      message: `เรื่อง: ${created.title} (หมวดหมู่: ${created.category}, ความเร่งด่วน: ${created.urgency})`,
-      type: 'direct_ceo_alert',
-      recipientRole: 'executive',
-    });
-  }
-  await prisma.notification.createMany({ data: notifs });
+  const created = await createTicketWithNotifications(data);
 
   await auditLog(viewer.userId, AUDIT_ACTIONS.TICKETS_SUBMIT, {
     ticketId: created.id,
     trackingCode: created.trackingCode,
   });
-  return mapTicket(created);
+  return redactTicketForViewer(viewer, mapTicket(created));
 }
 
 interface WorkflowUpdates {
@@ -220,8 +243,10 @@ interface WorkflowUpdates {
   gatekeeperDepartment?: string;
   resolutionSummary?: string;
   actionNote?: string;
-  actorName: string;
-  actorRole: string;
+  /** Hint only — the server derives the timeline actor (workflowActor). */
+  actorName?: string;
+  /** Ignored — kept so the upstream call sites stay unchanged. */
+  actorRole?: string;
   attachmentName?: string;
   urgency?: UrgencyLevel;
   riskSeverity?: ComplaintTicket['riskSeverity'];
@@ -246,6 +271,42 @@ function statusNotification(trackingCode: string, status: TicketStatus, actorNam
   };
 }
 
+// Upstream GatekeeperInbox's fixed triage label (the audit log records the real user).
+const TRIAGE_ACTOR = { actor: 'Gatekeeper Supervisor', actorRole: 'Gatekeeper Lead' };
+
+type ActorTicket = {
+  confidentiality: string;
+  submitterName: string | null;
+  loginEmail: string | null;
+  submitterEmail: string | null;
+};
+
+/**
+ * Who a timeline entry is from — never taken from the client, so nobody can post as staff or as
+ * the submitter. Triage → upstream's triage label. The submitter's own note → upstream
+ * TrackingTimelineModal's label (the client's TH/EN pick is honoured only if it is one of them).
+ * Anyone else's note → their session name + role.
+ */
+function workflowActor(
+  viewer: TicketViewer,
+  ticket: ActorTicket,
+  triage: boolean,
+  requested?: string
+): { actor: string; actorRole: string } {
+  if (triage) return TRIAGE_ACTOR;
+  if (!isOwnTicket(viewer, ticket)) {
+    return { actor: viewer.name, actorRole: TIMELINE_ACTOR_ROLE[viewer.role] };
+  }
+  let labels = ['พนักงาน', 'Employee'];
+  if (ticket.confidentiality === 'anonymous') {
+    labels = ['พนักงาน (ไม่เปิดเผยตัวตน)', 'Employee (Anonymous)'];
+  } else if (ticket.submitterName) {
+    labels = [ticket.submitterName];
+  }
+  const actor = requested && labels.includes(requested) ? requested : labels[0];
+  return { actor, actorRole: 'Employee' };
+}
+
 /**
  * Gatekeeper triage (status / officer / urgency / CAPA) needs the gatekeeper tab in the RBAC
  * matrix; anyone who can see the ticket may add a plain note (the employee inquiry box).
@@ -257,12 +318,19 @@ export async function updateTicketWorkflow(
   const viewer = await requireTicketViewer();
   const current = await findVisibleTicket(viewer, { id: ticketId });
   if (!current) return null;
-  if (touchesTriageFields({ ...updates }) && !canTriage(viewer)) throw new Error('FORBIDDEN');
+  const triage = touchesTriageFields(updates);
+  if (triage && !canTriage(viewer)) throw new Error('FORBIDDEN');
   TICKET_FIELDS.parse(updates);
 
   const newStatus = updates.status ?? (current.status as TicketStatus);
   const now = new Date();
-  const notif = statusNotification(current.trackingCode, newStatus, updates.actorName);
+  const { actor, actorRole } = workflowActor(viewer, current, triage, updates.actorName);
+  // A confidential submitter's own name must not travel in a notification other roles can read.
+  const notifActor =
+    current.confidentiality === 'confidential_restricted' && actorRole === 'Employee'
+      ? PROTECTED_ACTOR_NAME
+      : actor;
+  const notif = statusNotification(current.trackingCode, newStatus, notifActor);
 
   const updated = await prisma.$transaction(async (tx) => {
     const ticket = await tx.ticket.update({
@@ -285,8 +353,8 @@ export async function updateTicketWorkflow(
           create: {
             status: newStatus,
             action: actionLabelForStatus(newStatus, updates.actionNote),
-            actor: updates.actorName,
-            actorRole: updates.actorRole,
+            actor,
+            actorRole,
             notes: updates.actionNote,
             attachmentName: updates.attachmentName,
           },
@@ -311,7 +379,7 @@ export async function updateTicketWorkflow(
     trackingCode: updated.trackingCode,
     status: newStatus,
   });
-  return mapTicket(updated);
+  return redactTicketForViewer(viewer, mapTicket(updated));
 }
 
 const STAFF_ROLES: UserRole[] = ['gatekeeper', 'executive', 'admin'];
@@ -354,8 +422,7 @@ const TIMELINE_ACTOR_ROLE: Record<UserRole, string> = {
 export async function sendAnonymousChatMessage(
   ticketId: string,
   messageText: string,
-  senderRole: UserRole,
-  senderDisplayName?: string
+  senderRole: UserRole
 ): Promise<ComplaintTicket | null> {
   const viewer = await requireTicketViewer();
   if (viewer.role !== senderRole) throw new Error('FORBIDDEN');
@@ -365,7 +432,7 @@ export async function sendAnonymousChatMessage(
 
   const isStaff = STAFF_ROLES.includes(senderRole);
   const text = messageText.trim();
-  const finalSenderName = senderDisplayName || defaultChatSenderName(current, senderRole);
+  const finalSenderName = defaultChatSenderName(current, senderRole);
 
   const updated = await prisma.$transaction(async (tx) => {
     const ticket = await tx.ticket.update({
@@ -421,17 +488,22 @@ export async function sendAnonymousChatMessage(
     senderRole,
   });
 
-  return mapTicket(updated);
+  return redactTicketForViewer(viewer, mapTicket(updated));
 }
 
-/** CSAT — closes the ticket. Re-submitting overwrites the earlier evaluation, as upstream does. */
+/**
+ * CSAT — only the submitter, only on a resolved ticket; closes it. (The evaluation is upserted so
+ * a row left from an earlier close of a reopened ticket doesn't trip the unique TicketId.)
+ */
 export async function submitEvaluation(
   ticketId: string,
   evaluationData: Omit<SatisfactionEvaluation, 'id' | 'ticketId' | 'evaluatedAt'>
 ): Promise<ComplaintTicket | null> {
   const viewer = await requireTicketViewer();
   EVALUATION_SCORES.parse(evaluationData);
-  const current = await findVisibleTicket(viewer, { id: ticketId });
+  const current = await findVisibleTicket(viewer, {
+    AND: [{ id: ticketId }, ownTicketsWhere(viewer.email), { status: 'resolved' }],
+  });
   if (!current) return null;
   const now = new Date();
   const evaluation = {
@@ -474,5 +546,5 @@ export async function submitEvaluation(
     trackingCode: updated.trackingCode,
     overallScore: evaluationData.overallScore,
   });
-  return mapTicket(updated);
+  return redactTicketForViewer(viewer, mapTicket(updated));
 }

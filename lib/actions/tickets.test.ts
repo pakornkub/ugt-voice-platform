@@ -36,6 +36,8 @@ const {
 const viewer = (role: UserRole): TicketViewer => ({
   userId: `user-${role}`,
   email: `${role}@ube.co.th`,
+  name: `Session ${role}`,
+  rbacRoleName: null,
   role,
   config: INITIAL_ROLE_PERMISSIONS[role],
   gatekeeperCategories: ['HR'],
@@ -161,6 +163,22 @@ describe('submitTicket', () => {
     expect(notifs.map((n: { type: string }) => n.type)).toEqual(['new_ticket', 'direct_ceo_alert']);
   });
 
+  it('writes the ticket and its notifications in one transaction', async () => {
+    db.prisma.ticket.create.mockImplementation(async ({ data }) => row({ ...data, timeline: [] }));
+    const order: string[] = [];
+    db.prisma.$transaction.mockImplementation(async (fn: (tx: typeof db.prisma) => unknown) => {
+      order.push('begin');
+      const result = await fn(db.prisma);
+      order.push('commit');
+      return result;
+    });
+    db.prisma.notification.createMany.mockImplementation(async () => order.push('notifications'));
+
+    await submitTicket(payload);
+
+    expect(order).toEqual(['begin', 'notifications', 'commit']);
+  });
+
   it('retries a tracking-code collision', async () => {
     const collision = new Prisma.PrismaClientKnownRequestError('dup', {
       code: 'P2002',
@@ -212,6 +230,62 @@ describe('updateTicketWorkflow', () => {
       type: 'status_update',
       recipientEmail: 'somchai@ube.co.th',
     });
+  });
+
+  it('never lets the client choose the timeline actor', async () => {
+    // employee (the submitter) claims to be staff
+    access.findVisibleTicket.mockResolvedValue(row());
+    db.prisma.ticket.update.mockResolvedValue(row());
+    await updateTicketWorkflow('tk1', {
+      actorName: 'Gatekeeper Supervisor',
+      actorRole: 'Gatekeeper Lead',
+      actionNote: 'ปิดเรื่องแล้ว',
+    });
+    expect(db.prisma.ticket.update.mock.calls[0][0].data.timeline.create).toMatchObject({
+      actor: 'สมชาย',
+      actorRole: 'Employee',
+    });
+
+    // a gatekeeper's plain note is signed with their session name, not the submitter's
+    access.requireTicketViewer.mockResolvedValue(viewer('gatekeeper'));
+    await updateTicketWorkflow('tk1', note);
+    expect(db.prisma.ticket.update.mock.calls[1][0].data.timeline.create).toMatchObject({
+      actor: 'Session gatekeeper',
+      actorRole: 'Gatekeeper',
+    });
+
+    // triage always carries upstream's triage label
+    await updateTicketWorkflow('tk1', { status: 'in_progress', actorName: 'สมชาย' });
+    expect(db.prisma.ticket.update.mock.calls[2][0].data.timeline.create).toMatchObject({
+      actor: 'Gatekeeper Supervisor',
+      actorRole: 'Gatekeeper Lead',
+    });
+  });
+
+  it('keeps upstream labels for the submitter (TH/EN) and protects a confidential name', async () => {
+    access.findVisibleTicket.mockResolvedValue(row({ confidentiality: 'anonymous' }));
+    db.prisma.ticket.update.mockResolvedValue(row());
+    await updateTicketWorkflow('tk1', { actorName: 'Employee (Anonymous)', actionNote: 'x' });
+    expect(db.prisma.ticket.update.mock.calls[0][0].data.timeline.create.actor).toBe(
+      'Employee (Anonymous)'
+    );
+
+    access.findVisibleTicket.mockResolvedValue(row({ confidentiality: 'confidential_restricted' }));
+    await updateTicketWorkflow('tk1', note);
+    expect(db.prisma.notification.create.mock.calls[1][0].data.message).toContain(
+      'โดย พนักงานผู้ร้องเรียน (ปกปิดตัวตน)'
+    );
+  });
+
+  it('returns the ticket redacted for the caller', async () => {
+    access.requireTicketViewer.mockResolvedValue(viewer('gatekeeper'));
+    access.findVisibleTicket.mockResolvedValue(row({ confidentiality: 'anonymous' }));
+    db.prisma.ticket.update.mockResolvedValue(row({ confidentiality: 'anonymous', timeline: [] }));
+
+    const updated = await updateTicketWorkflow('tk1', note);
+
+    expect(updated?.loginEmail).toBeUndefined();
+    expect(updated?.submitterEmployeeId).toBeUndefined();
   });
 
   it('lets a gatekeeper resolve and asks the submitter for a CSAT', async () => {
@@ -290,6 +364,18 @@ describe('submitEvaluation', () => {
 
     await submitEvaluation('tk1', evaluation);
 
+    expect(access.findVisibleTicket).toHaveBeenCalledWith(viewer('employee'), {
+      AND: [
+        { id: 'tk1' },
+        {
+          OR: [
+            { loginEmail: 'employee@ube.co.th' },
+            { loginEmail: null, submitterEmail: 'employee@ube.co.th' },
+          ],
+        },
+        { status: 'resolved' },
+      ],
+    });
     const { data } = db.prisma.ticket.update.mock.calls[0][0];
     expect(data.status).toBe('closed');
     expect(data.evaluation.upsert.create.overallScore).toBe(4);

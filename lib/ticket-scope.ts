@@ -11,11 +11,21 @@
 //   - executive / admin: every department, direct-to-CEO only with canViewDirectCeoTickets.
 // A role without a RoleAccessConfigs row sees only its own tickets (deny by default).
 import type { Prisma } from '@prisma/client';
-import type { GrievanceCategory, RolePermissionConfig, UserRole } from '@/types';
+import type {
+  ComplaintTicket,
+  GrievanceCategory,
+  NotificationItem,
+  RolePermissionConfig,
+  UserRole,
+} from '@/types';
 
 export interface TicketViewer {
   userId: string;
   email: string;
+  /** Display name of the signed-in user (actor of staff notes). */
+  name: string;
+  /** RBAC role name for the identity menu (null when none). */
+  rbacRoleName: string | null;
   role: UserRole;
   /** RoleAccessConfigs row of `role` — what the role may do (RBAC matrix). */
   config?: RolePermissionConfig;
@@ -73,6 +83,78 @@ export const TRIAGE_FIELDS = [
   'clusterGroup',
 ] as const;
 
-export function touchesTriageFields(updates: Partial<Record<string, unknown>>): boolean {
-  return TRIAGE_FIELDS.some((field) => updates[field] !== undefined);
+export function touchesTriageFields(updates: object): boolean {
+  const values = updates as Partial<Record<string, unknown>>;
+  return TRIAGE_FIELDS.some((field) => values[field] !== undefined);
+}
+
+/** Same rule as ownTicketsWhere, for a row already loaded (SQL Server compares case-insensitively). */
+export function isOwnTicket(
+  viewer: Pick<TicketViewer, 'email'>,
+  ticket: { loginEmail?: string | null; submitterEmail?: string | null }
+): boolean {
+  const me = viewer.email.toLowerCase();
+  const owner = ticket.loginEmail || ticket.submitterEmail;
+  return !!owner && owner.toLowerCase() === me;
+}
+
+export const ANONYMOUS_SUBMITTER_NAME = 'ผู้ยื่นเรื่อง (ไม่ระบุตัวตน)';
+export const PROTECTED_ACTOR_NAME = 'พนักงานผู้ร้องเรียน (ปกปิดตัวตน)';
+
+/**
+ * Server-side twin of the client masking (TrackingTimelineModal submitter cards / timeline,
+ * ExecutiveDashboard SubmitterLine): the submitter sees everything; for everyone else
+ *   - anonymous: name/employee id/department/phone only with canViewConfidentialIdentities,
+ *     login + submitter email only with canViewAnonymousSubmitterEmail;
+ *   - confidential_restricted: every identity field and the submitter's own timeline actor only
+ *     with canViewConfidentialIdentities;
+ *   - standard_named: unchanged (the UI shows it to every role).
+ */
+export function redactTicketForViewer(
+  viewer: TicketViewer,
+  ticket: ComplaintTicket
+): ComplaintTicket {
+  if (ticket.confidentiality === 'standard_named' || isOwnTicket(viewer, ticket)) return ticket;
+  const canSeeIdentity = viewer.config?.canViewConfidentialIdentities ?? false;
+
+  if (ticket.confidentiality === 'anonymous') {
+    const canSeeEmail = viewer.config?.canViewAnonymousSubmitterEmail ?? false;
+    return {
+      ...ticket,
+      ...(canSeeIdentity
+        ? {}
+        : {
+            submitterName: ANONYMOUS_SUBMITTER_NAME,
+            submitterEmployeeId: undefined,
+            submitterDepartment: undefined,
+            submitterPhone: undefined,
+          }),
+      ...(canSeeEmail ? {} : { loginEmail: undefined, submitterEmail: undefined }),
+    };
+  }
+
+  if (canSeeIdentity) return ticket;
+  const isSubmitterLog = (actorRole: string, actor: string) =>
+    actorRole === 'Employee' || (!!ticket.submitterName && actor === ticket.submitterName);
+  return {
+    ...ticket,
+    submitterName: undefined,
+    submitterEmployeeId: undefined,
+    submitterDepartment: undefined,
+    submitterEmail: undefined,
+    submitterPhone: undefined,
+    loginEmail: undefined,
+    timeline: ticket.timeline.map((log) =>
+      isSubmitterLog(log.actorRole, log.actor) ? { ...log, actor: PROTECTED_ACTOR_NAME } : log
+    ),
+  };
+}
+
+/** A notification's recipient email is only for its recipient. */
+export function redactNotificationForViewer(
+  viewer: Pick<TicketViewer, 'email'>,
+  notification: NotificationItem
+): NotificationItem {
+  const mine = notification.recipientEmail?.toLowerCase() === viewer.email.toLowerCase();
+  return mine ? notification : { ...notification, recipientEmail: undefined };
 }

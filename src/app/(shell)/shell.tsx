@@ -139,8 +139,13 @@ export default function Shell({
   const markRead = (action: NotificationReadAction) =>
     startTransition(async () => {
       markReadOptimistic(action);
-      await (action === 'all' ? markAllNotificationsAsRead() : markNotificationAsRead(action.id));
-      router.refresh();
+      try {
+        await (action === 'all' ? markAllNotificationsAsRead() : markNotificationAsRead(action.id));
+        router.refresh();
+      } catch {
+        // The optimistic mark reverts when the transition ends; tell the user why.
+        showNotification('ไม่สามารถอัปเดตสถานะการแจ้งเตือนได้ กรุณาลองใหม่อีกครั้ง');
+      }
     });
 
   const handleNotificationClick = (item: NotificationItem) => {

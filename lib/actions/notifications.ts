@@ -15,7 +15,7 @@ import type { NotificationItem } from '@/types';
 
 async function visibleNotifications(): Promise<NotificationItem[]> {
   const viewer = await requireTicketViewer();
-  return listVisibleNotifications(await visibleTicketIds(viewer));
+  return listVisibleNotifications(viewer, await visibleTicketIds(viewer));
 }
 
 export async function getNotifications(): Promise<NotificationItem[]> {

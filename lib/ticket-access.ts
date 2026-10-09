@@ -7,7 +7,13 @@ import { headers } from 'next/headers';
 import type { Prisma } from '@prisma/client';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { gatekeeperDepartments, ticketScopeWhere, type TicketViewer } from '@/lib/ticket-scope';
+import {
+  gatekeeperDepartments,
+  redactNotificationForViewer,
+  redactTicketForViewer,
+  ticketScopeWhere,
+  type TicketViewer,
+} from '@/lib/ticket-scope';
 import { mapNotification, mapRoleAccessConfig, mapTicket } from '@/lib/actions/mappers';
 import type { ComplaintTicket, NotificationItem, UserRole } from '@/types';
 
@@ -41,7 +47,7 @@ export async function resolveViewer(session: {
 }): Promise<TicketViewer | null> {
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { email: true, appRole: true },
+    select: { name: true, email: true, appRole: true, userRole: { select: { name: true } } },
   });
   if (!user || !isAppRole(user.appRole)) return null;
   const row = await prisma.roleAccessConfig.findFirst({
@@ -51,6 +57,8 @@ export async function resolveViewer(session: {
   return {
     userId: session.user.id,
     email: user.email,
+    name: user.name,
+    rbacRoleName: user.userRole?.name ?? null,
     role: user.appRole,
     config,
     gatekeeperCategories: gatekeeperDepartments(config),
@@ -69,6 +77,8 @@ export async function requireTicketViewer(): Promise<TicketViewer> {
   return viewer;
 }
 
+// Every ticket leaving the server is redacted for its viewer (redactTicketForViewer) — the RSC
+// payload / action result must not carry identities the UI would mask.
 // ponytail: loads every visible ticket with its relations — fine at this app's volume; add paging
 // (and a lighter list shape) once ticket counts reach the thousands.
 export async function listVisibleTickets(viewer: TicketViewer): Promise<ComplaintTicket[]> {
@@ -77,7 +87,7 @@ export async function listVisibleTickets(viewer: TicketViewer): Promise<Complain
     include: TICKET_INCLUDE,
     orderBy: { createdAt: 'desc' },
   });
-  return rows.map(mapTicket);
+  return rows.map((row) => redactTicketForViewer(viewer, mapTicket(row)));
 }
 
 /** One ticket the viewer may see, or null — never reveals that an out-of-scope ticket exists. */
@@ -93,7 +103,7 @@ export async function findVisibleTicketWithRelations(
     where: { AND: [ticketScopeWhere(viewer), where] },
     include: TICKET_INCLUDE,
   });
-  return row ? mapTicket(row) : null;
+  return row ? redactTicketForViewer(viewer, mapTicket(row)) : null;
 }
 
 /**
@@ -104,11 +114,14 @@ export async function findVisibleTicketWithRelations(
  * filter if the table grows large.
  */
 export async function listVisibleNotifications(
+  viewer: TicketViewer,
   visibleTicketIds: readonly string[]
 ): Promise<NotificationItem[]> {
   const visible = new Set(visibleTicketIds);
   const rows = await prisma.notification.findMany({ orderBy: { createdAt: 'desc' } });
-  return rows.filter((n) => n.ticketId && visible.has(n.ticketId)).map(mapNotification);
+  return rows
+    .filter((n) => n.ticketId && visible.has(n.ticketId))
+    .map((n) => redactNotificationForViewer(viewer, mapNotification(n)));
 }
 
 export async function visibleTicketIds(viewer: TicketViewer): Promise<string[]> {

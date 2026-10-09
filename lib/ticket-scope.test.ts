@@ -3,18 +3,25 @@ import {
   canSubmit,
   canTriage,
   gatekeeperDepartments,
+  isOwnTicket,
+  PROTECTED_ACTOR_NAME,
+  redactNotificationForViewer,
+  redactTicketForViewer,
   ticketScopeWhere,
   touchesTriageFields,
   type TicketViewer,
 } from './ticket-scope';
 import { INITIAL_ROLE_PERMISSIONS } from '@/services/api';
-import type { RolePermissionConfig, UserRole } from '@/types';
+import { INITIAL_COMPLAINTS } from '@/mockData';
+import type { ComplaintTicket, RolePermissionConfig, UserRole } from '@/types';
 
 const viewer = (role: UserRole, patch: Partial<RolePermissionConfig> = {}): TicketViewer => {
   const config = { ...INITIAL_ROLE_PERMISSIONS[role], ...patch };
   return {
     userId: 'u1',
     email: 'me@ube.co.th',
+    name: 'Me',
+    rbacRoleName: null,
     role,
     config,
     gatekeeperCategories: gatekeeperDepartments(config),
@@ -86,5 +93,110 @@ describe('action permissions', () => {
     expect(touchesTriageFields({ actorName: 'x', actionNote: 'note' })).toBe(false);
     expect(touchesTriageFields({ actionNote: 'note', status: 'resolved' })).toBe(true);
     expect(touchesTriageFields({ urgency: 'High' })).toBe(true);
+  });
+});
+
+describe('isOwnTicket', () => {
+  it('matches the login email, else the submitter email on legacy rows, case-insensitively', () => {
+    const me = { email: 'Me@UBE.co.th' };
+    expect(isOwnTicket(me, { loginEmail: 'me@ube.co.th' })).toBe(true);
+    expect(isOwnTicket(me, { loginEmail: null, submitterEmail: 'me@ube.co.th' })).toBe(true);
+    expect(isOwnTicket(me, { loginEmail: 'other@ube.co.th', submitterEmail: 'me@ube.co.th' })).toBe(
+      false
+    );
+    expect(isOwnTicket(me, {})).toBe(false);
+  });
+});
+
+describe('redactTicketForViewer (server twin of the UI masking)', () => {
+  const base: ComplaintTicket = {
+    ...INITIAL_COMPLAINTS[0],
+    submitterName: 'สมหญิง ใจดี',
+    submitterEmployeeId: 'EMP042',
+    submitterDepartment: 'Finance',
+    submitterEmail: 'somying@ube.co.th',
+    submitterPhone: '0812345678',
+    loginEmail: 'somying@ube.co.th',
+    timeline: [
+      {
+        id: 'l1',
+        timestamp: '2026-10-09T00:00:00Z',
+        actor: 'สมหญิง ใจดี',
+        actorRole: 'Employee',
+        action: 'ยื่นเรื่อง',
+        status: 'submitted',
+      },
+      {
+        id: 'l2',
+        timestamp: '2026-10-09T01:00:00Z',
+        actor: 'Gatekeeper Supervisor',
+        actorRole: 'Gatekeeper Lead',
+        action: 'triage',
+        status: 'gatekeeper_triaged',
+      },
+    ],
+  };
+  const anonymous = { ...base, confidentiality: 'anonymous' as const };
+  const confidential = { ...base, confidentiality: 'confidential_restricted' as const };
+
+  it('leaves the submitter their own ticket and everyone a named ticket', () => {
+    const owner = { ...viewer('employee'), email: 'somying@ube.co.th' };
+    expect(redactTicketForViewer(owner, confidential)).toBe(confidential);
+    expect(
+      redactTicketForViewer(viewer('gatekeeper'), { ...base, confidentiality: 'standard_named' })
+    ).toEqual({ ...base, confidentiality: 'standard_named' });
+  });
+
+  it('hides an anonymous submitter from a role without either permission', () => {
+    const out = redactTicketForViewer(viewer('gatekeeper'), anonymous);
+    expect(out).toMatchObject({ submitterName: 'ผู้ยื่นเรื่อง (ไม่ระบุตัวตน)' });
+    for (const field of [
+      'submitterEmployeeId',
+      'submitterDepartment',
+      'submitterPhone',
+      'submitterEmail',
+      'loginEmail',
+    ] as const) {
+      expect(out[field]).toBeUndefined();
+    }
+  });
+
+  it('shows only the login email of an anonymous submitter with canViewAnonymousSubmitterEmail', () => {
+    const out = redactTicketForViewer(viewer('executive'), anonymous);
+    expect(out.loginEmail).toBe('somying@ube.co.th');
+    expect(out.submitterEmployeeId).toBeUndefined();
+  });
+
+  it('shows everything to a role with both permissions (admin)', () => {
+    expect(redactTicketForViewer(viewer('admin'), anonymous)).toEqual(anonymous);
+    expect(redactTicketForViewer(viewer('admin'), confidential)).toBe(confidential);
+  });
+
+  it('blanks a confidential submitter and their timeline name without canViewConfidentialIdentities', () => {
+    const out = redactTicketForViewer(viewer('executive'), confidential);
+    expect(out.submitterName).toBeUndefined();
+    expect(out.loginEmail).toBeUndefined();
+    expect(out.timeline.map((l) => l.actor)).toEqual([
+      PROTECTED_ACTOR_NAME,
+      'Gatekeeper Supervisor',
+    ]);
+  });
+});
+
+describe('redactNotificationForViewer', () => {
+  it('keeps the recipient email only for its recipient', () => {
+    const n = {
+      id: 'n1',
+      ticketId: 't1',
+      trackingCode: 'TK-1',
+      title: 't',
+      message: 'm',
+      timestamp: '2026-10-09T00:00:00Z',
+      read: false,
+      type: 'status_update' as const,
+      recipientEmail: 'Me@ube.co.th',
+    };
+    expect(redactNotificationForViewer({ email: 'me@ube.co.th' }, n)).toBe(n);
+    expect(redactNotificationForViewer({ email: 'x@ube.co.th' }, n).recipientEmail).toBeUndefined();
   });
 });

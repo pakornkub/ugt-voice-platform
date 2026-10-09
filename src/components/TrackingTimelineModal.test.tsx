@@ -57,8 +57,8 @@ describe('TrackingTimelineModal', () => {
         {
           id: 'tl-note',
           timestamp: '2026-10-09T00:00:00.000Z',
-          actor: updates.actorName,
-          actorRole: updates.actorRole,
+          actor: updates.actorName ?? '',
+          actorRole: updates.actorRole ?? 'Employee',
           action: 'note',
           status: directCeoTicket.status,
           notes: updates.actionNote,

@@ -84,6 +84,20 @@ describe('Shell (server data + Server Actions)', () => {
     expect(await screen.findByText(/ไม่พบรหัสติดตาม "TK-0000-0000"/)).toBeInTheDocument();
   });
 
+  it('tells the user when marking notifications read fails', async () => {
+    const user = userEvent.setup();
+    vi.mocked(markAllNotificationsAsRead).mockRejectedValueOnce(new Error('UNAUTHORIZED'));
+    renderShell();
+
+    await user.click(document.getElementById('btn-notifications-open')!);
+    await user.click(screen.getByRole('button', { name: 'อ่านทั้งหมด' }));
+
+    expect(
+      await screen.findByText('ไม่สามารถอัปเดตสถานะการแจ้งเตือนได้ กรุณาลองใหม่อีกครั้ง')
+    ).toBeInTheDocument();
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
   it('marks notifications read through the Server Actions and refreshes the server data', async () => {
     const user = userEvent.setup();
     vi.mocked(getTicketByTrackingCode).mockResolvedValue(ticket);

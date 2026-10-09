@@ -35,7 +35,17 @@ role + หมวดของ gatekeeper มาจาก `resolveViewer()` (`lib/
 - **notification**: เห็นเมื่อเห็นคำร้องของมัน (`TicketId`) + ฝั่ง client ยังซ่อน CEO alert จาก role ที่
   ไม่มี `canViewDirectCeoTickets`; `IsRead` เป็น flag เดียวต่อแถว (คนที่เห็นคำร้องเดียวกันใช้ร่วมกัน)
 - **ยื่นเรื่อง**: role ที่มีแท็บ `submit` · **triage** (status/ผู้รับผิดชอบ/urgency/risk/CAPA): role ที่มี
-  แท็บ `gatekeeper` · **โน้ต / แชทนิรนาม / CSAT**: ใครก็ได้ที่เห็นคำร้อง (แชทส่งในนาม role ตัวเองเท่านั้น)
+  แท็บ `gatekeeper` · **โน้ต / แชทนิรนาม**: ใครก็ได้ที่เห็นคำร้อง (แชทส่งในนาม role ตัวเองเท่านั้น) ·
+  **CSAT**: เฉพาะผู้ยื่นเอง และคำร้องต้อง `resolved`
+- **ผู้ทำรายการใน timeline/แชท server เป็นคนกำหนด** ไม่เชื่อค่าจาก client: triage = "Gatekeeper
+  Supervisor / Gatekeeper Lead" (ป้ายเดิม upstream), โน้ตของผู้ยื่น = ป้าย upstream (ชื่อผู้ยื่น หรือ
+  "พนักงาน (ไม่เปิดเผยตัวตน)" ฯลฯ — ภาษาตาม client ได้ถ้าเป็นหนึ่งในป้ายนั้น), โน้ตของคนอื่น = ชื่อ
+  session + role; ชื่อผู้ส่งแชทมาจาก role (`defaultChatSenderName`) เท่านั้น
+- **ปกปิดตัวตนที่ server** (`redactTicketForViewer`, `lib/ticket-scope.ts`) ก่อนข้อมูลออกจาก server
+  ทุกทาง (หน้า, ค้นรหัส, ผลของ action): ผู้ยื่นเห็นครบ; คนอื่น — anonymous: ชื่อ/รหัส/ฝ่าย/โทร ต้องมี
+  `canViewConfidentialIdentities`, อีเมลล็อกอิน/อีเมลผู้ยื่นต้องมี `canViewAnonymousSubmitterEmail`;
+  confidential_restricted: ทุกช่อง + ชื่อผู้ยื่นใน timeline ต้องมี `canViewConfidentialIdentities`;
+  standard_named ไม่ปิด · `recipientEmail` ของ notification ส่งให้เฉพาะผู้รับ
 - คำร้องนอก scope ตอบเหมือน "ไม่พบ" (`null`) ไม่บอกว่ามีอยู่; ทุก mutation เขียน `ActivityLogs`
   (`tickets.submit|update|evaluate|chat-send`, ไม่เก็บข้อความแชท)
 
