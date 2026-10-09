@@ -54,6 +54,7 @@ import { searchHrEmployees } from '@/lib/actions/directory';
 import { useShell } from '../app/shell-context';
 import { gatekeeperDepartments } from '@/lib/ticket-scope';
 import HrNameField from './HrNameField';
+import { normalizeEmail } from '@/lib/email-identity';
 import { AdminEmailNotificationSettings } from './AdminEmailNotificationSettings';
 import { ExecStatusSelect, ExecutiveStatus } from './executiveShared';
 import { useTr } from '../context/useTr';
@@ -104,7 +105,7 @@ const ERROR_TOASTS: ReadonlyArray<readonly [string, (tr: Tr) => string]> = [
   ['LAST_ADMIN', lastAdminToast],
 ];
 
-const normEmail = (email: string) => email.trim().toLowerCase();
+const normEmail = (email: string) => normalizeEmail(email);
 
 /**
  * Client-side mirror of the server's guards (production Next.js masks Server Action error
@@ -160,7 +161,7 @@ const HrStatusPill: React.FC<{ readonly email: string; readonly hrStatus: HrStat
 }) => {
   const { tr } = useTr();
   if (!hrStatus) return null;
-  const state = hrStatus[email.trim().toLowerCase()];
+  const state = hrStatus[normalizeEmail(email)];
   if (state === 'active') return null;
   const pill = hrPills(tr)[state === 'inactive' ? 'inactive' : 'missing'];
   return (
@@ -345,7 +346,7 @@ function useGatekeeperPanel(
       name: newOfficerName.trim(),
       email: newOfficerEmail.trim(),
       roleTitle: newOfficerRole.trim() || 'Gatekeeper Specialist',
-      phone: newOfficerPhone.trim() || '02-555-0000',
+      phone: newOfficerPhone.trim() || undefined, // typed by hand — the HR view has no phone
       isLead: false,
     };
 
@@ -465,7 +466,7 @@ function useExecutivePanel(
       position: execPosition.trim(),
       department: execDepartment.trim() || 'Executive Committee',
       email: execEmail.trim(),
-      phone: execPhone.trim() || '02-998-1000',
+      phone: execPhone.trim() || undefined,
       roleType: execRoleType,
       isPrimaryWhistleblowerReceiver: execIsWhistleblower,
       canViewConfidentialIdentities: execCanViewConfidential,
@@ -680,7 +681,7 @@ function useHrAdminPanel(
     position: adminPosition.trim(),
     department: adminDepartment.trim() || 'People & Culture Group',
     email: adminEmail.trim(),
-    phone: adminPhone.trim() || '02-998-2000',
+    phone: adminPhone.trim() || undefined,
     roleLevel: adminRoleLevel,
     canManageRbac: adminCanManageRbac,
     canManageGatekeepers: adminCanManageGatekeepers,

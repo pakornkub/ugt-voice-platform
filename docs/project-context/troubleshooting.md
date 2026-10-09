@@ -99,3 +99,8 @@ sqlserver`** → `migration_lock.toml` was hand-written during the offline migra
   `next build`, so the file does not exist there → commit `src/static-images.d.ts` with
   `/// <reference types="next/image-types/global" />`; reproduce locally by moving `next-env.d.ts`
   aside and running `tsc` (2026-10-09). Stack-wide — candidate for `/ugt-contribute`.
+- **`UnrecognizedActionError: Server Action "…" was not found on the server` (POST → 409) right after
+  a deploy** → the page was loaded from the previous build; Server Action ids change every build →
+  refresh fixes it; permanent fix = `deploymentId` in `next.config.ts` (Jenkins `BUILD_NUMBER` via
+  `--build-arg NEXT_DEPLOYMENT_ID`) + catch `unstable_isUnrecognizedActionError` where a lost form
+  would hurt (submit form keeps a draft) (2026-10-09). Stack-wide — candidate for `/ugt-contribute`.

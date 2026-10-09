@@ -208,6 +208,7 @@ pipeline {
                             --build-arg NEXT_PUBLIC_BASE_PATH=${basePath} \\
                             --build-arg NEXT_PUBLIC_APP_URL=${appUrl} \\
                             --build-arg NEXT_PUBLIC_APP_NAME="${env.NEXT_PUBLIC_APP_NAME}" \\
+                            --build-arg NEXT_DEPLOYMENT_ID=${buildNum} \\
                             -t ${imageName}:${buildNum}-builder \\
                             .
                         docker build \\
@@ -215,6 +216,7 @@ pipeline {
                             --build-arg NEXT_PUBLIC_BASE_PATH=${basePath} \\
                             --build-arg NEXT_PUBLIC_APP_URL=${appUrl} \\
                             --build-arg NEXT_PUBLIC_APP_NAME="${env.NEXT_PUBLIC_APP_NAME}" \\
+                            --build-arg NEXT_DEPLOYMENT_ID=${buildNum} \\
                             -t ${imageName}:latest \\
                             -t ${imageName}:${buildNum} \\
                             .

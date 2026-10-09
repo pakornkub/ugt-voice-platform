@@ -1,10 +1,13 @@
 // lib/directory.ts — read-only employee directory on the HR view (linked server thrygsd002).
 // Server-only: import from Server Actions / Server Components, never from a Client Component.
 // Matching rule (decisions.md 2026-10-09 "App role comes from the people rosters"):
-// session email → CurrentEmail, fallback ADLoginName (bare or DOMAIN\ prefixed).
+// session email → CurrentEmail, fallback ADLoginName (bare or DOMAIN\ prefixed). @ube.co.th and
+// @ube.com are the same mailbox: both spellings are matched, @ube.com is returned
+// (lib/email-identity.ts, owner 2026-10-09).
 import 'server-only';
 import { cache } from 'react';
 import { Prisma } from '@prisma/client';
+import { emailVariants, normalizeEmail } from '@/lib/email-identity';
 import { prisma } from '@/lib/prisma';
 import type { EmployeeRecord } from '@/types';
 
@@ -41,7 +44,7 @@ export function toEmployeeRecord(row: HrEmployeeRow): EmployeeRecord {
     employeeId: row.EmpCode.trim(),
     nameTh: row.FullNameThai?.trim() || nameEn,
     nameEn,
-    loginEmail: row.CurrentEmail?.trim().toLowerCase() ?? '',
+    loginEmail: normalizeEmail(row.CurrentEmail),
     department: row.OrgNameThai?.trim() ?? '',
     position: row.PostNameEng?.trim() ?? '',
     phone: '', // ponytail: the HR view has no phone column
@@ -57,16 +60,16 @@ export function escapeLike(input: string): string {
 /** Active employee whose CurrentEmail or AD login matches the session email, or null.
  * cache(): the layout and the role lookup ask for the same person in one request. */
 export const findEmployeeByLogin = cache(async (email: string): Promise<EmployeeRecord | null> => {
-  const login = email.trim().toLowerCase();
-  if (!login) return null;
-  const local = login.split('@')[0];
+  const variants = emailVariants(email);
+  if (variants.length === 0) return null;
+  const local = variants[0].split('@')[0];
   const rows = await prisma.$queryRaw<HrEmployeeRow[]>`
     SELECT TOP 1 ${COLUMNS} FROM ${HR_VIEW}
     WHERE workstatus = 'Active'
-      AND (LOWER(CurrentEmail) = ${login}
-        OR LOWER(ADLoginName) IN (${login}, ${local})
+      AND (LOWER(CurrentEmail) IN (${Prisma.join(variants)})
+        OR LOWER(ADLoginName) IN (${Prisma.join([...variants, local])})
         OR LOWER(RIGHT(ADLoginName, LEN(${local}) + 1)) = ${'\\' + local})
-    ORDER BY CASE WHEN LOWER(CurrentEmail) = ${login} THEN 0 ELSE 1 END`;
+    ORDER BY CASE WHEN LOWER(CurrentEmail) IN (${Prisma.join(variants)}) THEN 0 ELSE 1 END`;
   return rows[0] ? toEmployeeRecord(rows[0]) : null;
 });
 
@@ -99,13 +102,14 @@ export type HrStatus = 'active' | 'inactive';
 
 /** HR-view status per roster email (missing key = not in the HR view) — for the roster badges.
  * Same matching as findEmployeeByLogin: CurrentEmail, else the AD login (bare or DOMAIN\) equal to
- * the email or its local part — a roster email from SSO (e.g. @ube.com) still finds its HR row. */
+ * the email or its local part — keyed by the normalised (@ube.com) email. */
 export async function hrStatusByEmails(
   emails: readonly string[]
 ): Promise<Record<string, HrStatus>> {
-  const wanted = [...new Set(emails.map((e) => e.trim().toLowerCase()).filter(Boolean))];
+  const wanted = [...new Set(emails.map(normalizeEmail).filter(Boolean))];
   if (wanted.length === 0) return {};
-  const logins = [...new Set([...wanted, ...wanted.map((e) => e.split('@')[0])])];
+  const spellings = [...new Set(wanted.flatMap(emailVariants))];
+  const logins = [...new Set([...spellings, ...wanted.map((e) => e.split('@')[0])])];
   // ponytail: IN lists — rosters are tens of rows, far below SQL Server's 2100-parameter cap.
   const rows = await prisma.$queryRaw<
     { email: string | null; adLogin: string | null; workstatus: string | null }[]
@@ -113,13 +117,16 @@ export async function hrStatusByEmails(
     SELECT CAST(LOWER(CurrentEmail) AS NVARCHAR(200)) AS email,
       CAST(LOWER(SUBSTRING(ADLoginName, CHARINDEX('\\', ADLoginName) + 1, 200)) AS NVARCHAR(200)) AS adLogin,
       CAST(workstatus AS NVARCHAR(50)) AS workstatus FROM ${HR_VIEW}
-    WHERE LOWER(CurrentEmail) IN (${Prisma.join(wanted)})
+    WHERE LOWER(CurrentEmail) IN (${Prisma.join(spellings)})
       OR LOWER(SUBSTRING(ADLoginName, CHARINDEX('\\', ADLoginName) + 1, 200)) IN (${Prisma.join(logins)})`;
   const result: Record<string, HrStatus> = {};
   for (const email of wanted) {
     const local = email.split('@')[0];
     const matches = rows.filter(
-      (r) => r.email === email || r.adLogin === email || r.adLogin === local
+      (r) =>
+        normalizeEmail(r.email) === email ||
+        normalizeEmail(r.adLogin) === email ||
+        r.adLogin === local
     );
     if (matches.length === 0) continue;
     // An active row wins over an old inactive one for the same person.

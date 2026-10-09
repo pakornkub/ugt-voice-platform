@@ -7,6 +7,7 @@ import { headers } from 'next/headers';
 import type { Prisma } from '@prisma/client';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { normalizeEmail } from '@/lib/email-identity';
 import { gatekeeperScope, resolveRosterRole } from '@/lib/roster-role';
 import {
   gatekeeperDepartments,
@@ -43,12 +44,13 @@ export async function resolveViewer(session: {
     select: { name: true, email: true, userRole: { select: { name: true } } },
   });
   if (!user) return null;
-  const { role, officerCategories } = await resolveRosterRole(user.email);
+  const email = normalizeEmail(user.email);
+  const { role, officerCategories } = await resolveRosterRole(email);
   const row = await prisma.roleAccessConfig.findFirst({ where: { role, isDeleted: false } });
   const config = row ? mapRoleAccessConfig(row) : undefined;
   return {
     userId: session.user.id,
-    email: user.email,
+    email,
     name: user.name,
     rbacRoleName: user.userRole?.name ?? null,
     role,

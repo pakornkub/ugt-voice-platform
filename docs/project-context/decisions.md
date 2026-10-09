@@ -807,3 +807,28 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   bell, lists and an open chat update without a reload · rejected: SSE/WebSocket push (needs a
   long-lived connection through the reverse proxy and a pub/sub — not worth it at this volume;
   upgrade path noted in `shell.tsx`), email per chat message (owner asked for in-app only).
+- 2026-10-09 **`@ube.co.th` ≡ `@ube.com`; the app stores and shows `@ube.com`** (owner) — Keycloak/SSO
+  sends `@ube.com`, the HR view holds `@ube.co.th`; they are one mailbox. Every entry point
+  normalises (`lib/email-identity.ts`: SSO `mapProfileToUser`, HR-view records, roster forms, ticket
+  submit, mail delivery) and every comparison treats both spellings as the same person
+  (`sameEmail`, `emailVariants` for HR-view and legacy-row lookups); migration
+  `20261009190000_ube_email_domain_and_placeholder_phones` rewrote stored emails · rejected:
+  comparing case-by-case without a stored canonical form (every new query would need to remember
+  both spellings), storing `@ube.co.th` (owner: `@ube.com` is the primary address).
+- 2026-10-09 **No phone from the HR view; no fake phone defaults** (owner) — the HR view has no phone
+  column; roster forms used to save upstream placeholders (`02-555-0000`, `02-998-1000`,
+  `02-998-2000`) when left empty and the submit form prefilled from the HR record. Phones are typed
+  by hand; the migration above cleared exactly those placeholders.
+- 2026-10-09 **Tracking codes are a running number per year: `TK-YYYY-0001`, `0002`, …** (owner) —
+  upstream's random 4 digits read like a continuation of the test tickets. Counter row
+  `ticket.tracking-sequence.<year>` in `AppSettings`, bumped by `MERGE … WITH (HOLDLOCK)` inside the
+  submit transaction; codes already taken (old random ones, demo data) are skipped, so both DEV and
+  prod start at 0001 · rejected: `MAX(code)+1` (would continue from the highest old random code), a
+  new sequence table (AppSettings already has the audit columns and one row per year is enough).
+- 2026-10-09 **Version-skew handling: `deploymentId` = Jenkins build number + a kept submit draft**
+  (owner report: submit failed with "Server Action … was not found" on a page opened before a
+  redeploy) — `next.config.ts` `deploymentId` from build arg `NEXT_DEPLOYMENT_ID` (Dockerfile +
+  Jenkinsfile) so Next.js reloads a stale page on its next navigation/refresh; the 30 s refresh is
+  skipped on `/submit`; a submit that still hits the old build saves the typed draft to
+  sessionStorage (`src/components/submit-form/draft.ts`) and offers a reload that restores it ·
+  rejected: plain "please refresh" text (loses a long complaint), auto-reload without asking.

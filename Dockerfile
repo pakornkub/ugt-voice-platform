@@ -31,10 +31,13 @@ COPY . .
 ARG NEXT_PUBLIC_BASE_PATH=/ugt-voice-platform
 ARG NEXT_PUBLIC_APP_URL
 ARG NEXT_PUBLIC_APP_NAME="UGT VoicePlatform"
+# Jenkins BUILD_NUMBER → next.config deploymentId (version-skew protection)
+ARG NEXT_DEPLOYMENT_ID
 
 ENV NEXT_PUBLIC_BASE_PATH=$NEXT_PUBLIC_BASE_PATH \
     NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL \
     NEXT_PUBLIC_APP_NAME=$NEXT_PUBLIC_APP_NAME \
+    NEXT_DEPLOYMENT_ID=$NEXT_DEPLOYMENT_ID \
     NEXT_TELEMETRY_DISABLED=1 \
     # CI=true: activates standalone output when next.config gates it on CI
     CI=true \

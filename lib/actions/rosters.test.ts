@@ -57,7 +57,7 @@ const roleAccess = await import('./role-access');
 
 const viewer = (role: UserRole, tabs: AppTabId[]): TicketViewer => ({
   userId: 'me-id',
-  email: 'me@ube.co.th',
+  email: 'me@ube.com',
   name: 'Me',
   rbacRoleName: null,
   role,
@@ -85,7 +85,7 @@ const newAdmin = {
   name: 'New',
   position: 'P',
   department: 'D',
-  email: ' New@UBE.co.th ',
+  email: ' New@UBE.com ',
   roleLevel: 'hr_manager' as const,
   canManageRbac: false,
   canManageGatekeepers: false,
@@ -98,7 +98,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   access.requireTicketViewer.mockResolvedValue(admin);
   // session email + the HR-view CurrentEmail alias
-  roster.candidateEmails.mockResolvedValue(['me@ube.co.th', 'me.alias@ube.co.th']);
+  roster.candidateEmails.mockResolvedValue(['me@ube.com', 'me.alias@ube.com']);
   db.tx.hrAdminMember.count.mockResolvedValue(1);
   db.prisma.activityLog.create.mockResolvedValue({});
   db.prisma.hrAdminMember.findMany.mockResolvedValue([]);
@@ -131,9 +131,15 @@ describe('HR-admin roster', () => {
     db.prisma.hrAdminMember.create.mockResolvedValue({ id: 'n1' });
     await hrAdmins.addHrAdminMember({ ...newAdmin, isDeleted: true } as never);
     const data = db.prisma.hrAdminMember.create.mock.calls[0][0].data;
-    expect(data.email).toBe('new@ube.co.th');
+    expect(data.email).toBe('new@ube.com');
     expect(data).not.toHaveProperty('isDeleted');
     expect(db.prisma.activityLog.create).toHaveBeenCalled();
+  });
+
+  it('stores an HR-view @ube.co.th address as @ube.com (one mailbox, one spelling)', async () => {
+    db.prisma.hrAdminMember.create.mockResolvedValue({ id: 'n1' });
+    await hrAdmins.addHrAdminMember({ ...newAdmin, email: 'New.Admin@UBE.co.th' });
+    expect(db.prisma.hrAdminMember.create.mock.calls[0][0].data.email).toBe('new.admin@ube.com');
   });
 
   it('rejects an invalid email', async () => {
@@ -141,13 +147,13 @@ describe('HR-admin roster', () => {
   });
 
   it('cannot remove yourself', async () => {
-    db.prisma.hrAdminMember.findFirst.mockResolvedValue(adminRow('a1', 'ME@ube.co.th'));
+    db.prisma.hrAdminMember.findFirst.mockResolvedValue(adminRow('a1', 'ME@ube.com'));
     await expect(hrAdmins.deleteHrAdminMember('a1')).rejects.toThrow('CANNOT_REMOVE_SELF');
     expect(db.prisma.hrAdminMember.update).not.toHaveBeenCalled();
   });
 
   it('cannot remove or deactivate the last active admin', async () => {
-    db.prisma.hrAdminMember.findFirst.mockResolvedValue(adminRow('a2', 'other@ube.co.th'));
+    db.prisma.hrAdminMember.findFirst.mockResolvedValue(adminRow('a2', 'other@ube.com'));
     db.prisma.hrAdminMember.count.mockResolvedValue(0);
     await expect(hrAdmins.deleteHrAdminMember('a2')).rejects.toThrow('LAST_ADMIN');
     await expect(hrAdmins.updateHrAdminMember('a2', { status: 'inactive' })).rejects.toThrow(
@@ -156,7 +162,7 @@ describe('HR-admin roster', () => {
   });
 
   it('removes another admin when someone else stays active', async () => {
-    db.prisma.hrAdminMember.findFirst.mockResolvedValue(adminRow('a2', 'other@ube.co.th'));
+    db.prisma.hrAdminMember.findFirst.mockResolvedValue(adminRow('a2', 'other@ube.com'));
     db.prisma.hrAdminMember.count.mockResolvedValue(1);
     await hrAdmins.deleteHrAdminMember('a2');
     expect(db.prisma.hrAdminMember.update.mock.calls[0][0].data).toMatchObject({
@@ -165,7 +171,7 @@ describe('HR-admin roster', () => {
   });
 
   it('a plain field edit skips the lock-out checks; unknown id is NOT_FOUND', async () => {
-    db.prisma.hrAdminMember.findFirst.mockResolvedValueOnce(adminRow('a1', 'me@ube.co.th'));
+    db.prisma.hrAdminMember.findFirst.mockResolvedValueOnce(adminRow('a1', 'me@ube.com'));
     await hrAdmins.updateHrAdminMember('a1', { position: 'Lead' });
     expect(db.prisma.hrAdminMember.count).not.toHaveBeenCalled();
     db.prisma.hrAdminMember.findFirst.mockResolvedValueOnce(null);
@@ -173,21 +179,21 @@ describe('HR-admin roster', () => {
   });
 
   it('treats the HR-view alias as yourself', async () => {
-    db.prisma.hrAdminMember.findFirst.mockResolvedValue(adminRow('a1', 'Me.Alias@ube.co.th'));
+    db.prisma.hrAdminMember.findFirst.mockResolvedValue(adminRow('a1', 'Me.Alias@ube.com'));
     await expect(hrAdmins.deleteHrAdminMember('a1')).rejects.toThrow('CANNOT_REMOVE_SELF');
   });
 
   it('reset rolls back when the caller would not stay an active HR admin', async () => {
-    db.tx.hrAdminMember.findMany.mockResolvedValue([{ id: 'real', email: 'boss@ube.co.th' }]);
+    db.tx.hrAdminMember.findMany.mockResolvedValue([{ id: 'real', email: 'boss@ube.com' }]);
     db.tx.hrAdminMember.count.mockResolvedValue(0);
     await expect(hrAdmins.resetHrAdminsToDefault()).rejects.toThrow('LAST_ADMIN');
   });
 
   it('reset keeps the caller in the roster', async () => {
     db.tx.hrAdminMember.findMany.mockResolvedValue([
-      { id: 'mine', email: 'Me@ube.co.th' },
-      { id: 'alias', email: 'me.alias@ube.co.th' },
-      { id: 'other', email: 'x@ube.co.th' },
+      { id: 'mine', email: 'Me@ube.com' },
+      { id: 'alias', email: 'me.alias@ube.com' },
+      { id: 'other', email: 'x@ube.com' },
     ]);
     await hrAdmins.resetHrAdminsToDefault();
     expect(db.tx.hrAdminMember.updateMany.mock.calls[0][0].where).toEqual({
@@ -204,7 +210,7 @@ describe('executive roster', () => {
       name: 'CEO',
       position: 'CEO',
       department: 'Office',
-      email: 'ceo@ube.co.th',
+      email: 'ceo@ube.com',
       roleType: 'CEO',
       isPrimaryWhistleblowerReceiver: true,
       canViewConfidentialIdentities: true,
@@ -236,7 +242,7 @@ describe('gatekeeper officers', () => {
     const officer = (id: string, isLead: boolean) => ({
       id,
       name: id,
-      email: `${id}@ube.co.th`,
+      email: `${id}@ube.com`,
       roleTitle: 'GK',
       isLead,
     });

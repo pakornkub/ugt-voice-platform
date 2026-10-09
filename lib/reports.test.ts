@@ -14,7 +14,7 @@ vi.mock('@/lib/prisma', () => db);
 
 const { canRunReports, runPresetReport } = await import('./reports');
 
-const viewer = (role: UserRole, email = 'hr@ube.co.th'): TicketViewer => ({
+const viewer = (role: UserRole, email = 'hr@ube.com'): TicketViewer => ({
   userId: `user-${role}`,
   email,
   name: role,
@@ -44,7 +44,7 @@ describe('canRunReports', () => {
 });
 
 describe('scope', () => {
-  const gatekeeper = viewer('gatekeeper', 'gk@ube.co.th');
+  const gatekeeper = viewer('gatekeeper', 'gk@ube.com');
 
   it.each(['category_pareto', 'root_cause_breakdown'] as const)(
     '%s groups only the tickets the viewer may see',

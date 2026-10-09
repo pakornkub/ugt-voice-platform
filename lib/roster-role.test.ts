@@ -29,19 +29,21 @@ describe('roster role', () => {
 
   it('matches the session email and the HR-view email, deduplicating officer categories', async () => {
     const { resolveRosterRole } = await import('./roster-role');
-    findEmployeeByLogin.mockResolvedValue({ loginEmail: 'p.w@ube.co.th' });
+    findEmployeeByLogin.mockResolvedValue({ loginEmail: 'p.w@ube.com' });
     db.gatekeeperOfficer.findMany.mockResolvedValue([
       { category: 'HR' },
       { category: 'HR' },
       { category: 'Quality' },
     ]);
-    await expect(resolveRosterRole(' PakornWo@ube.co.th ')).resolves.toEqual({
+    await expect(resolveRosterRole(' PakornWo@ube.com ')).resolves.toEqual({
       role: 'gatekeeper',
       officerCategories: ['HR', 'Quality'],
     });
     const where = db.gatekeeperOfficer.findMany.mock.calls[0][0].where;
     expect(where).toEqual({
-      email: { in: ['pakornwo@ube.co.th', 'p.w@ube.co.th'] },
+      email: {
+        in: ['pakornwo@ube.com', 'pakornwo@ube.co.th', 'p.w@ube.com', 'p.w@ube.co.th'],
+      },
       isActive: true,
       isDeleted: false,
     });
@@ -52,7 +54,7 @@ describe('roster role', () => {
     const { resolveRosterRole } = await import('./roster-role');
     findEmployeeByLogin.mockRejectedValue(new Error('linked server down'));
     db.hrAdminMember.findFirst.mockResolvedValue({ id: 'a' });
-    await expect(resolveRosterRole('x@ube.co.th')).resolves.toMatchObject({ role: 'admin' });
+    await expect(resolveRosterRole('x@ube.com')).resolves.toMatchObject({ role: 'admin' });
     vi.clearAllMocks();
     await expect(resolveRosterRole('  ')).resolves.toEqual({
       role: 'employee',

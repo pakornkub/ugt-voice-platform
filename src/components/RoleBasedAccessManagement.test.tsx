@@ -400,7 +400,7 @@ describe('RoleBasedAccessManagement', () => {
 
     it('flags executives missing from or no longer active in the HR view', () => {
       // exec-1 is active, exec-2 (mixed-case e-mail) is inactive, exec-3 is not in the view.
-      renderPage({ hrStatus: { 'one@ube.co.th': 'active', 'two@ube.co.th': 'inactive' } });
+      renderPage({ hrStatus: { 'one@ube.com': 'active', 'two@ube.com': 'inactive' } });
 
       expect(screen.getAllByText('ไม่อยู่ใน HR')).toHaveLength(1);
       expect(screen.getAllByText('พ้นสภาพใน HR')).toHaveLength(1);
@@ -535,7 +535,7 @@ describe('RoleBasedAccessManagement', () => {
         makeExecutive({ id: 'exec-9', name: 'Mr. New', email: 'new@ube.co.th' }),
       ]);
       vi.mocked(deleteExecutiveMember).mockResolvedValue(englishExecutives.slice(1));
-      renderEnglish({ hrStatus: { 'one@ube.co.th': 'active', 'two@ube.co.th': 'inactive' } });
+      renderEnglish({ hrStatus: { 'one@ube.com': 'active', 'two@ube.com': 'inactive' } });
 
       expect(screen.getByText('Not in HR')).toBeInTheDocument();
       expect(screen.getByText('Inactive in HR')).toHaveAttribute(

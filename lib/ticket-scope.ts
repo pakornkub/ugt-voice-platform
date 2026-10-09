@@ -11,6 +11,7 @@
 //   - executive / admin: every department, direct-to-CEO only with canViewDirectCeoTickets.
 // A role without a RoleAccessConfigs row sees only its own tickets (deny by default).
 import type { Prisma } from '@prisma/client';
+import { emailVariants, sameEmail } from '@/lib/email-identity';
 import type {
   ComplaintTicket,
   GrievanceCategory,
@@ -35,7 +36,10 @@ export interface TicketViewer {
 
 export function ownTicketsWhere(email: string): Prisma.ticketWhereInput {
   return {
-    OR: [{ loginEmail: email }, { loginEmail: null, submitterEmail: email }],
+    OR: [
+      { loginEmail: { in: emailVariants(email) } },
+      { loginEmail: null, submitterEmail: { in: emailVariants(email) } },
+    ],
   };
 }
 
@@ -93,9 +97,7 @@ export function isOwnTicket(
   viewer: Pick<TicketViewer, 'email'>,
   ticket: { loginEmail?: string | null; submitterEmail?: string | null }
 ): boolean {
-  const me = viewer.email.toLowerCase();
-  const owner = ticket.loginEmail || ticket.submitterEmail;
-  return !!owner && owner.toLowerCase() === me;
+  return sameEmail(ticket.loginEmail || ticket.submitterEmail, viewer.email);
 }
 
 export const ANONYMOUS_SUBMITTER_NAME = 'ผู้ยื่นเรื่อง (ไม่ระบุตัวตน)';
@@ -161,7 +163,7 @@ export function isNotificationForViewer(
 ): boolean {
   if (notification.type !== 'chat_message') return true;
   if (notification.recipientRole === 'employee') {
-    return notification.recipientEmail?.toLowerCase() === viewer.email.toLowerCase();
+    return sameEmail(notification.recipientEmail, viewer.email);
   }
   return viewer.role !== 'employee';
 }
@@ -171,6 +173,6 @@ export function redactNotificationForViewer(
   viewer: Pick<TicketViewer, 'email'>,
   notification: NotificationItem
 ): NotificationItem {
-  const mine = notification.recipientEmail?.toLowerCase() === viewer.email.toLowerCase();
+  const mine = sameEmail(notification.recipientEmail, viewer.email);
   return mine ? notification : { ...notification, recipientEmail: undefined };
 }

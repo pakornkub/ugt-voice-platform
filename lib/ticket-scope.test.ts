@@ -20,7 +20,7 @@ const viewer = (role: UserRole, patch: Partial<RolePermissionConfig> = {}): Tick
   const config = { ...INITIAL_ROLE_PERMISSIONS[role], ...patch };
   return {
     userId: 'u1',
-    email: 'me@ube.co.th',
+    email: 'me@ube.com',
     name: 'Me',
     rbacRoleName: null,
     role,
@@ -30,7 +30,11 @@ const viewer = (role: UserRole, patch: Partial<RolePermissionConfig> = {}): Tick
 };
 
 const OWN = {
-  OR: [{ loginEmail: 'me@ube.co.th' }, { loginEmail: null, submitterEmail: 'me@ube.co.th' }],
+  // Both spellings of the org mailbox (lib/email-identity.ts).
+  OR: [
+    { loginEmail: { in: ['me@ube.com', 'me@ube.co.th'] } },
+    { loginEmail: null, submitterEmail: { in: ['me@ube.com', 'me@ube.co.th'] } },
+  ],
 };
 
 describe('ticketScopeWhere', () => {
@@ -99,10 +103,11 @@ describe('action permissions', () => {
 
 describe('isOwnTicket', () => {
   it('matches the login email, else the submitter email on legacy rows, case-insensitively', () => {
-    const me = { email: 'Me@UBE.co.th' };
-    expect(isOwnTicket(me, { loginEmail: 'me@ube.co.th' })).toBe(true);
-    expect(isOwnTicket(me, { loginEmail: null, submitterEmail: 'me@ube.co.th' })).toBe(true);
-    expect(isOwnTicket(me, { loginEmail: 'other@ube.co.th', submitterEmail: 'me@ube.co.th' })).toBe(
+    const me = { email: 'Me@UBE.com' };
+    expect(isOwnTicket(me, { loginEmail: 'me@ube.com' })).toBe(true);
+    expect(isOwnTicket(me, { loginEmail: 'ME@ube.co.th' })).toBe(true); // same mailbox, HR spelling
+    expect(isOwnTicket(me, { loginEmail: null, submitterEmail: 'me@ube.com' })).toBe(true);
+    expect(isOwnTicket(me, { loginEmail: 'other@ube.com', submitterEmail: 'me@ube.com' })).toBe(
       false
     );
     expect(isOwnTicket(me, {})).toBe(false);
@@ -115,9 +120,9 @@ describe('redactTicketForViewer (server twin of the UI masking)', () => {
     submitterName: 'สมหญิง ใจดี',
     submitterEmployeeId: 'EMP042',
     submitterDepartment: 'Finance',
-    submitterEmail: 'somying@ube.co.th',
+    submitterEmail: 'somying@ube.com',
     submitterPhone: '0812345678',
-    loginEmail: 'somying@ube.co.th',
+    loginEmail: 'somying@ube.com',
     timeline: [
       {
         id: 'l1',
@@ -141,7 +146,7 @@ describe('redactTicketForViewer (server twin of the UI masking)', () => {
   const confidential = { ...base, confidentiality: 'confidential_restricted' as const };
 
   it('leaves the submitter their own ticket and everyone a named ticket', () => {
-    const owner = { ...viewer('employee'), email: 'somying@ube.co.th' };
+    const owner = { ...viewer('employee'), email: 'somying@ube.com' };
     expect(redactTicketForViewer(owner, confidential)).toBe(confidential);
     expect(
       redactTicketForViewer(viewer('gatekeeper'), { ...base, confidentiality: 'standard_named' })
@@ -164,7 +169,7 @@ describe('redactTicketForViewer (server twin of the UI masking)', () => {
 
   it('shows only the login email of an anonymous submitter with canViewAnonymousSubmitterEmail', () => {
     const out = redactTicketForViewer(viewer('executive'), anonymous);
-    expect(out.loginEmail).toBe('somying@ube.co.th');
+    expect(out.loginEmail).toBe('somying@ube.com');
     expect(out.submitterEmployeeId).toBeUndefined();
   });
 
@@ -195,20 +200,20 @@ describe('redactNotificationForViewer', () => {
       timestamp: '2026-10-09T00:00:00Z',
       read: false,
       type: 'status_update' as const,
-      recipientEmail: 'Me@ube.co.th',
+      recipientEmail: 'Me@ube.com',
     };
-    expect(redactNotificationForViewer({ email: 'me@ube.co.th' }, n)).toBe(n);
-    expect(redactNotificationForViewer({ email: 'x@ube.co.th' }, n).recipientEmail).toBeUndefined();
+    expect(redactNotificationForViewer({ email: 'me@ube.com' }, n)).toBe(n);
+    expect(redactNotificationForViewer({ email: 'x@ube.com' }, n).recipientEmail).toBeUndefined();
   });
 });
 
 describe('isNotificationForViewer', () => {
-  const employee = { email: 'Somchai@ube.co.th', role: 'employee' as const };
-  const gatekeeper = { email: 'gk@ube.co.th', role: 'gatekeeper' as const };
+  const employee = { email: 'Somchai@ube.com', role: 'employee' as const };
+  const gatekeeper = { email: 'gk@ube.com', role: 'gatekeeper' as const };
   const toSubmitter = {
     type: 'chat_message' as const,
     recipientRole: 'employee' as const,
-    recipientEmail: 'somchai@ube.co.th',
+    recipientEmail: 'somchai@ube.com',
   };
   const toStaff = { type: 'chat_message' as const, recipientRole: 'gatekeeper' as const };
 

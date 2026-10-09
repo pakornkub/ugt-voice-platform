@@ -1,4 +1,5 @@
-import { useState, type SubmitEvent } from 'react';
+import { useEffect, useState, type SubmitEvent } from 'react';
+import { unstable_isUnrecognizedActionError } from 'next/navigation';
 import type {
   ComplaintTicket,
   EmployeeRecord,
@@ -20,6 +21,7 @@ import {
 } from './constants';
 import { buildSubmitPayload, getSubmitValidationError, type SubmitFormValues } from './formValues';
 import { useTr } from './useTr';
+import { saveDraft, takeDraft, type SubmitDraft } from './draft';
 
 const AI_EMPTY_NOTICE: Bilingual = {
   en: 'Please enter a Subject/Title or Details first so AI can analyze the content.',
@@ -32,6 +34,12 @@ const AI_FALLBACK_NOTICE: Bilingual = {
 const SUBMIT_FAILED_ALERT: Bilingual = {
   en: 'Could not submit your ticket. Please try again.',
   th: 'ไม่สามารถบันทึกคำร้องได้ กรุณาลองใหม่อีกครั้ง',
+};
+
+// The page was loaded before the app was redeployed, so its Server Action ids no longer exist.
+const NEW_VERSION_CONFIRM: Bilingual = {
+  en: 'The system was just updated to a new version. What you typed has been kept — press OK to reload the page, then press Submit again (attachments must be chosen again).',
+  th: 'ระบบเพิ่งอัปเดตเป็นเวอร์ชันใหม่ ข้อมูลที่กรอกไว้ถูกเก็บไว้แล้ว — กด OK เพื่อโหลดหน้าใหม่ แล้วกดส่งอีกครั้ง (ไฟล์แนบต้องเลือกใหม่)',
 };
 
 const AI_APPLIED_FLASH_MS = 4500;
@@ -100,7 +108,7 @@ function useSubmitter(currentEmployee: EmployeeRecord) {
     employeeId: currentEmployee.employeeId,
     department: currentEmployee.department,
     email: currentEmployee.loginEmail,
-    phone: currentEmployee.phone,
+    phone: '', // typed by the submitter — never prefilled from the HR record (owner 2026-10-09)
   });
 
   const setDetail = (field: SubmitterField, value: string) =>
@@ -113,7 +121,7 @@ function useSubmitter(currentEmployee: EmployeeRecord) {
       employeeId: emp.employeeId,
       department: emp.department,
       email: emp.loginEmail,
-      phone: emp.phone || prev.phone,
+      phone: prev.phone,
     }));
   };
 
@@ -233,6 +241,11 @@ function useSubmitFlow({ values, pendingFiles, onTicketCreated }: SubmitFlowOpti
       })
       .catch((error) => {
         console.error('submitTicket failed', error);
+        if (unstable_isUnrecognizedActionError(error)) {
+          saveDraft(values);
+          if (globalThis.confirm(NEW_VERSION_CONFIRM[lang])) globalThis.location.reload();
+          return;
+        }
         alert(SUBMIT_FAILED_ALERT[lang]);
       })
       .finally(() => setIsSubmitting(false));
@@ -300,6 +313,26 @@ export function useSubmitForm(
     anonymousName: ANONYMOUS_SUBMITTER_LABEL,
   };
   const flow = useSubmitFlow({ values, pendingFiles: attachments.pendingFiles, onTicketCreated });
+
+  const restoreDraft = (draft: SubmitDraft) => {
+    classification.setSubmissionType(draft.submissionType);
+    classification.setCategory(draft.category);
+    classification.chooseUrgency(draft.urgency);
+    content.setTitle(draft.title);
+    content.setDescription(draft.description);
+    content.setLocationOrUnit(draft.locationOrUnit);
+    content.setIsDirectToExecutive(draft.isDirectToExecutive);
+    submitter.setIdentityChoice(draft.identityChoice);
+    submitter.setDetail('phone', draft.submitterPhone);
+  };
+
+  // Bring back the draft saved before a version-change reload (draft.ts) — once, after mount, so
+  // the server render and hydration stay identical.
+  useEffect(() => {
+    const draft = takeDraft();
+    if (draft) restoreDraft(draft);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const applyAiCategory = (catKey: GrievanceCategory) => {
     classification.setCategory(catKey);

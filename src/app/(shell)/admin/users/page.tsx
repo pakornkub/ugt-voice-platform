@@ -9,6 +9,7 @@ import { prisma } from '@/lib/prisma';
 import { PERMISSIONS } from '@/lib/permissions';
 import { getUserPermissions } from '@/lib/get-user-permissions';
 import { rosterRolesByEmail } from '@/lib/roster-role';
+import { normalizeEmail } from '@/lib/email-identity';
 import { UsersTable } from '@/components/UsersTable';
 
 export default async function AdminUsersPage() {
@@ -24,7 +25,7 @@ export default async function AdminUsersPage() {
   });
   const roles = await rosterRolesByEmail(users.map((u) => u.email));
   const rows = users.map((u) => {
-    const membership = roles.get(u.email.trim().toLowerCase());
+    const membership = roles.get(normalizeEmail(u.email));
     return {
       ...u,
       role: membership?.role ?? 'employee',

@@ -5,6 +5,8 @@ import { EmployeeSubmitForm } from './EmployeeSubmitForm';
 import { LanguageProvider } from '../context/LanguageContext';
 import { submitTicket } from '@/lib/actions/tickets';
 import type { ComplaintTicket, EmployeeRecord } from '../types';
+// The error Next.js throws when a page from an older deployment calls a Server Action.
+import { UnrecognizedActionError } from 'next/dist/client/components/unrecognized-action-error';
 
 // Server Action stand-in: echoes the payload back as the saved ticket.
 vi.mock('@/lib/actions/tickets', () => ({ submitTicket: vi.fn() }));
@@ -370,6 +372,51 @@ describe('EmployeeSubmitForm', () => {
       expect(alertSpy).toHaveBeenCalledWith('กรุณาระบุชื่อ-นามสกุลและรหัสพนักงานผู้ยื่นเรื่อง');
       expect(vi.mocked(submitTicket)).not.toHaveBeenCalled();
       alertSpy.mockRestore();
+    });
+  });
+
+  describe('a page from before a redeploy (Server Action not found)', () => {
+    beforeEach(() => sessionStorage.clear());
+
+    it('keeps the typed draft and offers a reload instead of a generic failure', async () => {
+      const user = userEvent.setup();
+      const confirmSpy = vi.spyOn(globalThis, 'confirm').mockReturnValue(false);
+      const alertSpy = vi.spyOn(globalThis, 'alert').mockImplementation(() => {});
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      vi.mocked(submitTicket).mockRejectedValueOnce(
+        new UnrecognizedActionError('Server Action "x" was not found on the server.')
+      );
+      renderForm();
+      await fillRequired(user);
+      await user.click(byId('btn-submit-ticket-final'));
+
+      await waitFor(() => expect(confirmSpy).toHaveBeenCalledTimes(1));
+      expect(confirmSpy.mock.calls[0][0]).toContain('ระบบเพิ่งอัปเดตเป็นเวอร์ชันใหม่');
+      expect(alertSpy).not.toHaveBeenCalled();
+      expect(sessionStorage.getItem('voiceplatform_submit_draft_v1')).toContain('ปัญหาทดสอบ');
+      confirmSpy.mockRestore();
+      alertSpy.mockRestore();
+    });
+
+    it('brings the saved draft back after the reload', async () => {
+      sessionStorage.setItem(
+        'voiceplatform_submit_draft_v1',
+        JSON.stringify({
+          submissionType: 'complaint',
+          category: 'HR',
+          urgency: 'Medium',
+          title: 'ร่างที่เก็บไว้',
+          description: 'รายละเอียดที่พิมพ์ไว้ก่อนโหลดใหม่',
+          locationOrUnit: 'ระยอง',
+          isDirectToExecutive: false,
+          identityChoice: 'identified',
+          submitterPhone: '081-111-2222',
+        })
+      );
+      renderForm();
+      await waitFor(() => expect(byId('input-ticket-title')).toHaveValue('ร่างที่เก็บไว้'));
+      expect(byId('input-ticket-description')).toHaveValue('รายละเอียดที่พิมพ์ไว้ก่อนโหลดใหม่');
+      expect(sessionStorage.getItem('voiceplatform_submit_draft_v1')).toBeNull();
     });
   });
 });

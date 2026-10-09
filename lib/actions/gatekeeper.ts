@@ -6,6 +6,7 @@
 // whole department at once (officers list + lead); the server diffs that list against the DB:
 // unknown ids are created, missing ones soft-deleted, the rest updated.
 import { z } from 'zod';
+import { normalizeEmail } from '@/lib/email-identity';
 import { prisma } from '@/lib/prisma';
 import { AUDIT_ACTIONS } from '@/lib/audit-actions';
 import { requireTab, ROSTER_TABS, writeAudit } from '@/lib/tab-guard';
@@ -22,7 +23,7 @@ const Category = z.enum(['HR', 'Compliance', 'Ethics', 'Fraud', 'Harassment', 'Q
 const OfficerFields = z.object({
   id: z.string().max(100),
   name: z.string().trim().min(1).max(200),
-  email: z.string().trim().toLowerCase().max(200).pipe(z.email()),
+  email: z.string().trim().toLowerCase().max(200).pipe(z.email()).transform(normalizeEmail),
   roleTitle: z.string().trim().max(300),
   phone: z.string().trim().max(50).optional(),
   isLead: z.boolean(),

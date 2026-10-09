@@ -10,9 +10,9 @@ vi.mock('@/lib/prisma', () => db);
 
 const { autoAssignOfficer, pickAssignee } = await import('./auto-assign');
 
-const A = { name: 'A', email: 'a@ube.co.th', isLead: false };
-const B = { name: 'B', email: 'b@ube.co.th', isLead: true };
-const C = { name: 'C', email: 'c@ube.co.th', isLead: false };
+const A = { name: 'A', email: 'a@ube.com', isLead: false };
+const B = { name: 'B', email: 'b@ube.com', isLead: true };
+const C = { name: 'C', email: 'c@ube.com', isLead: false };
 const officers = [A, B, C];
 
 describe('pickAssignee', () => {
@@ -27,14 +27,14 @@ describe('pickAssignee', () => {
   });
 
   it('round_robin → the officer after the last one, wrapping, first when unknown', () => {
-    expect(pickAssignee('round_robin', officers, { lastAssignedEmail: 'A@ube.co.th' })).toBe(B);
-    expect(pickAssignee('round_robin', officers, { lastAssignedEmail: 'c@ube.co.th' })).toBe(A);
-    expect(pickAssignee('round_robin', officers, { lastAssignedEmail: 'gone@ube.co.th' })).toBe(A);
+    expect(pickAssignee('round_robin', officers, { lastAssignedEmail: 'A@ube.com' })).toBe(B);
+    expect(pickAssignee('round_robin', officers, { lastAssignedEmail: 'c@ube.com' })).toBe(A);
+    expect(pickAssignee('round_robin', officers, { lastAssignedEmail: 'gone@ube.com' })).toBe(A);
     expect(pickAssignee('round_robin', officers)).toBe(A);
   });
 
   it('workload_balanced → fewest open tickets, ties keep list order', () => {
-    const openCounts = { 'a@ube.co.th': 3, 'b@ube.co.th': 1, 'c@ube.co.th': 1 };
+    const openCounts = { 'a@ube.com': 3, 'b@ube.com': 1, 'c@ube.com': 1 };
     expect(pickAssignee('workload_balanced', officers, { openCounts })).toBe(B);
     expect(pickAssignee('workload_balanced', officers)).toBe(A);
   });
@@ -56,7 +56,7 @@ describe('autoAssignOfficer', () => {
 
   it('round_robin reads the latest assigned ticket of the category', async () => {
     config('round_robin');
-    db.prisma.ticket.findFirst.mockResolvedValue({ assignedOfficerEmail: 'b@ube.co.th' });
+    db.prisma.ticket.findFirst.mockResolvedValue({ assignedOfficerEmail: 'b@ube.com' });
     await expect(autoAssignOfficer('HR')).resolves.toBe(C);
     expect(db.prisma.ticket.findFirst.mock.calls[0][0].where).toMatchObject({ category: 'HR' });
   });
@@ -64,9 +64,9 @@ describe('autoAssignOfficer', () => {
   it('workload_balanced counts open tickets per officer, case-insensitively', async () => {
     config('workload_balanced');
     db.prisma.ticket.groupBy.mockResolvedValue([
-      { assignedOfficerEmail: 'A@ube.co.th', _count: { _all: 2 } },
-      { assignedOfficerEmail: 'b@ube.co.th', _count: { _all: 1 } },
-      { assignedOfficerEmail: 'c@ube.co.th', _count: { _all: 4 } },
+      { assignedOfficerEmail: 'A@ube.com', _count: { _all: 2 } },
+      { assignedOfficerEmail: 'b@ube.com', _count: { _all: 1 } },
+      { assignedOfficerEmail: 'c@ube.com', _count: { _all: 4 } },
     ]);
     await expect(autoAssignOfficer('HR')).resolves.toBe(B);
     expect(db.prisma.ticket.groupBy.mock.calls[0][0].where.status).toEqual({

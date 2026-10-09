@@ -63,12 +63,12 @@ describe('getUserPermissions', () => {
   it('derives keys from the roster role and its RBAC config', async () => {
     const { getUserPermissions } = await import('./get-user-permissions');
     const { PERMISSIONS } = await import('./permissions');
-    findUnique.mockResolvedValue({ email: 'a@ube.co.th' });
+    findUnique.mockResolvedValue({ email: 'a@ube.com' });
     resolveViewer.mockResolvedValue({
       role: 'executive',
       config: { allowedTabs: ['admin_users'] },
     });
     await expect(getUserPermissions('u1')).resolves.toContain(PERMISSIONS.USERS_READ);
-    expect(resolveViewer).toHaveBeenCalledWith({ user: { id: 'u1', email: 'a@ube.co.th' } });
+    expect(resolveViewer).toHaveBeenCalledWith({ user: { id: 'u1', email: 'a@ube.com' } });
   });
 });

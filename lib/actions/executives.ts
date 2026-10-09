@@ -3,6 +3,7 @@
 // lib/actions/executives.ts — the executive roster (ExecutiveMembers). Membership makes a person
 // an `executive` (lib/roster-role.ts), so every write is guarded. Delete is a soft delete.
 import { z } from 'zod';
+import { normalizeEmail } from '@/lib/email-identity';
 import { prisma } from '@/lib/prisma';
 import { AUDIT_ACTIONS } from '@/lib/audit-actions';
 import { requireTab, ROSTER_TABS, writeAudit } from '@/lib/tab-guard';
@@ -16,7 +17,7 @@ const ExecutiveFields = z.object({
   name: z.string().trim().min(1).max(200),
   position: z.string().trim().max(400),
   department: z.string().trim().max(300),
-  email: z.string().trim().toLowerCase().max(200).pipe(z.email()),
+  email: z.string().trim().toLowerCase().max(200).pipe(z.email()).transform(normalizeEmail),
   phone: z.string().trim().max(50).optional(),
   roleType: z.enum(['CEO', 'EVP', 'GRC_Chair', 'Audit_Committee', 'Board_Member']),
   isPrimaryWhistleblowerReceiver: z.boolean(),

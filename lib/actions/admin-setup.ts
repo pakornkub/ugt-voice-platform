@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation';
 import { generateId } from 'better-auth';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { normalizeEmail } from '@/lib/email-identity';
 import { syncPermissionsIfNeeded } from '@/lib/permissions-sync';
 import { isAdminInitialized } from '@/lib/get-user-permissions';
 import { findEmployeeByLogin } from '@/lib/directory';
@@ -56,7 +57,7 @@ export async function initializeAdminAction(): Promise<{
 
   await prisma.user.update({ where: { id: session.user.id }, data: { roleId: adminRole.id } });
 
-  const email = session.user.email.trim().toLowerCase();
+  const email = normalizeEmail(session.user.email);
   const alreadyListed = await prisma.hrAdminMember.count({
     where: { email, isDeleted: false, isActive: true, status: 'active' },
   });

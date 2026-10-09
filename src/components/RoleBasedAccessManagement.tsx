@@ -54,6 +54,7 @@ import { getDirectoryPage, searchHrEmployees } from '@/lib/actions/directory';
 import { useConfirmDialog } from './ConfirmDialog';
 import { ExecStatusSelect, ExecutiveStatus } from './executiveShared';
 import HrNameField from './HrNameField';
+import { normalizeEmail } from '@/lib/email-identity';
 import { clickableProps } from './clickableProps';
 import { useTr } from '../context/useTr';
 import type { Language } from '../context/LanguageContext';
@@ -244,7 +245,7 @@ type HrBadgeKind = 'missing' | 'inactive' | null;
 /** Which HR badge (if any) a roster e-mail earns. `null` map = HR view unreachable → no badges. */
 const hrBadgeFor = (email: string, hrStatus: HrStatusMap): HrBadgeKind => {
   if (!hrStatus) return null;
-  const status = hrStatus[email.trim().toLowerCase()];
+  const status = hrStatus[normalizeEmail(email)];
   if (status === undefined) return 'missing';
   return status === 'inactive' ? 'inactive' : null;
 };

@@ -91,6 +91,9 @@ export default function Shell({
   // when the person comes back to the tab.
   // ponytail: polling; switch to SSE/WebSocket if 30 s ever feels too slow.
   useEffect(() => {
+    // Nothing live on the submit page, and a refresh there could reload a half-typed form when a
+    // new version was deployed (next.config deploymentId).
+    if (pathname === '/submit') return;
     const refreshIfVisible = () => {
       if (document.visibilityState === 'visible') router.refresh();
     };
@@ -100,7 +103,7 @@ export default function Shell({
       clearInterval(timer);
       document.removeEventListener('visibilitychange', refreshIfVisible);
     };
-  }, [router]);
+  }, [router, pathname]);
 
   // Recent searches stay per-device (localStorage) — read after mount so SSR and hydration match.
   useEffect(() => {

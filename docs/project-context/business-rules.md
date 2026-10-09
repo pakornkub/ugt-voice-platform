@@ -159,3 +159,13 @@ role + หมวดของ gatekeeper มาจาก `resolveViewer()` (`lib/
   คะแนนรายด้านทั้ง 4 ถูกบันทึกเท่ากับคะแนนรวม
 - **Dashboard ผู้บริหาร**: ตัด AI Strategic Briefing เหลือ "Real-Time Insights" + Top-3 ผู้ยื่น,
   drill-down หมวด/root cause 5 มิติ (`ExecutiveDashboard.tsx`)
+
+## ตัวตนอีเมล · รหัสติดตาม · เบอร์โทร (2026-10-09)
+
+- **อีเมลองค์กร**: `ชื่อ@ube.com` (SSO) กับ `ชื่อ@ube.co.th` (HR view) = คนเดียวกัน — เก็บ/แสดงเป็น
+  `@ube.com` เสมอ (`lib/email-identity.ts:normalizeEmail`) และเทียบแบบถือว่าเหมือนกัน (`sameEmail`) ทั้ง
+  role จากรายชื่อ (`lib/roster-role.ts`), เจ้าของเรื่อง (`lib/ticket-scope.ts:isOwnTicket`/`ownTicketsWhere`),
+  แจ้งเตือน, ป้ายสถานะ HR และการหาในข้อมูล HR (`lib/directory.ts`)
+- **รหัสติดตาม** `TK-ปี-NNNN` เลขรันต่อปีเริ่ม 0001 (`lib/actions/tickets.ts:nextTrackingCode`) —
+  ข้ามเลขที่มีอยู่แล้ว · ขึ้นปีใหม่เริ่ม 0001 ใหม่ (counter แยกต่อปีใน `AppSettings`)
+- **เบอร์โทร** กรอกเอง — ไม่ดึงจากข้อมูล HR (HR view ไม่มีเบอร์) และไม่ใส่เบอร์ตัวอย่างแทนเมื่อเว้นว่าง

@@ -18,6 +18,7 @@ import { emailSettingsInputSchema } from '@/lib/email-settings-schema';
 import { permissionsFor } from '@/lib/get-user-permissions';
 import { escapeHtml } from '@/lib/mail-templates';
 import { PERMISSIONS } from '@/lib/permissions';
+import { normalizeEmail, sameEmail } from '@/lib/email-identity';
 import { prisma } from '@/lib/prisma';
 import { PROTECTED_ACTOR_NAME, type TicketViewer } from '@/lib/ticket-scope';
 import { CATEGORY_DEFINITIONS } from '@/mockData';
@@ -216,7 +217,7 @@ type Outcome = Pick<EmailDispatchLog, 'status'> & { errorMessage?: string };
 async function deliver(spec: DispatchSpec, subject: string, bodyText: string): Promise<Outcome> {
   if (!spec.enabled) return { status: 'disabled' };
   if (spec.skipReason) return { status: 'disabled', errorMessage: spec.skipReason };
-  const to = spec.recipient.email?.trim();
+  const to = normalizeEmail(spec.recipient.email);
   if (!to) return { status: 'failed', errorMessage: 'No recipient email address' };
   try {
     await sendRenderedMail({
@@ -246,7 +247,11 @@ async function dispatch(spec: DispatchSpec): Promise<EmailDispatchLog> {
       triggerEvent: spec.trigger,
       ticketId: spec.ticketId,
       trackingCode: spec.trackingCode,
-      recipientEmail: (spec.recipient.maskedEmail || spec.recipient.email || '-').slice(0, 200),
+      recipientEmail: (
+        spec.recipient.maskedEmail ||
+        normalizeEmail(spec.recipient.email) ||
+        '-'
+      ).slice(0, 200),
       recipientName: spec.recipient.name.slice(0, 200),
       recipientRole: spec.recipient.role,
       subject,
@@ -307,7 +312,7 @@ async function gatekeeperRecipient(ticket: NotifiableTicket): Promise<Recipient>
       email: assigned,
       name: ticket.assignedOfficerName || assigned,
       role: 'gatekeeper',
-      cc: leadEmail && leadEmail.toLowerCase() !== assigned.toLowerCase() ? leadEmail : undefined,
+      cc: leadEmail && !sameEmail(leadEmail, assigned) ? normalizeEmail(leadEmail) : undefined,
     };
   }
   return {

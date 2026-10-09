@@ -20,7 +20,7 @@ const { runReport } = await import('./reports');
 
 const viewer = (role: UserRole): TicketViewer => ({
   userId: `user-${role}`,
-  email: `${role}@ube.co.th`,
+  email: `${role}@ube.com`,
   name: role,
   rbacRoleName: null,
   role,

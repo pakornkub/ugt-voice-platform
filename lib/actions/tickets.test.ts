@@ -7,10 +7,11 @@ import type { UserRole } from '@/types';
 const assign = vi.hoisted(() => ({ autoAssignOfficer: vi.fn() }));
 const db = vi.hoisted(() => {
   const prisma = {
-    ticket: { create: vi.fn(), update: vi.fn() },
+    ticket: { create: vi.fn(), update: vi.fn(), findUnique: vi.fn() },
     notification: { create: vi.fn(), createMany: vi.fn() },
     activityLog: { create: vi.fn() },
     $transaction: vi.fn(),
+    $queryRaw: vi.fn(),
   };
   return { prisma };
 });
@@ -44,7 +45,7 @@ const {
 
 const viewer = (role: UserRole): TicketViewer => ({
   userId: `user-${role}`,
-  email: `${role}@ube.co.th`,
+  email: `${role}@ube.com`,
   name: `Session ${role}`,
   rbacRoleName: null,
   role,
@@ -66,9 +67,9 @@ const row = (overrides: Record<string, unknown> = {}) => ({
   submitterName: 'สมชาย',
   submitterEmployeeId: 'EMP001',
   submitterDepartment: 'HR',
-  submitterEmail: 'somchai@ube.co.th',
+  submitterEmail: 'somchai@ube.com',
   submitterPhone: null,
-  loginEmail: 'employee@ube.co.th',
+  loginEmail: 'employee@ube.com',
   isAnonymousMapped: false,
   gatekeeperDepartment: 'Human Resources',
   assignedOfficerName: null,
@@ -97,8 +98,8 @@ const payload = {
   isDirectToExecutive: false,
   confidentiality: 'standard_named' as const,
   submitterName: 'สมชาย',
-  submitterEmail: 'somchai@ube.co.th',
-  loginEmail: 'someone-else@ube.co.th',
+  submitterEmail: 'somchai@ube.com',
+  loginEmail: 'someone-else@ube.com',
   gatekeeperDepartment: 'Human Resources',
   urgency: 'Medium' as const,
   riskSeverity: 'Moderate' as const,
@@ -111,10 +112,14 @@ beforeEach(() => {
     fn(db.prisma)
   );
   db.prisma.activityLog.create.mockResolvedValue({});
+  // Tracking-code counter (AppSettings MERGE): 1, 2, 3, … and no code taken yet.
+  let counter = 0;
+  db.prisma.$queryRaw.mockImplementation(async () => [{ value: String(++counter) }]);
+  db.prisma.ticket.findUnique.mockResolvedValue(null);
   db.prisma.notification.create.mockResolvedValue({});
   db.prisma.notification.createMany.mockResolvedValue({});
   access.requireTicketViewer.mockResolvedValue(viewer('employee'));
-  mail.mailActorFor.mockReturnValue({ email: 'employee@ube.co.th', hasDevMode: false });
+  mail.mailActorFor.mockReturnValue({ email: 'employee@ube.com', hasDevMode: false });
   mail.notifyTicketSubmitted.mockResolvedValue(undefined);
   mail.notifyTicketResolved.mockResolvedValue(undefined);
   assign.autoAssignOfficer.mockResolvedValue(null);
@@ -156,7 +161,7 @@ describe('submitTicket', () => {
     const ticket = await submitTicket(payload);
 
     const { data } = db.prisma.ticket.create.mock.calls[0][0];
-    expect(data.loginEmail).toBe('employee@ube.co.th');
+    expect(data.loginEmail).toBe('employee@ube.com');
     expect(data.createdBy).toBe('user-employee');
     expect(data.trackingCode).toMatch(/^TK-\d{4}-\d{4}$/);
     expect(data.timeline.create).toHaveLength(1);
@@ -184,7 +189,7 @@ describe('submitTicket', () => {
     const [notified, ctx] = mail.notifyTicketSubmitted.mock.calls[0];
     expect(notified).toMatchObject({ id: 'tk-new', category: 'HR' });
     expect(ctx).toEqual({
-      actor: { email: 'employee@ube.co.th', hasDevMode: false },
+      actor: { email: 'employee@ube.com', hasDevMode: false },
       userId: 'user-employee',
     });
     expect(db.prisma.$transaction.mock.invocationCallOrder[0]).toBeLessThan(
@@ -213,7 +218,7 @@ describe('submitTicket', () => {
 
   it('assigns the officer the category mode picks, ignoring one sent by the client', async () => {
     db.prisma.ticket.create.mockImplementation(async ({ data }) => row({ ...data, timeline: [] }));
-    assign.autoAssignOfficer.mockResolvedValue({ name: 'สมศรี', email: 'somsri@ube.co.th' });
+    assign.autoAssignOfficer.mockResolvedValue({ name: 'สมศรี', email: 'somsri@ube.com' });
 
     await submitTicket({ ...payload, assignedOfficerName: 'Mallory', assignedOfficerEmail: 'm@x' });
 
@@ -221,7 +226,7 @@ describe('submitTicket', () => {
     const { data } = db.prisma.ticket.create.mock.calls[0][0];
     expect(data).toMatchObject({
       assignedOfficerName: 'สมศรี',
-      assignedOfficerEmail: 'somsri@ube.co.th',
+      assignedOfficerEmail: 'somsri@ube.com',
     });
     expect(data.timeline.create[1]).toMatchObject({
       actorRole: 'System',
@@ -233,7 +238,7 @@ describe('submitTicket', () => {
     db.prisma.ticket.create.mockImplementation(async ({ data }) => row({ ...data, timeline: [] }));
     assign.autoAssignOfficer.mockResolvedValue(null);
     await submitTicket(payload);
-    assign.autoAssignOfficer.mockResolvedValue({ name: 'สมศรี', email: 'somsri@ube.co.th' });
+    assign.autoAssignOfficer.mockResolvedValue({ name: 'สมศรี', email: 'somsri@ube.com' });
     await submitTicket({ ...payload, isDirectToExecutive: true });
 
     expect(assign.autoAssignOfficer).toHaveBeenCalledTimes(1);
@@ -257,6 +262,21 @@ describe('submitTicket', () => {
     await submitTicket(payload);
 
     expect(order).toEqual(['begin', 'notifications', 'commit']);
+  });
+
+  it('numbers tickets TK-<year>-0001, 0002, … and skips codes already taken', async () => {
+    db.prisma.ticket.create.mockImplementation(async ({ data }) => row({ ...data, timeline: [] }));
+    const year = new Date().getFullYear();
+
+    await submitTicket(payload);
+    expect(db.prisma.ticket.create.mock.calls[0][0].data.trackingCode).toBe(`TK-${year}-0001`);
+
+    db.prisma.ticket.findUnique.mockResolvedValueOnce({ id: 'old-random-code' }); // 0002 exists
+    await submitTicket(payload);
+    expect(db.prisma.ticket.create.mock.calls[1][0].data.trackingCode).toBe(`TK-${year}-0003`);
+    const counterSql = (db.prisma.$queryRaw.mock.calls[0][0] as string[]).join('?');
+    expect(counterSql).toContain('MERGE [dbo].[AppSettings] WITH (HOLDLOCK)');
+    expect(db.prisma.$queryRaw.mock.calls[0]).toContain(`ticket.tracking-sequence.${year}`);
   });
 
   it('retries a tracking-code collision', async () => {
@@ -308,7 +328,7 @@ describe('updateTicketWorkflow', () => {
     expect(db.prisma.ticket.update).toHaveBeenCalledTimes(1);
     expect(db.prisma.notification.create.mock.calls[0][0].data).toMatchObject({
       type: 'status_update',
-      recipientEmail: 'somchai@ube.co.th',
+      recipientEmail: 'somchai@ube.com',
     });
   });
 
@@ -501,8 +521,11 @@ describe('submitEvaluation', () => {
         { id: 'tk1' },
         {
           OR: [
-            { loginEmail: 'employee@ube.co.th' },
-            { loginEmail: null, submitterEmail: 'employee@ube.co.th' },
+            { loginEmail: { in: ['employee@ube.com', 'employee@ube.co.th'] } },
+            {
+              loginEmail: null,
+              submitterEmail: { in: ['employee@ube.com', 'employee@ube.co.th'] },
+            },
           ],
         },
         { status: 'resolved' },

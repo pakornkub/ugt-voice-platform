@@ -9,9 +9,9 @@
 // Email (slice 3, 2026-10-09): after the transaction commits, submitTicket tells the category's
 // Lead Gatekeeper and updateTicketWorkflow tells the submitter when a ticket becomes resolved —
 // lib/email-notifications.ts honours the admin's settings, writes the dispatch log and never throws.
-import { randomInt } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { autoAssignOfficer } from '@/lib/auto-assign';
+import { normalizeEmail } from '@/lib/email-identity';
 import { AUDIT_ACTIONS, type AuditAction } from '@/lib/audit-actions';
 import {
   mailActorFor,
@@ -161,16 +161,43 @@ function submissionNotifications(created: CreatedTicket): Prisma.notificationCre
 }
 
 /**
- * Ticket + its notifications in one transaction. TK-YYYY-NNNN is random (upstream format) and
- * unique-indexed — a collision rolls the transaction back and retries with a new code.
+ * Next running number of the year — TK-YYYY-0001, 0002, … (owner 2026-10-09; upstream used a
+ * random 4-digit code, which read like a continuation of the test tickets). One counter row per
+ * year in AppSettings, bumped by MERGE under HOLDLOCK so concurrent submits never get the same
+ * number; numbers already taken (the old random codes, demo data) are skipped.
  */
+async function nextTrackingCode(tx: Prisma.TransactionClient): Promise<string> {
+  const year = new Date().getFullYear();
+  const key = `ticket.tracking-sequence.${year}`;
+  // ponytail: skips taken numbers one at a time — fine while the old random codes are a handful.
+  for (let attempt = 0; attempt < 10_000; attempt += 1) {
+    const rows = await tx.$queryRaw<{ value: string }[]>`
+      MERGE [dbo].[AppSettings] WITH (HOLDLOCK) AS t
+      USING (SELECT ${key} AS SettingKey) AS s ON t.[SettingKey] = s.SettingKey
+      WHEN MATCHED THEN UPDATE SET
+        [SettingValue] = CAST(CAST(t.[SettingValue] AS INT) + 1 AS NVARCHAR(20)),
+        [UpdatedAt] = SYSUTCDATETIME()
+      WHEN NOT MATCHED THEN INSERT ([Id], [SettingKey], [SettingValue], [UpdatedAt])
+        VALUES (LOWER(REPLACE(CONVERT(NVARCHAR(36), NEWID()), '-', '')), s.SettingKey, N'1', SYSUTCDATETIME())
+      OUTPUT INSERTED.[SettingValue] AS value;`;
+    const code = `TK-${year}-${String(Number(rows[0]?.value)).padStart(4, '0')}`;
+    const taken = await tx.ticket.findUnique({
+      where: { trackingCode: code },
+      select: { id: true },
+    });
+    if (!taken) return code;
+  }
+  throw new Error('TRACKING_SEQUENCE_EXHAUSTED');
+}
+
+/** Ticket + its notifications in one transaction (unique-index race → retry). */
 async function createTicketWithNotifications(
   data: Omit<Prisma.ticketCreateInput, 'trackingCode'>,
   attemptsLeft = 5
 ): Promise<CreatedTicket> {
-  const trackingCode = `TK-${new Date().getFullYear()}-${randomInt(1000, 10000)}`;
   try {
     return await prisma.$transaction(async (tx) => {
+      const trackingCode = await nextTrackingCode(tx);
       const created = await tx.ticket.create({
         data: { ...data, trackingCode },
         include: TICKET_INCLUDE,
@@ -242,13 +269,13 @@ export async function submitTicket(payload: SubmitPayload): Promise<ComplaintTic
     submitterName: payload.submitterName,
     submitterEmployeeId: payload.submitterEmployeeId,
     submitterDepartment: payload.submitterDepartment,
-    submitterEmail: payload.submitterEmail || viewer.email,
+    submitterEmail: normalizeEmail(payload.submitterEmail || viewer.email),
     submitterPhone: payload.submitterPhone,
-    loginEmail: viewer.email,
+    loginEmail: normalizeEmail(viewer.email),
     isAnonymousMapped: isAnonymous || !!payload.isAnonymousMapped,
     gatekeeperDepartment: payload.gatekeeperDepartment,
     assignedOfficerName: officer?.name ?? null,
-    assignedOfficerEmail: officer?.email ?? null,
+    assignedOfficerEmail: officer ? normalizeEmail(officer.email) : null,
     status: 'submitted',
     urgency: payload.urgency,
     riskSeverity: payload.riskSeverity,
@@ -524,7 +551,9 @@ export async function sendAnonymousChatMessage(
         // In-app only (no mail); isNotificationForViewer keeps it from echoing back to the sender.
         type: 'chat_message',
         recipientRole: isStaff ? 'employee' : 'gatekeeper',
-        recipientEmail: isStaff ? ticket.loginEmail || ticket.submitterEmail : null,
+        recipientEmail: isStaff
+          ? normalizeEmail(ticket.loginEmail || ticket.submitterEmail) || null
+          : null,
       },
     });
 

@@ -8,6 +8,7 @@ import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { genericOAuth, keycloak } from 'better-auth/plugins';
 import { prisma } from '@/lib/prisma';
 import { env } from '@/lib/env';
+import { normalizeEmail } from '@/lib/email-identity';
 import { AUDIT_ACTIONS } from '@/lib/audit-actions';
 
 // Derive a unique cookie prefix from NEXT_PUBLIC_BASE_PATH (empty in this
@@ -98,7 +99,10 @@ export const auth = betterAuth({
                   const existing = await prisma.user
                     .findUnique({ where: { ldapUsername: loginName }, select: { email: true } })
                     .catch(() => null);
-                  const email = existing?.email ?? (profile.email as string | undefined);
+                  // Stored as @ube.com; @ube.co.th is the same mailbox (lib/email-identity.ts).
+                  const email = normalizeEmail(
+                    existing?.email ?? (profile.email as string | undefined)
+                  );
                   if (!email) {
                     throw new Error(
                       `SSO profile for "${loginName}" has no email — check the Keycloak client's "email" scope`

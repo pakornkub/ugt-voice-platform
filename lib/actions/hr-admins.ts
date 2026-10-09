@@ -5,6 +5,7 @@
 // server: you cannot remove/deactivate yourself, and the last active HR admin cannot go.
 // Delete is a soft delete (IsDeleted=1) per org convention.
 import { z } from 'zod';
+import { normalizeEmail } from '@/lib/email-identity';
 import { prisma } from '@/lib/prisma';
 import { AUDIT_ACTIONS } from '@/lib/audit-actions';
 import { requireTab, ROSTER_TABS, writeAudit } from '@/lib/tab-guard';
@@ -20,7 +21,7 @@ const HrAdminFields = z.object({
   name: z.string().trim().min(1).max(200),
   position: z.string().trim().max(400),
   department: z.string().trim().max(300),
-  email: z.string().trim().toLowerCase().max(200).pipe(z.email()),
+  email: z.string().trim().toLowerCase().max(200).pipe(z.email()).transform(normalizeEmail),
   phone: z.string().trim().max(50).optional(),
   roleLevel: z.enum(['super_admin', 'hr_manager', 'compliance_auditor']),
   canManageRbac: z.boolean(),
@@ -46,7 +47,7 @@ async function assertKeepsAdmins(viewer: TicketViewer, id: string): Promise<void
   if (!target) throw new Error('NOT_FOUND');
   // Every email that resolves to the caller (session + HR-view CurrentEmail), as roster-role does.
   const mine = await candidateEmails(viewer.email);
-  if (mine.includes(target.email.toLowerCase())) {
+  if (mine.includes(normalizeEmail(target.email))) {
     throw new Error('CANNOT_REMOVE_SELF');
   }
   const othersActive = await prisma.hrAdminMember.count({
@@ -82,7 +83,7 @@ export async function updateHrAdminMember(
   if (!current) throw new Error('NOT_FOUND');
   const losesAdmin =
     (data.status === 'inactive' && current.status === 'active') ||
-    (data.email !== undefined && data.email !== current.email.toLowerCase());
+    (data.email !== undefined && data.email !== normalizeEmail(current.email));
   if (losesAdmin) await assertKeepsAdmins(viewer, id);
   await prisma.hrAdminMember.update({ where: { id }, data: { ...data, updatedBy: viewer.userId } });
   writeAudit(viewer, AUDIT_ACTIONS.ROSTERS_UPDATE, {
@@ -113,7 +114,7 @@ export async function deleteHrAdminMember(id: string): Promise<HrAdminMember[]> 
 export async function resetHrAdminsToDefault(): Promise<HrAdminMember[]> {
   const viewer = await requireTab(ROSTER_TABS);
   const mine = new Set(await candidateEmails(viewer.email));
-  const isMine = (email: string) => mine.has(email.toLowerCase());
+  const isMine = (email: string) => mine.has(normalizeEmail(email));
   await prisma.$transaction(async (tx) => {
     const rows = await tx.hrAdminMember.findMany({
       where: LIVE,

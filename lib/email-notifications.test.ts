@@ -37,7 +37,7 @@ const {
   trackingUrlFor,
 } = await import('./email-notifications');
 
-const actor = { email: 'staff@ube.co.th', hasDevMode: false };
+const actor = { email: 'staff@ube.com', hasDevMode: false };
 const ctx = { actor, userId: 'user-1' };
 
 const ticket = (overrides: Record<string, unknown> = {}) => ({
@@ -51,15 +51,15 @@ const ticket = (overrides: Record<string, unknown> = {}) => ({
   isDirectToExecutive: false,
   submitterName: 'สมชาย ใจดี',
   submitterDepartment: 'ฝ่ายผลิต',
-  submitterEmail: 'somchai@ube.co.th',
-  loginEmail: 'somchai@ube.co.th',
+  submitterEmail: 'somchai@ube.com',
+  loginEmail: 'somchai@ube.com',
   createdAt: new Date('2026-10-09T03:00:00Z'),
   ...overrides,
 });
 
 const officer = (overrides: Record<string, unknown> = {}) => ({
   name: 'วิภาวรรณ',
-  email: 'lead.hr@ube.co.th',
+  email: 'lead.hr@ube.com',
   isLead: true,
   ...overrides,
 });
@@ -234,7 +234,7 @@ describe('notifyTicketSubmitted', () => {
     await notifyTicketSubmitted(ticket({ title: '<b>แย่</b> & "มาก"' }), ctx);
 
     const mailArgs = mail.sendRenderedMail.mock.calls[0][0];
-    expect(mailArgs).toMatchObject({ to: 'lead.hr@ube.co.th', actor });
+    expect(mailArgs).toMatchObject({ to: 'lead.hr@ube.com', actor });
     expect(mailArgs.subject).toContain('TK-2026-1111');
     expect(mailArgs.subject).toContain('High');
     expect(mailArgs.html).toContain('&lt;b&gt;แย่&lt;/b&gt; &amp; &quot;มาก&quot;');
@@ -244,7 +244,7 @@ describe('notifyTicketSubmitted', () => {
       triggerEvent: 'ticket_submitted',
       ticketId: 'tk1',
       trackingCode: 'TK-2026-1111',
-      recipientEmail: 'lead.hr@ube.co.th',
+      recipientEmail: 'lead.hr@ube.com',
       recipientRole: 'gatekeeper',
       status: 'sent',
       createdBy: 'user-1',
@@ -254,26 +254,26 @@ describe('notifyTicketSubmitted', () => {
 
   it('mails the auto-assigned officer with the Lead in CC, and logs the assignee', async () => {
     await notifyTicketSubmitted(
-      ticket({ assignedOfficerName: 'สมศรี', assignedOfficerEmail: 'somsri@ube.co.th' }),
+      ticket({ assignedOfficerName: 'สมศรี', assignedOfficerEmail: 'somsri@ube.com' }),
       ctx
     );
     expect(mail.sendRenderedMail.mock.calls[0][0]).toMatchObject({
-      to: 'somsri@ube.co.th',
-      cc: 'lead.hr@ube.co.th',
+      to: 'somsri@ube.com',
+      cc: 'lead.hr@ube.com',
     });
-    expect(lastLog()).toMatchObject({ recipientEmail: 'somsri@ube.co.th', recipientName: 'สมศรี' });
+    expect(lastLog()).toMatchObject({ recipientEmail: 'somsri@ube.com', recipientName: 'สมศรี' });
   });
 
   it('does not CC the Lead when the Lead is the assignee', async () => {
     await notifyTicketSubmitted(
-      ticket({ assignedOfficerName: 'Lead', assignedOfficerEmail: 'LEAD.hr@ube.co.th' }),
+      ticket({ assignedOfficerName: 'Lead', assignedOfficerEmail: 'LEAD.hr@ube.com' }),
       ctx
     );
     expect(mail.sendRenderedMail.mock.calls[0][0].cc).toBeUndefined();
   });
 
   it('passes the actor through so dev mode redirects the mail', async () => {
-    const devActor = { email: 'tester@ube.co.th', hasDevMode: true };
+    const devActor = { email: 'tester@ube.com', hasDevMode: true };
     await notifyTicketSubmitted(ticket(), { actor: devActor, userId: 'u' });
     expect(mail.sendRenderedMail.mock.calls[0][0].actor).toBe(devActor);
   });
@@ -296,16 +296,16 @@ describe('notifyTicketSubmitted', () => {
 
   it('falls back to the first officer, then to the department escalation address', async () => {
     db.prisma.departmentGatekeeperConfig.findFirst.mockResolvedValue(
-      gkConfig([officer({ isLead: false, email: 'first@ube.co.th' })])
+      gkConfig([officer({ isLead: false, email: 'first@ube.com' })])
     );
     await notifyTicketSubmitted(ticket(), ctx);
-    expect(mail.sendRenderedMail.mock.calls[0][0].to).toBe('first@ube.co.th');
+    expect(mail.sendRenderedMail.mock.calls[0][0].to).toBe('first@ube.com');
 
     db.prisma.departmentGatekeeperConfig.findFirst.mockResolvedValue(
-      gkConfig([], 'escalation@ube.co.th')
+      gkConfig([], 'escalation@ube.com')
     );
     await notifyTicketSubmitted(ticket(), ctx);
-    expect(mail.sendRenderedMail.mock.calls[1][0].to).toBe('escalation@ube.co.th');
+    expect(mail.sendRenderedMail.mock.calls[1][0].to).toBe('escalation@ube.com');
   });
 
   it('logs "failed" instead of inventing an address when nobody can receive it', async () => {
@@ -341,7 +341,7 @@ describe('notifyTicketSubmitted', () => {
     for (const text of [html, subject, lastLog().body]) {
       expect(text).not.toContain('สมชาย');
       expect(text).not.toContain('ฝ่ายผลิต');
-      expect(text).not.toContain('somchai@ube.co.th');
+      expect(text).not.toContain('somchai@ube.com');
     }
     expect(lastLog().body).toContain('ผู้ยื่นเรื่องนิรนาม (Anonymous)');
     expect(lastLog().body).toContain('ไม่เปิดเผยสังกัด');
@@ -392,13 +392,13 @@ describe('notifyTicketResolved', () => {
   it('mails the submitter with the resolution summary and logs it', async () => {
     await notifyTicketResolved(ticket(), details, ctx);
     const mailArgs = mail.sendRenderedMail.mock.calls[0][0];
-    expect(mailArgs.to).toBe('somchai@ube.co.th');
+    expect(mailArgs.to).toBe('somchai@ube.com');
     expect(mailArgs.html).toContain('แก้แล้ว &lt;ok&gt;');
     expect(mailArgs.bannerTo).toBeUndefined();
     expect(lastLog()).toMatchObject({
       triggerEvent: 'ticket_resolved',
       recipientRole: 'employee',
-      recipientEmail: 'somchai@ube.co.th',
+      recipientEmail: 'somchai@ube.com',
       recipientName: 'สมชาย ใจดี',
       status: 'sent',
     });
@@ -407,16 +407,16 @@ describe('notifyTicketResolved', () => {
 
   it('mails the signed-in login email first, never a typed submitter address', async () => {
     await notifyTicketResolved(
-      ticket({ loginEmail: 'real@ube.co.th', submitterEmail: 'typed@elsewhere.com' }),
+      ticket({ loginEmail: 'real@ube.com', submitterEmail: 'typed@elsewhere.com' }),
       details,
       ctx
     );
-    expect(mail.sendRenderedMail.mock.calls[0][0].to).toBe('real@ube.co.th');
+    expect(mail.sendRenderedMail.mock.calls[0][0].to).toBe('real@ube.com');
   });
 
   it('uses the login email when the submitter email is empty, and fails when there is none', async () => {
     await notifyTicketResolved(ticket({ submitterEmail: null }), details, ctx);
-    expect(mail.sendRenderedMail.mock.calls[0][0].to).toBe('somchai@ube.co.th');
+    expect(mail.sendRenderedMail.mock.calls[0][0].to).toBe('somchai@ube.com');
 
     await notifyTicketResolved(ticket({ submitterEmail: null, loginEmail: null }), details, ctx);
     expect(mail.sendRenderedMail).toHaveBeenCalledTimes(1);
@@ -435,7 +435,7 @@ describe('notifyTicketResolved', () => {
   it('mails an anonymous submitter but never shows their address or name in the log or the dev banner', async () => {
     await notifyTicketResolved(ticket({ confidentiality: 'anonymous' }), details, ctx);
     const mailArgs = mail.sendRenderedMail.mock.calls[0][0];
-    expect(mailArgs.to).toBe('somchai@ube.co.th');
+    expect(mailArgs.to).toBe('somchai@ube.com');
     expect(mailArgs.bannerTo).toBe('anonymous-submitter@voiceplatform.internal');
     expect(mailArgs.html).not.toContain('สมชาย');
     expect(lastLog()).toMatchObject({
@@ -443,7 +443,7 @@ describe('notifyTicketResolved', () => {
       recipientName: 'ผู้ยื่นเรื่อง (Anonymous Submitter)',
       status: 'sent',
     });
-    expect(lastLog().body).not.toContain('somchai@ube.co.th');
+    expect(lastLog().body).not.toContain('somchai@ube.com');
   });
 
   it('masks a confidential_restricted submitter too', async () => {
@@ -472,12 +472,12 @@ describe('notifyTicketResolved', () => {
 });
 
 describe('sendTestNotification', () => {
-  const testCtx = { ...ctx, email: 'admin@ube.co.th' };
+  const testCtx = { ...ctx, email: 'admin@ube.com' };
 
   it('mails the signed-in admin only, tags the subject and logs a test_dispatch', async () => {
     const log = await sendTestNotification('ticket_resolved', testCtx);
     const mailArgs = mail.sendRenderedMail.mock.calls[0][0];
-    expect(mailArgs.to).toBe('admin@ube.co.th');
+    expect(mailArgs.to).toBe('admin@ube.com');
     expect(mailArgs.subject.startsWith('[TEST SIMULATION] ')).toBe(true);
     expect(lastLog()).toMatchObject({
       triggerEvent: 'test_dispatch',

@@ -25,7 +25,7 @@ const actions = await import('./email-settings');
 
 const viewer = (role: UserRole, tabs: AppTabId[]): TicketViewer => ({
   userId: 'me-id',
-  email: 'me@ube.co.th',
+  email: 'me@ube.com',
   name: 'Me',
   rbacRoleName: null,
   role,
@@ -62,7 +62,7 @@ beforeEach(() => {
   }));
   notifications.listDispatchLogs.mockResolvedValue([]);
   notifications.sendTestNotification.mockResolvedValue({ id: 'l1', status: 'sent' });
-  notifications.mailActorFor.mockReturnValue({ email: 'me@ube.co.th', hasDevMode: true });
+  notifications.mailActorFor.mockReturnValue({ email: 'me@ube.com', hasDevMode: true });
 });
 
 describe.each([...READS, ...WRITES])('%s — permission guard', (_name, call) => {
@@ -193,9 +193,9 @@ describe('sendTestEmailNotification', () => {
     const log = await actions.sendTestEmailNotification('ticket_resolved');
     expect(log).toEqual({ id: 'l1', status: 'sent' });
     expect(notifications.sendTestNotification).toHaveBeenCalledWith('ticket_resolved', {
-      actor: { email: 'me@ube.co.th', hasDevMode: true },
+      actor: { email: 'me@ube.com', hasDevMode: true },
       userId: 'me-id',
-      email: 'me@ube.co.th',
+      email: 'me@ube.com',
     });
     const audit = db.prisma.activityLog.create.mock.calls[0][0].data;
     expect(audit.action).toBe('email-settings.test-send');

@@ -5,6 +5,7 @@
 //   round_robin       → the officer after the one who got this category's last auto/manual assignment
 //   workload_balanced → the officer with the fewest open tickets in this category (ties: list order)
 import 'server-only';
+import { normalizeEmail } from '@/lib/email-identity';
 import { prisma } from '@/lib/prisma';
 import type { DepartmentGatekeeperConfig } from '@/types';
 
@@ -32,9 +33,9 @@ export function pickAssignee(
   stats: AssignmentStats = {}
 ): AssignableOfficer | null {
   if (mode === 'off' || officers.length === 0) return null;
-  const key = (o: AssignableOfficer) => o.email.toLowerCase();
+  const key = (o: AssignableOfficer) => normalizeEmail(o.email);
   if (mode === 'round_robin') {
-    const last = stats.lastAssignedEmail?.toLowerCase();
+    const last = normalizeEmail(stats.lastAssignedEmail);
     const index = officers.findIndex((o) => key(o) === last);
     return officers[(index + 1) % officers.length]; // unknown/none → index -1 → first officer
   }
@@ -83,7 +84,7 @@ export async function autoAssignOfficer(category: string): Promise<AssignableOff
   });
   const openCounts: Record<string, number> = {};
   for (const g of groups) {
-    const email = g.assignedOfficerEmail?.toLowerCase();
+    const email = normalizeEmail(g.assignedOfficerEmail);
     if (email) openCounts[email] = (openCounts[email] ?? 0) + g._count._all;
   }
   return pickAssignee(mode, config.officers, { openCounts });

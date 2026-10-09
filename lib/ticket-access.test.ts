@@ -77,7 +77,7 @@ describe('getTicketViewer', () => {
     });
     mocks.prisma.user.findUnique.mockResolvedValueOnce({
       name: 'Gate Keeper',
-      email: 'a@ube.co.th',
+      email: 'a@ube.com',
       userRole: { name: 'Administrator' },
     });
     mocks.prisma.roleAccessConfig.findFirst.mockResolvedValueOnce({
@@ -91,7 +91,7 @@ describe('getTicketViewer', () => {
 
     expect(viewer).toMatchObject({
       userId: 'u1',
-      email: 'a@ube.co.th',
+      email: 'a@ube.com',
       name: 'Gate Keeper',
       rbacRoleName: 'Administrator',
       role: 'gatekeeper',
@@ -103,7 +103,7 @@ describe('getTicketViewer', () => {
 
 const employee = {
   userId: 'u1',
-  email: 'a@ube.co.th',
+  email: 'a@ube.com',
   name: 'A',
   rbacRoleName: null,
   role: 'employee' as const,
@@ -125,8 +125,8 @@ describe('listVisibleTickets', () => {
         confidentiality: 'anonymous',
         submitterName: 'Real Name',
         submitterEmployeeId: 'EMP9',
-        submitterEmail: 'whistle@ube.co.th',
-        loginEmail: 'whistle@ube.co.th',
+        submitterEmail: 'whistle@ube.com',
+        loginEmail: 'whistle@ube.com',
         isAnonymousMapped: true,
         gatekeeperDepartment: 'HR',
         status: 'submitted',
@@ -138,7 +138,7 @@ describe('listVisibleTickets', () => {
     ]);
     const gatekeeper = {
       ...employee,
-      email: 'gk@ube.co.th',
+      email: 'gk@ube.com',
       role: 'gatekeeper' as const,
       config: INITIAL_ROLE_PERMISSIONS.gatekeeper,
       gatekeeperCategories: ['HR' as const],
@@ -155,15 +155,15 @@ describe('listVisibleTickets', () => {
 describe('notifications follow ticket visibility', () => {
   beforeEach(() => {
     mocks.getSession.mockResolvedValue({ user: { id: 'u1' } });
-    mocks.prisma.user.findUnique.mockResolvedValue({ email: 'a@ube.co.th' });
+    mocks.prisma.user.findUnique.mockResolvedValue({ email: 'a@ube.com' });
     mocks.prisma.roleAccessConfig.findFirst.mockResolvedValue(null);
     mocks.prisma.ticket.findMany.mockResolvedValue([{ id: 'mine' }]);
     mocks.prisma.notification.findMany.mockResolvedValue([
       notif('n1', 'mine'),
       notif('n2', 'theirs'),
       notif('n3', null),
-      notif('n4', 'mine', true, 'someone.else@ube.co.th'),
-      notif('n5', 'mine', true, 'A@ube.co.th'),
+      notif('n4', 'mine', true, 'someone.else@ube.com'),
+      notif('n5', 'mine', true, 'A@ube.com'),
     ]);
     // this viewer has read n4 and n5
     mocks.prisma.notificationRead.findMany.mockResolvedValue([
@@ -189,7 +189,7 @@ describe('notifications follow ticket visibility', () => {
   it('strips the recipient email from notifications addressed to someone else', async () => {
     const list = await listVisibleNotifications(employee, ['mine']);
     expect(list.find((n) => n.id === 'n4')?.recipientEmail).toBeUndefined();
-    expect(list.find((n) => n.id === 'n5')?.recipientEmail).toBe('A@ube.co.th');
+    expect(list.find((n) => n.id === 'n5')?.recipientEmail).toBe('A@ube.com');
   });
 
   it('marks one visible notification and refuses others', async () => {

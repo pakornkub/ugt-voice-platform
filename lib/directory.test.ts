@@ -9,7 +9,7 @@ const row = {
   FullNameThai: 'ปกรณ์ ว.',
   PostNameEng: 'Developer',
   OrgNameThai: 'ไอที',
-  CurrentEmail: 'Pakornwo@UBE.co.th',
+  CurrentEmail: 'Pakornwo@UBE.com',
   ADLoginName: 'UBE\\pakornwo',
   workstatus: 'Active',
 };
@@ -26,7 +26,7 @@ describe('directory', () => {
       employeeId: '01234',
       nameTh: 'ปกรณ์ ว.',
       nameEn: 'Pakorn W.',
-      loginEmail: 'pakornwo@ube.co.th',
+      loginEmail: 'pakornwo@ube.com',
       department: 'ไอที',
       position: 'Developer',
       phone: '',
@@ -46,12 +46,13 @@ describe('directory', () => {
   it('finds by login with email, bare AD name and DOMAIN\\ name as bound parameters', async () => {
     const { findEmployeeByLogin } = await import('./directory');
     queryRaw.mockResolvedValue([row]);
-    await expect(findEmployeeByLogin(' Pakornwo@ube.co.th ')).resolves.toMatchObject({
+    await expect(findEmployeeByLogin(' Pakornwo@ube.com ')).resolves.toMatchObject({
       employeeId: '01234',
     });
-    expect(boundValues()).toEqual(
-      expect.arrayContaining(['pakornwo@ube.co.th', 'pakornwo', '\\pakornwo'])
-    );
+    const sql = JSON.stringify(queryRaw.mock.calls[0]);
+    for (const value of ['pakornwo@ube.com', 'pakornwo@ube.com', '"pakornwo"', '\\\\pakornwo']) {
+      expect(sql).toContain(value);
+    }
   });
 
   it('returns null for blank input or no match without querying blanks', async () => {
@@ -90,27 +91,41 @@ describe('directory', () => {
     await expect(hrStatusByEmails([' '])).resolves.toEqual({});
     expect(queryRaw).not.toHaveBeenCalled();
     queryRaw.mockResolvedValue([
-      { email: 'a@ube.co.th', adLogin: 'a', workstatus: 'Resign' },
-      { email: 'a@ube.co.th', adLogin: 'a', workstatus: 'Active' },
-      { email: 'b@ube.co.th', adLogin: 'b', workstatus: 'Resign' },
+      { email: 'a@ube.com', adLogin: 'a', workstatus: 'Resign' },
+      { email: 'a@ube.com', adLogin: 'a', workstatus: 'Active' },
+      { email: 'b@ube.com', adLogin: 'b', workstatus: 'Resign' },
     ]);
-    await expect(hrStatusByEmails(['A@ube.co.th', 'b@ube.co.th'])).resolves.toEqual({
-      'a@ube.co.th': 'active',
-      'b@ube.co.th': 'inactive',
+    await expect(hrStatusByEmails(['A@ube.com', 'b@ube.com'])).resolves.toEqual({
+      'a@ube.com': 'active',
+      'b@ube.com': 'inactive',
     });
   });
 
   it('matches a roster email from SSO by the AD login local part', async () => {
     const { hrStatusByEmails } = await import('./directory');
     queryRaw.mockResolvedValue([
-      { email: 'pakornwo@ube.co.th', adLogin: 'pakornwo', workstatus: 'Active' },
+      { email: 'pakornwo@ube.com', adLogin: 'pakornwo', workstatus: 'Active' },
     ]);
     await expect(hrStatusByEmails(['Pakornwo@ube.com', 'nobody@ube.com'])).resolves.toEqual({
-      'pakornwo@ube.com': 'active',
+      'pakornwo@ube.com': 'active', // keyed by the stored @ube.com spelling
     });
     const sql = JSON.stringify(queryRaw.mock.calls[0]);
     expect(sql).toContain('"pakornwo@ube.com"');
     expect(sql).toContain('"pakornwo"');
+  });
+
+  it('finds the HR row stored as @ube.co.th for an @ube.com roster email, keyed @ube.com', async () => {
+    const { hrStatusByEmails, toEmployeeRecord } = await import('./directory');
+    queryRaw.mockResolvedValue([
+      { email: 'somying@ube.co.th', adLogin: 'somying', workstatus: 'Active' },
+    ]);
+    await expect(hrStatusByEmails(['Somying@ube.com'])).resolves.toEqual({
+      'somying@ube.com': 'active',
+    });
+    expect(JSON.stringify(queryRaw.mock.calls[0])).toContain('somying@ube.co.th');
+    expect(toEmployeeRecord({ ...row, CurrentEmail: 'Somying@UBE.co.th' }).loginEmail).toBe(
+      'somying@ube.com'
+    );
   });
 
   it('pages the directory with an escaped filter and a numeric total', async () => {

@@ -5,6 +5,7 @@
 import { cache } from 'react';
 import { prisma } from '@/lib/prisma';
 import { findEmployeeByLogin } from '@/lib/directory';
+import { emailVariants, normalizeEmail } from '@/lib/email-identity';
 import type { GrievanceCategory, UserRole } from '@/types';
 
 export interface RosterRole {
@@ -28,7 +29,7 @@ export function pickRole({ isHrAdmin, isExecutive, officerCategories }: RosterMa
 
 /** Session email plus the person's HR-view CurrentEmail (they differ when SSO logs in by AD name). */
 export async function candidateEmails(sessionEmail: string): Promise<string[]> {
-  const email = sessionEmail.trim().toLowerCase();
+  const email = normalizeEmail(sessionEmail);
   if (!email) return [];
   // The HR view is a linked server — if it is down, roles still resolve on the session email.
   const employee = await findEmployeeByLogin(email).catch(() => null);
@@ -41,7 +42,8 @@ export async function candidateEmails(sessionEmail: string): Promise<string[]> {
 export const resolveRosterRole = cache(async (sessionEmail: string): Promise<RosterRole> => {
   const emails = await candidateEmails(sessionEmail);
   if (emails.length === 0) return { role: 'employee', officerCategories: [] };
-  const live = { email: { in: emails }, isActive: true, isDeleted: false };
+  // Both spellings, so a row written before normalisation still matches (lib/email-identity.ts).
+  const live = { email: { in: emails.flatMap(emailVariants) }, isActive: true, isDeleted: false };
   const [hrAdmin, executive, officers] = await Promise.all([
     prisma.hrAdminMember.findFirst({ where: { ...live, status: 'active' }, select: { id: true } }),
     prisma.executiveMember.findFirst({
@@ -88,8 +90,8 @@ const SOURCE_BY_ROLE: Record<UserRole, RosterSource | null> = {
 export async function rosterRolesByEmail(
   emails: readonly string[]
 ): Promise<Map<string, RosterMembership>> {
-  const wanted = [...new Set(emails.map((e) => e.trim().toLowerCase()).filter(Boolean))];
-  const live = { email: { in: wanted }, isActive: true, isDeleted: false };
+  const wanted = [...new Set(emails.map(normalizeEmail).filter(Boolean))];
+  const live = { email: { in: wanted.flatMap(emailVariants) }, isActive: true, isDeleted: false };
   const [hrAdmins, executives, officers] = await Promise.all([
     prisma.hrAdminMember.findMany({
       where: { ...live, status: 'active' },
@@ -101,7 +103,7 @@ export async function rosterRolesByEmail(
     }),
     prisma.gatekeeperOfficer.findMany({ where: live, select: { email: true, category: true } }),
   ]);
-  const lower = (rows: { email: string }[]) => new Set(rows.map((r) => r.email.toLowerCase()));
+  const lower = (rows: { email: string }[]) => new Set(rows.map((r) => normalizeEmail(r.email)));
   const adminSet = lower(hrAdmins);
   const execSet = lower(executives);
   const result = new Map<string, RosterMembership>();
@@ -109,7 +111,7 @@ export async function rosterRolesByEmail(
     const officerCategories = [
       ...new Set(
         officers
-          .filter((o) => o.email.toLowerCase() === email)
+          .filter((o) => normalizeEmail(o.email) === email)
           .map((o) => o.category as GrievanceCategory)
       ),
     ];
