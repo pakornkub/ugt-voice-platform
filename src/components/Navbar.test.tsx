@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Navbar } from './Navbar';
 import { LanguageProvider } from '../context/LanguageContext';
@@ -67,7 +67,7 @@ describe('Navbar', () => {
 
     const input = document.getElementById('global-tracking-search') as HTMLInputElement;
     await user.type(input, 'TK-1');
-    await user.click(screen.getByTitle('Clear search'));
+    await user.click(screen.getByTitle('ล้างการค้นหา'));
     expect(input.value).toBe('');
 
     await user.type(input, 'TK-2026-0001{Enter}');
@@ -103,5 +103,60 @@ describe('Navbar', () => {
     expect(screen.getByText('Admin Tester')).toBeInTheDocument();
     expect(screen.getByText('admin@example.com')).toBeInTheDocument();
     expect(document.getElementById('btn-sign-out')).not.toBeNull();
+  });
+
+  describe('bilingual chrome', () => {
+    const useEnglish = () => localStorage.setItem('voiceplatform_lang_preference_v2', 'en');
+
+    it('titles the language buttons in Thai in TH', () => {
+      renderNavbar();
+      expect(document.getElementById('btn-lang-th')).toHaveAttribute(
+        'title',
+        'เปลี่ยนเป็นภาษาไทย (TH)'
+      );
+      expect(document.getElementById('btn-lang-en')).toHaveAttribute(
+        'title',
+        'เปลี่ยนเป็นภาษาอังกฤษ (EN)'
+      );
+    });
+
+    it('titles the language buttons and the clear-search button in English', async () => {
+      const user = userEvent.setup();
+      useEnglish();
+      renderNavbar();
+
+      await waitFor(() =>
+        expect(document.getElementById('btn-lang-th')).toHaveAttribute(
+          'title',
+          'Switch to Thai (TH)'
+        )
+      );
+      expect(document.getElementById('btn-lang-en')).toHaveAttribute(
+        'title',
+        'Switch to English (EN)'
+      );
+      await user.type(
+        document.getElementById('global-tracking-search') as HTMLInputElement,
+        'TK-1'
+      );
+      expect(screen.getByTitle('Clear search')).toBeInTheDocument();
+    });
+
+    it('names the default identity in the language chosen', async () => {
+      const user = userEvent.setup();
+      useEnglish();
+      renderNavbar();
+
+      await user.click(await waitFor(() => document.getElementById('btn-identity-menu')!));
+      expect(screen.getByText('User')).toBeInTheDocument();
+    });
+
+    it('names the default identity in Thai in TH', async () => {
+      const user = userEvent.setup();
+      renderNavbar();
+
+      await user.click(document.getElementById('btn-identity-menu')!);
+      expect(screen.getByText('ผู้ใช้งาน')).toBeInTheDocument();
+    });
   });
 });

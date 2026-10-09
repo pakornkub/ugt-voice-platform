@@ -28,6 +28,7 @@ import {
 } from '@/lib/actions/email-settings';
 import { interpolateEmailTemplate } from '../services/emailDefaults';
 import { Language, useLanguage } from '../context/LanguageContext';
+import { localizeServerText } from '../services/serverText';
 import { useConfirmDialog } from './ConfirmDialog';
 
 type TemplateKey = 'onTicketSubmitted' | 'onTicketResolved';
@@ -500,7 +501,9 @@ const DispatchLogTable: React.FC<DispatchLogTableProps> = ({ logs, onClear, onVi
                       {log.trackingCode}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="font-semibold text-slate-800">{log.recipientName}</div>
+                      <div className="font-semibold text-slate-800">
+                        {localizeServerText(log.recipientName, lang)}
+                      </div>
                       <div className="font-mono text-[11px] text-slate-500">
                         {log.recipientEmail}
                       </div>
@@ -585,7 +588,7 @@ const LogDetailModal: React.FC<LogDetailModalProps> = ({ log, onClose }) => {
       new Date(log.timestamp).toLocaleString(localeOf(lang)),
       'font-mono',
     ],
-    [tr('Recipient:', 'ผู้รับ:'), log.recipientName, 'font-semibold'],
+    [tr('Recipient:', 'ผู้รับ:'), localizeServerText(log.recipientName, lang), 'font-semibold'],
     [tr('Recipient Email:', 'อีเมลปลายทาง:'), log.recipientEmail, 'font-mono'],
   ];
 
@@ -636,7 +639,7 @@ const LogDetailModal: React.FC<LogDetailModalProps> = ({ log, onClose }) => {
               {tr('Body Content:', 'เนื้อหาข้อความ (Body Content):')}
             </span>
             <div className="max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-4 leading-relaxed whitespace-pre-wrap text-slate-800">
-              {log.body}
+              {localizeServerText(log.body, lang)}
             </div>
           </div>
 
@@ -957,8 +960,8 @@ const EmailSettingsPanel: React.FC<PanelProps> = ({ initialSettings, initialLogs
               'ส่งอีเมลแจ้งเตือนไปยัง Gatekeeper ประจำหมวดหมู่ เพื่อคัดกรองและดำเนินการ'
             ),
             recipientLabel: tr(
-              'Lead Gatekeeper for Category ({categoryTh})',
-              'Lead Gatekeeper ประจำหมวดหมู่ ({categoryTh})'
+              'Assigned officer, CC the Category Lead ({categoryTh}) — unassigned: the Lead',
+              'เจ้าหน้าที่ที่ถูกจ่ายงาน (CC Lead ประจำหมวดหมู่ {categoryTh}) — ยังไม่มอบหมาย: Lead Gatekeeper'
             ),
             recipientBadge: 'Auto-assigned by Category',
             subjectPlaceholder: tr(

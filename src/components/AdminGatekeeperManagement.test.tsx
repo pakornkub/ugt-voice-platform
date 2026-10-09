@@ -417,4 +417,112 @@ describe('AdminGatekeeperManagement', () => {
       await waitFor(() => expect(searchHrEmployees).not.toHaveBeenCalled());
     });
   });
+
+  describe('English mode', () => {
+    beforeEach(() => {
+      localStorage.setItem('voiceplatform_lang_preference_v2', 'en');
+    });
+
+    it('renders the header, category list and auto-assign options in English', () => {
+      renderPage();
+      expect(screen.getByText('Personnel & Governance Directory')).toBeInTheDocument();
+      expect(
+        screen.getByText('Manage Executives, HR Admins & Department Gatekeepers')
+      ).toBeInTheDocument();
+      expect(screen.getByText('Select Department (6 categories)')).toBeInTheDocument();
+      expect(screen.getByText('Auto-Assign Mode')).toBeInTheDocument();
+      expect(
+        screen.getByRole('option', { name: 'Off — triage and assign manually' })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('option', {
+          name: 'Always route to the Lead for triage first (recommended)',
+        })
+      ).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: /Round-Robin/ })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: /Workload Balanced/ })).toBeInTheDocument();
+      expect(screen.getByRole('columnheader', { name: 'Officer / Email' })).toBeInTheDocument();
+      expect(screen.getAllByText('Primary owner').length).toBeGreaterThan(0);
+      // category names come from the catalog's English name
+      expect(
+        screen.getAllByText('HR – Human Resources & Employee Benefits').length
+      ).toBeGreaterThan(0);
+      // Thai copy is gone
+      expect(screen.queryByText(/เลือกหน่วยงาน/)).toBeNull();
+      expect(screen.queryByText('ผู้รับผิดชอบหลัก')).toBeNull();
+      expect(screen.queryByText(/ศูนย์บริหารจัดการ/)).toBeNull();
+    });
+
+    it('flags the RBAC-disabled category and the HR badges in English', async () => {
+      const user = userEvent.setup();
+      renderPage(
+        { hrStatus: {} },
+        { rolePermissions: withRoleConfig('gatekeeper', { assignedDepartments: ['Quality'] }) }
+      );
+      expect(screen.getAllByText('Category off on RBAC page')).toHaveLength(hrOfficers.length);
+      expect(screen.getAllByText('Not in HR')).toHaveLength(hrOfficers.length);
+      expect(screen.queryByText('ไม่อยู่ใน HR')).toBeNull();
+      expect(screen.getAllByTitle(/Not found in the HR database/)[0]).toBeInTheDocument();
+      await user.click(byId('subtab-executives'));
+      expect(screen.getAllByText('Not in HR').length).toBeGreaterThan(0);
+    });
+
+    it('confirms and toasts an officer removal in English', async () => {
+      const user = userEvent.setup();
+      renderPage();
+      const target = hrOfficers.find((o) => !o.isLead)!;
+
+      await user.click(byId(`btn-remove-officer-${target.id}`));
+      const dialog = screen.getByRole('alertdialog');
+      expect(within(dialog).getByText('Confirm Gatekeeper removal')).toBeInTheDocument();
+      await user.click(within(dialog).getByRole('button', { name: 'Remove' }));
+
+      expect(
+        await screen.findByText(`Removed "${target.name}" from the Gatekeeper list`)
+      ).toBeInTheDocument();
+    });
+
+    it('shows English toasts for the lead guard and for a failed save', async () => {
+      const user = userEvent.setup();
+      vi.mocked(updateDepartmentGatekeeperConfig).mockRejectedValueOnce(new Error('FORBIDDEN'));
+      renderPage();
+
+      await user.click(screen.getAllByTitle(/Cannot remove the Lead Gatekeeper/)[0]);
+      expect(
+        screen.getByText(/Cannot remove the Lead Gatekeeper: please click/)
+      ).toBeInTheDocument();
+
+      await user.click(byId('btn-add-gatekeeper-toggle'));
+      fireEvent.change(byId('input-new-officer-name'), { target: { value: 'Tester' } });
+      fireEvent.change(byId('input-new-officer-email'), {
+        target: { value: 'tester@example.com' },
+      });
+      await user.click(byId('btn-submit-new-officer'));
+      expect(await screen.findByText('⚠️ Could not save. Please try again.')).toBeInTheDocument();
+    });
+
+    it('translates the executive and HR admin tabs, forms and guards', async () => {
+      const user = userEvent.setup();
+      const me = INITIAL_HR_ADMINS[0];
+      renderPage({}, { identity: { ...makeShell().identity, email: me.email } });
+
+      await user.click(byId('subtab-executives'));
+      expect(
+        screen.getByText(`2. Senior Executives & CEO Direct (${INITIAL_EXECUTIVES.length})`)
+      ).toBeInTheDocument();
+      await user.click(byId('btn-add-executive-toggle'));
+      expect(screen.getByText('Register New Senior Executive')).toBeInTheDocument();
+      expect(screen.getByText('Receive Whistleblower direct cases')).toBeInTheDocument();
+      expect(byId('exec-name')).toHaveAttribute('placeholder', 'e.g. Prasert Akkaradechanon');
+      expect(screen.getByRole('option', { name: 'Board Member' })).toBeInTheDocument();
+      expect(screen.queryByText('ลงทะเบียนผู้บริหารระดับสูงท่านใหม่')).toBeNull();
+
+      await user.click(byId('subtab-hr-admins'));
+      await user.click(screen.getAllByTitle('Remove')[0]);
+      expect(
+        screen.getByText('⚠️ You cannot delete or deactivate your own account')
+      ).toBeInTheDocument();
+      expect(deleteHrAdminMember).not.toHaveBeenCalled();
+    });
+  });
 });

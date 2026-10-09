@@ -38,8 +38,10 @@ import {
   RolePermissionConfig,
   ExecutiveMember,
   EmployeeRecord,
+  CategoryInfo,
+  TabDefinition,
 } from '../types';
-import { APP_TABS } from '../services/api';
+import { APP_TABS, INITIAL_ROLE_PERMISSIONS } from '../services/api';
 import { CATEGORY_DEFINITIONS } from '../mockData';
 import { useShell } from '@/app/shell-context';
 import { saveRoleAccessConfigs, resetRolePermissionsToDefault } from '@/lib/actions/role-access';
@@ -53,15 +55,46 @@ import { useConfirmDialog } from './ConfirmDialog';
 import { ExecStatusSelect, ExecutiveStatus } from './executiveShared';
 import HrNameField from './HrNameField';
 import { clickableProps } from './clickableProps';
+import { useTr } from '../context/useTr';
+import type { Language } from '../context/LanguageContext';
 
 const rolesList: UserRole[] = ['employee', 'gatekeeper', 'executive', 'admin'];
 
-const ROLE_SHORT_LABEL: Record<UserRole, string> = {
-  employee: 'พนักงาน',
-  gatekeeper: 'GK',
-  executive: 'ผู้บริหาร',
-  admin: 'Admin',
+const ROLE_SHORT_LABEL: Record<UserRole, Record<Language, string>> = {
+  employee: { th: 'พนักงาน', en: 'Employee' },
+  gatekeeper: { th: 'GK', en: 'GK' },
+  executive: { th: 'ผู้บริหาร', en: 'Executive' },
+  admin: { th: 'Admin', en: 'Admin' },
 };
+
+type Tr = (en: string, th: string) => string;
+
+/** Role name for cards and matrix headers ("พนักงานทั่วไป " in Thai, the English title otherwise). */
+const roleCardTitle = (config: RolePermissionConfig, lang: Language) =>
+  lang === 'en' ? config.roleTitleEn : config.roleTitleTh.split('(')[0];
+
+/** First word of the role title — used in toasts and the simulator. */
+const roleShortName = (config: RolePermissionConfig, lang: Language) =>
+  lang === 'en' ? config.roleTitleEn : config.roleTitleTh.split(' ')[0];
+
+/** The stored role description is Thai; English comes from the default entry for that role. */
+const roleDescription = (role: UserRole, config: RolePermissionConfig, lang: Language) =>
+  lang === 'en'
+    ? (config.descriptionEn ?? INITIAL_ROLE_PERMISSIONS[role].descriptionEn ?? config.descriptionTh)
+    : config.descriptionTh;
+
+const categoryName = (info: CategoryInfo, lang: Language) =>
+  lang === 'en' ? info.nameEn : info.nameTh;
+
+const categoryDescription = (info: CategoryInfo, lang: Language) =>
+  lang === 'en' ? (info.descriptionEn ?? info.descriptionTh) : info.descriptionTh;
+
+const tabDescription = (tab: TabDefinition, lang: Language) =>
+  lang === 'en' ? (tab.descriptionEn ?? tab.descriptionTh) : tab.descriptionTh;
+
+/** Th keeps the legacy "ชื่อไทย (English name)" cell; English shows the English name alone. */
+const employeeDisplayName = (emp: EmployeeRecord, lang: Language) =>
+  lang === 'en' ? emp.nameEn || emp.nameTh : `${emp.nameTh} (${emp.nameEn})`;
 
 // Quick presets for who may see the login e-mail of an anonymous submitter.
 const ANONYMOUS_PRESETS: {
@@ -69,22 +102,30 @@ const ANONYMOUS_PRESETS: {
   toast: string;
   textClass: string;
   visibleTo: Record<UserRole, boolean>;
+  labelEn: string;
+  toastEn: string;
 }[] = [
   {
     label: '🔒 เฉพาะ HR Admin & ผู้บริหาร (แนะนำ)',
     toast: 'ตั้งค่า: ให้เฉพาะ HR Admin & ผู้บริหาร มองเห็นอีเมลล็อกอิน',
+    labelEn: '🔒 HR Admin & Executives only (recommended)',
+    toastEn: 'Set: only HR Admin & Executives can see the login e-mail',
     textClass: 'text-slate-700',
     visibleTo: { employee: false, gatekeeper: false, executive: true, admin: true },
   },
   {
     label: '🛡️ Gatekeeper + ผู้บริหาร + HR Admin',
     toast: 'ตั้งค่า: ให้ Gatekeeper, ผู้บริหาร และ HR Admin มองเห็นอีเมลล็อกอิน',
+    labelEn: '🛡️ Gatekeeper + Executives + HR Admin',
+    toastEn: 'Set: Gatekeeper, Executives and HR Admin can see the login e-mail',
     textClass: 'text-slate-700',
     visibleTo: { employee: false, gatekeeper: true, executive: true, admin: true },
   },
   {
     label: '🚫 ปกปิด 100% ทุก Role',
     toast: 'ตั้งค่า: ปกปิดอีเมลล็อกอิน 100% ทุก Role',
+    labelEn: '🚫 Hide from every role (100%)',
+    toastEn: 'Set: login e-mail hidden from every role (100%)',
     textClass: 'text-rose-700',
     visibleTo: { employee: false, gatekeeper: false, executive: false, admin: false },
   },
@@ -99,73 +140,103 @@ interface AnonymousSimulatorCardProps {
 const AnonymousSimulatorCard: React.FC<AnonymousSimulatorCardProps> = ({
   isSimAllowed,
   roleName,
-}) => (
-  <div className="space-y-2.5 rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs">
-    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-      <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
-        <EyeOff className="h-4 w-4 text-slate-500" />
-        <span>ข้อมูลผู้ยื่นเรื่อง (กรณีไม่ระบุตัวตน / Anonymous Ticket)</span>
+}) => {
+  const { tr } = useTr();
+  return (
+    <div className="space-y-2.5 rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs">
+      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
+          <EyeOff className="h-4 w-4 text-slate-500" />
+          <span>
+            {tr(
+              'Submitter details (Anonymous Ticket)',
+              'ข้อมูลผู้ยื่นเรื่อง (กรณีไม่ระบุตัวตน / Anonymous Ticket)'
+            )}
+          </span>
+        </div>
+        <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+          🕵️ {tr('Anonymous', 'ไม่ระบุตัวตน (Anonymous)')}
+        </span>
       </div>
-      <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
-        🕵️ ไม่ระบุตัวตน (Anonymous)
-      </span>
+
+      {isSimAllowed ? (
+        <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50/70 p-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-950">
+              <Mail className="h-3.5 w-3.5 text-emerald-700" />
+              <span>
+                {tr(
+                  'Login e-mail (mapped in the back office from the employee database):',
+                  'อีเมลที่ใช้ในการ Login (Mapping หลังบ้านจากฐานข้อมูลพนักงาน):'
+                )}
+              </span>
+            </div>
+            <span className="py-0.2 rounded bg-emerald-200 px-2 text-[10px] font-bold text-emerald-900">
+              ✓{' '}
+              {tr(
+                `Visible to this role (Role: ${roleName})`,
+                `ได้รับสิทธิ์มองเห็น (Role: ${roleName})`
+              )}
+            </span>
+          </div>
+          <div className="flex items-center justify-between rounded border border-emerald-200 bg-white p-2">
+            <span className="font-mono text-xs font-bold text-indigo-950">
+              somchai.v@company.internal
+            </span>
+            <span className="text-[10px] text-slate-500">
+              {tr('Mapped from Employee DB: EMP-4092', 'Mapping จาก Employee DB: EMP-4092')}
+            </span>
+          </div>
+          <p className="text-[10.5px] leading-tight text-emerald-900/90">
+            {tr(
+              '* Note: HR Admin & the Executive Representative have allowed your role to see this login e-mail (name, surname and employee ID remain protected under the witness protection policy)',
+              '* หมายเหตุ: HR Admin & ตัวแทนผู้บริหาร ได้ tick อนุญาตให้บทบาทของคุณมองเห็น email ที่ใช้ในการ login นี้ได้ (โดยชื่อ นามสกุล และรหัสพนักงาน ยังคงได้รับการปกป้องตามนโยบายคุ้มครองพยาน)'
+            )}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+              <Lock className="h-3.5 w-3.5 text-slate-500" />
+              <span>{tr('Login e-mail:', 'อีเมลที่ใช้ในการ Login:')}</span>
+            </div>
+            <span className="py-0.2 rounded bg-slate-200 px-2 text-[10px] font-bold text-slate-700">
+              🔒 {tr(`Hidden (Role: ${roleName})`, `ปกปิด (Role: ${roleName})`)}
+            </span>
+          </div>
+          <div className="rounded border border-slate-200 bg-white p-2 font-mono text-xs text-slate-400 select-none">
+            ••••••••••••••••@••••••••••••
+          </div>
+          <p className="text-[10.5px] leading-tight text-slate-500">
+            {tr(
+              `* Note: your role (${roleName}) has not been allowed by HR Admin & the Executive Representative to see the login e-mail of this anonymous submitter`,
+              `* หมายเหตุ: บทบาทของคุณ (${roleName}) ไม่ได้รับอนุญาตจาก HR Admin & ตัวแทนผู้บริหาร ให้มองเห็นอีเมลล็อกอินของผู้ยื่นเรื่องนิรนามนี้`
+            )}
+          </p>
+        </div>
+      )}
     </div>
+  );
+};
 
-    {isSimAllowed ? (
-      <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50/70 p-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-950">
-            <Mail className="h-3.5 w-3.5 text-emerald-700" />
-            <span>อีเมลที่ใช้ในการ Login (Mapping หลังบ้านจากฐานข้อมูลพนักงาน):</span>
-          </div>
-          <span className="py-0.2 rounded bg-emerald-200 px-2 text-[10px] font-bold text-emerald-900">
-            ✓ ได้รับสิทธิ์มองเห็น (Role: {roleName})
-          </span>
-        </div>
-        <div className="flex items-center justify-between rounded border border-emerald-200 bg-white p-2">
-          <span className="font-mono text-xs font-bold text-indigo-950">
-            somchai.v@company.internal
-          </span>
-          <span className="text-[10px] text-slate-500">Mapping จาก Employee DB: EMP-4092</span>
-        </div>
-        <p className="text-[10.5px] leading-tight text-emerald-900/90">
-          * หมายเหตุ: HR Admin & ตัวแทนผู้บริหาร ได้ tick อนุญาตให้บทบาทของคุณมองเห็น email
-          ที่ใช้ในการ login นี้ได้ (โดยชื่อ นามสกุล และรหัสพนักงาน
-          ยังคงได้รับการปกป้องตามนโยบายคุ้มครองพยาน)
-        </p>
-      </div>
-    ) : (
-      <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-            <Lock className="h-3.5 w-3.5 text-slate-500" />
-            <span>อีเมลที่ใช้ในการ Login:</span>
-          </div>
-          <span className="py-0.2 rounded bg-slate-200 px-2 text-[10px] font-bold text-slate-700">
-            🔒 ปกปิด (Role: {roleName})
-          </span>
-        </div>
-        <div className="rounded border border-slate-200 bg-white p-2 font-mono text-xs text-slate-400 select-none">
-          ••••••••••••••••@••••••••••••
-        </div>
-        <p className="text-[10.5px] leading-tight text-slate-500">
-          * หมายเหตุ: บทบาทของคุณ ({roleName}) ไม่ได้รับอนุญาตจาก HR Admin & ตัวแทนผู้บริหาร
-          ให้มองเห็นอีเมลล็อกอินของผู้ยื่นเรื่องนิรนามนี้
-        </p>
-      </div>
-    )}
-  </div>
-);
+const permissionSaveError = (tr: Tr) =>
+  tr(
+    '⚠️ Could not save the permissions. Please try again.',
+    '⚠️ บันทึกสิทธิ์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'
+  );
+const permissionLockoutError = (tr: Tr) =>
+  tr(
+    '⚠️ The RBAC page permission for HR Admin cannot be turned off, to prevent a system lock-out',
+    '⚠️ ไม่สามารถปิดสิทธิ์หน้า RBAC สำหรับ HR Admin เพื่อป้องกันการล็อกระบบ'
+  );
+const executiveSaveError = (tr: Tr) =>
+  tr('⚠️ Could not save. Please try again.', '⚠️ บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
 
-const PERMISSION_SAVE_ERROR = '⚠️ บันทึกสิทธิ์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
-const PERMISSION_LOCKOUT_ERROR =
-  '⚠️ ไม่สามารถปิดสิทธิ์หน้า RBAC สำหรับ HR Admin เพื่อป้องกันการล็อกระบบ';
-const EXECUTIVE_SAVE_ERROR = '⚠️ บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
-
-const permissionErrorMessage = (error: unknown) =>
+const permissionErrorMessage = (error: unknown, tr: Tr) =>
   error instanceof Error && error.message.includes('ADMIN_LOCKOUT')
-    ? PERMISSION_LOCKOUT_ERROR
-    : PERMISSION_SAVE_ERROR;
+    ? permissionLockoutError(tr)
+    : permissionSaveError(tr);
 
 type HrStatusMap = Record<string, 'active' | 'inactive'> | null;
 type HrBadgeKind = 'missing' | 'inactive' | null;
@@ -179,23 +250,30 @@ const hrBadgeFor = (email: string, hrStatus: HrStatusMap): HrBadgeKind => {
 };
 
 const HrBadge: React.FC<{ readonly kind: HrBadgeKind }> = ({ kind }) => {
+  const { tr } = useTr();
   if (kind === 'missing') {
     return (
       <span
-        title="ไม่พบในฐานข้อมูล HR — รับอีเมลแจ้งเตือนได้ แต่เข้าสู่ระบบด้วย SSO ไม่ได้"
+        title={tr(
+          'Not found in the HR database — can receive notification e-mails but cannot sign in with SSO',
+          'ไม่พบในฐานข้อมูล HR — รับอีเมลแจ้งเตือนได้ แต่เข้าสู่ระบบด้วย SSO ไม่ได้'
+        )}
         className="rounded-full border border-amber-200 bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800"
       >
-        ไม่อยู่ใน HR
+        {tr('Not in HR', 'ไม่อยู่ใน HR')}
       </span>
     );
   }
   if (kind === 'inactive') {
     return (
       <span
-        title="ไม่ใช่พนักงานที่ปฏิบัติงานอยู่ในฐานข้อมูล HR แล้ว"
+        title={tr(
+          'No longer an active employee in the HR database',
+          'ไม่ใช่พนักงานที่ปฏิบัติงานอยู่ในฐานข้อมูล HR แล้ว'
+        )}
         className="rounded-full border border-rose-200 bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700"
       >
-        พ้นสภาพใน HR
+        {tr('Inactive in HR', 'พ้นสภาพใน HR')}
       </span>
     );
   }
@@ -273,6 +351,7 @@ const ExecutiveFormPanel: React.FC<ExecutiveFormPanelProps> = ({
   onSubmit,
   onCancel,
 }) => {
+  const { tr } = useTr();
   const setField = <K extends keyof ExecForm>(key: K, value: ExecForm[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -298,10 +377,15 @@ const ExecutiveFormPanel: React.FC<ExecutiveFormPanelProps> = ({
       <div className="flex items-center justify-between">
         <span className="flex items-center gap-1.5 text-xs font-bold text-purple-950">
           <Crown className="h-4 w-4 text-purple-600" />
-          {isEditing ? 'แก้ไขข้อมูลผู้บริหาร' : 'เพิ่มรายชื่อผู้บริหารระดับสูงใหม่'}
+          {isEditing
+            ? tr('Edit executive details', 'แก้ไขข้อมูลผู้บริหาร')
+            : tr('Add a new senior executive', 'เพิ่มรายชื่อผู้บริหารระดับสูงใหม่')}
         </span>
         <span className="text-[11px] font-medium text-purple-700">
-          * ระบุชื่อ-นามสกุล และอีเมลเพื่อรับการแจ้งเตือน
+          {tr(
+            '* Enter the full name and e-mail to receive notifications',
+            '* ระบุชื่อ-นามสกุล และอีเมลเพื่อรับการแจ้งเตือน'
+          )}
         </span>
       </div>
 
@@ -311,12 +395,12 @@ const ExecutiveFormPanel: React.FC<ExecutiveFormPanelProps> = ({
             htmlFor="exec-form-name"
             className="mb-1 block text-[11px] font-bold text-slate-700"
           >
-            ชื่อ - นามสกุล <span className="text-rose-500">*</span>
+            {tr('Full name', 'ชื่อ - นามสกุล')} <span className="text-rose-500">*</span>
           </label>
           <HrNameField
             id="exec-form-name"
             required
-            placeholder="เช่น คุณประเสริฐ อัครเดชานนท์"
+            placeholder={tr('e.g. Mr. Prasert Akradechanon', 'เช่น คุณประเสริฐ อัครเดชานนท์')}
             value={form.name}
             onChange={(value) => setForm((prev) => ({ ...prev, name: value, picked: false }))}
             onPick={pickEmployee}
@@ -330,13 +414,16 @@ const ExecutiveFormPanel: React.FC<ExecutiveFormPanelProps> = ({
             htmlFor="exec-form-position"
             className="mb-1 block text-[11px] font-bold text-slate-700"
           >
-            ตำแหน่งบริหาร <span className="text-rose-500">*</span>
+            {tr('Executive position', 'ตำแหน่งบริหาร')} <span className="text-rose-500">*</span>
           </label>
           <input
             id="exec-form-position"
             type="text"
             required
-            placeholder="เช่น Chief Executive Officer (CEO)"
+            placeholder={tr(
+              'e.g. Chief Executive Officer (CEO)',
+              'เช่น Chief Executive Officer (CEO)'
+            )}
             value={form.position}
             onChange={(e) => setField('position', e.target.value)}
             className={EXEC_INPUT_CLASS}
@@ -348,7 +435,7 @@ const ExecutiveFormPanel: React.FC<ExecutiveFormPanelProps> = ({
             htmlFor="exec-form-role-type"
             className="mb-1 block text-[11px] font-bold text-slate-700"
           >
-            ประเภทบทบาท (Role Level)
+            {tr('Role Level', 'ประเภทบทบาท (Role Level)')}
           </label>
           <select
             id="exec-form-role-type"
@@ -356,11 +443,21 @@ const ExecutiveFormPanel: React.FC<ExecutiveFormPanelProps> = ({
             onChange={(e) => setField('roleType', e.target.value as ExecutiveMember['roleType'])}
             className={EXEC_INPUT_CLASS}
           >
-            <option value="CEO">CEO (ประธานเจ้าหน้าที่บริหาร)</option>
-            <option value="EVP">EVP (รองกรรมการผู้จัดการใหญ่)</option>
-            <option value="GRC_Chair">ประธานคณะกรรมการบรรษัทภิบาล</option>
-            <option value="Audit_Committee">คณะกรรมการตรวจสอบ (Audit Committee)</option>
-            <option value="Board_Member">กรรมการบริษัท (Board Member)</option>
+            <option value="CEO">
+              {tr('CEO (Chief Executive Officer)', 'CEO (ประธานเจ้าหน้าที่บริหาร)')}
+            </option>
+            <option value="EVP">
+              {tr('EVP (Executive Vice President)', 'EVP (รองกรรมการผู้จัดการใหญ่)')}
+            </option>
+            <option value="GRC_Chair">
+              {tr('Corporate Governance Committee Chair', 'ประธานคณะกรรมการบรรษัทภิบาล')}
+            </option>
+            <option value="Audit_Committee">
+              {tr('Audit Committee', 'คณะกรรมการตรวจสอบ (Audit Committee)')}
+            </option>
+            <option value="Board_Member">
+              {tr('Board Member', 'กรรมการบริษัท (Board Member)')}
+            </option>
           </select>
         </div>
 
@@ -369,12 +466,12 @@ const ExecutiveFormPanel: React.FC<ExecutiveFormPanelProps> = ({
             htmlFor="exec-form-department"
             className="mb-1 block text-[11px] font-bold text-slate-700"
           >
-            สังกัด / ฝ่ายงาน
+            {tr('Department / Division', 'สังกัด / ฝ่ายงาน')}
           </label>
           <input
             id="exec-form-department"
             type="text"
-            placeholder="เช่น สำนักประธานเจ้าหน้าที่บริหาร"
+            placeholder={tr('e.g. Office of the CEO', 'เช่น สำนักประธานเจ้าหน้าที่บริหาร')}
             value={form.department}
             onChange={(e) => setField('department', e.target.value)}
             className={EXEC_INPUT_CLASS}
@@ -386,7 +483,7 @@ const ExecutiveFormPanel: React.FC<ExecutiveFormPanelProps> = ({
             htmlFor="exec-form-email"
             className="mb-1 block text-[11px] font-bold text-slate-700"
           >
-            อีเมลองค์กร <span className="text-rose-500">*</span>
+            {tr('Corporate e-mail', 'อีเมลองค์กร')} <span className="text-rose-500">*</span>
           </label>
           <input
             id="exec-form-email"
@@ -405,12 +502,12 @@ const ExecutiveFormPanel: React.FC<ExecutiveFormPanelProps> = ({
             htmlFor="exec-form-phone"
             className="mb-1 block text-[11px] font-bold text-slate-700"
           >
-            เบอร์โทรศัพท์ติดต่อภายใน
+            {tr('Internal phone number', 'เบอร์โทรศัพท์ติดต่อภายใน')}
           </label>
           <input
             id="exec-form-phone"
             type="text"
-            placeholder="เช่น 02-998-1001 หรือต่อ 101"
+            placeholder={tr('e.g. 02-998-1001 or ext. 101', 'เช่น 02-998-1001 หรือต่อ 101')}
             value={form.phone}
             onChange={(e) => setField('phone', e.target.value)}
             className={EXEC_INPUT_CLASS}
@@ -429,7 +526,12 @@ const ExecutiveFormPanel: React.FC<ExecutiveFormPanelProps> = ({
             onChange={(e) => setField('isWhistleblower', e.target.checked)}
             className="h-4 w-4 rounded text-purple-600 focus:ring-purple-500"
           />
-          <span>รับข้อร้องเรียนส่งตรง (Whistleblower Direct Receiver)</span>
+          <span>
+            {tr(
+              'Whistleblower Direct Receiver',
+              'รับข้อร้องเรียนส่งตรง (Whistleblower Direct Receiver)'
+            )}
+          </span>
         </label>
 
         <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-800">
@@ -439,7 +541,12 @@ const ExecutiveFormPanel: React.FC<ExecutiveFormPanelProps> = ({
             onChange={(e) => setField('canViewConfidential', e.target.checked)}
             className="h-4 w-4 rounded text-purple-600 focus:ring-purple-500"
           />
-          <span>สิทธิ์เปิดดูตัวตนกรณีลับเฉพาะ (Confidential Disclosure)</span>
+          <span>
+            {tr(
+              'Confidential Disclosure (can view identities in restricted cases)',
+              'สิทธิ์เปิดดูตัวตนกรณีลับเฉพาะ (Confidential Disclosure)'
+            )}
+          </span>
         </label>
       </div>
 
@@ -450,7 +557,7 @@ const ExecutiveFormPanel: React.FC<ExecutiveFormPanelProps> = ({
           onClick={onCancel}
           className="rounded-lg border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
         >
-          ยกเลิก
+          {tr('Cancel', 'ยกเลิก')}
         </button>
         <button
           type="submit"
@@ -458,7 +565,11 @@ const ExecutiveFormPanel: React.FC<ExecutiveFormPanelProps> = ({
           className="flex items-center gap-1.5 rounded-lg bg-purple-700 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-purple-800"
         >
           <Save className="h-3.5 w-3.5" />
-          <span>{isEditing ? 'บันทึกการแก้ไข' : 'บันทึกรายชื่อผู้บริหาร'}</span>
+          <span>
+            {isEditing
+              ? tr('Save changes', 'บันทึกการแก้ไข')
+              : tr('Save executive', 'บันทึกรายชื่อผู้บริหาร')}
+          </span>
         </button>
       </div>
     </form>
@@ -480,6 +591,7 @@ const ExecutiveCard: React.FC<ExecutiveCardProps> = ({
   onEdit,
   onDelete,
 }) => {
+  const { tr } = useTr();
   const isActive = exec.status === 'active';
 
   return (
@@ -566,7 +678,7 @@ const ExecutiveCard: React.FC<ExecutiveCardProps> = ({
               : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
           }`}
         >
-          {isActive ? 'พักสถานะ' : 'เปิดใช้งาน'}
+          {isActive ? tr('Suspend', 'พักสถานะ') : tr('Activate', 'เปิดใช้งาน')}
         </button>
 
         <div className="flex items-center gap-1.5">
@@ -574,7 +686,7 @@ const ExecutiveCard: React.FC<ExecutiveCardProps> = ({
             type="button"
             onClick={() => onEdit(exec)}
             className="rounded p-1 text-slate-500 transition hover:bg-purple-50 hover:text-purple-700"
-            title="แก้ไขข้อมูล"
+            title={tr('Edit details', 'แก้ไขข้อมูล')}
           >
             <Edit2 className="h-3.5 w-3.5" />
           </button>
@@ -583,7 +695,7 @@ const ExecutiveCard: React.FC<ExecutiveCardProps> = ({
             type="button"
             onClick={() => onDelete(exec.id, exec.name)}
             className="rounded p-1 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
-            title="ลบรายชื่อ"
+            title={tr('Delete executive', 'ลบรายชื่อ')}
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
@@ -609,53 +721,58 @@ interface DirectoryResult {
   pageSize: number;
 }
 
-const DirectoryRows: React.FC<{ readonly rows: EmployeeRecord[] }> = ({ rows }) => (
-  <div className="overflow-x-auto">
-    <table className="w-full overflow-hidden rounded-lg border border-slate-200 bg-white text-left text-xs">
-      <thead className="border-b border-slate-200 bg-slate-100 text-[11px] text-slate-700">
-        <tr>
-          <th className="px-3 py-2 font-bold">รหัสพนักงาน</th>
-          <th className="px-3 py-2 font-bold">ชื่อ-นามสกุล</th>
-          <th className="px-3 py-2 font-bold">ฝ่าย/แผนก</th>
-          <th className="px-3 py-2 font-bold text-indigo-700">Email ที่ใช้ในการ Login (Mapping)</th>
-          <th className="px-3 py-2 font-bold">สถานะ</th>
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-slate-100">
-        {rows.map((emp) => (
-          <tr key={emp.employeeId} className="hover:bg-slate-50/60">
-            <td className="px-3 py-2 font-mono font-bold text-slate-700">{emp.employeeId}</td>
-            <td className="px-3 py-2 font-medium text-slate-900">
-              {emp.nameTh} ({emp.nameEn})
-            </td>
-            <td className="px-3 py-2 text-slate-600">{emp.department || '-'}</td>
-            <td className="px-3 py-2 font-mono font-semibold text-indigo-600">
-              {emp.loginEmail || '-'}
-            </td>
-            <td className="px-3 py-2">
-              <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                  emp.status === 'active'
-                    ? 'bg-emerald-100 text-emerald-800'
-                    : 'bg-slate-200 text-slate-600'
-                }`}
-              >
-                {emp.status === 'active' ? 'Active' : 'Inactive'}
-              </span>
-            </td>
-          </tr>
-        ))}
-        {rows.length === 0 && (
+const DirectoryRows: React.FC<{ readonly rows: EmployeeRecord[] }> = ({ rows }) => {
+  const { tr, lang } = useTr();
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full overflow-hidden rounded-lg border border-slate-200 bg-white text-left text-xs">
+        <thead className="border-b border-slate-200 bg-slate-100 text-[11px] text-slate-700">
           <tr>
-            <td colSpan={5} className="px-3 py-4 text-center text-slate-500">
-              ไม่พบข้อมูลพนักงาน
-            </td>
+            <th className="px-3 py-2 font-bold">{tr('Employee ID', 'รหัสพนักงาน')}</th>
+            <th className="px-3 py-2 font-bold">{tr('Full name', 'ชื่อ-นามสกุล')}</th>
+            <th className="px-3 py-2 font-bold">{tr('Department', 'ฝ่าย/แผนก')}</th>
+            <th className="px-3 py-2 font-bold text-indigo-700">
+              {tr('Login e-mail (Mapping)', 'Email ที่ใช้ในการ Login (Mapping)')}
+            </th>
+            <th className="px-3 py-2 font-bold">{tr('Status', 'สถานะ')}</th>
           </tr>
-        )}
-      </tbody>
-    </table>
-  </div>
-);
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {rows.map((emp) => (
+            <tr key={emp.employeeId} className="hover:bg-slate-50/60">
+              <td className="px-3 py-2 font-mono font-bold text-slate-700">{emp.employeeId}</td>
+              <td className="px-3 py-2 font-medium text-slate-900">
+                {employeeDisplayName(emp, lang)}
+              </td>
+              <td className="px-3 py-2 text-slate-600">{emp.department || '-'}</td>
+              <td className="px-3 py-2 font-mono font-semibold text-indigo-600">
+                {emp.loginEmail || '-'}
+              </td>
+              <td className="px-3 py-2">
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                    emp.status === 'active'
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'bg-slate-200 text-slate-600'
+                  }`}
+                >
+                  {emp.status === 'active' ? 'Active' : 'Inactive'}
+                </span>
+              </td>
+            </tr>
+          ))}
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={5} className="px-3 py-4 text-center text-slate-500">
+                {tr('No employees found', 'ไม่พบข้อมูลพนักงาน')}
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+};
 
 interface DirectoryPagerProps {
   readonly page: number;
@@ -663,32 +780,36 @@ interface DirectoryPagerProps {
   readonly onPageChange: (page: number) => void;
 }
 
-const DirectoryPager: React.FC<DirectoryPagerProps> = ({ page, pageCount, onPageChange }) => (
-  <div className="flex items-center justify-end gap-2 text-[11px] text-slate-600">
-    <button
-      type="button"
-      disabled={page <= 0}
-      onClick={() => onPageChange(page - 1)}
-      className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 font-semibold transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-    >
-      ก่อนหน้า
-    </button>
-    <span className="font-mono">
-      หน้า {page + 1} / {pageCount}
-    </span>
-    <button
-      type="button"
-      disabled={page + 1 >= pageCount}
-      onClick={() => onPageChange(page + 1)}
-      className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 font-semibold transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-    >
-      ถัดไป
-    </button>
-  </div>
-);
+const DirectoryPager: React.FC<DirectoryPagerProps> = ({ page, pageCount, onPageChange }) => {
+  const { tr } = useTr();
+  return (
+    <div className="flex items-center justify-end gap-2 text-[11px] text-slate-600">
+      <button
+        type="button"
+        disabled={page <= 0}
+        onClick={() => onPageChange(page - 1)}
+        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 font-semibold transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {tr('Previous', 'ก่อนหน้า')}
+      </button>
+      <span className="font-mono">
+        {tr(`Page ${page + 1} / ${pageCount}`, `หน้า ${page + 1} / ${pageCount}`)}
+      </span>
+      <button
+        type="button"
+        disabled={page + 1 >= pageCount}
+        onClick={() => onPageChange(page + 1)}
+        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 font-semibold transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {tr('Next', 'ถัดไป')}
+      </button>
+    </div>
+  );
+};
 
 /** Read-only, server-paged view of the HR employee directory (opened on demand). */
 const EmployeeDirectoryPanel: React.FC = () => {
+  const { tr } = useTr();
   const [searchText, setSearchText] = useState('');
   const [criteria, setCriteria] = useState<DirectoryCriteria>({ query: '', page: 0 });
   const [result, setResult] = useState<DirectoryResult | null>(null);
@@ -726,7 +847,10 @@ const EmployeeDirectoryPanel: React.FC = () => {
         <div className="flex items-center gap-2">
           <Database className="h-4 w-4 text-indigo-600" />
           <span className="text-xs font-bold text-slate-900">
-            ฐานข้อมูลพนักงานสำหรับการ Mapping หลังบ้าน (Corporate Employee Directory):
+            {tr(
+              'Employee database for back-office mapping (Corporate Employee Directory):',
+              'ฐานข้อมูลพนักงานสำหรับการ Mapping หลังบ้าน (Corporate Employee Directory):'
+            )}
           </span>
         </div>
         <span className="font-mono text-[11px] text-slate-500">Total {total} Records</span>
@@ -734,19 +858,27 @@ const EmployeeDirectoryPanel: React.FC = () => {
 
       <input
         type="search"
-        aria-label="ค้นหาพนักงาน"
-        placeholder="ค้นหาชื่อ, รหัสพนักงาน, อีเมล หรือหน่วยงาน..."
+        aria-label={tr('Search employees', 'ค้นหาพนักงาน')}
+        placeholder={tr(
+          'Search by name, employee ID, e-mail or department...',
+          'ค้นหาชื่อ, รหัสพนักงาน, อีเมล หรือหน่วยงาน...'
+        )}
         value={searchText}
         onChange={(e) => setSearchText(e.target.value)}
         className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
       />
 
       {current === null && (
-        <p className="py-4 text-center text-xs text-slate-500">กำลังโหลดข้อมูลพนักงานจาก HR...</p>
+        <p className="py-4 text-center text-xs text-slate-500">
+          {tr('Loading employee data from HR...', 'กำลังโหลดข้อมูลพนักงานจาก HR...')}
+        </p>
       )}
       {current?.error && (
         <p className="py-4 text-center text-xs text-rose-600">
-          ไม่สามารถเชื่อมต่อฐานข้อมูล HR ได้ในขณะนี้
+          {tr(
+            'Cannot connect to the HR database right now',
+            'ไม่สามารถเชื่อมต่อฐานข้อมูล HR ได้ในขณะนี้'
+          )}
         </p>
       )}
       {current && !current.error && <DirectoryRows rows={current.rows} />}
@@ -759,10 +891,32 @@ const EmployeeDirectoryPanel: React.FC = () => {
       )}
 
       <p className="text-[10.5px] leading-snug text-slate-500">
-        ระบบเชื่อมโยงอัตโนมัติ: เมื่อพนักงานทำการยื่นเรื่องแบบไม่ระบุตัวตน ระบบจะ mapping
-        อีเมลล็อกอินของพนักงานเข้าระบบตั๋วหลังบ้าน โดยเปิดสิทธิ์ให้เฉพาะ Role ที่ถูก tick โดย HR
-        Admin & ตัวแทนผู้บริหาร มองเห็นได้เท่านั้น
+        {tr(
+          "Automatic linking: when an employee submits anonymously, the system maps the employee's login e-mail to the back-office ticket. Only roles ticked by HR Admin & the Executive Representative can see it.",
+          'ระบบเชื่อมโยงอัตโนมัติ: เมื่อพนักงานทำการยื่นเรื่องแบบไม่ระบุตัวตน ระบบจะ mapping อีเมลล็อกอินของพนักงานเข้าระบบตั๋วหลังบ้าน โดยเปิดสิทธิ์ให้เฉพาะ Role ที่ถูก tick โดย HR Admin & ตัวแทนผู้บริหาร มองเห็นได้เท่านั้น'
+        )}
       </p>
+    </div>
+  );
+};
+
+/** Name + description cell of one screen row in the visibility matrix. */
+const MatrixScreenLabel: React.FC<{ readonly tab: TabDefinition }> = ({ tab }) => {
+  const { lang } = useTr();
+  const isEn = lang === 'en';
+  return (
+    <div className="min-w-0 space-y-0.5">
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-bold text-slate-900 sm:text-sm">
+          {isEn ? tab.nameEn : tab.nameTh}
+        </span>
+        {!isEn && (
+          <span className="hidden font-mono text-[10px] text-slate-400 sm:inline">
+            ({tab.nameEn})
+          </span>
+        )}
+      </div>
+      <p className="text-[11px] leading-normal text-slate-500">{tabDescription(tab, lang)}</p>
     </div>
   );
 };
@@ -785,6 +939,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
   hrStatus,
 }) => {
   const { rolePermissions } = useShell();
+  const { tr, lang } = useTr();
   const [permissions, setPermissions] = useState<Record<UserRole, RolePermissionConfig>>(
     () => rolePermissions
   );
@@ -852,14 +1007,19 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
         return true;
       })
       .catch(() => {
-        showToast(EXECUTIVE_SAVE_ERROR);
+        showToast(executiveSaveError(tr));
         return false;
       });
 
   const handleSaveExecSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
     if (!execForm.name.trim() || !execForm.email.trim()) {
-      showToast('⚠️ กรุณากรอกชื่อ-นามสกุล และอีเมลของผู้บริหาร');
+      showToast(
+        tr(
+          "⚠️ Please enter the executive's full name and e-mail",
+          '⚠️ กรุณากรอกชื่อ-นามสกุล และอีเมลของผู้บริหาร'
+        )
+      );
       return;
     }
 
@@ -867,7 +1027,10 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
     const saved = editingExecId
       ? await applyExecutiveChange(
           updateExecutiveMember(editingExecId, fields),
-          `อัปเดตข้อมูลผู้บริหาร "${execForm.name}" เรียบร้อยแล้ว`
+          tr(
+            `Executive "${execForm.name}" updated`,
+            `อัปเดตข้อมูลผู้บริหาร "${execForm.name}" เรียบร้อยแล้ว`
+          )
         )
       : await applyExecutiveChange(
           addExecutiveMember({
@@ -875,7 +1038,10 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
             receiveAlertNotifications: true,
             assignedCommittees: ['คณะกรรมการบริหาร (ExCom)'],
           }),
-          `เพิ่มรายชื่อผู้บริหาร "${execForm.name}" เข้าระบบเรียบร้อยแล้ว`
+          tr(
+            `Executive "${execForm.name}" added to the system`,
+            `เพิ่มรายชื่อผู้บริหาร "${execForm.name}" เข้าระบบเรียบร้อยแล้ว`
+          )
         );
 
     if (saved) closeExecForm();
@@ -889,14 +1055,17 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
 
   const handleDeleteExec = (id: string, name: string) => {
     askConfirm({
-      title: 'ยืนยันการลบรายชื่อผู้บริหาร',
-      message: `คุณต้องการลบรายชื่อผู้บริหาร "${name}" ออกจากระบบใช่หรือไม่?`,
-      confirmLabel: 'ลบรายชื่อ',
+      title: tr('Confirm executive removal', 'ยืนยันการลบรายชื่อผู้บริหาร'),
+      message: tr(
+        `Remove executive "${name}" from the system?`,
+        `คุณต้องการลบรายชื่อผู้บริหาร "${name}" ออกจากระบบใช่หรือไม่?`
+      ),
+      confirmLabel: tr('Delete', 'ลบรายชื่อ'),
       isDestructive: true,
       onConfirm: () => {
         void applyExecutiveChange(
           deleteExecutiveMember(id),
-          `ลบรายชื่อผู้บริหาร "${name}" เรียบร้อยแล้ว`
+          tr(`Executive "${name}" removed`, `ลบรายชื่อผู้บริหาร "${name}" เรียบร้อยแล้ว`)
         );
       },
     });
@@ -906,10 +1075,11 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
     const target = executives.find((e) => e.id === id);
     if (!target) return;
     const newStatus = target.status === 'active' ? 'inactive' : 'active';
-    void applyExecutiveChange(
-      updateExecutiveMember(id, { status: newStatus }),
-      `เปลี่ยนสถานะเป็น ${newStatus === 'active' ? 'เปิดใช้งาน' : 'ระงับชั่วคราว'}`
-    );
+    const successMsg =
+      newStatus === 'active'
+        ? tr('Status changed to Active', 'เปลี่ยนสถานะเป็น เปิดใช้งาน')
+        : tr('Status changed to Suspended', 'เปลี่ยนสถานะเป็น ระงับชั่วคราว');
+    void applyExecutiveChange(updateExecutiveMember(id, { status: newStatus }), successMsg);
   };
 
   const commitPermissions = (
@@ -929,14 +1099,14 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
       })
       .catch((error: unknown) => {
         setPermissions(previous);
-        showToast(permissionErrorMessage(error));
+        showToast(permissionErrorMessage(error, tr));
       });
   };
 
   const handleToggleTabPermission = (role: UserRole, tabId: AppTabId) => {
     // Prevent removing RBAC tab from admin role to prevent lockout
     if (role === 'admin' && tabId === 'rbac_management') {
-      showToast('⚠️ ไม่สามารถปิดสิทธิ์หน้า RBAC สำหรับ HR Admin เพื่อป้องกันการล็อกระบบ');
+      showToast(permissionLockoutError(tr));
       return;
     }
 
@@ -956,13 +1126,21 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
 
     commitPermissions(
       updated,
-      `อัปเดตสิทธิ์แท็บสำหรับ ${permissions[role].roleTitleTh.split(' ')[0]} แล้ว`
+      tr(
+        `Screen permissions updated for ${roleShortName(permissions[role], 'en')}`,
+        `อัปเดตสิทธิ์แท็บสำหรับ ${roleShortName(permissions[role], 'th')} แล้ว`
+      )
     );
   };
 
   const handleToggleSpecialPermission = (role: UserRole, key: keyof RolePermissionConfig) => {
     if (role === 'admin' && key === 'canManageRolePermissions') {
-      showToast('⚠️ HR Admin จำเป็นต้องมีสิทธิ์จัดการ RBAC เสมอ');
+      showToast(
+        tr(
+          '⚠️ HR Admin must always keep the RBAC management permission',
+          '⚠️ HR Admin จำเป็นต้องมีสิทธิ์จัดการ RBAC เสมอ'
+        )
+      );
       return;
     }
 
@@ -978,7 +1156,10 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
 
     commitPermissions(
       updated,
-      `อัปเดตสิทธิ์ความปลอดภัยสำหรับ ${permissions[role].roleTitleTh.split(' ')[0]} แล้ว`
+      tr(
+        `Security permissions updated for ${roleShortName(permissions[role], 'en')}`,
+        `อัปเดตสิทธิ์ความปลอดภัยสำหรับ ${roleShortName(permissions[role], 'th')} แล้ว`
+      )
     );
   };
 
@@ -1000,7 +1181,10 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
       },
     };
 
-    commitPermissions(updated, 'อัปเดตขอบเขตหมวดหมู่ Gatekeeper แล้ว');
+    commitPermissions(
+      updated,
+      tr('Gatekeeper category scope updated', 'อัปเดตขอบเขตหมวดหมู่ Gatekeeper แล้ว')
+    );
   };
 
   // "Select all" and "reset" both end at the default scope: every category.
@@ -1029,17 +1213,25 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
 
   const handleResetDefaults = () => {
     askConfirm({
-      title: 'ยืนยันการรีเซ็ตสิทธิ์ RBAC',
-      message: 'คุณต้องการรีเซ็ตสิทธิ์ของทุก Role กลับเป็นค่าเริ่มต้นตามนโยบายองค์กรใช่หรือไม่?',
-      confirmLabel: 'รีเซ็ตค่าเริ่มต้น',
+      title: tr('Confirm RBAC permission reset', 'ยืนยันการรีเซ็ตสิทธิ์ RBAC'),
+      message: tr(
+        'Reset the permissions of every role to the default organization policy?',
+        'คุณต้องการรีเซ็ตสิทธิ์ของทุก Role กลับเป็นค่าเริ่มต้นตามนโยบายองค์กรใช่หรือไม่?'
+      ),
+      confirmLabel: tr('Reset to defaults', 'รีเซ็ตค่าเริ่มต้น'),
       onConfirm: () => {
         resetRolePermissionsToDefault()
           .then((defaults) => {
             setPermissions(defaults);
-            showToast('รีเซ็ตสิทธิ์ RBAC กลับเป็นค่าเริ่มต้นเรียบร้อยแล้ว');
+            showToast(
+              tr(
+                'RBAC permissions reset to defaults',
+                'รีเซ็ตสิทธิ์ RBAC กลับเป็นค่าเริ่มต้นเรียบร้อยแล้ว'
+              )
+            );
             notifyPermissionsUpdated();
           })
-          .catch((error: unknown) => showToast(permissionErrorMessage(error)));
+          .catch((error: unknown) => showToast(permissionErrorMessage(error, tr)));
       },
     });
   };
@@ -1105,9 +1297,10 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
             </span>
           </div>
           <p className="text-xs leading-relaxed text-slate-300">
-            ระบบกำหนดสิทธิ์การมองเห็นหน้าจอและการเข้าถึงข้อมูลตามบทบาทหน้าที่ (พนักงานทั่วไป /
-            Gatekeeper ประจำหน่วยงาน / ผู้บริหารระดับสูง / HR Admin)
-            เพื่อความปลอดภัยของข้อมูลตามมาตรฐาน Whistleblower Protection Act, PDPA และ ISO 37002
+            {tr(
+              'Controls screen visibility and data access by role (General Employee / Department Gatekeeper / Senior Executive / HR Admin) to keep data secure in line with the Whistleblower Protection Act, PDPA and ISO 37002',
+              'ระบบกำหนดสิทธิ์การมองเห็นหน้าจอและการเข้าถึงข้อมูลตามบทบาทหน้าที่ (พนักงานทั่วไป / Gatekeeper ประจำหน่วยงาน / ผู้บริหารระดับสูง / HR Admin) เพื่อความปลอดภัยของข้อมูลตามมาตรฐาน Whistleblower Protection Act, PDPA และ ISO 37002'
+            )}
           </p>
         </div>
 
@@ -1117,7 +1310,12 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
             className="flex items-center gap-1.5 rounded-xl border border-purple-400/40 bg-gradient-to-r from-purple-600 to-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs transition hover:from-purple-500 hover:to-indigo-500"
           >
             <Crown className="h-3.5 w-3.5 text-yellow-300" />
-            <span>กล่องใส่/แก้ไขรายชื่อผู้บริหาร ({executives.length})</span>
+            <span>
+              {tr(
+                `Add / edit executives (${executives.length})`,
+                `กล่องใส่/แก้ไขรายชื่อผู้บริหาร (${executives.length})`
+              )}
+            </span>
           </a>
 
           <button
@@ -1125,15 +1323,18 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
             id="btn-reset-rbac-defaults"
             onClick={handleResetDefaults}
             className="flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-white/20"
-            title="รีเซ็ตสิทธิ์เป็นค่าเริ่มต้นตามนโยบายองค์กร"
+            title={tr(
+              'Reset permissions to the default organization policy',
+              'รีเซ็ตสิทธิ์เป็นค่าเริ่มต้นตามนโยบายองค์กร'
+            )}
           >
             <RotateCcw className="h-3.5 w-3.5 text-slate-300" />
-            <span>รีเซ็ตค่ามาตรฐาน</span>
+            <span>{tr('Reset to defaults', 'รีเซ็ตค่ามาตรฐาน')}</span>
           </button>
 
           <div className="flex items-center gap-1.5 rounded-xl border border-emerald-400/30 bg-emerald-500/20 px-3.5 py-2 text-xs font-bold text-emerald-300">
             <ShieldCheck className="h-4 w-4 text-emerald-400" />
-            <span>ระบบบันทึกอัตโนมัติ (Live Synced)</span>
+            <span>{tr('Live Synced (auto-save)', 'ระบบบันทึกอัตโนมัติ (Live Synced)')}</span>
           </div>
         </div>
       </div>
@@ -1162,26 +1363,27 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                       {getRoleIcon(roleKey)}
                     </div>
                     <span className="text-xs font-bold text-slate-900">
-                      {config.roleTitleTh.split('(')[0]}
+                      {roleCardTitle(config, lang)}
                     </span>
                   </div>
 
                   {isCurrent && (
                     <span className="shrink-0 rounded-full border border-indigo-200 bg-indigo-100 px-2 py-0.5 text-[10px] font-bold whitespace-nowrap text-indigo-800">
-                      มุมมองปัจจุบัน
+                      {tr('Current view', 'มุมมองปัจจุบัน')}
                     </span>
                   )}
                 </div>
 
                 <p className="line-clamp-2 text-[11px] leading-relaxed text-slate-500">
-                  {config.descriptionTh}
+                  {roleDescription(roleKey, config, lang)}
                 </p>
               </div>
 
               <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2.5">
                 <span className="text-[11px] font-medium text-slate-600">
-                  สิทธิ์เข้าถึง <strong className="font-bold text-slate-900">{allowedCount}</strong>{' '}
-                  หน้าจอ
+                  {tr('Access to', 'สิทธิ์เข้าถึง')}{' '}
+                  <strong className="font-bold text-slate-900">{allowedCount}</strong>{' '}
+                  {tr('screens', 'หน้าจอ')}
                 </span>
               </div>
             </div>
@@ -1196,17 +1398,29 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
           <div>
             <h2 className="flex items-center gap-2 text-sm font-bold text-slate-900 sm:text-base">
               <SlidersHorizontal className="h-4 w-4 text-rose-600" />
-              <span>ตารางเมทริกซ์สิทธิ์การมองเห็นหน้าจอ (Screen Visibility Matrix)</span>
+              <span>
+                {tr(
+                  'Screen Visibility Matrix',
+                  'ตารางเมทริกซ์สิทธิ์การมองเห็นหน้าจอ (Screen Visibility Matrix)'
+                )}
+              </span>
             </h2>
             <p className="mt-0.5 text-xs text-slate-500">
-              กำหนดว่าแต่ละบทบาทสามารถเข้าถึงและมองเห็นแท็บเมนูใดได้บ้างในระบบ
-              โดยการเปลี่ยนแปลงจะมีผลทันที
+              {tr(
+                'Set which menu tabs each role can access and see in the system. Changes take effect immediately.',
+                'กำหนดว่าแต่ละบทบาทสามารถเข้าถึงและมองเห็นแท็บเมนูใดได้บ้างในระบบ โดยการเปลี่ยนแปลงจะมีผลทันที'
+              )}
             </p>
           </div>
 
           <div className="flex items-center gap-2 self-start rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 shadow-xs sm:self-auto">
             <Info className="h-3.5 w-3.5 text-blue-600" />
-            <span>ติ๊กถูกเพื่อเปิดสิทธิ์ / ติ๊กออกเพื่อปิดสิทธิ์</span>
+            <span>
+              {tr(
+                'Tick to grant access / untick to revoke it',
+                'ติ๊กถูกเพื่อเปิดสิทธิ์ / ติ๊กออกเพื่อปิดสิทธิ์'
+              )}
+            </span>
           </div>
         </div>
 
@@ -1215,14 +1429,14 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
           <table className="w-full border-collapse text-left">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-100/70 text-[11px] font-bold tracking-wider text-slate-600 uppercase">
-                <th className="w-2/5 px-4 py-3">หน้าจอ / ฟังก์ชันงาน (Module / Screen)</th>
+                <th className="w-2/5 px-4 py-3">
+                  {tr('Module / Screen', 'หน้าจอ / ฟังก์ชันงาน (Module / Screen)')}
+                </th>
                 {rolesList.map((roleKey) => (
                   <th key={roleKey} className="w-[15%] px-3 py-3 text-center">
                     <div className="flex items-center justify-center gap-1 text-slate-800">
                       {getRoleIcon(roleKey)}
-                      <span className="truncate">
-                        {permissions[roleKey].roleTitleTh.split('(')[0]}
-                      </span>
+                      <span className="truncate">{roleCardTitle(permissions[roleKey], lang)}</span>
                     </div>
                   </th>
                 ))}
@@ -1237,19 +1451,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                         <div className="mt-0.5 shrink-0 rounded-lg border border-slate-200 bg-slate-50 p-1.5">
                           {getTabIcon(tab.iconName)}
                         </div>
-                        <div className="min-w-0 space-y-0.5">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-slate-900 sm:text-sm">
-                              {tab.nameTh}
-                            </span>
-                            <span className="hidden font-mono text-[10px] text-slate-400 sm:inline">
-                              ({tab.nameEn})
-                            </span>
-                          </div>
-                          <p className="text-[11px] leading-normal text-slate-500">
-                            {tab.descriptionTh}
-                          </p>
-                        </div>
+                        <MatrixScreenLabel tab={tab} />
                       </div>
                     </td>
 
@@ -1266,8 +1468,14 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                             disabled={isLockedAdmin}
                             title={
                               isLockedAdmin
-                                ? 'HR Admin มีสิทธิ์ถาวรเพื่อป้องกันการล็อกระบบ'
-                                : `คลิกเพื่อเปิด/ปิดสิทธิ์ ${tab.nameTh} สำหรับ ${roleKey}`
+                                ? tr(
+                                    'HR Admin permission is permanent, to prevent a system lock-out',
+                                    'HR Admin มีสิทธิ์ถาวรเพื่อป้องกันการล็อกระบบ'
+                                  )
+                                : tr(
+                                    `Click to toggle ${tab.nameEn} access for ${roleKey}`,
+                                    `คลิกเพื่อเปิด/ปิดสิทธิ์ ${tab.nameTh} สำหรับ ${roleKey}`
+                                  )
                             }
                             className={`inline-flex h-9 w-9 items-center justify-center rounded-xl shadow-xs transition-all ${
                               isAllowed
@@ -1295,10 +1503,14 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
         <div className="flex flex-col items-center justify-between gap-2 border-t border-slate-200 bg-slate-50 p-3.5 text-xs text-slate-500 sm:flex-row">
           <div className="flex items-center gap-1.5 text-[11px]">
             <Check className="h-3.5 w-3.5 text-emerald-600" />
-            <span>เขียว = มีสิทธิ์เข้าถึง (Visible & Permitted)</span>
+            <span>
+              {tr('Green = Visible & Permitted', 'เขียว = มีสิทธิ์เข้าถึง (Visible & Permitted)')}
+            </span>
             <span className="mx-1">•</span>
             <X className="h-3.5 w-3.5 text-slate-400" />
-            <span>เทา = ไม่มีสิทธิ์เข้าถึง (Hidden & Restricted)</span>
+            <span>
+              {tr('Grey = Hidden & Restricted', 'เทา = ไม่มีสิทธิ์เข้าถึง (Hidden & Restricted)')}
+            </span>
           </div>
 
           <div className="font-mono text-[11px] text-slate-400">
@@ -1318,11 +1530,16 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
               </div>
               <div>
                 <h3 className="text-xs font-bold text-slate-900 sm:text-sm">
-                  ขอบเขตหมวดหมู่คำร้องประจำตัว Gatekeeper (Category Scoping)
+                  {tr(
+                    'Gatekeeper Category Scoping',
+                    'ขอบเขตหมวดหมู่คำร้องประจำตัว Gatekeeper (Category Scoping)'
+                  )}
                 </h3>
                 <p className="text-[11px] text-slate-500">
-                  กำหนดว่าผู้ประสานงาน (Gatekeeper) สามารถมองเห็นและจัดการคำร้องในหมวดหมู่ใดบ้าง
-                  (ทั้งหมดมี 6 หมวดหมู่มาตรฐาน)
+                  {tr(
+                    'Choose which categories a Gatekeeper can view and handle (6 standard categories in total)',
+                    'กำหนดว่าผู้ประสานงาน (Gatekeeper) สามารถมองเห็นและจัดการคำร้องในหมวดหมู่ใดบ้าง (ทั้งหมดมี 6 หมวดหมู่มาตรฐาน)'
+                  )}
                 </p>
               </div>
             </div>
@@ -1332,34 +1549,46 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
           <div className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
               <span className="font-semibold text-slate-700">
-                หมวดหมู่คำร้องที่อนุญาตให้ Gatekeeper เข้าถึงได้:
+                {tr(
+                  'Categories a Gatekeeper may access:',
+                  'หมวดหมู่คำร้องที่อนุญาตให้ Gatekeeper เข้าถึงได้:'
+                )}
               </span>
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-medium text-emerald-700">
-                  เลือกแล้ว {(permissions.gatekeeper.assignedDepartments || []).length} / 6 หมวดหมู่
+                  {tr(
+                    `Selected ${(permissions.gatekeeper.assignedDepartments || []).length} / 6 categories`,
+                    `เลือกแล้ว ${(permissions.gatekeeper.assignedDepartments || []).length} / 6 หมวดหมู่`
+                  )}
                 </span>
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={() =>
                       grantAllGatekeeperCategories(
-                        'อนุญาตให้ Gatekeeper เข้าถึงครบทั้ง 6 หมวดหมู่แล้ว'
+                        tr(
+                          'Gatekeeper now has access to all 6 categories',
+                          'อนุญาตให้ Gatekeeper เข้าถึงครบทั้ง 6 หมวดหมู่แล้ว'
+                        )
                       )
                     }
                     className="cursor-pointer rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-800 transition hover:bg-emerald-200"
                   >
-                    เลือกทั้ง 6 หมวดหมู่
+                    {tr('Select all 6', 'เลือกทั้ง 6 หมวดหมู่')}
                   </button>
                   <button
                     type="button"
                     onClick={() =>
                       grantAllGatekeeperCategories(
-                        'รีเซ็ตขอบเขตหมวดหมู่ Gatekeeper เป็นทั้ง 6 หมวดหมู่ตามค่าเริ่มต้น'
+                        tr(
+                          'Gatekeeper category scope reset to the default (all 6 categories)',
+                          'รีเซ็ตขอบเขตหมวดหมู่ Gatekeeper เป็นทั้ง 6 หมวดหมู่ตามค่าเริ่มต้น'
+                        )
                       )
                     }
                     className="cursor-pointer rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 transition hover:bg-slate-200"
                   >
-                    รีเซ็ต
+                    {tr('Reset', 'รีเซ็ต')}
                   </button>
                 </div>
               </div>
@@ -1382,10 +1611,10 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                   >
                     <div className="min-w-0 flex-1">
                       <div className="text-xs leading-snug font-bold text-slate-900">
-                        {info.nameTh}
+                        {categoryName(info, lang)}
                       </div>
                       <span className="mt-0.5 block truncate text-[10.5px] text-slate-500">
-                        {info.descriptionTh}
+                        {categoryDescription(info, lang)}
                       </span>
                     </div>
 
@@ -1412,11 +1641,13 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
               </div>
               <div>
                 <span className="block text-xs font-bold text-slate-900">
-                  ศูนย์คัดกรองงาน Gatekeeper (Triage Hub)
+                  {tr('Gatekeeper Triage Hub', 'ศูนย์คัดกรองงาน Gatekeeper (Triage Hub)')}
                 </span>
                 <span className="text-[11px] text-slate-600">
-                  เปิดดูหน้าจอ Gatekeeper Triage Portal — มองเห็นได้เฉพาะผู้ใช้ที่ได้รับมอบหมาย
-                  บทบาท Gatekeeper จริงจากหน้า &quot;จัดการผู้ใช้&quot;
+                  {tr(
+                    'Open the Gatekeeper Triage Portal — visible only to users who have actually been assigned the Gatekeeper role on the "User Management" page',
+                    'เปิดดูหน้าจอ Gatekeeper Triage Portal — มองเห็นได้เฉพาะผู้ใช้ที่ได้รับมอบหมาย บทบาท Gatekeeper จริงจากหน้า "จัดการผู้ใช้"'
+                  )}
                 </span>
               </div>
             </div>
@@ -1427,7 +1658,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
               onClick={() => onNavigateTab('gatekeeper')}
               className="flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-700 active:bg-emerald-800"
             >
-              <span>เปิด Gatekeeper Triage Portal</span>
+              <span>{tr('Open Gatekeeper Triage Portal', 'เปิด Gatekeeper Triage Portal')}</span>
               <ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -1437,11 +1668,18 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
             <div className="space-y-0.5">
               <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
                 <Crown className="h-3.5 w-3.5 text-purple-600" />
-                <span>การ Maintain รายชื่อผู้บริหาร และ HR Admin / Gatekeeper</span>
+                <span>
+                  {tr(
+                    'Maintain the executive roster and HR Admin / Gatekeepers',
+                    'การ Maintain รายชื่อผู้บริหาร และ HR Admin / Gatekeeper'
+                  )}
+                </span>
               </div>
               <p className="text-[11px] text-slate-600">
-                เพิ่ม/แก้ไขรายชื่อคณะผู้บริหาร (CEO/EVP), สิทธิ์รับข้อร้องเรียนสายตรง Whistleblower,
-                บัญชี HR Admin และผู้รับผิดชอบ 6 ฝ่ายงาน
+                {tr(
+                  'Add/edit the executive roster (CEO/EVP), direct Whistleblower complaint access, HR Admin accounts and the owners of the 6 departments',
+                  'เพิ่ม/แก้ไขรายชื่อคณะผู้บริหาร (CEO/EVP), สิทธิ์รับข้อร้องเรียนสายตรง Whistleblower, บัญชี HR Admin และผู้รับผิดชอบ 6 ฝ่ายงาน'
+                )}
               </p>
             </div>
 
@@ -1458,7 +1696,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                 className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg bg-purple-100 px-3 py-1.5 text-xs font-semibold text-purple-800 transition hover:bg-purple-200"
               >
                 <Crown className="h-3.5 w-3.5 text-purple-700" />
-                <span>ดูทำเนียบผู้บริหารด้านล่าง</span>
+                <span>{tr('View the executive roster below', 'ดูทำเนียบผู้บริหารด้านล่าง')}</span>
               </button>
               <button
                 type="button"
@@ -1467,7 +1705,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                 className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg bg-indigo-900 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs transition hover:bg-indigo-950"
               >
                 <Users className="h-3.5 w-3.5 text-indigo-300" />
-                <span>เปิดศูนย์จัดการรายชื่อบุคลากร</span>
+                <span>{tr('Open Personnel Directory', 'เปิดศูนย์จัดการรายชื่อบุคลากร')}</span>
                 <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
               </button>
             </div>
@@ -1483,10 +1721,16 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
               </div>
               <div>
                 <h3 className="text-xs font-bold text-slate-900 sm:text-sm">
-                  สิทธิ์เชิงลึกด้านความมั่นคงปลอดภัย (Security & Compliance Privileges)
+                  {tr(
+                    'Security & Compliance Privileges',
+                    'สิทธิ์เชิงลึกด้านความมั่นคงปลอดภัย (Security & Compliance Privileges)'
+                  )}
                 </h3>
                 <p className="text-[11px] text-slate-500">
-                  การควบคุมสิทธิ์ดูข้อมูลอ่อนไหว (Confidentiality) และการแก้ไขมาตรการ CAPA
+                  {tr(
+                    'Controls who can view sensitive data (Confidentiality) and edit CAPA measures',
+                    'การควบคุมสิทธิ์ดูข้อมูลอ่อนไหว (Confidentiality) และการแก้ไขมาตรการ CAPA'
+                  )}
                 </p>
               </div>
             </div>
@@ -1499,11 +1743,17 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                 <div className="flex items-center gap-1.5">
                   <Crown className="h-3.5 w-3.5 text-purple-600" />
                   <span className="text-xs font-bold text-slate-900">
-                    เข้าถึงกล่องข้อร้องเรียนสายตรง CEO/EVP (Whistleblower Escalation)
+                    {tr(
+                      'Direct CEO/EVP complaint inbox (Whistleblower Escalation)',
+                      'เข้าถึงกล่องข้อร้องเรียนสายตรง CEO/EVP (Whistleblower Escalation)'
+                    )}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  เห็นข้อร้องเรียนร้ายแรงที่ยื่นส่งตรงถึงผู้บริหารระดับสูงเพื่อการตรวจสอบอิสระ
+                  {tr(
+                    'See serious complaints filed directly to senior executives for independent review',
+                    'เห็นข้อร้องเรียนร้ายแรงที่ยื่นส่งตรงถึงผู้บริหารระดับสูงเพื่อการตรวจสอบอิสระ'
+                  )}
                 </p>
               </div>
 
@@ -1518,9 +1768,9 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                         ? 'border-purple-300 bg-purple-100 text-purple-800'
                         : 'border-slate-200 bg-white text-slate-400'
                     }`}
-                    title={`${r}: ${permissions[r].canViewDirectCeoTickets ? 'มีสิทธิ์' : 'ไม่มีสิทธิ์'}`}
+                    title={`${r}: ${permissions[r].canViewDirectCeoTickets ? tr('Allowed', 'มีสิทธิ์') : tr('Not allowed', 'ไม่มีสิทธิ์')}`}
                   >
-                    {ROLE_SHORT_LABEL[r]}
+                    {ROLE_SHORT_LABEL[r][lang]}
                   </button>
                 ))}
               </div>
@@ -1532,12 +1782,17 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                 <div className="flex items-center gap-1.5">
                   <UserCheck className="h-3.5 w-3.5 text-blue-600" />
                   <span className="text-xs font-bold text-slate-900">
-                    ดูตัวตนผู้ร้องเรียนกรณีจำกัดสิทธิ์ (Confidential Restricted)
+                    {tr(
+                      'View complainant identity in restricted cases (Confidential Restricted)',
+                      'ดูตัวตนผู้ร้องเรียนกรณีจำกัดสิทธิ์ (Confidential Restricted)'
+                    )}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  สิทธิ์ปลดล็อกดูชื่อและเบอร์ติดต่อผู้ยื่นเพื่อประสานงานคุ้มครองพยาน (เฉพาะ HR Admin
-                  / GRC)
+                  {tr(
+                    "Unlocks the submitter's name and contact number to coordinate witness protection (HR Admin / GRC only)",
+                    'สิทธิ์ปลดล็อกดูชื่อและเบอร์ติดต่อผู้ยื่นเพื่อประสานงานคุ้มครองพยาน (เฉพาะ HR Admin / GRC)'
+                  )}
                 </p>
               </div>
 
@@ -1554,9 +1809,9 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                         ? 'border-blue-300 bg-blue-100 text-blue-800'
                         : 'border-slate-200 bg-white text-slate-400'
                     }`}
-                    title={`${r}: ${permissions[r].canViewConfidentialIdentities ? 'มีสิทธิ์' : 'ไม่มีสิทธิ์'}`}
+                    title={`${r}: ${permissions[r].canViewConfidentialIdentities ? tr('Allowed', 'มีสิทธิ์') : tr('Not allowed', 'ไม่มีสิทธิ์')}`}
                   >
-                    {ROLE_SHORT_LABEL[r]}
+                    {ROLE_SHORT_LABEL[r][lang]}
                   </button>
                 ))}
               </div>
@@ -1568,11 +1823,17 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                 <div className="flex items-center gap-1.5">
                   <Layers className="h-3.5 w-3.5 text-amber-600" />
                   <span className="text-xs font-bold text-slate-900">
-                    บันทึกสาเหตุเชิงลึก & แผนป้องกัน CAPA
+                    {tr(
+                      'Record root causes & CAPA prevention plans',
+                      'บันทึกสาเหตุเชิงลึก & แผนป้องกัน CAPA'
+                    )}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  สามารถระบุ Root Cause Category และบันทึกมาตรการป้องกันเชิงโครงสร้าง
+                  {tr(
+                    'Can set the Root Cause Category and record structural preventive measures',
+                    'สามารถระบุ Root Cause Category และบันทึกมาตรการป้องกันเชิงโครงสร้าง'
+                  )}
                 </p>
               </div>
 
@@ -1587,9 +1848,9 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                         ? 'border-amber-300 bg-amber-100 text-amber-800'
                         : 'border-slate-200 bg-white text-slate-400'
                     }`}
-                    title={`${r}: ${permissions[r].canEditRootCauseAndCapa ? 'มีสิทธิ์' : 'ไม่มีสิทธิ์'}`}
+                    title={`${r}: ${permissions[r].canEditRootCauseAndCapa ? tr('Allowed', 'มีสิทธิ์') : tr('Not allowed', 'ไม่มีสิทธิ์')}`}
                   >
-                    {ROLE_SHORT_LABEL[r]}
+                    {ROLE_SHORT_LABEL[r][lang]}
                   </button>
                 ))}
               </div>
@@ -1601,11 +1862,14 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                 <div className="flex items-center gap-1.5">
                   <Users className="h-3.5 w-3.5 text-teal-600" />
                   <span className="text-xs font-bold text-slate-900">
-                    จัดการแต่งตั้ง Gatekeeper ประจำฝ่าย
+                    {tr('Appoint department Gatekeepers', 'จัดการแต่งตั้ง Gatekeeper ประจำฝ่าย')}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  สิทธิ์แต่งตั้ง Lead Officer และจัดการเจ้าหน้าที่ใน 6 หมวดหมู่
+                  {tr(
+                    'Can appoint Lead Officers and manage officers across the 6 categories',
+                    'สิทธิ์แต่งตั้ง Lead Officer และจัดการเจ้าหน้าที่ใน 6 หมวดหมู่'
+                  )}
                 </p>
               </div>
 
@@ -1620,9 +1884,9 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                         ? 'border-teal-300 bg-teal-100 text-teal-800'
                         : 'border-slate-200 bg-white text-slate-400'
                     }`}
-                    title={`${r}: ${permissions[r].canManageGatekeeperOfficers ? 'มีสิทธิ์' : 'ไม่มีสิทธิ์'}`}
+                    title={`${r}: ${permissions[r].canManageGatekeeperOfficers ? tr('Allowed', 'มีสิทธิ์') : tr('Not allowed', 'ไม่มีสิทธิ์')}`}
                   >
-                    {ROLE_SHORT_LABEL[r]}
+                    {ROLE_SHORT_LABEL[r][lang]}
                   </button>
                 ))}
               </div>
@@ -1634,16 +1898,20 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                 <div className="flex flex-wrap items-center gap-1.5">
                   <Mail className="h-4 w-4 shrink-0 text-indigo-700" />
                   <span className="text-xs font-bold text-indigo-950">
-                    ดูอีเมลที่ใช้ login กรณีไม่ระบุตัวตน (Anonymous Login Email Mapping)
+                    {tr(
+                      'View the login e-mail of anonymous submitters (Anonymous Login Email Mapping)',
+                      'ดูอีเมลที่ใช้ login กรณีไม่ระบุตัวตน (Anonymous Login Email Mapping)'
+                    )}
                   </span>
                   <span className="py-0.2 rounded bg-indigo-200/80 px-1.5 text-[9px] font-bold text-indigo-900">
                     MAPPED FROM DB
                   </span>
                 </div>
                 <p className="text-[11px] leading-snug text-slate-600">
-                  กรณีไม่ระบุตัวตน HR Admin & ตัวแทนผู้บริหาร สามารถ tick กำหนดในแต่ละ Role
-                  ได้ว่าจะให้เห็น หรือ ไม่ให้ใครเห็น โดยสิ่งที่สามารถเห็นได้คือ email ที่ใช้ในการ
-                  login (mapping หลังบ้านจากฐานข้อมูลพนักงาน)
+                  {tr(
+                    'For anonymous submissions, HR Admin & the Executive Representative can tick which roles may or may not see the e-mail used to log in (mapped in the back office from the employee database)',
+                    'กรณีไม่ระบุตัวตน HR Admin & ตัวแทนผู้บริหาร สามารถ tick กำหนดในแต่ละ Role ได้ว่าจะให้เห็น หรือ ไม่ให้ใครเห็น โดยสิ่งที่สามารถเห็นได้คือ email ที่ใช้ในการ login (mapping หลังบ้านจากฐานข้อมูลพนักงาน)'
+                  )}
                 </p>
               </div>
 
@@ -1660,10 +1928,10 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                         ? 'border-indigo-700 bg-indigo-600 text-white shadow-xs'
                         : 'border-slate-200 bg-white text-slate-400 hover:border-slate-300'
                     }`}
-                    title={`${r}: ${permissions[r].canViewAnonymousSubmitterEmail ? 'อนุญาตให้มองเห็นอีเมลล็อกอิน' : 'ไม่ให้เห็นอีเมลล็อกอิน'}`}
+                    title={`${r}: ${permissions[r].canViewAnonymousSubmitterEmail ? tr('Allowed to see the login e-mail', 'อนุญาตให้มองเห็นอีเมลล็อกอิน') : tr('Not allowed to see the login e-mail', 'ไม่ให้เห็นอีเมลล็อกอิน')}`}
                   >
                     {permissions[r].canViewAnonymousSubmitterEmail ? '✓ ' : '✗ '}
-                    {ROLE_SHORT_LABEL[r]}
+                    {ROLE_SHORT_LABEL[r][lang]}
                   </button>
                 ))}
               </div>
@@ -1673,7 +1941,10 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
           <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-[11px] text-slate-500">
             <span className="flex items-center gap-1">
               <Scale className="h-3.5 w-3.5 text-indigo-600" />
-              มาตรฐาน PDPA และ Whistleblower Protection Act
+              {tr(
+                'PDPA and Whistleblower Protection Act compliance',
+                'มาตรฐาน PDPA และ Whistleblower Protection Act'
+              )}
             </span>
             <span className="font-semibold text-emerald-700">Audit Logging Enabled</span>
           </div>
@@ -1694,16 +1965,20 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-sm font-bold text-slate-900 sm:text-base">
-                  การกำหนดสิทธิ์การมองเห็นข้อมูลผู้ยื่นเรื่อง (กรณีไม่ระบุตัวตน)
+                  {tr(
+                    'Visibility of submitter information (anonymous submissions)',
+                    'การกำหนดสิทธิ์การมองเห็นข้อมูลผู้ยื่นเรื่อง (กรณีไม่ระบุตัวตน)'
+                  )}
                 </h3>
                 <span className="rounded-full border border-indigo-200 bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-800">
-                  HR Admin & ตัวแทนผู้บริหาร
+                  {tr('HR Admin & Executive Representative', 'HR Admin & ตัวแทนผู้บริหาร')}
                 </span>
               </div>
               <p className="mt-0.5 text-xs text-slate-500">
-                กรณีไม่ระบุตัวตน ให้ HR Admin & ตัวแทนผู้บริหาร สามารถ tick ได้ว่าจะให้เห็น หรือ
-                ไม่ให้ใครเห็นในแต่ละ Role โดยสิ่งที่สามารถเห็นได้ คือ email ที่ใช้ในการ login โดยจะ
-                mapping หลังบ้านจากฐานข้อมูลพนักงาน
+                {tr(
+                  'For anonymous submissions, HR Admin & the Executive Representative can tick which roles may or may not see the submitter. What is visible is the e-mail used to log in, mapped in the back office from the employee database.',
+                  'กรณีไม่ระบุตัวตน ให้ HR Admin & ตัวแทนผู้บริหาร สามารถ tick ได้ว่าจะให้เห็น หรือ ไม่ให้ใครเห็นในแต่ละ Role โดยสิ่งที่สามารถเห็นได้ คือ email ที่ใช้ในการ login โดยจะ mapping หลังบ้านจากฐานข้อมูลพนักงาน'
+                )}
               </p>
             </div>
           </div>
@@ -1717,8 +1992,8 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
               <Database className="h-3.5 w-3.5 text-indigo-600" />
               <span>
                 {showEmployeeDirectoryModal
-                  ? 'ซ่อนฐานข้อมูลพนักงาน'
-                  : 'ดูฐานข้อมูลพนักงาน (Employee DB)'}
+                  ? tr('Hide employee database', 'ซ่อนฐานข้อมูลพนักงาน')
+                  : tr('View employee database (Employee DB)', 'ดูฐานข้อมูลพนักงาน (Employee DB)')}
               </span>
             </button>
           </div>
@@ -1728,11 +2003,13 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
         <div className="space-y-3">
           <div className="flex items-center justify-between px-1 text-xs font-bold text-slate-700">
             <span>
-              ตาราง Tick กำหนดสิทธิ์การมองเห็นอีเมลล็อกอิน (Tick to allow visibility of login
-              email):
+              {tr(
+                'Tick to allow visibility of the login e-mail:',
+                'ตาราง Tick กำหนดสิทธิ์การมองเห็นอีเมลล็อกอิน (Tick to allow visibility of login email):'
+              )}
             </span>
             <span className="text-[11px] font-normal text-slate-500">
-              คลิกที่การ์ดเพื่อ Toggle สิทธิ์
+              {tr('Click a card to toggle access', 'คลิกที่การ์ดเพื่อ Toggle สิทธิ์')}
             </span>
           </div>
 
@@ -1761,7 +2038,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                       </div>
                       <div>
                         <div className="text-xs leading-tight font-bold text-slate-900">
-                          {roleInfo.roleTitleTh.split(' ')[0]}
+                          {roleShortName(roleInfo, lang)}
                         </div>
                         <div className="text-[10px] font-medium text-slate-500">Role: {r}</div>
                       </div>
@@ -1781,7 +2058,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
 
                   <div className="mt-2.5 border-t border-slate-200/80 pt-2">
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-slate-500">การมองเห็น:</span>
+                      <span className="text-slate-500">{tr('Visibility:', 'การมองเห็น:')}</span>
                       <span
                         className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
                           isAllowed
@@ -1789,13 +2066,21 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                             : 'bg-rose-100 text-rose-800'
                         }`}
                       >
-                        {isAllowed ? '✓ ให้มองเห็นได้' : '✗ ไม่ให้เห็น (ปกปิด)'}
+                        {isAllowed
+                          ? tr('✓ Visible', '✓ ให้มองเห็นได้')
+                          : tr('✗ Hidden', '✗ ไม่ให้เห็น (ปกปิด)')}
                       </span>
                     </div>
                     <div className="mt-1 text-[10px] leading-tight text-slate-500">
                       {isAllowed
-                        ? 'สามารถเห็น email ที่ใช้ในการ login ซึ่ง mapping มาจาก DB'
-                        : 'ชื่อ, รหัส และอีเมลล็อกอินจะถูกปิดกั้นทั้งหมด'}
+                        ? tr(
+                            'Can see the login e-mail mapped from the DB',
+                            'สามารถเห็น email ที่ใช้ในการ login ซึ่ง mapping มาจาก DB'
+                          )
+                        : tr(
+                            'Name, ID and login e-mail are fully blocked',
+                            'ชื่อ, รหัส และอีเมลล็อกอินจะถูกปิดกั้นทั้งหมด'
+                          )}
                     </div>
                   </div>
                 </button>
@@ -1806,16 +2091,18 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
           {/* Quick presets for HR Admin & Exec */}
           <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-xs">
             <span className="shrink-0 text-[11px] font-bold text-slate-700">
-              ชุดค่าด่วน (Presets):
+              {tr('Presets:', 'ชุดค่าด่วน (Presets):')}
             </span>
             {ANONYMOUS_PRESETS.map((preset) => (
               <button
                 key={preset.label}
                 type="button"
-                onClick={() => applyAnonymousPreset(preset.visibleTo, preset.toast)}
+                onClick={() =>
+                  applyAnonymousPreset(preset.visibleTo, tr(preset.toastEn, preset.toast))
+                }
                 className={`rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium transition hover:bg-slate-100 ${preset.textClass}`}
               >
-                {preset.label}
+                {tr(preset.labelEn, preset.label)}
               </button>
             ))}
           </div>
@@ -1827,12 +2114,17 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
             <div className="flex items-center gap-2">
               <Eye className="h-4 w-4 text-indigo-700" />
               <span className="text-xs font-bold text-slate-900">
-                จำลองการแสดงผลข้อมูลผู้ยื่นเรื่อง (Live Role Simulator):
+                {tr(
+                  'Live Role Simulator (submitter details):',
+                  'จำลองการแสดงผลข้อมูลผู้ยื่นเรื่อง (Live Role Simulator):'
+                )}
               </span>
             </div>
             {/* Role switcher for simulator */}
             <div className="flex items-center gap-1">
-              <span className="mr-1 text-[11px] text-slate-500">มุมมองของ:</span>
+              <span className="mr-1 text-[11px] text-slate-500">
+                {tr('View as:', 'มุมมองของ:')}
+              </span>
               {rolesList.map((r) => (
                 <button
                   key={r}
@@ -1844,7 +2136,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                       : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
                   }`}
                 >
-                  {ROLE_SHORT_LABEL[r]}
+                  {ROLE_SHORT_LABEL[r][lang]}
                 </button>
               ))}
             </div>
@@ -1853,7 +2145,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
           {/* Ticket Anonymous Card Simulation */}
           <AnonymousSimulatorCard
             isSimAllowed={!!permissions[simulatedRoleForAnonymous].canViewAnonymousSubmitterEmail}
-            roleName={permissions[simulatedRoleForAnonymous].roleTitleTh.split(' ')[0]}
+            roleName={roleShortName(permissions[simulatedRoleForAnonymous], lang)}
           />
         </div>
 
@@ -1875,16 +2167,20 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-sm font-bold text-slate-900 sm:text-base">
-                  ทำเนียบและศูนย์จัดการรายชื่อคณะผู้บริหาร (Executive Roster & Whistleblower Direct
-                  Channel)
+                  {tr(
+                    'Executive Roster & Whistleblower Direct Channel',
+                    'ทำเนียบและศูนย์จัดการรายชื่อคณะผู้บริหาร (Executive Roster & Whistleblower Direct Channel)'
+                  )}
                 </h3>
                 <span className="rounded-full border border-purple-200 bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-800">
-                  {executives.length} ท่าน
+                  {tr(`${executives.length} executives`, `${executives.length} ท่าน`)}
                 </span>
               </div>
               <p className="mt-0.5 text-xs text-slate-500">
-                เพิ่ม/แก้ไขรายชื่อผู้บริหารระดับสูง (CEO/EVP/ประธานกรรมการ)
-                เพื่อรับเรื่องร้องเรียนสายตรง หรือสิทธิ์เข้าถึงข้อเท็จจริงลับเฉพาะ
+                {tr(
+                  'Add/edit senior executives (CEO/EVP/Chair) who receive direct complaints or have access to restricted facts',
+                  'เพิ่ม/แก้ไขรายชื่อผู้บริหารระดับสูง (CEO/EVP/ประธานกรรมการ) เพื่อรับเรื่องร้องเรียนสายตรง หรือสิทธิ์เข้าถึงข้อเท็จจริงลับเฉพาะ'
+                )}
               </p>
             </div>
           </div>
@@ -1911,12 +2207,12 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
               {isAddingExec ? (
                 <>
                   <X className="h-3.5 w-3.5" />
-                  <span>ปิดฟอร์ม</span>
+                  <span>{tr('Close form', 'ปิดฟอร์ม')}</span>
                 </>
               ) : (
                 <>
                   <UserPlus className="h-3.5 w-3.5" />
-                  <span>+ เพิ่มผู้บริหารใหม่</span>
+                  <span>{tr('+ Add executive', '+ เพิ่มผู้บริหารใหม่')}</span>
                 </>
               )}
             </button>
@@ -1926,7 +2222,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
               onClick={() => onNavigateTab('admin_gatekeeper')}
               className="flex items-center gap-1 rounded-xl border border-purple-200 bg-purple-50 px-3 py-2 text-xs font-semibold whitespace-nowrap text-purple-700 transition hover:bg-purple-100"
             >
-              <span>เปิดศูนย์บุคลากรเต็มรูปแบบ</span>
+              <span>{tr('Open full Personnel Directory', 'เปิดศูนย์บุคลากรเต็มรูปแบบ')}</span>
               <ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>

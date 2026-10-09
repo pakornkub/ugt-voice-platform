@@ -1,6 +1,7 @@
 // app/(shell)/admin/users/page.tsx — ugt-nextjs-auth-setup (2026-09-02); read-only since
 // 2026-10-09 (decisions.md "App role comes from the people rosters"): roles are granted on the
-// Gatekeeper-management page rosters, this page only shows who has which role and why.
+// Gatekeeper-management page rosters, this page only shows who has which role and why. The
+// heading text lives in UsersTable (client): only the client knows the UI language.
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
@@ -34,14 +35,6 @@ export default async function AdminUsersPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-4 px-4 py-6">
-      <div>
-        <h1 className="text-lg font-bold text-slate-900">จัดการผู้ใช้ (Users)</h1>
-        <p className="mt-0.5 text-xs text-slate-500">
-          รายชื่อผู้ใช้ที่เคยเข้าสู่ระบบผ่าน SSO และบทบาทที่ได้รับ — บทบาทมาจากรายชื่อในหน้า
-          &quot;จัดการผู้บริหาร &amp; Gatekeeper&quot; (HR Admin / ผู้บริหาร / Gatekeeper)
-          ใครไม่อยู่ในรายชื่อใดเป็นพนักงานทั่วไป ส่วนแท็บที่แต่ละบทบาทเห็นตั้งค่าในหน้า RBAC
-        </p>
-      </div>
       <UsersTable users={rows} currentUserId={session.user.id} />
     </div>
   );

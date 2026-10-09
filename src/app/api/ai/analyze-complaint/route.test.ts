@@ -62,4 +62,33 @@ describe('POST /api/ai/analyze-complaint (fallback path, no GEMINI_API_KEY)', ()
     expect(response.status).toBe(200);
     expect((await response.json()).suggestedCategory).toBe('HR');
   });
+
+  it('answers the fallback in English for lang=en and keeps the submitted data', async () => {
+    const request = new NextRequest('http://localhost/api/ai/analyze-complaint', {
+      method: 'POST',
+      body: JSON.stringify({ title: 'Late salary', description: '', category: 'HR', lang: 'en' }),
+    });
+
+    const body = await (await POST(request)).json();
+
+    expect(body).toMatchObject({
+      suggestedCategory: 'HR',
+      summary: 'Late salary',
+      suggestedDepartment: 'Human Resources (HR) Department',
+      urgencyScore: 'Medium',
+    });
+    expect(body.recommendedActions).toHaveLength(3);
+    expect(JSON.stringify(body)).not.toMatch(/[\u0E00-\u0E7F]/);
+  });
+
+  it('falls back to Thai for an unknown lang', async () => {
+    const request = new NextRequest('http://localhost/api/ai/analyze-complaint', {
+      method: 'POST',
+      body: JSON.stringify({ title: 'x', lang: 'de' }),
+    });
+
+    expect((await (await POST(request)).json()).suggestedDepartment).toBe(
+      'ฝ่ายบริหารทรัพยากรบุคคล (HR)'
+    );
+  });
 });

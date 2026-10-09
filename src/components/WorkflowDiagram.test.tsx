@@ -479,7 +479,9 @@ describe('WorkflowDiagram language', () => {
 
     await user.click(screen.getByRole('button', { name: /EXECUTIVE_AI/ }));
     expect(stepHeading('5. Executive Oversight & AI Root Cause Analytics')).toBeInTheDocument();
-    expect(screen.getByText('executive', { selector: 'span.font-bold' })).toBeInTheDocument();
+    expect(
+      screen.getByText('Senior executives (CEO / EVP / GRC)', { selector: 'span.font-bold' })
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Launch: Dashboard & AI CAPA' }));
     expect(onSwitchRole).toHaveBeenCalledWith('executive');

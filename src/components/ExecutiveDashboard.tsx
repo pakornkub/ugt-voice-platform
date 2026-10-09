@@ -29,6 +29,7 @@ import { ComplaintTicket, GrievanceCategory, TicketStatus } from '../types';
 import { CATEGORY_DEFINITIONS } from '../mockData';
 import { useShell } from '../app/shell-context';
 import { Language, useLanguage } from '../context/LanguageContext';
+import { localizeServerText } from '../services/serverText';
 import { clickableProps } from './clickableProps';
 
 interface ExecutiveDashboardProps {
@@ -1031,7 +1032,9 @@ const SubmitterRow: React.FC<Readonly<SubmitterRowProps>> = ({
               )}
             </div>
 
-            <p className="mt-0.5 truncate text-[11px] text-slate-500">{emp.department}</p>
+            <p className="mt-0.5 truncate text-[11px] text-slate-500">
+              {localizeServerText(emp.department, lang)}
+            </p>
 
             {/* Categories Chips */}
             <div className="mt-1.5 flex flex-wrap items-center gap-1">
@@ -1359,8 +1362,8 @@ const SubmitterLine: React.FC<Readonly<{ ticket: ComplaintTicket }>> = ({ ticket
       </>
     );
   }
-  const name = t.submitterName || pick(lang, 'Identified', 'ระบุตัวตน');
-  const dept = t.submitterDepartment || pick(lang, 'General', 'ฝ่ายงาน');
+  const name = localizeServerText(t.submitterName, lang) || pick(lang, 'Identified', 'ระบุตัวตน');
+  const dept = localizeServerText(t.submitterDepartment, lang) || pick(lang, 'General', 'ฝ่ายงาน');
   return <>{`${pick(lang, 'Submitter', 'ผู้ยื่น')}: ${name} (${dept})`}</>;
 };
 

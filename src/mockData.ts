@@ -13,7 +13,10 @@ export const CATEGORY_DEFINITIONS: Record<GrievanceCategory, CategoryInfo> = {
     nameEn: 'HR – Human Resources & Employee Benefits',
     descriptionTh:
       'ค่าตอบแทน, สวัสดิการพนักงาน, เวลาการทำงาน, การโยกย้ายตำแหน่ง, การประเมินผลงาน, สิทธิประโยชน์ และความสัมพันธ์แรงงาน',
+    descriptionEn:
+      'Compensation, employee benefits, working hours, transfers, performance appraisal, entitlements and labor relations.',
     responsibleDept: 'People & Culture Department (ฝ่ายบริหารทรัพยากรบุคคล)',
+    responsibleDeptEn: 'People & Culture Department',
     badgeColor: 'bg-blue-50 text-blue-700 border-blue-200',
     iconName: 'Users',
   },
@@ -23,7 +26,10 @@ export const CATEGORY_DEFINITIONS: Record<GrievanceCategory, CategoryInfo> = {
     nameEn: 'Compliance – Regulatory & Legal Rules',
     descriptionTh:
       'การไม่ปฏิบัติตามกฎหมายและกฎเกณฑ์ (เช่น กฎหมายควบคุมแข่งขันทางการค้า (Competition Laws), กฎหมายและข้อบังคับว่าด้วยการควบคุมการส่งออกเพื่อนโยบายความมั่นคง (National Security Export Controls), พระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล (PDPA), กฎหมายแรงงาน และระเบียบข้อบังคับทางกฎหมายภายนอก)',
+    descriptionEn:
+      'Non-compliance with laws and regulations (for example competition laws, national security export controls, the Personal Data Protection Act (PDPA), labor laws and other external legal requirements).',
     responsibleDept: 'Governance, Risk & Compliance Division (ฝ่ายกำกับดูแลและกฎหมาย)',
+    responsibleDeptEn: 'Governance, Risk & Compliance Division',
     badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200',
     iconName: 'FileCheck2',
   },
@@ -33,7 +39,10 @@ export const CATEGORY_DEFINITIONS: Record<GrievanceCategory, CategoryInfo> = {
     nameEn: 'Ethics – Corporate Ethics & Business Conduct',
     descriptionTh:
       'จริยธรรม (การฟอกเงิน, การซื้อขายหลักทรัพย์โดยใช้ข้อมูลภายใน, ข้องเกี่ยวกับกลุ่มผู้มีอิทธิพลซึ่งไม่ชอบด้วยกฎหมาย, กิจกรรมทางการเมืองและสังคม, การบริหารจัดการทรัพย์สินที่มีรูปร่างและไม่มีรูปร่างของบริษัท (ข้อมูลความลับ ทรัพย์สินทางปัญญา ฯลฯ), การจัดการและเปิดเผยข้อมูลของบริษัท, การละเมิดสิทธิในทรัพย์สินทางปัญญา (สิทธิบัตร ลิขสิทธิ์ เครื่องหมายการค้า) ของบุคคลที่สาม, การบันทึกและรายงานทางการเงิน, การให้ข้อมูลเกี่ยวกับกลุ่มบริษัท UBE แก่สังคมภายนอกและโพสต์ข้อมูลบนอินเทอร์เน็ต)',
+    descriptionEn:
+      'Ethics matters (money laundering, insider trading, ties with unlawful influential groups, political and social activities, management of tangible and intangible company assets (confidential information, intellectual property, etc.), handling and disclosure of company information, infringement of third-party intellectual property rights (patents, copyrights, trademarks), financial recording and reporting, and sharing information about the UBE group with the public or posting it online).',
     responsibleDept: 'Ethics Committee & Corporate Governance (คณะกรรมการจริยธรรมองค์กร)',
+    responsibleDeptEn: 'Ethics Committee & Corporate Governance',
     badgeColor: 'bg-purple-50 text-purple-700 border-purple-200',
     iconName: 'Scale',
   },
@@ -43,7 +52,10 @@ export const CATEGORY_DEFINITIONS: Record<GrievanceCategory, CategoryInfo> = {
     nameEn: 'Fraud – Anti-Fraud & Anti-Corruption',
     descriptionTh:
       'การทุจริต และการฉ้อโกง (การฉ้อโกง/การทุจริตทางการเงิน, การคอร์รัปชัน/การติดสินบน, การทำธุรกรรมที่มีผลประโยชน์ทับซ้อน, รับของขวัญหรือการรับรองที่มากเกินขอบเขต, การปลอมแปลงเอกสาร และการยักยอกทรัพย์สิน)',
+    descriptionEn:
+      'Fraud and corruption (financial fraud, corruption and bribery, transactions with conflicts of interest, excessive gifts or hospitality, document forgery and misappropriation of assets).',
     responsibleDept: 'Internal Audit & Forensic Investigation (ฝ่ายตรวจสอบภายในและการสอบสวนทุจริต)',
+    responsibleDeptEn: 'Internal Audit & Forensic Investigation',
     badgeColor: 'bg-red-50 text-red-700 border-red-200',
     iconName: 'FileWarning',
   },
@@ -53,8 +65,11 @@ export const CATEGORY_DEFINITIONS: Record<GrievanceCategory, CategoryInfo> = {
     nameEn: 'Human Right , Harassment – Human Rights & Anti-Harassment',
     descriptionTh:
       'สิทธิมนุษยชน, การล่วงละเมิด, การเลือกปฏิบัติ, การคุกคามทางเพศ (Sexual Harassment), การกลั่นแกล้งข่มขู่ในที่ทำงาน (Workplace Bullying) และการกระทำอันละเมิดต่อศักดิ์ศรีความเป็นมนุษย์',
+    descriptionEn:
+      'Human rights, harassment, discrimination, sexual harassment, workplace bullying and intimidation, and any act that violates human dignity.',
     responsibleDept:
       'Human Rights & Grievance Panel (คณะกรรมการคุ้มครองสิทธิมนุษยชนและสุขภาวะพนักงาน)',
+    responsibleDeptEn: 'Human Rights & Grievance Panel',
     badgeColor: 'bg-rose-50 text-rose-700 border-rose-200',
     iconName: 'AlertOctagon',
   },
@@ -64,7 +79,10 @@ export const CATEGORY_DEFINITIONS: Record<GrievanceCategory, CategoryInfo> = {
     nameEn: 'Quality Impropriety – Quality Assurance & Standards',
     descriptionTh:
       'การตรวจสอบคุณภาพอย่างไม่เหมาะสม (เช่น การบิดเบือนหรือแก้ไขผลการทดสอบคุณภาพสินค้า/วัตถุดิบ, การละเลยขั้นตอนและมาตรฐาน QA/QC, การปล่อยผ่านสินค้าที่ไม่ผ่านเกณฑ์มาตรฐาน, การส่งมอบงานตกหล่น และการปลอมแปลงใบรับรองคุณภาพ)',
+    descriptionEn:
+      'Improper quality inspection (for example falsifying or altering product or raw-material test results, skipping QA/QC procedures and standards, releasing products that fail the standard, missed deliveries and forged quality certificates).',
     responsibleDept: 'Operational Excellence & Quality Assurance (ฝ่ายประกันคุณภาพและการปรับปรุง)',
+    responsibleDeptEn: 'Operational Excellence & Quality Assurance',
     badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     iconName: 'CheckCircle2',
   },
@@ -1012,7 +1030,7 @@ export const INITIAL_GATEKEEPER_CONFIGS: Record<GrievanceCategory, DepartmentGat
         phone: '02-555-1103',
       },
     ],
-    autoAssignMode: 'round_robin',
+    autoAssignMode: 'lead_manual',
     escalationEmail: 'hr.escalation@company.internal',
     updatedAt: '2026-08-25T10:00:00.000Z',
   },
@@ -1184,7 +1202,7 @@ export const INITIAL_GATEKEEPER_CONFIGS: Record<GrievanceCategory, DepartmentGat
         phone: '02-555-8802',
       },
     ],
-    autoAssignMode: 'round_robin',
+    autoAssignMode: 'lead_manual',
     escalationEmail: 'qa.feedback@company.internal',
     updatedAt: '2026-08-23T10:00:00.000Z',
   },

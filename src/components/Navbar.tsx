@@ -26,6 +26,7 @@ import {
 import { UserRole, NotificationItem, AppTabId, RolePermissionConfig } from '../types';
 import { INITIAL_ROLE_PERMISSIONS } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
+import { useTr } from '../context/useTr';
 import type { ShellIdentity } from '../app/shell-context';
 import { ssoLogoutAction } from '@/lib/actions/auth';
 import { clickableProps } from './clickableProps';
@@ -119,6 +120,7 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
   rolePermissions: propRolePermissions,
 }) => {
   const { lang, setLang, toggleLang, t } = useLanguage();
+  const { tr } = useTr();
   const [searchQuery, setSearchQuery] = useState('');
   const [isIdentityMenuOpen, setIsIdentityMenuOpen] = useState(false);
   const unreadCount = (notifications || []).filter((n) => !n.read).length;
@@ -311,8 +313,8 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
                   type="button"
                   onClick={() => setSearchQuery('')}
                   className="absolute right-2 text-slate-400 hover:text-slate-600"
-                  title="Clear search"
-                  aria-label="Clear search"
+                  title={tr('Clear search', 'ล้างการค้นหา')}
+                  aria-label={tr('Clear search', 'ล้างการค้นหา')}
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -435,7 +437,7 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
                     ? 'bg-white font-black text-indigo-700 shadow-xs ring-1 ring-slate-200/80'
                     : 'text-slate-500 hover:text-slate-900'
                 }`}
-                title="เปลี่ยนเป็นภาษาไทย (TH)"
+                title={tr('Switch to Thai (TH)', 'เปลี่ยนเป็นภาษาไทย (TH)')}
               >
                 TH
               </button>
@@ -451,7 +453,7 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
                     ? 'bg-white font-black text-indigo-700 shadow-xs ring-1 ring-slate-200/80'
                     : 'text-slate-500 hover:text-slate-900'
                 }`}
-                title="Switch to English (EN)"
+                title={tr('Switch to English (EN)', 'เปลี่ยนเป็นภาษาอังกฤษ (EN)')}
               >
                 EN
               </button>
@@ -487,7 +489,9 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
                   />
                   <div className="animate-in fade-in slide-in-from-top-2 absolute right-0 z-50 mt-2 w-72 rounded-xl border border-slate-200 bg-white py-1.5 shadow-xl">
                     <div className="border-b border-slate-100 bg-slate-50 px-3.5 py-3">
-                      <p className="truncate text-xs font-bold text-slate-900">{identity.name}</p>
+                      <p className="truncate text-xs font-bold text-slate-900">
+                        {identity === DEFAULT_IDENTITY ? tr('User', 'ผู้ใช้งาน') : identity.name}
+                      </p>
                       <p className="truncate text-[11px] text-slate-500">{identity.email}</p>
                       <div className="mt-2 flex flex-wrap items-center gap-1.5">
                         <span

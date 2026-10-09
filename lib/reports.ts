@@ -7,10 +7,15 @@
 import 'server-only';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { REPORTS, type ReportCell, type ReportId, type ReportResult } from '@/lib/report-catalog';
+import {
+  NOT_SPECIFIED,
+  REPORTS,
+  type ReportCell,
+  type ReportId,
+  type ReportResult,
+} from '@/lib/report-catalog';
 import { ticketScopeWhere, type TicketViewer } from '@/lib/ticket-scope';
 
-const NOT_SPECIFIED = 'ยังไม่ระบุ';
 const RESOLVED_STATUSES = new Set(['resolved', 'closed']);
 const IN_PROGRESS_STATUSES = ['in_progress', 'gatekeeper_triaged'];
 

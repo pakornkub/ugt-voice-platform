@@ -147,6 +147,8 @@ export const APP_TABS: TabDefinition[] = [
     nameTh: 'ยื่นข้อร้องเรียน',
     nameEn: 'Submit Grievance',
     descriptionTh: 'ฟอร์มส่งข้อร้องเรียน/ข้อเสนอแนะ พร้อมระบบ AI ช่วยคัดกรองและประเมินความเสี่ยง',
+    descriptionEn:
+      'Submit a grievance or suggestion, with AI-assisted screening and risk assessment.',
     category: 'core',
     iconName: 'FileText',
     defaultRoles: ['employee', 'admin'],
@@ -156,6 +158,8 @@ export const APP_TABS: TabDefinition[] = [
     nameTh: 'ติดตามสถานะ & คำร้องของฉัน',
     nameEn: 'My Submissions & Tracking',
     descriptionTh: 'ตรวจสอบสถานะคำร้อง ดู Timeline การดำเนินงาน และประเมินความพึงพอใจ CSAT',
+    descriptionEn:
+      'Check the status of your submissions, follow the progress timeline and rate your satisfaction (CSAT).',
     category: 'core',
     iconName: 'ListChecks',
     defaultRoles: ['employee', 'gatekeeper', 'admin'],
@@ -165,6 +169,8 @@ export const APP_TABS: TabDefinition[] = [
     nameTh: 'คู่มือและเกณฑ์มาตรฐาน',
     nameEn: 'Manual & Governance Guidelines',
     descriptionTh: 'ผังขั้นตอนการทำงาน (Workflow), เกณฑ์ความปลอดภัย PDPA และนโยบายคุ้มครองพนักงาน',
+    descriptionEn:
+      'Process flow (Workflow), PDPA security criteria and the employee protection policy.',
     category: 'core',
     iconName: 'GitBranch',
     defaultRoles: ['employee', 'gatekeeper', 'executive', 'admin'],
@@ -174,6 +180,8 @@ export const APP_TABS: TabDefinition[] = [
     nameTh: 'ศูนย์รับเรื่องและคัดกรอง (Gatekeeper Inbox)',
     nameEn: 'Gatekeeper Triage Inbox',
     descriptionTh: 'กล่องรับเรื่องและมอบหมายงานเฉพาะหน่วยงานที่รับผิดชอบ บันทึกสืบสวนและแผนแก้ไข',
+    descriptionEn:
+      'Intake inbox for the responsible departments to triage and assign cases, with investigation notes and corrective action plans.',
     category: 'operations',
     iconName: 'Shield',
     defaultRoles: ['gatekeeper', 'admin'],
@@ -184,6 +192,8 @@ export const APP_TABS: TabDefinition[] = [
     nameEn: 'Executive Dashboard & Whistleblower',
     descriptionTh:
       'แดชบอร์ดสรุปผลเชิงวิเคราะห์ระดับผู้บริหาร (CEO/EVP) 6 หมวดหมู่, สาเหตุหลัก, CSAT และสายตรง',
+    descriptionEn:
+      'Executive analytics dashboard (CEO/EVP) across the 6 categories, with root causes, CSAT and the direct whistleblower line.',
     category: 'executive',
     iconName: 'Crown',
     defaultRoles: ['executive', 'admin'],
@@ -194,6 +204,8 @@ export const APP_TABS: TabDefinition[] = [
     nameEn: 'Root Cause & CAPA Clustering',
     descriptionTh:
       'การจัดกลุ่มปัญหาซ้ำซ้อน วิเคราะห์สาเหตุเชิงลึก (Root Cause) และมาตรการป้องกันเชิงรุก',
+    descriptionEn:
+      'Grouping of recurring issues, in-depth Root Cause analysis and proactive preventive measures.',
     category: 'executive',
     iconName: 'Layers',
     defaultRoles: ['executive', 'admin'],
@@ -204,6 +216,8 @@ export const APP_TABS: TabDefinition[] = [
     nameEn: 'Personnel & Governance Directory',
     descriptionTh:
       'Maintain รายชื่อคณะผู้บริหารระดับสูง (CEO/EVP Whistleblower Channel), ทีมงาน HR Admin และผู้รับผิดชอบ 6 ฝ่ายงาน',
+    descriptionEn:
+      'Maintain the senior executive roster (CEO/EVP Whistleblower Channel), the HR Admin team and the owners of the 6 departments.',
     category: 'administration',
     iconName: 'Users',
     defaultRoles: ['admin'],
@@ -214,6 +228,8 @@ export const APP_TABS: TabDefinition[] = [
     nameEn: 'Role-Based Access Management',
     descriptionTh:
       'ศูนย์ควบคุมสิทธิ์ (HR Admin & ตัวแทนผู้บริหาร) กำหนดสิทธิ์การมองเห็นและขอบเขตหมวดหมู่คำร้องของแต่ละ Role',
+    descriptionEn:
+      'Access control center (HR Admin & Executive Representative): set screen visibility and case-category scope for each role.',
     category: 'administration',
     iconName: 'SlidersHorizontal',
     defaultRoles: ['admin'],
@@ -224,6 +240,8 @@ export const APP_TABS: TabDefinition[] = [
     nameEn: 'User Management (SSO)',
     descriptionTh:
       'กำหนดบทบาทให้ผู้ใช้ที่เข้าสู่ระบบผ่าน SSO (พนักงาน / Gatekeeper / ผู้บริหาร / Admin)',
+    descriptionEn:
+      'Assign roles to users who sign in through SSO (Employee / Gatekeeper / Executive / Admin).',
     category: 'administration',
     iconName: 'UserCog',
     defaultRoles: ['admin'],
@@ -233,6 +251,7 @@ export const APP_TABS: TabDefinition[] = [
     nameTh: 'บันทึกการใช้งานระบบ',
     nameEn: 'System Audit Logs',
     descriptionTh: 'ประวัติการเข้าสู่ระบบและการเปลี่ยนแปลงสิทธิ์ของผู้ใช้ทั้งหมด',
+    descriptionEn: 'History of all sign-ins and changes to user permissions.',
     category: 'administration',
     iconName: 'ScrollText',
     defaultRoles: ['admin'],
@@ -246,6 +265,8 @@ export const INITIAL_ROLE_PERMISSIONS: Record<UserRole, RolePermissionConfig> = 
     roleTitleEn: 'General Employee',
     descriptionTh:
       'ผู้ใช้งานทั่วไป สามารถยื่นข้อร้องเรียน/ข้อเสนอแนะ ติดตามสถานะคำร้องของตนเอง และศึกษาคู่มือเกณฑ์มาตรฐาน',
+    descriptionEn:
+      'General users who can submit grievances and suggestions, track the status of their own cases and read the manual and governance guidelines.',
     badgeColor: 'bg-blue-50 text-blue-700 border-blue-200',
     allowedTabs: ['submit', 'my_tickets', 'workflow'],
     canViewAllDepartments: false,
@@ -263,6 +284,8 @@ export const INITIAL_ROLE_PERMISSIONS: Record<UserRole, RolePermissionConfig> = 
     roleTitleEn: 'Department Gatekeeper',
     descriptionTh:
       'เจ้าหน้าที่ผู้รับผิดชอบประจำหน่วยงาน คัดกรอง สืบสวน และส่งต่อแก้ไขตามสายงานที่เกี่ยวข้อง',
+    descriptionEn:
+      'Department officers who screen and investigate cases and refer them for resolution through the relevant functions.',
     badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     allowedTabs: ['gatekeeper', 'my_tickets', 'workflow'],
     canViewAllDepartments: true,
@@ -280,6 +303,8 @@ export const INITIAL_ROLE_PERMISSIONS: Record<UserRole, RolePermissionConfig> = 
     roleTitleEn: 'Executive & Governance Board',
     descriptionTh:
       'ผู้บริหารและคณะกรรมการกำกับดูแล เข้าถึงแดชบอร์ดภาพรวม กล่องข้อร้องเรียนสายตรง Whistleblower และการวิเคราะห์ CAPA',
+    descriptionEn:
+      'Executives and the governance board, with access to the overview dashboard, the direct Whistleblower inbox and CAPA analysis.',
     badgeColor: 'bg-purple-50 text-purple-700 border-purple-200',
     allowedTabs: ['executive', 'clustering', 'workflow'],
     canViewAllDepartments: true,
@@ -297,6 +322,8 @@ export const INITIAL_ROLE_PERMISSIONS: Record<UserRole, RolePermissionConfig> = 
     roleTitleEn: 'HR Admin & Executive Representative',
     descriptionTh:
       'ผู้ดูแลระบบสูงสุดและตัวแทนฝ่ายบริหาร มีสิทธิ์เข้าถึงทุกฟังก์ชัน กำหนดสิทธิ์ RBAC และจัดสรรผู้รับผิดชอบหน่วยงาน',
+    descriptionEn:
+      'Top-level administrators and the executive representative with access to every function, who set RBAC permissions and assign department owners.',
     badgeColor: 'bg-rose-50 text-rose-700 border-rose-200',
     allowedTabs: [
       'submit',

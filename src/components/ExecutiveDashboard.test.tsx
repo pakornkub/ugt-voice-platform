@@ -272,4 +272,39 @@ describe('ExecutiveDashboard', () => {
       expect(getModal()).toHaveTextContent('ผู้ยื่น: [ปกปิดตัวตนตามนโยบายความลับ]');
     });
   });
+
+  describe('server fallback text', () => {
+    const noDepartment: ComplaintTicket = {
+      ...INITIAL_COMPLAINTS[0],
+      id: 'tk-no-dept',
+      confidentiality: 'standard_named',
+      submitterName: 'สมหญิง ทดสอบ',
+      submitterEmployeeId: 'EMP-9',
+      submitterDepartment: undefined,
+    };
+    const protectedSubmitter: ComplaintTicket = {
+      ...noDepartment,
+      id: 'tk-protected',
+      submitterEmployeeId: 'EMP-10',
+      submitterName: 'พนักงาน (ไม่เปิดเผยตัวตน)',
+    };
+
+    it('shows the Thai department fallback in TH and skips submitters that hide their name', () => {
+      renderDashboard([noDepartment, protectedSubmitter]);
+
+      expect(screen.getByText('ทั่วไป')).toBeInTheDocument();
+      expect(screen.getAllByRole('button', { name: /^#/ })).toHaveLength(1);
+    });
+
+    it('shows the department fallback as General in EN', async () => {
+      const user = userEvent.setup({ delay: null });
+      renderDashboard([noDepartment, protectedSubmitter]);
+
+      await user.click(screen.getByText('toggle-lang'));
+
+      expect(screen.queryByText('ทั่วไป')).not.toBeInTheDocument();
+      expect(screen.getByText('General')).toBeInTheDocument();
+      expect(screen.getAllByRole('button', { name: /^#/ })).toHaveLength(1);
+    });
+  });
 });

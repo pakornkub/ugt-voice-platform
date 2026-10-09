@@ -141,7 +141,8 @@ const KeywordChips: React.FC<Readonly<{ keywords: string[] }>> = ({ keywords }) 
 const AlternativeCategory: React.FC<
   Readonly<{ category: GrievanceCategory; onApply: (category: GrievanceCategory) => void }>
 > = ({ category, onApply }) => {
-  const { tr } = useTr();
+  const { tr, lang } = useTr();
+  const info = CATEGORY_DEFINITIONS[category];
   return (
     <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
       <span>{tr('Alternative category:', 'หรือเลือกหมวดหมู่ใกล้เคียง:')}</span>
@@ -150,7 +151,7 @@ const AlternativeCategory: React.FC<
         onClick={() => onApply(category)}
         className="cursor-pointer rounded-lg border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700 transition hover:bg-indigo-50 hover:text-indigo-700"
       >
-        {CATEGORY_DEFINITIONS[category]?.nameTh}
+        {lang === 'en' ? info?.nameEn : info?.nameTh}
       </button>
     </div>
   );
@@ -214,26 +215,54 @@ export const AiRecommendation: React.FC<Readonly<AiRecommendationProps>> = ({
   );
 };
 
-const NOTICE_SAMPLES: { label: string; title: string; description: string }[] = [
-  {
-    label: '💡 ตัวอย่าง: เบิกจ่ายสวัสดิการ (HR)',
-    title: 'ขอปรับปรุงขั้นตอนการเบิกจ่ายค่ารักษาพยาบาลและสิทธิประโยชน์พนักงาน',
-    description:
-      'ต้องการให้มีระบบเบิกจ่ายค่ารักษาพยาบาลออนไลน์และอัปเดตสิทธิประโยชน์ทันเวลา เจ้าหน้าที่เบิกจ่ายล่าช้า',
-  },
-  {
-    label: '💡 ตัวอย่าง: อุปกรณ์ชำรุดและความปลอดภัย (Quality)',
-    title: 'เครื่องจักรสายการผลิตที่ 2 ชำรุดและอุปกรณ์ป้องกันความปลอดภัยเสียหาย',
-    description:
-      'เซนเซอร์ตัดการทำงานชำรุดเสียหาย เสี่ยงต่ออุบัติเหตุพนักงานฝ่ายปฏิบัติการ ขอให้ซ่อมแซมด่วน',
-  },
-  {
-    label: '💡 ตัวอย่าง: ตรวจสอบการทุจริต (Fraud)',
-    title: 'พบพฤติกรรมส่อไปในทางทุจริตและการปลอมแปลงเอกสารจัดซื้อ',
-    description:
-      'มีการแก้ตัวเลขใบเสนอราคาและมีการจ่ายเงินทอนให้ผู้ตรวจรับงานในโครงการจัดซื้อคอมพิวเตอร์',
-  },
-];
+interface NoticeSample {
+  label: string;
+  title: string;
+  description: string;
+}
+
+const NOTICE_SAMPLES: Record<'th' | 'en', NoticeSample[]> = {
+  th: [
+    {
+      label: '💡 ตัวอย่าง: เบิกจ่ายสวัสดิการ (HR)',
+      title: 'ขอปรับปรุงขั้นตอนการเบิกจ่ายค่ารักษาพยาบาลและสิทธิประโยชน์พนักงาน',
+      description:
+        'ต้องการให้มีระบบเบิกจ่ายค่ารักษาพยาบาลออนไลน์และอัปเดตสิทธิประโยชน์ทันเวลา เจ้าหน้าที่เบิกจ่ายล่าช้า',
+    },
+    {
+      label: '💡 ตัวอย่าง: อุปกรณ์ชำรุดและความปลอดภัย (Quality)',
+      title: 'เครื่องจักรสายการผลิตที่ 2 ชำรุดและอุปกรณ์ป้องกันความปลอดภัยเสียหาย',
+      description:
+        'เซนเซอร์ตัดการทำงานชำรุดเสียหาย เสี่ยงต่ออุบัติเหตุพนักงานฝ่ายปฏิบัติการ ขอให้ซ่อมแซมด่วน',
+    },
+    {
+      label: '💡 ตัวอย่าง: ตรวจสอบการทุจริต (Fraud)',
+      title: 'พบพฤติกรรมส่อไปในทางทุจริตและการปลอมแปลงเอกสารจัดซื้อ',
+      description:
+        'มีการแก้ตัวเลขใบเสนอราคาและมีการจ่ายเงินทอนให้ผู้ตรวจรับงานในโครงการจัดซื้อคอมพิวเตอร์',
+    },
+  ],
+  en: [
+    {
+      label: '💡 Example: Benefit reimbursement (HR)',
+      title: 'Request to improve the medical expense reimbursement process and employee benefits',
+      description:
+        'We would like an online medical expense reimbursement system and timely benefit updates. Reimbursement officers are slow to process claims.',
+    },
+    {
+      label: '💡 Example: Faulty equipment and safety (Quality)',
+      title: 'Production line 2 machinery is faulty and safety protection equipment is damaged',
+      description:
+        'The cut-off sensor is broken, creating an accident risk for operations staff. Please repair it urgently.',
+    },
+    {
+      label: '💡 Example: Fraud investigation (Fraud)',
+      title: 'Suspected fraudulent behavior and forged procurement documents',
+      description:
+        'Quotation figures were altered and kickbacks were paid to the work inspector on the computer procurement project.',
+    },
+  ],
+};
 
 interface AiNoticeProps {
   notice: string;
@@ -243,7 +272,7 @@ interface AiNoticeProps {
 
 /** AI helper notice (empty input / server fallback) with the quick sample texts. */
 export const AiNotice: React.FC<Readonly<AiNoticeProps>> = ({ notice, onDismiss, onUseSample }) => {
-  const { tr } = useTr();
+  const { tr, lang } = useTr();
   return (
     <div className="space-y-1.5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
       <div className="flex items-start justify-between gap-2">
@@ -267,7 +296,7 @@ export const AiNotice: React.FC<Readonly<AiNoticeProps>> = ({ notice, onDismiss,
         )}
       </p>
       <div className="flex flex-wrap gap-1.5 pt-0.5">
-        {NOTICE_SAMPLES.map((sample) => (
+        {NOTICE_SAMPLES[lang].map((sample) => (
           <button
             key={sample.label}
             type="button"

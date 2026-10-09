@@ -135,6 +135,7 @@ export const MyTicketsList: React.FC<Readonly<MyTicketsListProps>> = ({
         ) : (
           filteredTickets.map((t) => {
             const catInfo = CATEGORY_DEFINITIONS[t.category];
+            const categoryName = lang === 'en' ? catInfo?.nameEn : catInfo?.nameTh;
             const isResolved = t.status === 'resolved';
 
             return (
@@ -160,7 +161,7 @@ export const MyTicketsList: React.FC<Readonly<MyTicketsListProps>> = ({
                     <span
                       className={`rounded border px-2 py-0.5 text-[11px] font-medium ${catInfo?.badgeColor}`}
                     >
-                      {lang === 'en' ? catInfo?.nameEn : catInfo?.nameTh}
+                      {categoryName}
                     </span>
                     <span
                       className={`rounded border px-2 py-0.5 text-[10px] font-semibold ${getUrgencyColor(t.urgency)}`}
@@ -191,7 +192,7 @@ export const MyTicketsList: React.FC<Readonly<MyTicketsListProps>> = ({
                     <span>
                       {lang === 'en' ? 'Category: ' : 'หมวดหมู่: '}
                       <strong className="text-slate-800">
-                        {catInfo?.nameTh || t.gatekeeperDepartment}
+                        {categoryName || t.gatekeeperDepartment}
                       </strong>
                     </span>
                     <span>

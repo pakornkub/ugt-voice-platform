@@ -3,15 +3,21 @@ import { ArrowRight, Check, CheckCircle2, ChevronRight, Clock, Sparkles, Zap } f
 import type { UserRole } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { clickableProps } from '../clickableProps';
-import { pick } from './helpers';
+import { localize, pick } from './helpers';
 import { RaciMatrix } from './RaciMatrix';
-import type { SimulationScenario, WorkflowStep } from './types';
+import type { Bilingual, SimulationScenario, WorkflowStep } from './types';
 import { BulletList } from './ui';
 import { WORKFLOW_STEPS } from './workflowSteps';
 
-const SCENARIO_NAME: Record<SimulationScenario, string> = {
-  normal_quality: '🔍 ข้อร้องเรียนชิ้นงาน QC ผิดมาตรฐาน',
-  urgent_pdpa: '📋 ข้อร้องเรียนด่วน PDPA จัดเก็บเอกสารไม่จำกัดสิทธิ์',
+const SCENARIO_NAME: Record<SimulationScenario, Bilingual> = {
+  normal_quality: {
+    th: '🔍 ข้อร้องเรียนชิ้นงาน QC ผิดมาตรฐาน',
+    en: '🔍 Complaint: QC work product below standard',
+  },
+  urgent_pdpa: {
+    th: '📋 ข้อร้องเรียนด่วน PDPA จัดเก็บเอกสารไม่จำกัดสิทธิ์',
+    en: '📋 Urgent PDPA complaint: documents stored without access restrictions',
+  },
 };
 
 const SCENARIO_DEPARTMENT: Record<SimulationScenario, string> = {
@@ -19,17 +25,27 @@ const SCENARIO_DEPARTMENT: Record<SimulationScenario, string> = {
   urgent_pdpa: 'Compliance & Legal',
 };
 
-const SIMULATION_STEP_TEXT: Record<number, (scenario: SimulationScenario) => string> = {
-  1: () =>
-    'พนักงานกรอกข้อมูลผู้ยื่นเรื่อง เลือกหมวดหมู่ ระบุความเร่งด่วน พร้อมแนบหลักฐาน ระบบออกรหัส Ticket ทันที',
-  2: (scenario) =>
-    `ระบบคัดแยกเข้าสู่ทีม Gatekeeper ประจำฝ่าย ${SCENARIO_DEPARTMENT[scenario]} โดยอัตโนมัติ พร้อมแจ้งเตือนเจ้าหน้าที่`,
-  3: () =>
-    'Gatekeeper ประจำฝ่ายกดรับเรื่อง ตรวจสอบข้อเท็จจริง แก้ไขข้อบกพร่อง และบันทึก Resolution Notes ให้ผู้ยื่นรับทราบ',
-  4: () =>
-    'พนักงานได้รับแจ้งเตือน ตรวจสอบผลการแก้ไข และทำแบบประเมินความพึงพอใจ CSAT 5 ดาว พร้อมยืนยันปิดเคสอย่างสมบูรณ์',
-  5: () =>
-    'ข้อมูลถูกส่งเข้า Executive Dashboard และ AI ดำเนินการจัดกลุ่มเพื่อวิเคราะห์แนวทางปรับปรุงเชิงป้องกันระดับองค์กรต่อไป',
+const SIMULATION_STEP_TEXT: Record<number, (scenario: SimulationScenario) => Bilingual> = {
+  1: () => ({
+    th: 'พนักงานกรอกข้อมูลผู้ยื่นเรื่อง เลือกหมวดหมู่ ระบุความเร่งด่วน พร้อมแนบหลักฐาน ระบบออกรหัส Ticket ทันที',
+    en: 'The employee fills in their details, picks a category, sets the urgency and attaches evidence. The system issues a Ticket code immediately.',
+  }),
+  2: (scenario) => ({
+    th: `ระบบคัดแยกเข้าสู่ทีม Gatekeeper ประจำฝ่าย ${SCENARIO_DEPARTMENT[scenario]} โดยอัตโนมัติ พร้อมแจ้งเตือนเจ้าหน้าที่`,
+    en: `The system automatically routes the case to the ${SCENARIO_DEPARTMENT[scenario]} department Gatekeeper team and notifies the officers.`,
+  }),
+  3: () => ({
+    th: 'Gatekeeper ประจำฝ่ายกดรับเรื่อง ตรวจสอบข้อเท็จจริง แก้ไขข้อบกพร่อง และบันทึก Resolution Notes ให้ผู้ยื่นรับทราบ',
+    en: 'The department Gatekeeper accepts the case, verifies the facts, fixes the issue and records Resolution Notes for the submitter.',
+  }),
+  4: () => ({
+    th: 'พนักงานได้รับแจ้งเตือน ตรวจสอบผลการแก้ไข และทำแบบประเมินความพึงพอใจ CSAT 5 ดาว พร้อมยืนยันปิดเคสอย่างสมบูรณ์',
+    en: 'The employee is notified, reviews the outcome, completes the 5-star CSAT survey and confirms the case is fully closed.',
+  }),
+  5: () => ({
+    th: 'ข้อมูลถูกส่งเข้า Executive Dashboard และ AI ดำเนินการจัดกลุ่มเพื่อวิเคราะห์แนวทางปรับปรุงเชิงป้องกันระดับองค์กรต่อไป',
+    en: 'The data flows into the Executive Dashboard and AI groups similar cases to support organization-wide preventive improvements.',
+  }),
 };
 
 interface StepCardProps {
@@ -84,7 +100,9 @@ const StepCard = ({
         <h3 className="mb-1 line-clamp-2 text-xs font-bold text-slate-900">
           {pick(lang, step.titleEn, step.titleTh.replace(/^\d+\.\s*/, ''))}
         </h3>
-        <p className="line-clamp-2 text-[11px] leading-relaxed text-slate-500">{step.shortDesc}</p>
+        <p className="line-clamp-2 text-[11px] leading-relaxed text-slate-500">
+          {localize(lang, step.shortDesc)}
+        </p>
       </div>
 
       <div className="mt-3 border-t border-slate-200/60 pt-2.5">
@@ -94,7 +112,7 @@ const StepCard = ({
           </span>
           <span className="flex items-center gap-1 font-mono text-[10px] text-slate-500">
             <Clock className="h-2.5 w-2.5" />
-            {step.durationEst}
+            {localize(lang, step.durationEst)}
           </span>
         </div>
       </div>
@@ -176,8 +194,8 @@ const StepDetails = ({
             <span>
               {pick(
                 lang,
-                `Launch: ${step.targetTabLabel}`,
-                `เปิดใช้งานหน้านี้: ${step.targetTabLabel}`
+                `Launch: ${step.targetTabLabel.en}`,
+                `เปิดใช้งานหน้านี้: ${step.targetTabLabel.th}`
               )}
             </span>
             <ArrowRight className="h-4 w-4" />
@@ -191,14 +209,20 @@ const StepDetails = ({
           icon={<CheckCircle2 className="h-4 w-4 text-emerald-600" />}
           title={pick(lang, 'Key Operational Actions:', 'การปฏิบัติงานหลัก (Key Actions):')}
         >
-          <BulletList items={step.keyActions} dotClass="bg-emerald-500" />
+          <BulletList
+            items={step.keyActions.map((action) => localize(lang, action))}
+            dotClass="bg-emerald-500"
+          />
         </DetailCard>
 
         <DetailCard
           icon={<Sparkles className="h-4 w-4 text-indigo-600" />}
           title={pick(lang, 'System Automations:', 'ระบบอัตโนมัติ (System Automations):')}
         >
-          <BulletList items={step.systemAutomations} dotClass="bg-indigo-500" />
+          <BulletList
+            items={step.systemAutomations.map((automation) => localize(lang, automation))}
+            dotClass="bg-indigo-500"
+          />
         </DetailCard>
 
         {/* 3. Governance & Policy Rules */}
@@ -213,7 +237,7 @@ const StepDetails = ({
               )}
             />
             <p className="rounded-lg border border-indigo-200/60 bg-indigo-50/60 p-3 text-xs leading-relaxed text-slate-700">
-              {step.rulesAndSla}
+              {localize(lang, step.rulesAndSla)}
             </p>
           </div>
 
@@ -221,9 +245,7 @@ const StepDetails = ({
             <span className="text-slate-500">
               {pick(lang, 'Primary Role:', 'ผู้รับผิดชอบหลัก:')}
             </span>
-            <span className="font-bold text-slate-800">
-              {pick(lang, step.actorRole, step.actorTitleTh)}
-            </span>
+            <span className="font-bold text-slate-800">{localize(lang, step.actorTitle)}</span>
           </div>
         </div>
       </div>
@@ -238,19 +260,24 @@ const StepDetails = ({
 const SimulationScenarioBox = ({
   scenario,
   currentStep,
-}: Readonly<{ scenario: SimulationScenario; currentStep: number }>) => (
-  <div className="mt-5 flex items-start gap-3 rounded-xl border border-indigo-700 bg-indigo-900 p-4 text-white">
-    <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
-    <div className="text-xs">
-      <div className="mb-1 font-bold text-amber-300">
-        ตัวอย่างสถานการณ์จำลอง: {SCENARIO_NAME[scenario]}
-      </div>
-      <div className="leading-relaxed text-indigo-100">
-        <span>{SIMULATION_STEP_TEXT[currentStep]?.(scenario)}</span>
+}: Readonly<{ scenario: SimulationScenario; currentStep: number }>) => {
+  const { lang } = useLanguage();
+  const stepText = SIMULATION_STEP_TEXT[currentStep]?.(scenario);
+  return (
+    <div className="mt-5 flex items-start gap-3 rounded-xl border border-indigo-700 bg-indigo-900 p-4 text-white">
+      <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
+      <div className="text-xs">
+        <div className="mb-1 font-bold text-amber-300">
+          {pick(lang, 'Simulated scenario:', 'ตัวอย่างสถานการณ์จำลอง:')}{' '}
+          {localize(lang, SCENARIO_NAME[scenario])}
+        </div>
+        <div className="leading-relaxed text-indigo-100">
+          <span>{stepText && localize(lang, stepText)}</span>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 interface WorkflowSectionProps {
   selectedStepId: number;

@@ -228,3 +228,127 @@ describe('TrackingTimelineModal', () => {
     });
   });
 });
+
+describe('TrackingTimelineModal — bilingual server text', () => {
+  const serverTicket: ComplaintTicket = {
+    ...directCeoTicket,
+    isDirectToExecutive: false,
+    confidentiality: 'standard_named',
+    timeline: [
+      {
+        id: 'tl-auto',
+        timestamp: '2026-10-09T00:00:00.000Z',
+        actor: 'ระบบจ่ายงานอัตโนมัติ (Auto-Assign)',
+        actorRole: 'System',
+        action: 'มอบหมายเจ้าหน้าที่ผู้รับผิดชอบอัตโนมัติ: สมหญิง ใจดี',
+        status: 'submitted',
+        notes: 'ตามรูปแบบการจ่ายงานที่ตั้งค่าไว้ของหมวดหมู่นี้',
+      },
+      {
+        id: 'tl-csat',
+        timestamp: '2026-10-09T01:00:00.000Z',
+        actor: 'พนักงานผู้แจ้ง',
+        actorRole: 'Employee',
+        action: 'ประเมินความพึงพอใจ 5 ดาว และปิดเรื่อง (Closed)',
+        status: 'closed',
+        notes: 'ขอบคุณมากครับ',
+      },
+    ],
+    anonymousMessages: [
+      {
+        id: 'chat-x',
+        ticketId: directCeoTicket.id,
+        senderRole: 'employee',
+        senderDisplayName: 'ผู้ยื่นเรื่อง (ไม่เปิดเผยตัวตน / Anonymous)',
+        message: 'สวัสดีครับ',
+        timestamp: '2026-10-09T00:00:00.000Z',
+        isStaff: false,
+      },
+    ],
+  };
+
+  const useEnglish = () => localStorage.setItem('voiceplatform_lang_preference_v2', 'en');
+
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('keeps the stored Thai server text in TH', () => {
+    renderModal(serverTicket);
+
+    expect(screen.getByText('ระบบจ่ายงานอัตโนมัติ (Auto-Assign)')).toBeInTheDocument();
+    expect(
+      screen.getByText('มอบหมายเจ้าหน้าที่ผู้รับผิดชอบอัตโนมัติ: สมหญิง ใจดี')
+    ).toBeInTheDocument();
+    expect(screen.getByText('ตามรูปแบบการจ่ายงานที่ตั้งค่าไว้ของหมวดหมู่นี้')).toBeInTheDocument();
+    expect(screen.getByText('ประเมินความพึงพอใจ 5 ดาว และปิดเรื่อง (Closed)')).toBeInTheDocument();
+  });
+
+  it('shows the timeline actor, action and notes in English, keeping names and free text', async () => {
+    useEnglish();
+    renderModal(serverTicket);
+
+    expect(await screen.findByText('Auto-Assign')).toBeInTheDocument();
+    expect(
+      screen.getByText('Automatically assigned the responsible officer: สมหญิง ใจดี')
+    ).toBeInTheDocument();
+    expect(screen.getByText("Per this category's configured assignment mode")).toBeInTheDocument();
+    expect(screen.getByText('Reporting employee')).toBeInTheDocument();
+    expect(
+      screen.getByText('Rated satisfaction 5 stars and closed the ticket')
+    ).toBeInTheDocument();
+    expect(screen.getByText('ขอบคุณมากครับ')).toBeInTheDocument();
+    expect(screen.queryByText('ระบบจ่ายงานอัตโนมัติ (Auto-Assign)')).not.toBeInTheDocument();
+  });
+
+  it('shows the chat sender label in English', async () => {
+    const user = userEvent.setup();
+    useEnglish();
+    renderModal(serverTicket);
+
+    await user.click(await screen.findByRole('button', { name: /Anonymous 2-Way Chat/ }));
+
+    expect(screen.getByText('Submitter (Anonymous)')).toBeInTheDocument();
+    expect(screen.getByText('สวัสดีครับ')).toBeInTheDocument();
+  });
+
+  it('translates the restricted-access screen, its badge and the report title', async () => {
+    useEnglish();
+    renderModal(directCeoTicket, 'gatekeeper');
+
+    expect(await screen.findByText('Access Restricted')).toBeInTheDocument();
+    expect(screen.getByText('Whistleblower Escalation Restricted')).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/[฀-๿]/);
+  });
+
+  it('keeps the TH badge for the restricted-access screen', () => {
+    renderModal(directCeoTicket, 'gatekeeper');
+    expect(screen.getByText('ช่องทางผู้แจ้งเบาะแสสายตรงถูกจำกัดสิทธิ์')).toBeInTheDocument();
+  });
+
+  it('titles the report button in English', async () => {
+    useEnglish();
+    renderModal(serverTicket);
+
+    await waitFor(() =>
+      expect(byId('btn-open-investigation-report')).toHaveAttribute(
+        'title',
+        'View and print the Official Investigation Report'
+      )
+    );
+  });
+
+  it('shows the protected-submitter label in English', async () => {
+    useEnglish();
+    renderModal(
+      {
+        ...serverTicket,
+        confidentiality: 'standard_named',
+        submitterName: 'ผู้ยื่นเรื่อง (ไม่ระบุตัวตน)',
+      },
+      'employee'
+    );
+
+    expect(await screen.findByText(/Submitter \(anonymous\)/)).toBeInTheDocument();
+  });
+});

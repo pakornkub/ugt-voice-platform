@@ -34,7 +34,9 @@ import {
 import { sendAnonymousChatMessage, updateTicketWorkflow } from '@/lib/actions/tickets';
 import { attachmentDownloadUrl } from '@/lib/upload-client';
 import { useShell } from '../app/shell-context';
-import { useLanguage } from '../context/LanguageContext';
+import { useLanguage, type Language } from '../context/LanguageContext';
+import { useTr } from '../context/useTr';
+import { localizeServerText } from '../services/serverText';
 import { InvestigationReportModal } from './InvestigationReportModal';
 
 interface TrackingTimelineModalProps {
@@ -49,17 +51,11 @@ type RoleConfig = RolePermissionConfig | undefined;
 type ChatMessage = NonNullable<ComplaintTicket['anonymousMessages']>[number];
 type TimelineLog = ComplaintTicket['timeline'][number];
 
-// Bilingual text helper: `tr(en, th)` picks by the active language.
-function useTr() {
-  const { lang } = useLanguage();
-  return { lang, tr: (en: string, th: string) => (lang === 'en' ? en : th) };
-}
-
 const isProtectedIdentity = (ticket: ComplaintTicket) =>
   ticket.confidentiality === 'anonymous' || ticket.confidentiality === 'confidential_restricted';
 
-const getRoleShortName = (roleConfig: RoleConfig, currentRole: UserRole) =>
-  roleConfig?.roleTitleTh?.split(' ')[0] || currentRole;
+const getRoleShortName = (roleConfig: RoleConfig, currentRole: UserRole, lang: Language) =>
+  (lang === 'en' ? roleConfig?.roleTitleEn : roleConfig?.roleTitleTh?.split(' ')[0]) || currentRole;
 
 const getStepIndex = (status: TicketStatus) => {
   switch (status) {
@@ -105,6 +101,7 @@ const RestrictedAccessScreen: React.FC<
   Readonly<{ ticket: ComplaintTicket; onClose: () => void }>
 > = ({ ticket, onClose }) => {
   const { lang, t } = useLanguage();
+  const { tr } = useTr();
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-4 backdrop-blur-xs">
       <div className="animate-in fade-in zoom-in-95 w-full max-w-lg space-y-4 overflow-hidden rounded-2xl border border-rose-200 bg-white p-6 text-center shadow-2xl">
@@ -113,7 +110,7 @@ const RestrictedAccessScreen: React.FC<
         </div>
         <div>
           <span className="rounded-full border border-purple-200 bg-purple-100 px-2.5 py-1 text-xs font-bold text-purple-800">
-            Whistleblower Escalation Restricted
+            {tr('Whistleblower Escalation Restricted', 'ช่องทางผู้แจ้งเบาะแสสายตรงถูกจำกัดสิทธิ์')}
           </span>
           <h3 className="mt-2.5 text-base font-bold text-slate-900 sm:text-lg">
             {lang === 'en' ? 'Access Restricted' : 'สิทธิ์การเข้าถึงถูกจำกัด (Access Restricted)'}
@@ -222,7 +219,10 @@ const ModalHeader: React.FC<
           id="btn-open-investigation-report"
           onClick={onOpenReport}
           className="flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 shadow-xs transition hover:bg-indigo-100"
-          title="ดูและพิมพ์รายงานสรุปผลการสอบสวนข้อเท็จจริง (Official Investigation Report)"
+          title={tr(
+            'View and print the Official Investigation Report',
+            'ดูและพิมพ์รายงานสรุปผลการสอบสวนข้อเท็จจริง (Official Investigation Report)'
+          )}
         >
           <FileText className="h-3.5 w-3.5 text-indigo-600" />
           <span className="hidden sm:inline">{tr('Report', 'รายงานผล')}</span>
@@ -333,7 +333,7 @@ const ChatBubble: React.FC<Readonly<{ msg: ChatMessage; currentRole: UserRole }>
         <span
           className={`font-semibold ${isFromComplainant ? 'text-purple-700' : 'text-indigo-700'}`}
         >
-          {msg.senderDisplayName}
+          {localizeServerText(msg.senderDisplayName, lang)}
         </span>
         <span className="text-[10px] text-slate-400">
           {new Date(msg.timestamp).toLocaleTimeString(lang === 'en' ? 'en-US' : 'th-TH', {
@@ -776,20 +776,22 @@ const GatekeeperCard: React.FC<Readonly<{ ticket: ComplaintTicket }>> = ({ ticke
 // Submitter identification cards (strict RBAC confidentiality)
 // ---------------------------------------------------------------------------------------------
 const SubmitterFields: React.FC<Readonly<{ ticket: ComplaintTicket }>> = ({ ticket }) => {
-  const { tr } = useTr();
+  const { lang, tr } = useTr();
   return (
     <>
       <div>
         <span className="text-slate-500">{tr('Submitter:', 'ผู้ยื่นเรื่อง:')}</span>
         <div className="mt-0.5 font-semibold text-slate-900">
-          {ticket.submitterName || tr('Unnamed', 'ไม่ระบุชื่อ')}{' '}
+          {localizeServerText(ticket.submitterName, lang) || tr('Unnamed', 'ไม่ระบุชื่อ')}{' '}
           {ticket.submitterEmployeeId ? `(${ticket.submitterEmployeeId})` : ''}
         </div>
       </div>
       {ticket.submitterDepartment && (
         <div>
           <span className="text-slate-500">{tr('Department:', 'ฝ่าย/สังกัด:')}</span>
-          <div className="mt-0.5 text-slate-700">{ticket.submitterDepartment}</div>
+          <div className="mt-0.5 text-slate-700">
+            {localizeServerText(ticket.submitterDepartment, lang)}
+          </div>
         </div>
       )}
       {ticket.submitterEmail && (
@@ -813,9 +815,9 @@ const SubmitterFields: React.FC<Readonly<{ ticket: ComplaintTicket }>> = ({ tick
 const AnonymousSubmitterCard: React.FC<
   Readonly<{ ticket: ComplaintTicket; roleConfig: RoleConfig; currentRole: UserRole }>
 > = ({ ticket, roleConfig, currentRole }) => {
-  const { tr } = useTr();
+  const { lang, tr } = useTr();
   const canViewAnonymousEmail = roleConfig?.canViewAnonymousSubmitterEmail ?? false;
-  const roleShort = getRoleShortName(roleConfig, currentRole);
+  const roleShort = getRoleShortName(roleConfig, currentRole, lang);
   // The server leaves the email out when this role may not see it (redactTicketForViewer).
   const activeLoginEmail = ticket.loginEmail || ticket.submitterEmail || '—';
 
@@ -1063,7 +1065,7 @@ const TimelineRow: React.FC<
     (log.actorRole === 'Employee' || log.actor === ticket.submitterName);
   const actorName = hideActor
     ? tr('Whistleblower (Protected)', 'พนักงานผู้ร้องเรียน (ปกปิดตัวตน)')
-    : log.actor;
+    : localizeServerText(log.actor, lang);
 
   return (
     <div className="group relative">
@@ -1072,17 +1074,19 @@ const TimelineRow: React.FC<
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold text-slate-900">{actorName}</span>
           <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
-            {log.actorRole}
+            {localizeServerText(log.actorRole, lang)}
           </span>
         </div>
         <span className="text-[11px] text-slate-400">
           {new Date(log.timestamp).toLocaleString(lang === 'en' ? 'en-US' : 'th-TH')}
         </span>
       </div>
-      <div className="mt-1 text-xs font-semibold text-indigo-900">{log.action}</div>
+      <div className="mt-1 text-xs font-semibold text-indigo-900">
+        {localizeServerText(log.action, lang)}
+      </div>
       {log.notes && (
         <div className="mt-1 rounded-lg border border-slate-100 bg-slate-50 p-2.5 text-xs text-slate-600">
-          {log.notes}
+          {localizeServerText(log.notes, lang)}
         </div>
       )}
       {log.attachmentName && (

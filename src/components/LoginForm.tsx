@@ -7,6 +7,8 @@
 import { useState } from 'react';
 import { Building2, Loader2, Shield, TriangleAlert } from 'lucide-react';
 import { authClient } from '@/lib/auth-client';
+import { useTr } from '@/context/useTr';
+import { AuthLanguageSwitch } from './AuthLanguageSwitch';
 
 // กัน open redirect: `from` มาจาก searchParams — รับเฉพาะ path ภายในแอป
 // (ขึ้นต้น '/' และไม่ใช่ '//' หรือ '/\\') ค่าอื่นทิ้งเงียบ ๆ กลับหน้าแรก
@@ -17,9 +19,15 @@ function sanitizeFrom(from: string | undefined): string {
   return from;
 }
 
-const SSO_ERROR_MESSAGES: Record<string, string> = {
-  unable_to_create_user: 'ไม่สามารถสร้างบัญชีผู้ใช้จากข้อมูล SSO ได้ กรุณาติดต่อผู้ดูแลระบบ',
-  account_not_linked: 'บัญชีนี้ยังไม่ได้เชื่อมโยงกับ SSO กรุณาติดต่อผู้ดูแลระบบ',
+const SSO_ERROR_MESSAGES: Record<string, { th: string; en: string }> = {
+  unable_to_create_user: {
+    th: 'ไม่สามารถสร้างบัญชีผู้ใช้จากข้อมูล SSO ได้ กรุณาติดต่อผู้ดูแลระบบ',
+    en: 'Could not create a user account from the SSO data. Please contact the system administrator.',
+  },
+  account_not_linked: {
+    th: 'บัญชีนี้ยังไม่ได้เชื่อมโยงกับ SSO กรุณาติดต่อผู้ดูแลระบบ',
+    en: 'This account is not linked to SSO yet. Please contact the system administrator.',
+  },
 };
 
 export function LoginForm({
@@ -31,17 +39,26 @@ export function LoginForm({
   ssoError?: string;
   from?: string;
 }>) {
+  const { tr, lang } = useTr();
   const [isLoading, setIsLoading] = useState(false);
   const returnTo = sanitizeFrom(from);
 
   const errorBanner = ssoError
     ? {
         tone: 'danger' as const,
-        text: SSO_ERROR_MESSAGES[ssoError] ?? `เข้าสู่ระบบไม่สำเร็จ (${ssoError})`,
+        text:
+          SSO_ERROR_MESSAGES[ssoError]?.[lang] ??
+          tr(`Sign-in failed (${ssoError})`, `เข้าสู่ระบบไม่สำเร็จ (${ssoError})`),
       }
     : null;
   const banner = sessionExpired
-    ? { tone: 'warning' as const, text: 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง' }
+    ? {
+        tone: 'warning' as const,
+        text: tr(
+          'Your session has expired. Please sign in again.',
+          'เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง'
+        ),
+      }
     : errorBanner;
 
   async function handleSsoLogin() {
@@ -61,13 +78,19 @@ export function LoginForm({
 
   return (
     <div className="flex w-full max-w-sm flex-col items-center gap-6 rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+      <div className="flex w-full justify-end">
+        <AuthLanguageSwitch idPrefix="btn-login-lang" />
+      </div>
       <div className="flex flex-col items-center gap-2 text-center">
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-blue-700 text-white shadow-sm shadow-indigo-200">
           <Shield className="h-7 w-7" />
         </div>
         <h1 className="text-xl font-bold tracking-tight text-slate-900">UGT VoicePlatform</h1>
         <p className="text-xs text-slate-500">
-          ระบบบันทึกข้อร้องเรียน ข้อเสนอแนะ และติดตามผลเรียลไทม์
+          {tr(
+            'Grievance, suggestion and real-time tracking system',
+            'ระบบบันทึกข้อร้องเรียน ข้อเสนอแนะ และติดตามผลเรียลไทม์'
+          )}
         </p>
       </div>
 
@@ -86,7 +109,10 @@ export function LoginForm({
 
       <div className="flex w-full flex-col gap-3">
         <p className="text-center text-xs text-slate-500">
-          เข้าสู่ระบบด้วยบัญชีองค์กร (Single Sign-On)
+          {tr(
+            'Sign in with your company account (Single Sign-On)',
+            'เข้าสู่ระบบด้วยบัญชีองค์กร (Single Sign-On)'
+          )}
         </p>
         <button
           type="button"
@@ -98,12 +124,14 @@ export function LoginForm({
           {isLoading ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span>กำลังเชื่อมต่อ Keycloak...</span>
+              <span>{tr('Connecting to Keycloak...', 'กำลังเชื่อมต่อ Keycloak...')}</span>
             </>
           ) : (
             <>
               <Building2 className="h-4 w-4" />
-              <span>เข้าสู่ระบบด้วยบัญชีองค์กร (SSO)</span>
+              <span>
+                {tr('Sign in with company account (SSO)', 'เข้าสู่ระบบด้วยบัญชีองค์กร (SSO)')}
+              </span>
             </>
           )}
         </button>

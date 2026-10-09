@@ -6,38 +6,64 @@
 import { useState, useTransition } from 'react';
 import { Loader2, Settings } from 'lucide-react';
 import { initializeAdminAction } from '@/lib/actions/admin-setup';
+import { useTr } from '@/context/useTr';
+import { AuthLanguageSwitch } from './AuthLanguageSwitch';
 
-const ERROR_MESSAGES: Record<string, string> = {
-  UNAUTHORIZED: 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่',
-  ALREADY_INITIALIZED: 'ระบบมีผู้ดูแลระบบแล้ว',
+const ERROR_MESSAGES: Record<string, { th: string; en: string }> = {
+  UNAUTHORIZED: {
+    th: 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่',
+    en: 'Your session has expired. Please sign in again.',
+  },
+  ALREADY_INITIALIZED: {
+    th: 'ระบบมีผู้ดูแลระบบแล้ว',
+    en: 'This system already has an administrator.',
+  },
 };
 
 export function AdminSetupForm() {
+  const { tr, lang } = useTr();
   const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
+  // Kept as the failure code, not the text, so the message follows a language switch.
+  const [errorCode, setErrorCode] = useState<string | null>(null);
 
   function handleSetup() {
-    setError(null);
+    setErrorCode(null);
     startTransition(async () => {
       // สำเร็จ = action redirect('/admin/users') เอง — โค้ดหลัง await ไม่ได้รันต่อ
       const result = await initializeAdminAction();
       if (result?.code) {
-        setError(ERROR_MESSAGES[result.code] ?? `ตั้งค่าไม่สำเร็จ (${result.code})`);
+        setErrorCode(result.code);
       }
     });
   }
 
+  const error = errorCode
+    ? (ERROR_MESSAGES[errorCode]?.[lang] ??
+      tr(`Setup failed (${errorCode})`, `ตั้งค่าไม่สำเร็จ (${errorCode})`))
+    : null;
+
   return (
     <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mb-3 flex justify-end">
+        <AuthLanguageSwitch idPrefix="btn-setup-lang" />
+      </div>
       <div className="flex flex-col items-center gap-3 text-center">
         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-indigo-50">
           <Settings className="h-7 w-7 text-indigo-600" />
         </div>
-        <h1 className="text-lg font-bold text-slate-900">ตั้งค่าผู้ดูแลระบบคนแรก</h1>
+        <h1 className="text-lg font-bold text-slate-900">
+          {tr('Set up the first administrator', 'ตั้งค่าผู้ดูแลระบบคนแรก')}
+        </h1>
         <p className="text-xs leading-relaxed text-slate-500">
-          ยังไม่มีผู้ดูแลระบบ (Administrator) ในระบบนี้
+          {tr(
+            'There is no administrator in this system yet.',
+            'ยังไม่มีผู้ดูแลระบบ (Administrator) ในระบบนี้'
+          )}
           <br />
-          กดปุ่มด้านล่างเพื่อกำหนดให้บัญชีของคุณเป็นผู้ดูแลระบบคนแรก
+          {tr(
+            'Press the button below to make your account the first administrator.',
+            'กดปุ่มด้านล่างเพื่อกำหนดให้บัญชีของคุณเป็นผู้ดูแลระบบคนแรก'
+          )}
         </p>
       </div>
 
@@ -57,10 +83,10 @@ export function AdminSetupForm() {
         {isPending ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span>กำลังตั้งค่า...</span>
+            <span>{tr('Setting up...', 'กำลังตั้งค่า...')}</span>
           </>
         ) : (
-          <span>ตั้งค่าเป็นผู้ดูแลระบบ</span>
+          <span>{tr('Set up as administrator', 'ตั้งค่าเป็นผู้ดูแลระบบ')}</span>
         )}
       </button>
     </div>

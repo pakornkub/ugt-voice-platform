@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { REPORTS, type ReportId } from '@/lib/report-catalog';
+import { NOT_SPECIFIED, REPORTS, type ReportId } from '@/lib/report-catalog';
 import { INITIAL_ROLE_PERMISSIONS } from '@/services/rosterDefaults';
 import { ticketScopeWhere, type TicketViewer } from '@/lib/ticket-scope';
 import type { UserRole } from '@/types';
@@ -192,5 +192,23 @@ describe('direct_to_executive', () => {
         '2026-10-01T08:00:00.000Z',
       ],
     ]);
+  });
+});
+
+describe('language', () => {
+  it('always returns the Thai headers; the client picks the English ones by report id', async () => {
+    for (const report of REPORTS) {
+      const result = await run(report.id);
+      expect(result.columns).toEqual(report.columns);
+      expect(result.columns).not.toEqual(report.columnsEn);
+    }
+  });
+
+  it('writes the catalog NOT_SPECIFIED text for a ticket without a root cause', async () => {
+    db.prisma.ticket.groupBy.mockResolvedValue([
+      { rootCauseCategory: null, category: 'HR', _count: { _all: 1 } },
+    ]);
+    const { rows } = await run('root_cause_breakdown');
+    expect(rows[0][0]).toBe(NOT_SPECIFIED);
   });
 });

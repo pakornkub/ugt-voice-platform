@@ -1,6 +1,7 @@
 // app/(shell)/admin/audit-logs/page.tsx — ugt-nextjs-auth-setup (2026-09-02).
 // Read-only ActivityLogs viewer — server-side filter/sort/page via
-// searchParams (q/from/to/action/page), no client fetch/API route.
+// searchParams (q/from/to/action/page), no client fetch/API route. The heading text lives in
+// AuditLogsTable (client): only the client knows the UI language.
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
@@ -80,13 +81,6 @@ export default async function AdminAuditLogsPage({
 
   return (
     <div className="mx-auto max-w-7xl space-y-4 px-4 py-6">
-      <div>
-        <h1 className="text-lg font-bold text-slate-900">บันทึกการใช้งาน (Audit Logs)</h1>
-        <p className="mt-0.5 text-xs text-slate-500">
-          บันทึกการเข้าสู่ระบบ/ออกจากระบบ และการเปลี่ยนแปลงสิทธิ์ผู้ใช้/บทบาททั้งหมด
-          (อ่านอย่างเดียว)
-        </p>
-      </div>
       <AuditLogsTable
         rows={logs.map((log) => {
           const user = userById.get(log.userId);

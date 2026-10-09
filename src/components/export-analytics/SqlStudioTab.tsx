@@ -1,6 +1,7 @@
 import React from 'react';
 import { Play, Table, Terminal } from 'lucide-react';
 import { REPORTS, type ReportId } from '@/lib/report-catalog';
+import { useTr } from '../../context/useTr';
 import { SqlResultPanel } from './SqlResultPanel';
 import type { SqlResult } from './types';
 
@@ -25,6 +26,7 @@ export const SqlStudioTab: React.FC<Readonly<SqlStudioTabProps>> = ({
   onSelectReport,
   onExportCsv,
 }) => {
+  const { tr, lang } = useTr();
   const selected = REPORTS.find((report) => report.id === selectedReportId);
   return (
     <div className="space-y-5">
@@ -35,7 +37,10 @@ export const SqlStudioTab: React.FC<Readonly<SqlStudioTabProps>> = ({
           <div>
             <h3 className="text-sm font-bold">SQL Query Studio</h3>
             <p className="text-xs text-slate-400">
-              เลือกรายงานสำเร็จรูปเพื่อรันบนฐานข้อมูลได้ทันที
+              {tr(
+                'Pick a preset report to run it on the database right away',
+                'เลือกรายงานสำเร็จรูปเพื่อรันบนฐานข้อมูลได้ทันที'
+              )}
             </p>
           </div>
         </div>
@@ -47,7 +52,7 @@ export const SqlStudioTab: React.FC<Readonly<SqlStudioTabProps>> = ({
           id="sql-presets-heading"
           className="mb-2 block p-0 text-xs font-bold tracking-wider text-slate-700 uppercase"
         >
-          รายงานสำเร็จรูปสำหรับการวิเคราะห์ (Preset Reports)
+          {tr('Preset Reports for Analysis', 'รายงานสำเร็จรูปสำหรับการวิเคราะห์ (Preset Reports)')}
         </legend>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {REPORTS.map((report, index) => (
@@ -59,7 +64,11 @@ export const SqlStudioTab: React.FC<Readonly<SqlStudioTabProps>> = ({
               className={`${CARD_BASE} ${report.id === selectedReportId ? CARD_SELECTED : CARD_IDLE}`}
             >
               <div className="flex items-center justify-between text-xs font-bold text-slate-800 group-hover:text-emerald-800">
-                <span>{`${index + 1}. ${report.labelTh} (${report.labelEn})`}</span>
+                <span>
+                  {lang === 'en'
+                    ? `${index + 1}. ${report.labelEn}`
+                    : `${index + 1}. ${report.labelTh} (${report.labelEn})`}
+                </span>
                 <Play className="h-3 w-3 text-slate-400 group-hover:text-emerald-600" />
               </div>
             </button>
@@ -72,7 +81,7 @@ export const SqlStudioTab: React.FC<Readonly<SqlStudioTabProps>> = ({
         <div className="mb-1.5 flex items-center justify-between">
           <span className="flex items-center gap-1.5 text-xs font-bold tracking-wider text-slate-700 uppercase">
             <Table className="h-3.5 w-3.5 text-slate-500" />
-            <span>รายงานที่เลือก (Report)</span>
+            <span>{tr('Selected Report', 'รายงานที่เลือก (Report)')}</span>
           </span>
           <button
             type="button"
@@ -81,13 +90,24 @@ export const SqlStudioTab: React.FC<Readonly<SqlStudioTabProps>> = ({
             className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-700 active:scale-98"
           >
             <Play className="h-3.5 w-3.5 fill-current" />
-            <span>{isExecuting ? 'กำลังรันรายงาน...' : 'รันรายงาน (Run)'}</span>
+            <span>
+              {isExecuting
+                ? tr('Running report...', 'กำลังรันรายงาน...')
+                : tr('Run Report', 'รันรายงาน (Run)')}
+            </span>
           </button>
         </div>
         <div className="space-y-1 rounded-xl border border-slate-700 bg-slate-900 p-3.5 text-xs leading-relaxed text-emerald-300">
-          {selected && <p className="font-bold">{selected.description}</p>}
+          {selected && (
+            <p className="font-bold">
+              {lang === 'en' ? selected.descriptionEn : selected.description}
+            </p>
+          )}
           <p className="text-slate-400">
-            รายงานสำเร็จรูปจากฐานข้อมูลจริง (SQL Server) — เฉพาะเรื่องที่คุณมีสิทธิ์เห็น
+            {tr(
+              'Preset reports from the live database (SQL Server) — only tickets you are permitted to see',
+              'รายงานสำเร็จรูปจากฐานข้อมูลจริง (SQL Server) — เฉพาะเรื่องที่คุณมีสิทธิ์เห็น'
+            )}
           </p>
         </div>
       </div>

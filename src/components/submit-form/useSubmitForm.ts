@@ -161,7 +161,7 @@ function useAiAssistant(title: string, description: string) {
     setApplied(false);
 
     try {
-      setResult(await suggestCategoryWithAI({ title: textTitle, description: textDesc }));
+      setResult(await suggestCategoryWithAI({ title: textTitle, description: textDesc, lang }));
     } catch (err) {
       console.warn('AI category suggestion fallback used:', err);
       setNotice(AI_FALLBACK_NOTICE[lang]);
@@ -265,12 +265,16 @@ function useSubmitFlow({ values, pendingFiles, onTicketCreated }: SubmitFlowOpti
   };
 }
 
+// Stored data is Thai whatever the UI language (lib/ticket-scope.ts ANONYMOUS_SUBMITTER_NAME); the
+// tracking screens show it through localizeServerText.
+const ANONYMOUS_SUBMITTER_LABEL = 'ผู้ยื่นเรื่อง (ไม่ระบุตัวตน)';
+
 /** All state and handlers of the submit form; the section components only render slices of it. */
 export function useSubmitForm(
   currentEmployee: EmployeeRecord,
   onTicketCreated: (ticket: ComplaintTicket) => void
 ) {
-  const { lang, tr } = useTr();
+  const { lang } = useTr();
   const classification = useClassification();
   const content = useContentFields();
   const submitter = useSubmitter(currentEmployee);
@@ -293,7 +297,7 @@ export function useSubmitForm(
     submitterEmail: submitter.details.email,
     submitterPhone: submitter.details.phone,
     selectedEmployee: submitter.selectedEmployee,
-    anonymousName: tr('Anonymous Submitter', 'ผู้ยื่นเรื่อง (ไม่ระบุตัวตน)'),
+    anonymousName: ANONYMOUS_SUBMITTER_LABEL,
   };
   const flow = useSubmitFlow({ values, pendingFiles: attachments.pendingFiles, onTicketCreated });
 

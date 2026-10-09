@@ -317,6 +317,12 @@ export const LanguageProvider: React.FC<Readonly<{ children: ReactNode }>> = ({ 
     }
   }, []);
 
+  // src/app/layout.tsx pins <html lang="th"> for SSR; keep the attribute in step with the choice so
+  // screen readers and the browser's font/translation heuristics follow the active language.
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
+
   // Memoised so consumers only re-render when the language actually changes.
   const value = useMemo<LanguageContextType>(() => {
     const setLang = (newLang: Language) => {

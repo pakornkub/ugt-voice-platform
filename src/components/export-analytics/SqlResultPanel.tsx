@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { Download } from 'lucide-react';
+import { useTr } from '../../context/useTr';
 import { formatValue } from './formatValue';
 import { buildResultGrid } from './sqlStudioData';
 import type { SqlResult } from './types';
@@ -39,16 +40,19 @@ const ResultTable: React.FC<Readonly<{ result: SqlResult }>> = ({ result }) => {
 };
 
 const ResultBody: React.FC<Readonly<{ result: SqlResult | null }>> = ({ result }) => {
+  const { tr } = useTr();
   if (result?.error) {
     return (
       <div className="bg-rose-50 p-4 font-mono text-xs text-rose-800">
-        <span className="font-bold">ข้อผิดพลาด:</span> {result.error}
+        <span className="font-bold">{tr('Error:', 'ข้อผิดพลาด:')}</span> {result.error}
       </div>
     );
   }
   if (result && result.rows.length > 0) return <ResultTable result={result} />;
   return (
-    <div className="p-8 text-center text-xs text-slate-400">ไม่มีข้อมูล หรือยังไม่ได้รันรายงาน</div>
+    <div className="p-8 text-center text-xs text-slate-400">
+      {tr('No data, or the report has not been run yet', 'ไม่มีข้อมูล หรือยังไม่ได้รันรายงาน')}
+    </div>
   );
 };
 
@@ -60,36 +64,42 @@ interface SqlResultPanelProps {
 export const SqlResultPanel: React.FC<Readonly<SqlResultPanelProps>> = ({
   result,
   onExportCsv,
-}) => (
-  <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
-    <div className="flex items-center justify-between border-b border-slate-200 bg-slate-100 px-4 py-2.5 text-xs">
-      <div className="flex items-center gap-2 font-bold text-slate-700">
-        <span>ผลลัพธ์รายงาน (Report Result)</span>
-        {result && !result.error && (
-          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] text-emerald-800">
-            {result.rows.length} แถว
-          </span>
-        )}
+}) => {
+  const { tr } = useTr();
+  return (
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
+      <div className="flex items-center justify-between border-b border-slate-200 bg-slate-100 px-4 py-2.5 text-xs">
+        <div className="flex items-center gap-2 font-bold text-slate-700">
+          <span>{tr('Report Result', 'ผลลัพธ์รายงาน (Report Result)')}</span>
+          {result && !result.error && (
+            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] text-emerald-800">
+              {tr(
+                `${result.rows.length} ${result.rows.length === 1 ? 'row' : 'rows'}`,
+                `${result.rows.length} แถว`
+              )}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          {result && (
+            <span className="text-[11px] text-slate-500">
+              {tr('Execution time', 'เวลาประมวลผล')}: {result.executionTimeMs} ms
+            </span>
+          )}
+          {result && !result.error && result.rows.length > 0 && (
+            <button
+              type="button"
+              id="btn-export-report-csv"
+              onClick={onExportCsv}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              <Download className="h-3 w-3" />
+              <span>{tr('Export Result as CSV', 'ส่งออกผลลัพธ์ CSV')}</span>
+            </button>
+          )}
+        </div>
       </div>
-      <div className="flex items-center gap-3">
-        {result && (
-          <span className="text-[11px] text-slate-500">
-            เวลาประมวลผล: {result.executionTimeMs} ms
-          </span>
-        )}
-        {result && !result.error && result.rows.length > 0 && (
-          <button
-            type="button"
-            id="btn-export-report-csv"
-            onClick={onExportCsv}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50"
-          >
-            <Download className="h-3 w-3" />
-            <span>ส่งออกผลลัพธ์ CSV</span>
-          </button>
-        )}
-      </div>
+      <ResultBody result={result} />
     </div>
-    <ResultBody result={result} />
-  </div>
-);
+  );
+};

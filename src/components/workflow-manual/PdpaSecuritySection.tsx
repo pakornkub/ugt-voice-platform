@@ -1,56 +1,99 @@
 import type { ReactNode } from 'react';
 import { Crown, FileCheck2, Laptop, ShieldCheck } from 'lucide-react';
+import { useLanguage } from '../../context/LanguageContext';
+import { localize, pick } from './helpers';
+import type { Bilingual } from './types';
 import { GuideCard, PanelHeader } from './ui';
 
 interface PdpaPoint {
   icon: ReactNode;
-  title: string;
-  body: string;
+  title: Bilingual;
+  body: Bilingual;
 }
 
 const PDPA_POINTS: readonly PdpaPoint[] = [
   {
     icon: <ShieldCheck className="h-4 w-4 text-blue-600" />,
-    title: '1. การจำกัดสิทธิ์เข้าถึงตามหน้าที่ (Role-Based Access Control)',
-    body: 'ข้อมูลคำร้องจะถูกเปิดให้เฉพาะเจ้าหน้าที่ Gatekeeper ประจำฝ่ายที่รับผิดชอบและผู้บริหารตามลำดับสิทธิ์เท่านั้น โดยบทบาทมาจากรายชื่อในหน้าจัดการผู้บริหาร & Gatekeeper และสิทธิ์ของแต่ละบทบาทกำหนดที่หน้า RBAC เพื่อป้องกันการรั่วไหลของข้อมูลและรักษาความเป็นธรรมในการตรวจสอบ',
+    title: {
+      th: '1. การจำกัดสิทธิ์เข้าถึงตามหน้าที่ (Role-Based Access Control)',
+      en: '1. Role-Based Access Control',
+    },
+    body: {
+      th: 'ข้อมูลคำร้องจะถูกเปิดให้เฉพาะเจ้าหน้าที่ Gatekeeper ประจำฝ่ายที่รับผิดชอบและผู้บริหารตามลำดับสิทธิ์เท่านั้น โดยบทบาทมาจากรายชื่อในหน้าจัดการผู้บริหาร & Gatekeeper และสิทธิ์ของแต่ละบทบาทกำหนดที่หน้า RBAC เพื่อป้องกันการรั่วไหลของข้อมูลและรักษาความเป็นธรรมในการตรวจสอบ',
+      en: 'Request data is opened only to the responsible department Gatekeeper officers and to executives according to their level of access. Roles come from the lists on the Personnel & Gatekeepers page and the rights of each role are set on the RBAC page, preventing data leaks and keeping investigations fair.',
+    },
   },
   {
     icon: <FileCheck2 className="h-4 w-4 text-emerald-600" />,
-    title: '2. การบันทึกประวัติการดำเนินงาน (Audit Trail Logging)',
-    body: 'ทุกการดำเนินการ เช่น การเปิดดู การเปลี่ยนสถานะ การมอบหมายงาน และการบันทึกข้อความ จะถูกบันทึกประวัติ (Timeline Log) พร้อมระบุวันเวลาและผู้ดำเนินการอย่างโปร่งใส',
+    title: {
+      th: '2. การบันทึกประวัติการดำเนินงาน (Audit Trail Logging)',
+      en: '2. Audit Trail Logging',
+    },
+    body: {
+      th: 'ทุกการดำเนินการ เช่น การเปิดดู การเปลี่ยนสถานะ การมอบหมายงาน และการบันทึกข้อความ จะถูกบันทึกประวัติ (Timeline Log) พร้อมระบุวันเวลาและผู้ดำเนินการอย่างโปร่งใส',
+      en: 'Every action, such as viewing, changing status, assigning work and recording messages, is written to the history (Timeline Log) with the date, time and the person who performed it, for full transparency.',
+    },
   },
   {
     icon: <Crown className="h-4 w-4 text-purple-600" />,
-    title: '3. มาตรการส่งตรงถึงผู้บริหาร (CEO / EVP Direct Bypass)',
-    body: 'กรณีเคสที่มีความละเอียดอ่อนสูง หรือเกี่ยวข้องกับสายการบังคับบัญชา ระบบมีช่องทางส่งตรงถึงผู้บริหารระดับสูงโดยตรงเพื่อคุ้มครองผู้ยื่นเรื่องและดำเนินการอย่างเป็นธรรม',
+    title: {
+      th: '3. มาตรการส่งตรงถึงผู้บริหาร (CEO / EVP Direct Bypass)',
+      en: '3. Direct-to-Executive Measure (CEO / EVP Direct Bypass)',
+    },
+    body: {
+      th: 'กรณีเคสที่มีความละเอียดอ่อนสูง หรือเกี่ยวข้องกับสายการบังคับบัญชา ระบบมีช่องทางส่งตรงถึงผู้บริหารระดับสูงโดยตรงเพื่อคุ้มครองผู้ยื่นเรื่องและดำเนินการอย่างเป็นธรรม',
+      en: 'For highly sensitive cases, or those involving the chain of command, the system provides a channel straight to senior executives to protect the submitter and ensure a fair process.',
+    },
   },
   {
     icon: <Laptop className="h-4 w-4 text-indigo-600" />,
-    title: '4. การเข้ารหัสและความปลอดภัยระดับระบบ (Enterprise Encryption)',
-    body: 'ผู้ใช้เข้าสู่ระบบด้วยบัญชีบริษัท (SSO) และระบบส่งข้อมูลผ่านการเชื่อมต่อที่เข้ารหัส ไฟล์แนบไม่ได้เปิดเป็นลิงก์สาธารณะ — ดาวน์โหลดได้เฉพาะผู้ที่มีสิทธิ์เห็นคำร้องนั้นผ่านระบบที่ตรวจสอบสิทธิ์ทุกครั้ง',
+    title: {
+      th: '4. การเข้ารหัสและความปลอดภัยระดับระบบ (Enterprise Encryption)',
+      en: '4. Enterprise Encryption & System Security',
+    },
+    body: {
+      th: 'ผู้ใช้เข้าสู่ระบบด้วยบัญชีบริษัท (SSO) และระบบส่งข้อมูลผ่านการเชื่อมต่อที่เข้ารหัส ไฟล์แนบไม่ได้เปิดเป็นลิงก์สาธารณะ — ดาวน์โหลดได้เฉพาะผู้ที่มีสิทธิ์เห็นคำร้องนั้นผ่านระบบที่ตรวจสอบสิทธิ์ทุกครั้ง',
+      en: 'Users sign in with the company account (SSO) and data travels over encrypted connections. Attachments are never public links — only people allowed to see the request can download them, through a service that checks permissions every time.',
+    },
   },
 ];
 
-export const PdpaSecuritySection = () => (
-  <div className="space-y-6">
-    <div className="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-xs sm:p-7">
-      <PanelHeader
-        className="flex items-center justify-between border-b border-slate-200 pb-4"
-        iconBoxClass="rounded-xl border border-blue-200 bg-blue-50 p-3 text-blue-600"
-        icon={<ShieldCheck className="h-6 w-6" />}
-        title="นโยบายความปลอดภัยและการคุ้มครองข้อมูลส่วนบุคคล (PDPA & Data Governance)"
-        subtitle="มาตรการรักษาความลับ การควบคุมสิทธิ์การเข้าถึง และธรรมาภิบาลข้อมูลองค์กร"
-      >
-        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
-          PDPA Compliant
-        </span>
-      </PanelHeader>
+export const PdpaSecuritySection = () => {
+  const { lang } = useLanguage();
+  return (
+    <div className="space-y-6">
+      <div className="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-xs sm:p-7">
+        <PanelHeader
+          className="flex items-center justify-between border-b border-slate-200 pb-4"
+          iconBoxClass="rounded-xl border border-blue-200 bg-blue-50 p-3 text-blue-600"
+          icon={<ShieldCheck className="h-6 w-6" />}
+          title={pick(
+            lang,
+            'Security & Personal Data Protection Policy (PDPA & Data Governance)',
+            'นโยบายความปลอดภัยและการคุ้มครองข้อมูลส่วนบุคคล (PDPA & Data Governance)'
+          )}
+          subtitle={pick(
+            lang,
+            'Confidentiality measures, access control and corporate data governance',
+            'มาตรการรักษาความลับ การควบคุมสิทธิ์การเข้าถึง และธรรมาภิบาลข้อมูลองค์กร'
+          )}
+        >
+          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+            PDPA Compliant
+          </span>
+        </PanelHeader>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {PDPA_POINTS.map((point) => (
-          <GuideCard key={point.title} title={point.title} body={point.body} lead={point.icon} />
-        ))}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {PDPA_POINTS.map((point) => (
+            <GuideCard
+              key={point.title.th}
+              title={localize(lang, point.title)}
+              body={localize(lang, point.body)}
+              lead={point.icon}
+            />
+          ))}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};

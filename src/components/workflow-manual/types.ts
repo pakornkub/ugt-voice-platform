@@ -3,6 +3,12 @@ import type { UserRole } from '../../types';
 
 export type ManualSection = 'workflow' | 'role_guides' | 'sla_matrix' | 'pdpa_security' | 'faq';
 
+/** A value authored once per UI language; render it with `localize(lang, value)`. */
+export interface Bilingual<T = string> {
+  th: T;
+  en: T;
+}
+
 export type SimulationScenario = 'normal_quality' | 'urgent_pdpa';
 
 export interface WorkflowStep {
@@ -10,39 +16,39 @@ export interface WorkflowStep {
   stageCode: string;
   titleTh: string;
   titleEn: string;
-  shortDesc: string;
+  shortDesc: Bilingual;
   actorRole: UserRole;
-  actorTitleTh: string;
+  actorTitle: Bilingual;
   actorColor: string;
   targetTab: string;
-  targetTabLabel: string;
-  durationEst: string;
-  keyActions: string[];
-  systemAutomations: string[];
-  rulesAndSla: string;
+  targetTabLabel: Bilingual;
+  durationEst: Bilingual;
+  keyActions: Bilingual[];
+  systemAutomations: Bilingual[];
+  rulesAndSla: Bilingual;
   icon: ReactNode;
 }
 
 export interface SlaMatrixRow {
   category: string;
-  nameTh: string;
+  name: Bilingual;
   severity: string;
   badgeColor: string;
-  description: string;
+  description: Bilingual;
   responsible: string;
 }
 
 export interface RaciRow {
-  processTh: string;
-  employee: string;
-  gatekeeper: string;
-  executive: string;
-  admin: string;
+  process: Bilingual;
+  employee: Bilingual;
+  gatekeeper: Bilingual;
+  executive: Bilingual;
+  admin: Bilingual;
 }
 
 export interface FaqItem {
-  q: string;
-  a: string;
+  q: Bilingual;
+  a: Bilingual;
 }
 
 export const SIMULATION_LAST_STAGE = 5;

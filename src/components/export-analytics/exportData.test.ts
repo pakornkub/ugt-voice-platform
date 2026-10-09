@@ -320,3 +320,211 @@ describe('buildJsonPayload', () => {
     expect(payload.data).toBe(records);
   });
 });
+
+describe('English export', () => {
+  const THAI = /[฀-๿]/;
+
+  it('labels a minimal ticket in English', () => {
+    const [record] = buildExportRecords([makeTicket()], 'en');
+    expect(record).toMatchObject({
+      type: 'Complaint',
+      categoryKey: 'HR',
+      categoryNameTh: 'HR – Human Resources & Employee Benefits',
+      responsibleDept: 'People & Culture Department',
+      isDirectToExecutive: 'No (Standard)',
+      confidentiality: 'Named (Standard)',
+      submitterDepartment: '-',
+      statusLabelTh: 'Newly submitted',
+      hasAttachments: 'None',
+    });
+  });
+
+  it('drops the Thai text from every label it generates', () => {
+    const [record] = buildExportRecords(
+      [
+        makeTicket({
+          type: 'suggestion',
+          isDirectToExecutive: true,
+          confidentiality: 'anonymous',
+          status: 'closed',
+          attachments: [{ id: 'f1', name: 'a.png', size: '1KB', type: 'image/png' }],
+          evaluation: makeEvaluation({ isResolvedPermanently: false }),
+        }),
+      ],
+      'en'
+    );
+    expect(record).toMatchObject({
+      type: 'Suggestion',
+      isDirectToExecutive: 'Yes (CEO Direct / Whistleblower)',
+      confidentiality: 'Anonymous',
+      submitterDepartment: 'Anonymous',
+      statusLabelTh: 'Closed',
+      hasAttachments: 'Yes (1 file)',
+      csatPermanentlyResolved: 'No',
+    });
+    expect(Object.values(record).filter((v) => typeof v === 'string' && THAI.test(v))).toEqual([]);
+  });
+
+  it.each([
+    ['submitted', 'Newly submitted'],
+    ['gatekeeper_triaged', 'Triaged'],
+    ['in_progress', 'In progress'],
+    ['resolved', 'Resolved'],
+    ['closed', 'Closed'],
+  ] as const)('labels status %s as %s', (status, label) => {
+    expect(buildExportRecords([makeTicket({ status })], 'en')[0].statusLabelTh).toBe(label);
+  });
+
+  it('pluralises attachments and labels confidential and permanently resolved', () => {
+    const files = [1, 2].map((n) => ({
+      id: `f${n}`,
+      name: 'a.png',
+      size: '1KB',
+      type: 'image/png',
+    }));
+    const [record] = buildExportRecords(
+      [
+        makeTicket({
+          confidentiality: 'confidential_restricted',
+          attachments: files,
+          evaluation: makeEvaluation({ isResolvedPermanently: true }),
+        }),
+      ],
+      'en'
+    );
+    expect(record).toMatchObject({
+      confidentiality: 'Confidential',
+      hasAttachments: 'Yes (2 files)',
+      csatPermanentlyResolved: 'Yes',
+    });
+  });
+
+  it('keeps an unknown category and its gatekeeper department as they are', () => {
+    const [record] = buildExportRecords(
+      [makeTicket({ category: 'Unknown' as ComplaintTicket['category'] })],
+      'en'
+    );
+    expect(record.categoryNameTh).toBe('Unknown');
+    expect(record.responsibleDept).toBe('Gate Dept');
+  });
+
+  it('has an English header for every column, same keys, nothing in Thai', () => {
+    expect(CSV_COLUMNS.every((c) => c.headerEn && !THAI.test(c.headerEn))).toBe(true);
+    expect(new Set(CSV_COLUMNS.map((c) => c.headerEn)).size).toBe(CSV_COLUMNS.length);
+    expect(CSV_COLUMNS.some((c) => /SLA/i.test(c.headerEn))).toBe(false);
+  });
+
+  it('buildCsvContent writes the English header row, and the Thai one by default', () => {
+    const records = buildExportRecords([makeTicket()], 'en');
+    const en = buildCsvContent(records, 'en').split('\n');
+    expect(en[0]).toBe('﻿' + CSV_COLUMNS.map((c) => `"${c.headerEn}"`).join(','));
+    expect(en[1].startsWith('"TK-1","2026-08-31T00:00:00.000Z","Complaint"')).toBe(true);
+    expect(buildCsvContent(buildExportRecords([makeTicket()])).split('\n')[0]).toBe(
+      '﻿' + CSV_COLUMNS.map((c) => `"${c.header}"`).join(',')
+    );
+  });
+});
+
+describe('English export', () => {
+  const THAI = /[฀-๿]/;
+
+  it('labels a minimal ticket in English', () => {
+    const [record] = buildExportRecords([makeTicket()], 'en');
+    expect(record).toMatchObject({
+      type: 'Complaint',
+      categoryKey: 'HR',
+      categoryNameTh: 'HR – Human Resources & Employee Benefits',
+      responsibleDept: 'People & Culture Department',
+      isDirectToExecutive: 'No (Standard)',
+      confidentiality: 'Named (Standard)',
+      submitterDepartment: '-',
+      statusLabelTh: 'Newly submitted',
+      hasAttachments: 'None',
+    });
+  });
+
+  it('drops the Thai text from every label it generates', () => {
+    const [record] = buildExportRecords(
+      [
+        makeTicket({
+          type: 'suggestion',
+          isDirectToExecutive: true,
+          confidentiality: 'anonymous',
+          status: 'closed',
+          attachments: [{ id: 'f1', name: 'a.png', size: '1KB', type: 'image/png' }],
+          evaluation: makeEvaluation({ isResolvedPermanently: false }),
+        }),
+      ],
+      'en'
+    );
+    expect(record).toMatchObject({
+      type: 'Suggestion',
+      isDirectToExecutive: 'Yes (CEO Direct / Whistleblower)',
+      confidentiality: 'Anonymous',
+      submitterDepartment: 'Anonymous',
+      statusLabelTh: 'Closed',
+      hasAttachments: 'Yes (1 file)',
+      csatPermanentlyResolved: 'No',
+    });
+    expect(Object.values(record).filter((v) => typeof v === 'string' && THAI.test(v))).toEqual([]);
+  });
+
+  it.each([
+    ['submitted', 'Newly submitted'],
+    ['gatekeeper_triaged', 'Triaged'],
+    ['in_progress', 'In progress'],
+    ['resolved', 'Resolved'],
+    ['closed', 'Closed'],
+  ] as const)('labels status %s as %s', (status, label) => {
+    expect(buildExportRecords([makeTicket({ status })], 'en')[0].statusLabelTh).toBe(label);
+  });
+
+  it('pluralises attachments and labels confidential and permanently resolved', () => {
+    const files = [1, 2].map((n) => ({
+      id: `f${n}`,
+      name: 'a.png',
+      size: '1KB',
+      type: 'image/png',
+    }));
+    const [record] = buildExportRecords(
+      [
+        makeTicket({
+          confidentiality: 'confidential_restricted',
+          attachments: files,
+          evaluation: makeEvaluation({ isResolvedPermanently: true }),
+        }),
+      ],
+      'en'
+    );
+    expect(record).toMatchObject({
+      confidentiality: 'Confidential',
+      hasAttachments: 'Yes (2 files)',
+      csatPermanentlyResolved: 'Yes',
+    });
+  });
+
+  it('keeps an unknown category and its gatekeeper department as they are', () => {
+    const [record] = buildExportRecords(
+      [makeTicket({ category: 'Unknown' as ComplaintTicket['category'] })],
+      'en'
+    );
+    expect(record.categoryNameTh).toBe('Unknown');
+    expect(record.responsibleDept).toBe('Gate Dept');
+  });
+
+  it('has an English header for every column, unique and with no Thai', () => {
+    expect(CSV_COLUMNS.every((c) => c.headerEn && !THAI.test(c.headerEn))).toBe(true);
+    expect(new Set(CSV_COLUMNS.map((c) => c.headerEn)).size).toBe(CSV_COLUMNS.length);
+    expect(CSV_COLUMNS.some((c) => /SLA/i.test(c.headerEn))).toBe(false);
+  });
+
+  it('buildCsvContent writes the English header row, and the Thai one by default', () => {
+    const records = buildExportRecords([makeTicket()], 'en');
+    const en = buildCsvContent(records, 'en').split('\n');
+    expect(en[0]).toBe('﻿' + CSV_COLUMNS.map((c) => `"${c.headerEn}"`).join(','));
+    expect(en[1].startsWith('"TK-1","2026-08-31T00:00:00.000Z","Complaint"')).toBe(true);
+    expect(buildCsvContent(buildExportRecords([makeTicket()])).split('\n')[0]).toBe(
+      '﻿' + CSV_COLUMNS.map((c) => `"${c.header}"`).join(',')
+    );
+  });
+});

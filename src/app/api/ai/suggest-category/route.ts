@@ -6,11 +6,13 @@ import { analyzeWithHeuristics } from '@/services/categoryHeuristics';
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const { title, description } = body ?? {};
+  const lang = body?.lang === 'en' ? 'en' : 'th'; // optional; answers + fallback in that language
+  const language = lang === 'en' ? 'English' : 'Thai';
 
   try {
     const ai = getGeminiClient();
     if (!ai) {
-      return NextResponse.json(analyzeWithHeuristics(title, description));
+      return NextResponse.json(analyzeWithHeuristics(title, description, lang));
     }
 
     const prompt = `You are an enterprise Employee Grievance & Whistleblower AI Assistant for a Thai organization.
@@ -29,10 +31,10 @@ Return a valid JSON object:
 {
   "suggestedCategory": "HR" | "Compliance" | "Ethics" | "Fraud" | "Harassment" | "Quality",
   "confidence": number (between 75 and 99),
-  "reasoning": "Clear 1-2 sentence explanation in Thai explaining why this category is selected",
+  "reasoning": "Clear 1-2 sentence explanation in ${language} explaining why this category is selected",
   "secondaryCategory": "HR" | "Compliance" | "Ethics" | "Fraud" | "Harassment" | "Quality",
   "suggestedUrgency": "Low" | "Medium" | "High" | "Critical",
-  "keywords": ["2-3 key terms in Thai found in the input"]
+  "keywords": ["2-3 key terms in ${language} found in the input"]
 }`;
 
     const response = await generateGeminiContentWithFallback(ai, prompt, {
@@ -41,7 +43,7 @@ Return a valid JSON object:
 
     const parsed = JSON.parse(response.text || '{}');
     if (!parsed.suggestedCategory) {
-      return NextResponse.json(analyzeWithHeuristics(title, description));
+      return NextResponse.json(analyzeWithHeuristics(title, description, lang));
     }
     return NextResponse.json(parsed);
   } catch (error) {
@@ -50,6 +52,6 @@ Return a valid JSON object:
       'AI Category Suggestion service unavailable or experiencing high demand, served rule-based classification:',
       error instanceof Error ? error.message : error
     );
-    return NextResponse.json(analyzeWithHeuristics(title, description));
+    return NextResponse.json(analyzeWithHeuristics(title, description, lang));
   }
 }

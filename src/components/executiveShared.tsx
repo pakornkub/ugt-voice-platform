@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { ExecutiveMember } from '../types';
+import { useTr } from '../context/useTr';
 
 export type ExecutiveStatus = ExecutiveMember['status'];
 
@@ -20,6 +21,7 @@ export const ExecStatusSelect: React.FC<ExecStatusSelectProps> = ({
   onChange,
   dense = false,
 }) => {
+  const { tr } = useTr();
   const selectId = id ?? 'exec-status-select';
   return (
     <div>
@@ -27,7 +29,7 @@ export const ExecStatusSelect: React.FC<ExecStatusSelectProps> = ({
         htmlFor={selectId}
         className={`mb-1 block text-[11px] text-slate-700 ${dense ? 'font-semibold' : 'font-bold'}`}
       >
-        สถานะการปฏิบัติหน้าที่ (Account Status)
+        {tr('Account Status', 'สถานะการปฏิบัติหน้าที่ (Account Status)')}
       </label>
       <select
         id={selectId}
@@ -39,8 +41,12 @@ export const ExecStatusSelect: React.FC<ExecStatusSelectProps> = ({
             : 'border-slate-300 text-slate-500'
         }`}
       >
-        <option value="active">เปิดใช้งาน (Active - พร้อมปฏิบัติหน้าที่)</option>
-        <option value="inactive">พักสถานะ (Inactive - ระงับชั่วคราว)</option>
+        <option value="active">
+          {tr('Active - ready for duty', 'เปิดใช้งาน (Active - พร้อมปฏิบัติหน้าที่)')}
+        </option>
+        <option value="inactive">
+          {tr('Inactive - temporarily suspended', 'พักสถานะ (Inactive - ระงับชั่วคราว)')}
+        </option>
       </select>
     </div>
   );

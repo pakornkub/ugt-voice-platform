@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import { PATH_TO_TAB, ShellContext, ShellData, ShellIdentity, TAB_TO_PATH } from '../shell-context';
 import { clickableProps } from '@/components/clickableProps';
+import { useTr } from '@/context/useTr';
+import { localizeServerText } from '@/services/serverText';
 
 type NotificationReadAction = { id: string } | 'all';
 
@@ -41,6 +43,9 @@ export default function Shell({
   children: React.ReactNode;
 }>) {
   const router = useRouter();
+  const { lang } = useTr();
+  // Stable per language: the callbacks below (and the shell context) depend on it.
+  const tr = useCallback((en: string, th: string) => (lang === 'en' ? en : th), [lang]);
   const pathname = usePathname();
   const activeTab = PATH_TO_TAB[pathname] || 'submit';
 
@@ -92,24 +97,32 @@ export default function Shell({
 
       // If the target tab is not permitted for the active role, do NOT elevate
       if (!isAllowed) {
+        const roleTitle =
+          (lang === 'en' ? currentConfig?.roleTitleEn : currentConfig?.roleTitleTh) || currentRole;
         showNotification(
-          `⚠️ บัญชีในบทบาท "${currentConfig?.roleTitleTh || currentRole}" ไม่มีสิทธิ์เข้าถึงหน้านี้ตามเมทริกซ์สิทธิ์`
+          tr(
+            `⚠️ The "${roleTitle}" role is not allowed to open this page under the permission matrix`,
+            `⚠️ บัญชีในบทบาท "${roleTitle}" ไม่มีสิทธิ์เข้าถึงหน้านี้ตามเมทริกซ์สิทธิ์`
+          )
         );
         return;
       }
       router.push(TAB_TO_PATH[tab as keyof typeof TAB_TO_PATH] || '/submit');
     },
-    [rolePermissions, currentRole, router, showNotification]
+    [rolePermissions, currentRole, router, showNotification, tr, lang]
   );
 
   const handleTicketCreated = useCallback(
     (newTicket: ComplaintTicket) => {
       refreshData();
       showNotification(
-        `บันทึกคำร้อง ${newTicket.trackingCode} เข้าระบบและส่งไปยัง Gatekeeper แล้ว`
+        tr(
+          `Ticket ${newTicket.trackingCode} saved and sent to the Gatekeeper`,
+          `บันทึกคำร้อง ${newTicket.trackingCode} เข้าระบบและส่งไปยัง Gatekeeper แล้ว`
+        )
       );
     },
-    [refreshData, showNotification]
+    [refreshData, showNotification, tr]
   );
 
   const handleTicketUpdated = useCallback(
@@ -118,9 +131,14 @@ export default function Shell({
       setSelectedTicketForTracking((current) =>
         current?.id === updatedTicket.id ? updatedTicket : current
       );
-      showNotification(`อัปเดตสถานะคำร้อง ${updatedTicket.trackingCode} เรียบร้อยแล้ว`);
+      showNotification(
+        tr(
+          `Ticket ${updatedTicket.trackingCode} updated successfully`,
+          `อัปเดตสถานะคำร้อง ${updatedTicket.trackingCode} เรียบร้อยแล้ว`
+        )
+      );
     },
-    [refreshData, showNotification]
+    [refreshData, showNotification, tr]
   );
 
   const showTrackingResult = useCallback(
@@ -132,11 +150,16 @@ export default function Shell({
       if (found) {
         setSelectedTicketForTracking(found);
       } else {
-        showNotification(`ไม่พบรหัสติดตาม "${code}" ในระบบ (บันทึกลงประวัติค้นหาแล้ว)`);
+        showNotification(
+          tr(
+            `Tracking code "${code}" was not found (saved to recent searches)`,
+            `ไม่พบรหัสติดตาม "${code}" ในระบบ (บันทึกลงประวัติค้นหาแล้ว)`
+          )
+        );
         setIsRecentSearchesOpen(true);
       }
     },
-    [refreshRecentSearchesCount, showNotification]
+    [refreshRecentSearchesCount, showNotification, tr]
   );
 
   // Looked up on the server: fresher than the loaded list, and an out-of-scope code answers
@@ -170,10 +193,15 @@ export default function Shell({
           router.refresh();
         } catch {
           // The optimistic mark reverts when the transition ends; tell the user why.
-          showNotification('ไม่สามารถอัปเดตสถานะการแจ้งเตือนได้ กรุณาลองใหม่อีกครั้ง');
+          showNotification(
+            tr(
+              'Could not update the notification status. Please try again.',
+              'ไม่สามารถอัปเดตสถานะการแจ้งเตือนได้ กรุณาลองใหม่อีกครั้ง'
+            )
+          );
         }
       }),
-    [markReadOptimistic, router, showNotification]
+    [markReadOptimistic, router, showNotification, tr]
   );
 
   const handleNotificationClick = (item: NotificationItem) => {
@@ -328,7 +356,7 @@ export default function Shell({
               }`}
             >
               <FileText className="h-4 w-4" />
-              <span>ยื่นเรื่อง</span>
+              <span>{tr('Submit', 'ยื่นเรื่อง')}</span>
             </button>
           )}
 
@@ -341,7 +369,7 @@ export default function Shell({
               }`}
             >
               <ListChecks className="h-4 w-4" />
-              <span>คำร้องของฉัน</span>
+              <span>{tr('My Tickets', 'คำร้องของฉัน')}</span>
             </button>
           )}
 
@@ -380,7 +408,7 @@ export default function Shell({
               }`}
             >
               <Layers className="h-4 w-4" />
-              <span>สาเหตุ CAPA</span>
+              <span>{tr('CAPA', 'สาเหตุ CAPA')}</span>
             </button>
           )}
         </div>
@@ -401,10 +429,10 @@ export default function Shell({
                   </div>
                   <div>
                     <h2 className="text-sm font-bold text-slate-900">
-                      ศูนย์การแจ้งเตือน (Notifications)
+                      {tr('Notifications', 'ศูนย์การแจ้งเตือน (Notifications)')}
                     </h2>
                     <p className="text-[11px] text-slate-500">
-                      อัปเดตสถานะคำร้อง & ข้อความแจ้งเตือน
+                      {tr('Ticket status updates & alerts', 'อัปเดตสถานะคำร้อง & ข้อความแจ้งเตือน')}
                     </p>
                   </div>
                 </div>
@@ -415,7 +443,7 @@ export default function Shell({
                       onClick={handleMarkAllRead}
                       className="rounded-md px-2 py-1 text-[11px] font-medium text-indigo-600 hover:bg-indigo-50 hover:text-indigo-800"
                     >
-                      อ่านทั้งหมด
+                      {tr('Mark all as read', 'อ่านทั้งหมด')}
                     </button>
                   )}
                   <button
@@ -432,7 +460,9 @@ export default function Shell({
                 {visibleNotifications.length === 0 ? (
                   <div className="py-12 text-center text-slate-400">
                     <Bell className="mx-auto mb-2 h-10 w-10 opacity-30" />
-                    <p className="text-xs">ยังไม่มีการแจ้งเตือนในขณะนี้</p>
+                    <p className="text-xs">
+                      {tr('No notifications yet', 'ยังไม่มีการแจ้งเตือนในขณะนี้')}
+                    </p>
                   </div>
                 ) : (
                   visibleNotifications.map((item) => (
@@ -450,12 +480,16 @@ export default function Shell({
                       </div>
                       <div className="flex-1">
                         <div className="mb-1 flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-900">{item.title}</span>
+                          <span className="text-xs font-bold text-slate-900">
+                            {localizeServerText(item.title, lang)}
+                          </span>
                           {!item.read && (
                             <span className="h-2 w-2 shrink-0 rounded-full bg-indigo-600" />
                           )}
                         </div>
-                        <p className="line-clamp-2 text-xs text-slate-600">{item.message}</p>
+                        <p className="line-clamp-2 text-xs text-slate-600">
+                          {localizeServerText(item.message, lang)}
+                        </p>
                         <div className="mt-2 flex items-center justify-between text-[10px] text-slate-400">
                           <span className="font-mono">{item.trackingCode}</span>
                           <span>

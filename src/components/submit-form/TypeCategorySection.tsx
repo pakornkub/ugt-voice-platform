@@ -113,6 +113,9 @@ const CategoryCard: React.FC<
   }>
 > = ({ category, aiApplied, onChange }) => {
   const { lang, tr } = useTr();
+  const info = CATEGORY_DEFINITIONS[category];
+  const categoryDescription =
+    lang === 'en' ? (info?.descriptionEn ?? info?.descriptionTh) : info?.descriptionTh;
   return (
     <div className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs">
       <div>
@@ -166,7 +169,7 @@ const CategoryCard: React.FC<
           <strong className="font-medium text-slate-800">
             {tr('Scope / Examples: ', 'ขอบเขตและตัวอย่าง: ')}
           </strong>
-          {CATEGORY_DEFINITIONS[category]?.descriptionTh}
+          {categoryDescription}
         </p>
       </div>
     </div>

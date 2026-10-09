@@ -401,4 +401,154 @@ describe('RoleBasedAccessManagement', () => {
       );
     });
   });
+
+  describe('English UI', () => {
+    const englishExecutives: ExecutiveMember[] = [
+      makeExecutive({ name: 'Mr. One', position: 'CEO', department: 'Office of the CEO' }),
+      makeExecutive({ id: 'exec-2', name: 'Ms. Two', email: 'Two@ube.co.th', department: 'Legal' }),
+      makeExecutive({
+        id: 'exec-3',
+        name: 'Mr. Three',
+        email: 'three@ube.co.th',
+        department: 'HR',
+      }),
+    ];
+    const THAI = /[฀-๿]/;
+
+    const renderEnglish = (
+      props: Partial<React.ComponentProps<typeof RoleBasedAccessManagement>> = {}
+    ) => {
+      localStorage.setItem('voiceplatform_lang_preference_v2', 'en');
+      return renderPage({ initialExecutives: englishExecutives, ...props });
+    };
+
+    it('renders the whole page in English with no Thai left on screen', async () => {
+      renderEnglish();
+
+      expect(await screen.findByText('Screen Visibility Matrix')).toBeInTheDocument();
+      expect(screen.getByText('Current view')).toBeInTheDocument();
+      expect(screen.getByText('Submit Grievance')).toBeInTheDocument();
+      expect(screen.getByText('Gatekeeper Category Scoping')).toBeInTheDocument();
+      expect(screen.getByText('3 executives')).toBeInTheDocument();
+      expect(screen.getByText('Ethics – Corporate Ethics & Business Conduct')).toBeInTheDocument();
+      expect(
+        screen.getByText(INITIAL_ROLE_PERMISSIONS.employee.descriptionEn!)
+      ).toBeInTheDocument();
+      expect(screen.getByText(APP_TABS[0].descriptionEn!)).toBeInTheDocument();
+      expect(screen.queryByText('มุมมองปัจจุบัน')).not.toBeInTheDocument();
+      expect(screen.queryByText('ยื่นข้อร้องเรียน')).not.toBeInTheDocument();
+      expect(document.body.textContent).not.toMatch(THAI);
+    });
+
+    it('titles the matrix toggles and role chips in English', async () => {
+      renderEnglish();
+      await screen.findByText('Screen Visibility Matrix');
+
+      expect(document.getElementById('toggle-employee-submit')).toHaveAttribute(
+        'title',
+        'Click to toggle Submit Grievance access for employee'
+      );
+      expect(document.getElementById('toggle-admin-rbac_management')).toHaveAttribute(
+        'title',
+        'HR Admin permission is permanent, to prevent a system lock-out'
+      );
+      expect(within(matrixBox()).getByRole('button', { name: 'Employee' })).toBeInTheDocument();
+      expect(within(matrixBox()).getByRole('button', { name: 'Executive' })).toBeInTheDocument();
+    });
+
+    it('toasts and presets are English too', async () => {
+      const user = userEvent.setup();
+      renderEnglish();
+
+      await user.click(screen.getByRole('button', { name: 'Select all 6' }));
+      expect(
+        await screen.findByText('Gatekeeper now has access to all 6 categories')
+      ).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: /Hide from every role/ }));
+      expect(
+        await screen.findByText('Set: login e-mail hidden from every role (100%)')
+      ).toBeInTheDocument();
+    });
+
+    it('shows the English save and lock-out warnings', async () => {
+      const user = userEvent.setup();
+      vi.mocked(saveRoleAccessConfigs).mockRejectedValueOnce(new Error('ADMIN_LOCKOUT'));
+      renderEnglish();
+
+      await user.click(within(matrixBox()).getByText('Role: employee'));
+      expect(
+        await screen.findByText(
+          '⚠️ The RBAC page permission for HR Admin cannot be turned off, to prevent a system lock-out'
+        )
+      ).toBeInTheDocument();
+
+      vi.mocked(saveRoleAccessConfigs).mockRejectedValueOnce(new Error('boom'));
+      await user.click(within(matrixBox()).getByText('Role: employee'));
+      expect(
+        await screen.findByText('⚠️ Could not save the permissions. Please try again.')
+      ).toBeInTheDocument();
+    });
+
+    it('confirms the reset in English', async () => {
+      const user = userEvent.setup();
+      renderEnglish();
+
+      await user.click(document.getElementById('btn-reset-rbac-defaults') as HTMLElement);
+      const dialog = screen.getByRole('alertdialog');
+      expect(within(dialog).getByText('Confirm RBAC permission reset')).toBeInTheDocument();
+      await user.click(within(dialog).getByRole('button', { name: 'Reset to defaults' }));
+
+      expect(resetRolePermissionsToDefault).toHaveBeenCalledTimes(1);
+      expect(await screen.findByText('RBAC permissions reset to defaults')).toBeInTheDocument();
+    });
+
+    it('lists the employee directory in English', async () => {
+      const user = userEvent.setup();
+      renderEnglish();
+
+      await user.click(screen.getByRole('button', { name: /View employee database/ }));
+
+      expect(await screen.findByText('E001')).toBeInTheDocument();
+      expect(screen.getByText('Somchai Jaidee')).toBeInTheDocument();
+      expect(screen.queryByText(/สมชาย ใจดี/)).not.toBeInTheDocument();
+      expect(screen.getByText('Employee ID')).toBeInTheDocument();
+      expect(screen.getByText('Page 1 / 3')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Next' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled();
+      expect(screen.getByLabelText('Search employees')).toBeInTheDocument();
+    });
+
+    it('flags HR badges and runs the executive add / delete flow in English', async () => {
+      const user = userEvent.setup();
+      vi.mocked(addExecutiveMember).mockResolvedValue([
+        ...englishExecutives,
+        makeExecutive({ id: 'exec-9', name: 'Mr. New', email: 'new@ube.co.th' }),
+      ]);
+      vi.mocked(deleteExecutiveMember).mockResolvedValue(englishExecutives.slice(1));
+      renderEnglish({ hrStatus: { 'one@ube.co.th': 'active', 'two@ube.co.th': 'inactive' } });
+
+      expect(screen.getByText('Not in HR')).toBeInTheDocument();
+      expect(screen.getByText('Inactive in HR')).toHaveAttribute(
+        'title',
+        'No longer an active employee in the HR database'
+      );
+
+      await user.click(document.getElementById('btn-toggle-add-exec-form') as HTMLElement);
+      expect(screen.getByText('Add a new senior executive')).toBeInTheDocument();
+      await user.type(screen.getByPlaceholderText('e.g. Mr. Prasert Akradechanon'), 'Mr. New');
+      await user.type(screen.getByPlaceholderText('e.g. Chief Executive Officer (CEO)'), 'CFO');
+      await user.type(screen.getByPlaceholderText('executive@enterprise.co.th'), 'new@ube.co.th');
+      await user.click(document.getElementById('btn-save-exec-in-box') as HTMLElement);
+      expect(
+        await screen.findByText('Executive "Mr. New" added to the system')
+      ).toBeInTheDocument();
+
+      await user.click(screen.getAllByTitle('Delete executive')[0]);
+      const dialog = screen.getByRole('alertdialog');
+      expect(within(dialog).getByText('Confirm executive removal')).toBeInTheDocument();
+      await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+      expect(await screen.findByText('Executive "Mr. One" removed')).toBeInTheDocument();
+    });
+  });
 });

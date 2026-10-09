@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MyTicketsList } from './MyTicketsList';
 import { LanguageProvider } from '../context/LanguageContext';
-import { INITIAL_COMPLAINTS } from '../mockData';
+import { CATEGORY_DEFINITIONS, INITIAL_COMPLAINTS } from '../mockData';
 
 function renderList(tickets = INITIAL_COMPLAINTS) {
   const props = {
@@ -67,5 +67,18 @@ describe('MyTicketsList', () => {
     renderList([]);
 
     expect(await screen.findByText('My Grievance & Suggestion History')).toBeInTheDocument();
+  });
+
+  it('shows the category name in the language chosen', async () => {
+    const ticket = INITIAL_COMPLAINTS[0];
+    const info = CATEGORY_DEFINITIONS[ticket.category];
+    renderList([ticket]);
+    expect(screen.getAllByText(info.nameTh).length).toBeGreaterThanOrEqual(2);
+    cleanup();
+
+    localStorage.setItem('voiceplatform_lang_preference_v2', 'en');
+    renderList([ticket]);
+    await waitFor(() => expect(screen.getAllByText(info.nameEn).length).toBeGreaterThanOrEqual(2));
+    expect(screen.queryByText(info.nameTh)).not.toBeInTheDocument();
   });
 });

@@ -1,3 +1,4 @@
+import type { Language } from '@/context/LanguageContext';
 import type { GrievanceCategory, UrgencyLevel } from '@/types';
 
 export interface CategorySuggestion {
@@ -9,9 +10,18 @@ export interface CategorySuggestion {
   keywords: string[];
 }
 
+/** The user-facing parts of a suggestion in English (the Thai ones live in `result`). */
+interface EnglishCopy {
+  reasoning: string;
+  keywords: string[];
+}
+
+// `terms` (Thai + English words matched against the input) stay as they are; only the
+// `reasoning` and `keywords` shown to the user have an English version (`en`).
 interface HeuristicRule {
   terms: string[];
   result: CategorySuggestion;
+  en: EnglishCopy;
 }
 
 // Evaluated top-to-bottom, first match wins. Two lists because upstream keeps two:
@@ -30,6 +40,11 @@ const SERVER_ONLY_RULES: HeuristicRule[] = [
       suggestedUrgency: 'High',
       keywords: ['การคุกคาม', 'ล่วงละเมิด', 'ความปลอดภัย'],
     },
+    en: {
+      reasoning:
+        'Detected wording related to harassment, intimidation, or discrimination in the workplace.',
+      keywords: ['Harassment', 'Abuse', 'Safety'],
+    },
   },
   {
     terms: ['โกง', 'ทุจริต', 'สินบน', 'ยักยอก', 'fraud', 'เงินทอน', 'ปลอมเอกสาร', 'ฮั้ว'],
@@ -41,6 +56,11 @@ const SERVER_ONLY_RULES: HeuristicRule[] = [
       secondaryCategory: 'Compliance',
       suggestedUrgency: 'Critical',
       keywords: ['ทุจริต', 'การเงิน', 'การตรวจสอบ'],
+    },
+    en: {
+      reasoning:
+        'Detected wording indicating suspicious financial behavior, document forgery, or corruption.',
+      keywords: ['Corruption', 'Finance', 'Audit'],
     },
   },
 ];
@@ -67,6 +87,11 @@ const SHARED_RULES: HeuristicRule[] = [
       suggestedUrgency: 'High',
       keywords: ['สิทธิมนุษยชน', 'การล่วงละเมิด', 'การคุกคาม'],
     },
+    en: {
+      reasoning:
+        'Detected issues involving human rights, abuse, harassment, or bullying in the workplace.',
+      keywords: ['Human Rights', 'Abuse', 'Harassment'],
+    },
   },
   {
     terms: [
@@ -91,6 +116,11 @@ const SHARED_RULES: HeuristicRule[] = [
       secondaryCategory: 'Ethics',
       suggestedUrgency: 'Critical',
       keywords: ['การทุจริต', 'การฉ้อโกง', 'สินบน'],
+    },
+    en: {
+      reasoning:
+        'Detected corrupt behavior, financial fraud, bribery, conflicts of interest, or document forgery.',
+      keywords: ['Corruption', 'Fraud', 'Bribery'],
     },
   },
   {
@@ -120,6 +150,11 @@ const SHARED_RULES: HeuristicRule[] = [
       suggestedUrgency: 'High',
       keywords: ['จริยธรรม', 'ข้อมูลความลับ', 'ความโปร่งใส'],
     },
+    en: {
+      reasoning:
+        'Detected ethics issues: protecting company confidentiality, disclosure of information, money laundering, intellectual property, or UBE group information.',
+      keywords: ['Ethics', 'Confidential Information', 'Transparency'],
+    },
   },
   {
     terms: [
@@ -146,6 +181,11 @@ const SHARED_RULES: HeuristicRule[] = [
       suggestedUrgency: 'Medium',
       keywords: ['กฎหมายและกฎเกณฑ์', 'Compliance', 'ข้อบังคับ'],
     },
+    en: {
+      reasoning:
+        'Detected non-compliance with laws and regulations, such as competition law, export controls, or company rules.',
+      keywords: ['Laws & Regulations', 'Compliance', 'Rules'],
+    },
   },
   {
     terms: [
@@ -170,6 +210,11 @@ const SHARED_RULES: HeuristicRule[] = [
       suggestedUrgency: 'Medium',
       keywords: ['คุณภาพไม่เหมาะสม', 'QA/QC', 'มาตรฐาน'],
     },
+    en: {
+      reasoning:
+        'Detected improper quality inspection, falsified test results, or products/services falling short of standards.',
+      keywords: ['Quality Impropriety', 'QA/QC', 'Standards'],
+    },
   },
 ];
 
@@ -183,24 +228,41 @@ const DEFAULT_SUGGESTION: CategorySuggestion = {
   keywords: ['ทรัพยากรบุคคล', 'สวัสดิการ', 'สิทธิประโยชน์'],
 };
 
-function classify(rules: HeuristicRule[], title?: string, description?: string) {
+const DEFAULT_EN: EnglishCopy = {
+  reasoning:
+    'The content relates to human resources and benefits, compensation, working hours, or job transfers.',
+  keywords: ['Human Resources', 'Benefits', 'Entitlements'],
+};
+
+function classify(
+  rules: HeuristicRule[],
+  title: string | undefined,
+  description: string | undefined,
+  lang: Language
+): CategorySuggestion {
   const text = `${title || ''} ${description || ''}`.toLowerCase();
-  return (
-    rules.find((r) => r.terms.some((term) => text.includes(term)))?.result ?? DEFAULT_SUGGESTION
-  );
+  const rule = rules.find((r) => r.terms.some((term) => text.includes(term)));
+  const result = rule?.result ?? DEFAULT_SUGGESTION;
+  if (lang === 'th') return result;
+  return { ...result, ...(rule?.en ?? DEFAULT_EN) };
 }
 
 const SERVER_RULES = [...SERVER_ONLY_RULES, ...SHARED_RULES];
 
 /** Server fallback of POST /api/ai/suggest-category (upstream server.ts rules). */
-export function analyzeWithHeuristics(title?: string, description?: string): CategorySuggestion {
-  return classify(SERVER_RULES, title, description);
+export function analyzeWithHeuristics(
+  title?: string,
+  description?: string,
+  lang: Language = 'th'
+): CategorySuggestion {
+  return classify(SERVER_RULES, title, description, lang);
 }
 
 /** Client fallback of suggestCategoryWithAI() (upstream api.ts catch-path rules). */
 export function analyzeWithClientHeuristics(
   title?: string,
-  description?: string
+  description?: string,
+  lang: Language = 'th'
 ): CategorySuggestion {
-  return classify(SHARED_RULES, title, description);
+  return classify(SHARED_RULES, title, description, lang);
 }

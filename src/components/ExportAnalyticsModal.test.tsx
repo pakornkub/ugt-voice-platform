@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ExportAnalyticsModal } from './ExportAnalyticsModal';
+import { LanguageProvider, useLanguage } from '../context/LanguageContext';
 import { INITIAL_COMPLAINTS } from '../mockData';
 import { runReport } from '@/lib/actions/reports';
 import { REPORT_ERROR_MESSAGES } from '@/lib/report-catalog';
@@ -15,7 +16,9 @@ const EMPTY_RESULT = { ok: true as const, columns: [], rows: [], executionTimeMs
 function renderModal(props: Partial<React.ComponentProps<typeof ExportAnalyticsModal>> = {}) {
   const onClose = vi.fn();
   const utils = render(
-    <ExportAnalyticsModal isOpen onClose={onClose} tickets={INITIAL_COMPLAINTS} {...props} />
+    <LanguageProvider>
+      <ExportAnalyticsModal isOpen onClose={onClose} tickets={INITIAL_COMPLAINTS} {...props} />
+    </LanguageProvider>
   );
   return { onClose, ...utils };
 }
@@ -35,6 +38,7 @@ function deferred<T = void>() {
 }
 
 beforeEach(() => {
+  localStorage.clear();
   vi.mocked(runReport).mockReset().mockResolvedValue(EMPTY_RESULT);
 });
 
@@ -493,7 +497,7 @@ describe('SQL studio (preset reports)', () => {
     await openSqlStudio(user);
 
     expect(await screen.findByText('ข้อผิดพลาด:')).toBeInTheDocument();
-    expect(screen.getByText(REPORT_ERROR_MESSAGES.FORBIDDEN)).toBeInTheDocument();
+    expect(screen.getByText(REPORT_ERROR_MESSAGES.FORBIDDEN.th)).toBeInTheDocument();
     expect(screen.queryByText(/แถว$/)).not.toBeInTheDocument();
   });
 
@@ -504,7 +508,7 @@ describe('SQL studio (preset reports)', () => {
     renderModal();
     await openSqlStudio(user);
 
-    expect(await screen.findByText(REPORT_ERROR_MESSAGES.FAILED)).toBeInTheDocument();
+    expect(await screen.findByText(REPORT_ERROR_MESSAGES.FAILED.th)).toBeInTheDocument();
     expect(error).toHaveBeenCalledWith('Report failed:', expect.any(Error));
     error.mockRestore();
   });
@@ -537,5 +541,218 @@ describe('SQL studio (preset reports)', () => {
     for (const prefix of ['1.', '2.', '3.', '4.', '5.']) {
       expect(button(new RegExp(`^${prefix.replace('.', '\\.')} `))).toBeInTheDocument();
     }
+  });
+});
+
+describe('English UI', () => {
+  const blobs: { text: string; type: string }[] = [];
+  const RealBlob = Blob;
+  const realCreate = URL.createObjectURL;
+  const realRevoke = URL.revokeObjectURL;
+  const RCA_COLUMNS = ['สาเหตุรากเหง้า (RCA)', 'จำนวนเรื่อง', 'หมวดหมู่ที่พบ'];
+
+  beforeEach(() => {
+    localStorage.setItem('voiceplatform_lang_preference_v2', 'en');
+    blobs.length = 0;
+    vi.stubGlobal(
+      'Blob',
+      class extends RealBlob {
+        constructor(parts?: BlobPart[], options?: BlobPropertyBag) {
+          super(parts, options);
+          blobs.push({ text: (parts ?? []).join(''), type: options?.type ?? '' });
+        }
+      }
+    );
+    URL.createObjectURL = vi.fn(() => 'blob:mock');
+    URL.revokeObjectURL = vi.fn();
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    URL.createObjectURL = realCreate;
+    URL.revokeObjectURL = realRevoke;
+  });
+
+  it('shows the export tab in English, with no Thai left', () => {
+    const { container } = renderModal();
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('BI Data Hub');
+    expect(screen.getByRole('group', { name: /Choose the file format to download/ })).toBeVisible();
+    expect(screen.getByText(/Choose the data profile for analysis/)).toBeVisible();
+    expect(screen.getByText('Comprehensive Analytics Dataset')).toBeInTheDocument();
+    expect(screen.getByText(/Operational Efficiency & Speed/)).toBeInTheDocument();
+    expect(screen.getByText(/Filter the data you want to analyze/)).toBeVisible();
+    expect(screen.getByText(/Excel CSV file, UTF-8 with BOM/)).toBeInTheDocument();
+    expect(button('Close')).toBeInTheDocument();
+    expect(button('Close window')).toBeInTheDocument();
+    expect(button(/Download Data \(Excel CSV, JSON\)/)).toBeInTheDocument();
+    expect(button(`Download file (${TOTAL} records)`)).toBeInTheDocument();
+    expect(screen.getAllByText('Selected')).toHaveLength(2);
+    expect(container.textContent).not.toMatch(/[฀-๿]/);
+  });
+
+  it('translates the filter options and the preview stats', async () => {
+    const user = userEvent.setup();
+    renderModal();
+    const status = screen.getByLabelText('Processing status');
+    expect(within(status).getByRole('option', { name: 'Triaged' })).toBeInTheDocument();
+    expect(within(status).getByRole('option', { name: 'All Statuses' })).toBeInTheDocument();
+    expect(
+      within(screen.getByLabelText('Submission period')).getByRole('option', {
+        name: 'Last 90 days (latest quarter)',
+      })
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByLabelText('Department / Category')).getByRole('option', {
+        name: /^HR - HR – Human Resources/,
+      })
+    ).toBeInTheDocument();
+    expect(screen.getByText('7 cases')).toBeInTheDocument();
+    expect(screen.getByText('53 hrs')).toBeInTheDocument();
+    expect(screen.getByText('Average resolution time')).toBeInTheDocument();
+
+    await user.selectOptions(status, 'closed');
+    expect(screen.getByText('2 records')).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText('Department / Category'), 'Fraud');
+    expect(screen.getByText('N/A')).toBeInTheDocument();
+    expect(button(/^Download file/)).toBeDisabled();
+  });
+
+  it('shows the guide in English', async () => {
+    const user = userEvent.setup();
+    renderModal();
+    await user.click(button(/Data Dimensions Guide/));
+    expect(screen.getByText(/Tip: the data structure prepared for analysis/)).toBeInTheDocument();
+    expect(screen.getByText('Pareto 80/20 Analysis')).toBeInTheDocument();
+    expect(screen.getAllByText('Recommended columns:')).toHaveLength(4);
+    expect(screen.getAllByText('Benefit:')).toHaveLength(4);
+    expect(screen.getByText(/What problems occur most often/)).toBeInTheDocument();
+  });
+
+  it('exports the CSV with English headers and labels', async () => {
+    const user = userEvent.setup();
+    renderModal();
+    await user.click(button(`Download file (${TOTAL} records)`));
+
+    const [{ text }] = blobs;
+    expect(text.startsWith('﻿"Tracking Code","Created At","Type","Category Key"')).toBe(true);
+    const header = text.slice(1, text.indexOf('\n'));
+    expect(header.split('","')).toHaveLength(35);
+    // Ticket titles / descriptions are user text and stay as written; the labels are English.
+    expect(text).not.toMatch(/ข้อร้องเรียน \(Complaint\)|ยื่นเรื่องใหม่|"ไม่มี"/);
+    expect(text).toContain('"TK-2026-0879","2026-08-22T10:00:00.000Z"');
+    expect(text).toContain('"Complaint"');
+    expect(await screen.findByText('Download complete!')).toBeInTheDocument();
+  });
+
+  it('exports the JSON records with English labels', async () => {
+    const user = userEvent.setup();
+    renderModal();
+    await user.click(button(/^JSON Document/));
+    await user.selectOptions(screen.getByLabelText('Processing status'), 'closed');
+    await user.click(button('Download file (2 records)'));
+
+    const payload = JSON.parse(blobs[0].text);
+    expect(payload.data).toHaveLength(2);
+    expect(payload.data[0].statusLabelTh).toBe('Closed');
+    expect(['Complaint', 'Suggestion']).toContain(payload.data[0].type);
+    expect(payload.data[0].responsibleDept).not.toMatch(/[฀-๿]/);
+  });
+
+  it('alerts in English when the export fails', async () => {
+    const user = userEvent.setup();
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    URL.createObjectURL = vi.fn(() => {
+      throw new Error('disk full');
+    });
+    renderModal();
+    await user.click(button(/^Download file/));
+    expect(alertSpy).toHaveBeenCalledWith('The file could not be exported. Please try again.');
+  });
+
+  it('shows the SQL studio in English, swaps the headers and maps "not specified"', async () => {
+    const user = userEvent.setup();
+    vi.mocked(runReport)
+      .mockResolvedValueOnce(EMPTY_RESULT)
+      .mockResolvedValueOnce({
+        ok: true,
+        columns: RCA_COLUMNS,
+        rows: [['ยังไม่ระบุ', 3, 'HR']],
+        executionTimeMs: 1.5,
+      });
+    renderModal();
+    await openSqlStudio(user);
+    await screen.findByText('0 rows');
+    expect(screen.getByText('Selected Report')).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: /Preset Reports for Analysis/ })).toBeInTheDocument();
+    expect(screen.getByText('No data, or the report has not been run yet')).toBeInTheDocument();
+    expect(screen.getByText(/Preset reports from the live database/)).toBeInTheDocument();
+    expect(button('1. Pareto by Category')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText(/Ticket count per category, largest first/)).toBeInTheDocument();
+
+    await user.click(button('4. RCA Category Breakdown'));
+    expect(await screen.findByRole('columnheader', { name: 'Root Cause (RCA)' })).toBeVisible();
+    expect(screen.getByRole('columnheader', { name: 'Categories Found' })).toBeVisible();
+    expect(screen.getByRole('cell', { name: 'Not specified' })).toBeInTheDocument();
+    expect(screen.queryByText('ยังไม่ระบุ')).not.toBeInTheDocument();
+    expect(screen.getByText('1 row')).toBeInTheDocument();
+    expect(screen.getByText('Execution time: 1.5 ms')).toBeInTheDocument();
+
+    await user.click(button('Export Result as CSV'));
+    expect(blobs.at(-1)?.text).toBe(
+      '﻿"Root Cause (RCA)","Tickets","Categories Found"\n"Not specified","3","HR"'
+    );
+  });
+
+  it('shows the refusal message in English, and the run button labels', async () => {
+    const user = userEvent.setup();
+    const pending = deferred<typeof EMPTY_RESULT>();
+    vi.mocked(runReport).mockReturnValueOnce(pending.promise);
+    renderModal();
+    await openSqlStudio(user);
+    expect(button('Running report...')).toBeDisabled();
+    await act(async () => pending.resolve(EMPTY_RESULT));
+    expect(button('Run Report')).toBeEnabled();
+
+    vi.mocked(runReport).mockResolvedValueOnce({ ok: false, error: 'FORBIDDEN' });
+    await user.click(button('Run Report'));
+    expect(await screen.findByText('Error:')).toBeInTheDocument();
+    expect(screen.getByText(REPORT_ERROR_MESSAGES.FORBIDDEN.en)).toBeInTheDocument();
+  });
+
+  it('switches a shown report to the other language without running it again', async () => {
+    const user = userEvent.setup();
+    localStorage.clear();
+    vi.mocked(runReport).mockResolvedValueOnce({
+      ok: true,
+      columns: ['หมวดหมู่', 'จำนวนเคส', 'สัดส่วน %', 'แก้ไขสำเร็จ'],
+      rows: [['HR', 3, '100%', 1]],
+      executionTimeMs: 1,
+    });
+    function Harness() {
+      const { setLang } = useLanguage();
+      return (
+        <>
+          <button type="button" onClick={() => setLang('en')}>
+            to-en
+          </button>
+          <ExportAnalyticsModal isOpen onClose={vi.fn()} tickets={INITIAL_COMPLAINTS} />
+        </>
+      );
+    }
+    render(
+      <LanguageProvider>
+        <Harness />
+      </LanguageProvider>
+    );
+    await openSqlStudio(user);
+    expect(await screen.findByRole('columnheader', { name: 'หมวดหมู่' })).toBeInTheDocument();
+
+    await user.click(button('to-en'));
+    expect(screen.getByRole('columnheader', { name: 'Category' })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'หมวดหมู่' })).not.toBeInTheDocument();
+    expect(runReport).toHaveBeenCalledTimes(1);
   });
 });

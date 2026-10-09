@@ -238,4 +238,38 @@ describe('AdminEmailNotificationSettings', () => {
     expect(screen.getByText('ระบบปิด (Disabled)')).toBeInTheDocument();
     expect(screen.getByText('ยื่นเรื่องใหม่')).toBeInTheDocument();
   });
+
+  describe('server-written log text', () => {
+    const notSent = '(ไม่ได้ส่งอีเมลฉบับนี้ — ระบบไม่เก็บเนื้อหา)';
+    const logs = [
+      testLog({
+        status: 'disabled',
+        trigger: 'ticket_submitted',
+        recipientName: 'ผู้ยื่นเรื่อง (Anonymous Submitter)',
+        body: notSent,
+      }),
+    ];
+
+    it('keeps the stored Thai recipient name and body in TH', async () => {
+      const user = userEvent.setup();
+      await renderPanel({ initialSettings: DEFAULT_EMAIL_SETTINGS, initialLogs: logs });
+
+      expect(screen.getByText('ผู้ยื่นเรื่อง (Anonymous Submitter)')).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: /เปิดดู/ }));
+      expect(screen.getByText(notSent)).toBeInTheDocument();
+    });
+
+    it('shows the recipient name and the not-sent body in English', async () => {
+      const user = userEvent.setup();
+      localStorage.setItem('voiceplatform_lang_preference_v2', 'en');
+      await renderPanel({ initialSettings: DEFAULT_EMAIL_SETTINGS, initialLogs: logs });
+
+      expect(await screen.findByText('Anonymous submitter')).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: /View/ }));
+      expect(
+        screen.getByText('(This email was not sent — the system keeps no content)')
+      ).toBeInTheDocument();
+      expect(screen.getAllByText('Anonymous submitter').length).toBeGreaterThan(1);
+    });
+  });
 });

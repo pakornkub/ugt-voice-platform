@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { GatekeeperInbox } from './GatekeeperInbox';
-import { INITIAL_COMPLAINTS, INITIAL_GATEKEEPER_CONFIGS } from '../mockData';
+import { LanguageProvider } from '../context/LanguageContext';
+import { CATEGORY_DEFINITIONS, INITIAL_COMPLAINTS, INITIAL_GATEKEEPER_CONFIGS } from '../mockData';
 import { updateTicketWorkflow } from '@/lib/actions/tickets';
 import { renderWithShell } from '@/test/shell';
 import type { ComplaintTicket, GrievanceCategory } from '../types';
@@ -35,7 +36,9 @@ const renderInbox = (
 ) => {
   const handlers = { onSelectTicket: vi.fn(), onTicketUpdated: vi.fn() };
   const view = renderWithShell(
-    <GatekeeperInbox tickets={tickets} {...handlers} {...props} />,
+    <LanguageProvider>
+      <GatekeeperInbox tickets={tickets} {...handlers} {...props} />
+    </LanguageProvider>,
     shell
   );
   return { ...handlers, ...view };
@@ -99,11 +102,13 @@ describe('GatekeeperInbox', () => {
 
       // Admin narrows the gatekeeper's scope to HR only while Quality is selected.
       rerenderWithShell(
-        <GatekeeperInbox
-          tickets={INITIAL_COMPLAINTS}
-          onSelectTicket={onSelectTicket}
-          onTicketUpdated={onTicketUpdated}
-        />,
+        <LanguageProvider>
+          <GatekeeperInbox
+            tickets={INITIAL_COMPLAINTS}
+            onSelectTicket={onSelectTicket}
+            onTicketUpdated={onTicketUpdated}
+          />
+        </LanguageProvider>,
         gatekeeperDepartments(['HR'])
       );
 
@@ -298,6 +303,88 @@ describe('GatekeeperInbox', () => {
 
       expect(onTicketUpdated).not.toHaveBeenCalled();
       expect(screen.queryByText(/Gatekeeper Action/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('English UI', () => {
+    const renderEnglish = async (
+      props: Partial<React.ComponentProps<typeof GatekeeperInbox>> = {},
+      shell = {}
+    ) => {
+      localStorage.setItem('voiceplatform_lang_preference_v2', 'en');
+      const view = renderInbox(props, INITIAL_COMPLAINTS, shell);
+      await screen.findByText(/Assigned Cases \(/);
+      return view;
+    };
+
+    it('renders the banner, counters, filters and rows in English', async () => {
+      await renderEnglish({ currentRole: 'executive' });
+
+      expect(screen.getByRole('button', { name: /^Direct to CEO/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Received\s*\d+\s*cases$/ })).toBeInTheDocument();
+      expect(screen.getByRole('textbox', { name: /Search Tracking Code, title, submitter/ })).toBe(
+        screen.getByPlaceholderText('Search Tracking Code, title, submitter...')
+      );
+      expect(screen.getByRole('button', { name: /^All assigned categories/ })).toBeInTheDocument();
+      expect(screen.getByText('Status:')).toBeInTheDocument();
+      expect(screen.getAllByText('Manage / Update Status').length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/^Category:$/).length).toBeGreaterThan(0);
+      // the category line uses the English category name, the status badges the English status
+      const row = rowFor(normalTicket);
+      expect(within(row).getByText(/^Submitted$/)).toBeInTheDocument();
+      expect(
+        within(row).getByText(CATEGORY_DEFINITIONS[normalTicket.category].nameEn, {
+          selector: 'strong',
+        })
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/รายการเคส/)).not.toBeInTheDocument();
+    });
+
+    it('shows the strict gatekeeper scope and the isolated CEO badge in English', async () => {
+      await renderEnglish({}, gatekeeperDepartments(['Quality']));
+
+      expect(screen.getByText(/Assigned categories:/)).toBeInTheDocument();
+      expect(screen.getByText('CEO Direct Line (Restricted)')).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /^Quality - Quality Impropriety/ })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/Triage and handle only requests in these categories/)
+      ).toBeInTheDocument();
+    });
+
+    it('localises the triage modal, its option tables and the validation text', async () => {
+      const user = userEvent.setup({ delay: null });
+      await renderEnglish();
+      await user.click(within(rowFor(normalTicket)).getByRole('button', { name: /Manage/ }));
+
+      expect(screen.getByText(/Gatekeeper Action: Manage Case/)).toBeInTheDocument();
+      expect(screen.getByLabelText('Urgency:')).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: '🔥 Critical' })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'Severe Risk' })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'Equipment/Tools' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Triaged', pressed: true })).toBeInTheDocument();
+      expect(screen.getByLabelText('Assigned Officer:')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Save & Dispatch' })).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Resolved' }));
+      expect(screen.getByLabelText('Resolution Statement:')).toBeInTheDocument();
+      expect(screen.getByText(/satisfaction survey \(CSAT\)/)).toBeInTheDocument();
+    });
+
+    it('alerts in English when saving fails', async () => {
+      const user = userEvent.setup({ delay: null });
+      const alertSpy = vi.spyOn(globalThis, 'alert').mockImplementation(() => undefined);
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      vi.mocked(updateTicketWorkflow).mockRejectedValueOnce(new Error('boom'));
+      await renderEnglish();
+      await user.click(within(rowFor(normalTicket)).getByRole('button', { name: /Manage/ }));
+      await user.click(screen.getByRole('button', { name: 'Save & Dispatch' }));
+
+      await waitFor(() =>
+        expect(alertSpy).toHaveBeenCalledWith('Could not save the update. Please try again.')
+      );
+      alertSpy.mockRestore();
     });
   });
 });
