@@ -26,3 +26,8 @@ export function writeAudit(viewer: TicketViewer, action: AuditAction, detail: ob
     .create({ data: { userId: viewer.userId, action, detail: JSON.stringify(detail) } })
     .catch(() => {}); // an audit failure must never fail the change itself
 }
+
+/** For pages: the guard's own refusals (send the user back) vs real failures (let them surface). */
+export function isAccessDenied(error: unknown): boolean {
+  return error instanceof Error && ['FORBIDDEN', 'UNAUTHORIZED'].includes(error.message);
+}

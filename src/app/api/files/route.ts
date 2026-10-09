@@ -14,6 +14,7 @@ import { env } from '@/lib/env';
 import { auth } from '@/lib/auth';
 import { getUserPermissions } from '@/lib/get-user-permissions';
 import { PERMISSIONS } from '@/lib/permissions';
+import { canReadAttachment } from '@/lib/attachment-access';
 import { AUDIT_ACTIONS, type AuditAction } from '@/lib/audit-actions';
 import { checksum, newStorageKey, safeDisplayName, writeStoredFile } from '@/lib/storage';
 
@@ -48,13 +49,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, error: { code: 'BAD_REQUEST' } }, { status: 400 });
   }
 
-  // The ticket (and, if given, the timeline log entry on that same ticket)
-  // must actually exist — a fabricated id must not create an orphaned row.
-  const ticket = await prisma.ticket.findFirst({
-    where: { id: ticketId, isDeleted: false },
-    select: { id: true },
-  });
-  if (!ticket) {
+  // The ticket (and, if given, the timeline log entry on that same ticket) must exist AND be one
+  // the caller may see (same scope as downloads) — no attaching files to someone else's ticket.
+  if (!(await canReadAttachment(session.user.id, { ticketId }))) {
     return NextResponse.json(
       { success: false, error: { code: 'TICKET_NOT_FOUND' } },
       { status: 404 }

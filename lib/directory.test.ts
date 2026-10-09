@@ -71,4 +71,32 @@ describe('directory', () => {
     await expect(searchDirectory('ปก%')).resolves.toHaveLength(1);
     expect(boundValues()).toContain('%ปก[%]%');
   });
+
+  it('maps HR status per email, preferring an active row, and skips the query for no emails', async () => {
+    const { hrStatusByEmails } = await import('./directory');
+    await expect(hrStatusByEmails([' '])).resolves.toEqual({});
+    expect(queryRaw).not.toHaveBeenCalled();
+    queryRaw.mockResolvedValue([
+      { email: 'a@ube.co.th', workstatus: 'Resign' },
+      { email: 'a@ube.co.th', workstatus: 'Active' },
+      { email: 'b@ube.co.th', workstatus: 'Resign' },
+    ]);
+    await expect(hrStatusByEmails(['A@ube.co.th', 'b@ube.co.th'])).resolves.toEqual({
+      'a@ube.co.th': 'active',
+      'b@ube.co.th': 'inactive',
+    });
+  });
+
+  it('pages the directory with an escaped filter and a numeric total', async () => {
+    const { listDirectoryPage } = await import('./directory');
+    queryRaw.mockResolvedValueOnce([row]).mockResolvedValueOnce([{ total: 41n }]);
+    await expect(listDirectoryPage('ปก_', 2)).resolves.toMatchObject({
+      total: 41,
+      pageSize: 20,
+      rows: [{ employeeId: '01234' }],
+    });
+    const sql = JSON.stringify(queryRaw.mock.calls[0]);
+    expect(sql).toContain('%ปก[_]%');
+    expect(sql).toContain('40');
+  });
 });

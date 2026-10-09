@@ -1,12 +1,8 @@
 import {
   ComplaintTicket,
   DepartmentGatekeeperConfig,
-  ExecutiveMember,
-  HrAdminMember,
   GrievanceCategory,
-  RolePermissionConfig,
   TicketStatus,
-  UserRole,
   UrgencyLevel,
   EmailNotificationSettings,
   EmailDispatchLog,
@@ -15,18 +11,7 @@ import {
 import { CATEGORY_DEFINITIONS, INITIAL_GATEKEEPER_CONFIGS } from '../mockData';
 import { analyzeWithClientHeuristics } from './categoryHeuristics';
 import { safeStorage } from './safeStorage';
-import { INITIAL_EXECUTIVES, INITIAL_HR_ADMINS, INITIAL_ROLE_PERMISSIONS } from './rosterDefaults';
 import { env } from '@/lib/env';
-import {
-  mapLoginEmailForTicket,
-  getAllEmployees,
-  getEmployeeById,
-  getEmployeeByEmail,
-  searchEmployees,
-  getCurrentLoginEmployee,
-  setCurrentLoginEmployee,
-  EMPLOYEE_DATABASE,
-} from './employeeDirectory';
 
 // App is served under a basePath on ugtweb.ube.co.th (decisions.md 2026-10-09) —
 // plain fetch('/api/...') and hand-built URLs don't get it added automatically.
@@ -37,22 +22,7 @@ const BASE_PATH = env.NEXT_PUBLIC_BASE_PATH;
 // crypto.randomUUID exists in every place this runs (HTTPS/localhost browsers, Node 22, jsdom).
 const uniqueId = (prefix: string): string => `${prefix}-${globalThis.crypto.randomUUID()}`;
 
-export {
-  mapLoginEmailForTicket,
-  getAllEmployees,
-  getEmployeeById,
-  getEmployeeByEmail,
-  searchEmployees,
-  getCurrentLoginEmployee,
-  setCurrentLoginEmployee,
-  EMPLOYEE_DATABASE,
-};
-
 const STORAGE_KEY_GATEKEEPERS = 'enterprise_grievance_gatekeepers_v3';
-const STORAGE_KEY_RBAC = 'enterprise_grievance_rbac_permissions_v3';
-const STORAGE_KEY_ACTIVE_GK_DEPT = 'enterprise_grievance_active_gk_dept_v1';
-const STORAGE_KEY_EXECUTIVES = 'enterprise_grievance_executives_v1';
-const STORAGE_KEY_HR_ADMINS = 'enterprise_grievance_hr_admins_v1';
 const STORAGE_KEY_EMAIL_SETTINGS = 'enterprise_grievance_email_settings_v1';
 const STORAGE_KEY_EMAIL_LOGS = 'enterprise_grievance_email_logs_v1';
 const STORAGE_KEY_RECENT_SEARCHES = 'enterprise_grievance_recent_searches_v1';
@@ -63,99 +33,6 @@ export {
   INITIAL_HR_ADMINS,
   INITIAL_ROLE_PERMISSIONS,
 } from './rosterDefaults';
-
-// 2026-10-09: the SSO admin pages joined APP_TABS. Configs saved before that never listed them,
-// so grant them to admin once (an admin may still untick them later in the RBAC matrix).
-const SSO_ADMIN_TABS_MIGRATED_KEY = 'enterprise_grievance_sso_admin_tabs_v1';
-function withSsoAdminTabs(
-  config: Record<UserRole, RolePermissionConfig>
-): Record<UserRole, RolePermissionConfig> {
-  if (safeStorage.getItem(SSO_ADMIN_TABS_MIGRATED_KEY)) return config;
-  const adminTabs = config.admin.allowedTabs;
-  const missing = (['admin_users', 'admin_audit_logs'] as const).filter(
-    (t) => !adminTabs.includes(t)
-  );
-  const next = { ...config, admin: { ...config.admin, allowedTabs: [...adminTabs, ...missing] } };
-  safeStorage.setItem(STORAGE_KEY_RBAC, JSON.stringify(next));
-  safeStorage.setItem(SSO_ADMIN_TABS_MIGRATED_KEY, '1');
-  return next;
-}
-
-export function getStoredRolePermissions(): Record<UserRole, RolePermissionConfig> {
-  try {
-    const data = safeStorage.getItem(STORAGE_KEY_RBAC);
-    if (data) {
-      const parsed = JSON.parse(data);
-      // Deep merge each role to ensure all permission flags are populated with defaults
-      const merged: Record<UserRole, RolePermissionConfig> = { ...INITIAL_ROLE_PERMISSIONS };
-      (Object.keys(INITIAL_ROLE_PERMISSIONS) as UserRole[]).forEach((roleKey) => {
-        merged[roleKey] = {
-          ...INITIAL_ROLE_PERMISSIONS[roleKey],
-          ...(parsed[roleKey] || {}),
-        };
-      });
-      return withSsoAdminTabs(merged);
-    }
-  } catch (e) {
-    console.error('Failed to load RBAC permissions from localStorage', e);
-  }
-  safeStorage.setItem(STORAGE_KEY_RBAC, JSON.stringify(INITIAL_ROLE_PERMISSIONS));
-  return INITIAL_ROLE_PERMISSIONS;
-}
-
-export function saveStoredRolePermissions(permissions: Record<UserRole, RolePermissionConfig>) {
-  try {
-    safeStorage.setItem(STORAGE_KEY_RBAC, JSON.stringify(permissions));
-  } catch (e) {
-    console.error('Failed to save RBAC permissions', e);
-  }
-}
-
-export function updateRolePermissionConfig(
-  role: UserRole,
-  updatedConfig: Partial<RolePermissionConfig>
-): Record<UserRole, RolePermissionConfig> {
-  const current = getStoredRolePermissions();
-  const target = current[role] || INITIAL_ROLE_PERMISSIONS[role];
-
-  const merged: RolePermissionConfig = {
-    ...target,
-    ...updatedConfig,
-  };
-
-  const updated = {
-    ...current,
-    [role]: merged,
-  };
-
-  saveStoredRolePermissions(updated);
-  return updated;
-}
-
-export function resetRolePermissionsToDefault(): Record<UserRole, RolePermissionConfig> {
-  saveStoredRolePermissions(INITIAL_ROLE_PERMISSIONS);
-  return INITIAL_ROLE_PERMISSIONS;
-}
-
-export function getActiveGatekeeperDepartment(): GrievanceCategory {
-  try {
-    const data = safeStorage.getItem(STORAGE_KEY_ACTIVE_GK_DEPT);
-    if (data && CATEGORY_DEFINITIONS[data as GrievanceCategory]) {
-      return data as GrievanceCategory;
-    }
-  } catch (e) {
-    console.error('Failed to load active GK department', e);
-  }
-  return 'HR';
-}
-
-export function setActiveGatekeeperDepartment(cat: GrievanceCategory) {
-  try {
-    safeStorage.setItem(STORAGE_KEY_ACTIVE_GK_DEPT, cat);
-  } catch (e) {
-    console.error('Failed to set active GK department', e);
-  }
-}
 
 export function getStoredGatekeeperConfigs(): Record<
   GrievanceCategory,
@@ -190,169 +67,6 @@ export function getStoredGatekeeperConfigs(): Record<
   safeStorage.setItem(STORAGE_KEY_GATEKEEPERS, JSON.stringify(INITIAL_GATEKEEPER_CONFIGS));
   return INITIAL_GATEKEEPER_CONFIGS;
 }
-
-export function saveStoredGatekeeperConfigs(
-  configs: Record<GrievanceCategory, DepartmentGatekeeperConfig>
-) {
-  try {
-    safeStorage.setItem(STORAGE_KEY_GATEKEEPERS, JSON.stringify(configs));
-  } catch (e) {
-    console.error('Failed to save gatekeeper configs', e);
-  }
-}
-
-export function updateDepartmentGatekeeperConfig(
-  category: GrievanceCategory,
-  updatedConfig: Partial<DepartmentGatekeeperConfig>
-): Record<GrievanceCategory, DepartmentGatekeeperConfig> {
-  const current = getStoredGatekeeperConfigs();
-  const target = current[category] || INITIAL_GATEKEEPER_CONFIGS[category];
-
-  const merged: DepartmentGatekeeperConfig = {
-    ...target,
-    ...updatedConfig,
-    updatedAt: new Date().toISOString(),
-  };
-
-  const updated = {
-    ...current,
-    [category]: merged,
-  };
-
-  saveStoredGatekeeperConfigs(updated);
-  return updated;
-}
-
-export function resetGatekeeperConfigsToDefault(): Record<
-  GrievanceCategory,
-  DepartmentGatekeeperConfig
-> {
-  saveStoredGatekeeperConfigs(INITIAL_GATEKEEPER_CONFIGS);
-  return INITIAL_GATEKEEPER_CONFIGS;
-}
-
-// Executive Members Storage & CRUD
-export function getStoredExecutives(): ExecutiveMember[] {
-  try {
-    const data = safeStorage.getItem(STORAGE_KEY_EXECUTIVES);
-    if (data) {
-      return JSON.parse(data);
-    }
-  } catch (e) {
-    console.error('Failed to load executives from localStorage', e);
-  }
-  safeStorage.setItem(STORAGE_KEY_EXECUTIVES, JSON.stringify(INITIAL_EXECUTIVES));
-  return INITIAL_EXECUTIVES;
-}
-
-export const EVENT_EXECUTIVES_UPDATED = 'enterprise_executives_updated';
-
-export function saveStoredExecutives(executives: ExecutiveMember[]) {
-  try {
-    safeStorage.setItem(STORAGE_KEY_EXECUTIVES, JSON.stringify(executives));
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent(EVENT_EXECUTIVES_UPDATED, { detail: executives }));
-    }
-  } catch (e) {
-    console.error('Failed to save executives', e);
-  }
-}
-
-export function addExecutiveMember(
-  newExec: Omit<ExecutiveMember, 'id' | 'updatedAt'>
-): ExecutiveMember[] {
-  const current = getStoredExecutives();
-  const created: ExecutiveMember = {
-    ...newExec,
-    id: `exec-${Date.now()}`,
-    updatedAt: new Date().toISOString(),
-  };
-  const updated = [created, ...current];
-  saveStoredExecutives(updated);
-  return updated;
-}
-
-export function updateExecutiveMember(
-  id: string,
-  updates: Partial<ExecutiveMember>
-): ExecutiveMember[] {
-  const current = getStoredExecutives();
-  const updated = current.map((item) =>
-    item.id === id ? { ...item, ...updates, updatedAt: new Date().toISOString() } : item
-  );
-  saveStoredExecutives(updated);
-  return updated;
-}
-
-export function deleteExecutiveMember(id: string): ExecutiveMember[] {
-  const current = getStoredExecutives();
-  const updated = current.filter((item) => item.id !== id);
-  saveStoredExecutives(updated);
-  return updated;
-}
-
-export function resetExecutivesToDefault(): ExecutiveMember[] {
-  saveStoredExecutives(INITIAL_EXECUTIVES);
-  return INITIAL_EXECUTIVES;
-}
-
-// HR Admin Members Storage & CRUD
-export function getStoredHrAdmins(): HrAdminMember[] {
-  try {
-    const data = safeStorage.getItem(STORAGE_KEY_HR_ADMINS);
-    if (data) {
-      return JSON.parse(data);
-    }
-  } catch (e) {
-    console.error('Failed to load HR admins from localStorage', e);
-  }
-  safeStorage.setItem(STORAGE_KEY_HR_ADMINS, JSON.stringify(INITIAL_HR_ADMINS));
-  return INITIAL_HR_ADMINS;
-}
-
-export function saveStoredHrAdmins(admins: HrAdminMember[]) {
-  try {
-    safeStorage.setItem(STORAGE_KEY_HR_ADMINS, JSON.stringify(admins));
-  } catch (e) {
-    console.error('Failed to save HR admins', e);
-  }
-}
-
-export function addHrAdminMember(
-  newAdmin: Omit<HrAdminMember, 'id' | 'updatedAt'>
-): HrAdminMember[] {
-  const current = getStoredHrAdmins();
-  const created: HrAdminMember = {
-    ...newAdmin,
-    id: `admin-${Date.now()}`,
-    updatedAt: new Date().toISOString(),
-  };
-  const updated = [created, ...current];
-  saveStoredHrAdmins(updated);
-  return updated;
-}
-
-export function updateHrAdminMember(id: string, updates: Partial<HrAdminMember>): HrAdminMember[] {
-  const current = getStoredHrAdmins();
-  const updated = current.map((item) =>
-    item.id === id ? { ...item, ...updates, updatedAt: new Date().toISOString() } : item
-  );
-  saveStoredHrAdmins(updated);
-  return updated;
-}
-
-export function deleteHrAdminMember(id: string): HrAdminMember[] {
-  const current = getStoredHrAdmins();
-  const updated = current.filter((item) => item.id !== id);
-  saveStoredHrAdmins(updated);
-  return updated;
-}
-
-export function resetHrAdminsToDefault(): HrAdminMember[] {
-  saveStoredHrAdmins(INITIAL_HR_ADMINS);
-  return INITIAL_HR_ADMINS;
-}
-
 // AI Smart Triage Assistant API Call
 export interface AICategorySuggestionResult {
   suggestedCategory: GrievanceCategory;

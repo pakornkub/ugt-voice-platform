@@ -40,7 +40,6 @@ import {
   logTicketSubmittedEmail,
 } from '../services/api';
 import { submitTicket } from '@/lib/actions/tickets';
-import { EMPLOYEE_DATABASE, getCurrentLoginEmployee } from '../services/employeeDirectory';
 import { useLanguage } from '../context/LanguageContext';
 
 type RiskSeverity = ComplaintTicket['riskSeverity'];
@@ -240,11 +239,14 @@ const UrgencyLevelButton: React.FC<
 interface EmployeeSubmitFormProps {
   onTicketCreated: (ticket: ComplaintTicket) => void;
   onOpenTracking: (trackingCode: string) => void;
+  /** The signed-in person (HR-view profile, or their SSO name/email when not in the HR view). */
+  currentEmployee: EmployeeRecord;
 }
 
 export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = ({
   onTicketCreated,
   onOpenTracking,
+  currentEmployee,
 }) => {
   const { lang } = useLanguage();
   const tr = (en: string, th: string) => (lang === 'en' ? en : th);
@@ -259,20 +261,14 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
   const [identityChoice, setIdentityChoice] = useState<'identified' | 'anonymous'>('identified');
 
   // Selected employee from internal directory for mapping
-  const [selectedEmployee, setSelectedEmployee] = useState<EmployeeRecord>(() =>
-    getCurrentLoginEmployee()
-  );
+  const [selectedEmployee, setSelectedEmployee] = useState<EmployeeRecord>(currentEmployee);
 
   // Submitter details
-  const [submitterName, setSubmitterName] = useState(() => getCurrentLoginEmployee().nameTh);
-  const [submitterEmployeeId, setSubmitterEmployeeId] = useState(
-    () => getCurrentLoginEmployee().employeeId
-  );
-  const [submitterDepartment, setSubmitterDepartment] = useState(
-    () => getCurrentLoginEmployee().department
-  );
-  const [submitterEmail, setSubmitterEmail] = useState(() => getCurrentLoginEmployee().loginEmail);
-  const [submitterPhone, setSubmitterPhone] = useState('089-123-4567');
+  const [submitterName, setSubmitterName] = useState(currentEmployee.nameTh);
+  const [submitterEmployeeId, setSubmitterEmployeeId] = useState(currentEmployee.employeeId);
+  const [submitterDepartment, setSubmitterDepartment] = useState(currentEmployee.department);
+  const [submitterEmail, setSubmitterEmail] = useState(currentEmployee.loginEmail);
+  const [submitterPhone, setSubmitterPhone] = useState(currentEmployee.phone);
 
   const handleSelectEmployeeRecord = (emp: EmployeeRecord) => {
     setSelectedEmployee(emp);
@@ -933,7 +929,7 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
                     : 'เลือกข้อมูลจากฐานข้อมูลพนักงาน:'}
                 </span>
                 <div className="flex flex-wrap items-center gap-1.5">
-                  {EMPLOYEE_DATABASE.slice(0, 4).map((emp) => (
+                  {[currentEmployee].map((emp) => (
                     <button
                       key={emp.employeeId}
                       type="button"

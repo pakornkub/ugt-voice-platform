@@ -27,7 +27,7 @@ export function pickRole({ isHrAdmin, isExecutive, officerCategories }: RosterMa
 }
 
 /** Session email plus the person's HR-view CurrentEmail (they differ when SSO logs in by AD name). */
-async function candidateEmails(sessionEmail: string): Promise<string[]> {
+export async function candidateEmails(sessionEmail: string): Promise<string[]> {
   const email = sessionEmail.trim().toLowerCase();
   if (!email) return [];
   // The HR view is a linked server — if it is down, roles still resolve on the session email.

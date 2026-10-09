@@ -34,7 +34,6 @@ import {
 } from '../services/api';
 import { sendAnonymousChatMessage, updateTicketWorkflow } from '@/lib/actions/tickets';
 import { useShell } from '../app/shell-context';
-import { mapLoginEmailForTicket } from '../services/employeeDirectory';
 import { useLanguage } from '../context/LanguageContext';
 import { InvestigationReportModal } from './InvestigationReportModal';
 
@@ -814,13 +813,8 @@ const AnonymousSubmitterCard: React.FC<
   const { tr } = useTr();
   const canViewAnonymousEmail = roleConfig?.canViewAnonymousSubmitterEmail ?? false;
   const roleShort = getRoleShortName(roleConfig, currentRole);
-  const mapped = mapLoginEmailForTicket({
-    loginEmail: ticket.loginEmail,
-    submitterEmail: ticket.submitterEmail,
-    submitterEmployeeId: ticket.submitterEmployeeId,
-    submitterName: ticket.submitterName,
-  });
-  const activeLoginEmail = ticket.loginEmail || ticket.submitterEmail || mapped.loginEmail;
+  // The server leaves the email out when this role may not see it (redactTicketForViewer).
+  const activeLoginEmail = ticket.loginEmail || ticket.submitterEmail || '—';
 
   return (
     <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs">
@@ -860,7 +854,9 @@ const AnonymousSubmitterCard: React.FC<
           <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-white p-2">
             <span className="font-mono text-xs font-bold text-indigo-950">{activeLoginEmail}</span>
             <span className="py-0.2 rounded border border-emerald-200 bg-emerald-50 px-1.5 text-[10px] font-medium text-emerald-700">
-              {mapped.employee ? `EMP DB: ${mapped.employee.employeeId}` : 'Mapped Active'}
+              {ticket.submitterEmployeeId
+                ? `EMP DB: ${ticket.submitterEmployeeId}`
+                : 'Mapped Active'}
             </span>
           </div>
 

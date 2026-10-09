@@ -39,6 +39,7 @@ const renderShell = () =>
           email: 'test@ube.co.th',
           appRole: 'employee',
           roleName: null,
+          employee: null,
           permissions: [],
         }}
         data={{

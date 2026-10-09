@@ -2,14 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ComplaintTicket } from '../types';
 import { INITIAL_COMPLAINTS } from '../mockData';
 import {
-  INITIAL_ROLE_PERMISSIONS,
   addRecentSearch,
   clearRecentSearches,
   getRecentSearches,
   getStatusBadgeText,
   getStoredEmailDispatchLogs,
   getStoredGatekeeperConfigs,
-  getStoredRolePermissions,
   interpolateEmailTemplate,
   logTicketResolvedEmail,
   logTicketSubmittedEmail,
@@ -18,7 +16,6 @@ import {
   updateEmailNotificationSettings,
 } from './api';
 
-const RBAC_KEY = 'enterprise_grievance_rbac_permissions_v3';
 const GK_KEY = 'enterprise_grievance_gatekeepers_v3';
 
 beforeEach(() => {
@@ -33,22 +30,6 @@ describe('storage migrations (upstream storage-key bump)', () => {
     expect(Object.keys(getStoredGatekeeperConfigs()).sort()).toEqual(
       ['Compliance', 'Ethics', 'Fraud', 'HR', 'Harassment', 'Quality'].sort()
     );
-  });
-
-  it('deep-merges stored role permissions so new flags get defaults', () => {
-    const partial = {
-      executive: {
-        ...INITIAL_ROLE_PERMISSIONS.executive,
-        canViewAnonymousSubmitterEmail: undefined,
-      },
-    };
-    delete (partial.executive as Record<string, unknown>).canViewAnonymousSubmitterEmail;
-    localStorage.setItem(RBAC_KEY, JSON.stringify(partial));
-
-    const merged = getStoredRolePermissions();
-
-    expect(merged.executive.canViewAnonymousSubmitterEmail).toBe(true);
-    expect(merged.employee).toEqual(INITIAL_ROLE_PERMISSIONS.employee);
   });
 });
 

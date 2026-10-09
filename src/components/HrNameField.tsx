@@ -5,7 +5,7 @@
 // upstream plain input; while typing it offers matching HR employees underneath. Picking one
 // fills the form via onPick (the parent locks the email); typing freely stays allowed for
 // people outside the HR view (mail-only, no SSO).
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import type { EmployeeRecord } from '../types';
 
@@ -37,6 +37,8 @@ export default function HrNameField({
   const [results, setResults] = useState<EmployeeRecord[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const latest = useRef('');
+  // No late lookup (and no state update) after the form closes.
+  useEffect(() => () => clearTimeout(timer.current), []);
 
   const handleChange = (next: string) => {
     onChange(next);

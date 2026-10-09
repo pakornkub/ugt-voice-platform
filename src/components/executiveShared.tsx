@@ -1,19 +1,9 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { ExecutiveMember } from '../types';
-import { EVENT_EXECUTIVES_UPDATED, getStoredExecutives } from '../services/api';
 
 export type ExecutiveStatus = ExecutiveMember['status'];
-
-/** Re-reads the executive roster whenever another screen changes it (EVENT_EXECUTIVES_UPDATED). */
-export function useExecutivesSync(setExecutives: (executives: ExecutiveMember[]) => void) {
-  useEffect(() => {
-    const handleExecSync = () => setExecutives(getStoredExecutives());
-    window.addEventListener(EVENT_EXECUTIVES_UPDATED, handleExecSync);
-    return () => window.removeEventListener(EVENT_EXECUTIVES_UPDATED, handleExecSync);
-  }, [setExecutives]);
-}
 
 interface ExecStatusSelectProps {
   readonly id?: string;

@@ -21,12 +21,12 @@ paths:
 <!-- Owned by ugt-nextjs-auth-setup — may be overwritten wholesale on /plugin update.
      ADAPTED from the skill's default asset (which assumes SSO+LDAP+Local, a
      linked-server employee directory, and an approval chain): this project is
-     SSO (Keycloak)-only and has no employee directory / approval-chain
-     integration. The guard is `src/proxy.ts` (src/ layout; was
-     `src/middleware.ts` until the Next 16 upgrade — see
-     docs/project-context/decisions.md, 2026-10-08). Sections that don't apply here (LDAP, local password/reset,
-     data-scope-by-employee-code, directory enrichment, approval chain) are
-     dropped rather than left describing code that doesn't exist. -->
+     SSO (Keycloak)-only; it reads the HR view (vwHR_SC_Employee, lib/directory.ts) for roster
+     pickers and role matching but has no approval-chain integration. The guard is `src/proxy.ts`
+     (src/ layout; was `src/middleware.ts` until the Next 16 upgrade — see
+     docs/project-context/decisions.md, 2026-10-08). Sections that don't apply here (LDAP, local
+     password/reset, data-scope-by-employee-code, approval chain) are dropped rather than left
+     describing code that doesn't exist. -->
 
 # Auth / RBAC rules (loads when touching auth, session, or admin-section files)
 
@@ -34,14 +34,17 @@ paths:
 
 Supersedes the old "two RBAC systems" rule (`docs/project-context/decisions.md`, 2026-10-09):
 
-- The only role a user has is `user.appRole` (employee / gatekeeper / executive / admin), set on
-  `/admin/users` (`assignUserAppRoleAction`; you cannot change your own).
+- A user's role (employee / gatekeeper / executive / admin) comes from the people rosters —
+  `HrAdminMembers` > `ExecutiveMembers` > `GatekeeperOfficers` > everyone else — resolved per
+  request in `lib/ticket-access.ts:resolveViewer` via `lib/roster-role.ts` (decisions.md
+  2026-10-09). `User.AppRole` is no longer read; `/admin/users` is read-only.
 - Which tabs a role sees — including `admin_users` and `admin_audit_logs` — comes from the
   upstream RBAC matrix (`RoleAccessConfigs.allowedTabs`, page `/admin/rbac`). Never gate a tab on
   `identity.permissions` in Navbar.
-- Server guards call `getUserPermissions()`, which derives keys from `appRole`
-  (`permissionsForAppRole` in `lib/get-user-permissions.ts`). Don't add new `Role`/`Permission`
-  UI — those tables exist only for the `/admin/setup` bootstrap.
+- Roster / RBAC Server Actions guard with `lib/tab-guard.ts:requireTab` (the screen's tab is the
+  permission) and keep the lock-out rules (self / last HR admin, admin keeps the RBAC tab).
+- Other server guards call `getUserPermissions()` → `permissionsFor(role, allowedTabs)`. Don't add
+  new `Role`/`Permission` UI — those tables exist only for the `/admin/setup` bootstrap.
 
 ## SSO only — no LDAP, no local password
 
@@ -151,9 +154,6 @@ person to log in claims it via `/admin/setup`.
 
 ## What this project does NOT have (don't reach for these)
 
-- `lib/directory.ts` / org employee linked-server enrichment — no employee
-  directory integration exists; `appRole` is set manually by an admin, not
-  synced from HR data.
 - `lib/approval-chain.ts` / `lib/scope.ts` — no approval-routing or
   employee-code-based data-scope system. The app's own department-based
   Gatekeeper scoping (`RolePermissionConfig.assignedDepartments`) is a

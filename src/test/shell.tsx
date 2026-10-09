@@ -16,6 +16,7 @@ export function makeShell(overrides: Partial<ShellContextValue> = {}): ShellCont
       email: 'test.user@ube.co.th',
       appRole: 'employee',
       roleName: null,
+      employee: null,
       permissions: [],
     },
     tickets: INITIAL_COMPLAINTS,

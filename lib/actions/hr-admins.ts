@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { AUDIT_ACTIONS } from '@/lib/audit-actions';
 import { requireTab, ROSTER_TABS, writeAudit } from '@/lib/tab-guard';
+import { candidateEmails } from '@/lib/roster-role';
 import type { TicketViewer } from '@/lib/ticket-scope';
 import { INITIAL_HR_ADMINS } from '@/services/rosterDefaults';
 import { mapHrAdmin } from './mappers';
@@ -43,7 +44,9 @@ export async function getHrAdmins(): Promise<HrAdminMember[]> {
 async function assertKeepsAdmins(viewer: TicketViewer, id: string): Promise<void> {
   const target = await prisma.hrAdminMember.findFirst({ where: { id, ...LIVE } });
   if (!target) throw new Error('NOT_FOUND');
-  if (target.email.toLowerCase() === viewer.email.toLowerCase()) {
+  // Every email that resolves to the caller (session + HR-view CurrentEmail), as roster-role does.
+  const mine = await candidateEmails(viewer.email);
+  if (mine.includes(target.email.toLowerCase())) {
     throw new Error('CANNOT_REMOVE_SELF');
   }
   const othersActive = await prisma.hrAdminMember.count({
@@ -109,24 +112,31 @@ export async function deleteHrAdminMember(id: string): Promise<HrAdminMember[]> 
  */
 export async function resetHrAdminsToDefault(): Promise<HrAdminMember[]> {
   const viewer = await requireTab(ROSTER_TABS);
-  const me = viewer.email.toLowerCase();
+  const mine = new Set(await candidateEmails(viewer.email));
+  const isMine = (email: string) => mine.has(email.toLowerCase());
   await prisma.$transaction(async (tx) => {
     const rows = await tx.hrAdminMember.findMany({
       where: LIVE,
       select: { id: true, email: true },
     });
-    const others = rows.filter((r) => r.email.toLowerCase() !== me).map((r) => r.id);
+    const others = rows.filter((r) => !isMine(r.email)).map((r) => r.id);
     await tx.hrAdminMember.updateMany({
       where: { id: { in: others } },
       data: { isDeleted: true, isActive: false, updatedBy: viewer.userId },
     });
     await tx.hrAdminMember.createMany({
-      data: INITIAL_HR_ADMINS.filter((a) => a.email.toLowerCase() !== me).map((a) => ({
+      data: INITIAL_HR_ADMINS.filter((a) => !isMine(a.email)).map((a) => ({
         ...HrAdminFields.parse(a), // parse drops id / updatedAt, lowercases the email
         createdBy: viewer.userId,
         updatedBy: viewer.userId,
       })),
     });
+    // The demo admins are placeholders nobody logs in with: unless the caller is still an active
+    // HR admin afterwards, nobody could administer the system — roll the reset back.
+    const callerStays = await tx.hrAdminMember.count({
+      where: { ...LIVE, isActive: true, status: 'active', email: { in: [...mine] } },
+    });
+    if (callerStays === 0) throw new Error('LAST_ADMIN');
   });
   writeAudit(viewer, AUDIT_ACTIONS.CONFIG_RESET, { config: 'hr_admins' });
   return listHrAdmins();

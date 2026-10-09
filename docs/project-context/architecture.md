@@ -20,9 +20,15 @@
   2026-10-08): `LanguageProvider` wraps the whole app in `src/app/layout.tsx`; `useLanguage()`
   → `lang`/`t()`/`getCategoryName()`/... ; preference in localStorage (`voiceplatform_lang_preference_v2`,
   default `th`).
-- `src/services/employeeDirectory.ts` — mock corporate employee DB (`EMPLOYEE_DATABASE`,
-  `mapLoginEmailForTicket`, `getCurrentLoginEmployee`) ported unchanged from upstream; to be
-  replaced by a read-only HR view (decision 2026-10-08, `docs/admin-handoff.md` §1.4).
+- `lib/directory.ts` (server-only reads of the HR view `[thrygsd002].[ICTPortal_PRD].[dbo].
+[vwHR_SC_Employee]`, tagged-template SQL, CAST columns): `findEmployeeByLogin`,
+  `findEmployeeByCode`, `searchDirectory`, `hrStatusByEmails`, `listDirectoryPage`; client access
+  only through `lib/actions/directory.ts` (tab-guarded). Replaced upstream's mock
+  `employeeDirectory.ts` on 2026-10-09 (rewiring slice 2).
+- `lib/roster-role.ts` (role from the rosters, `rosterRolesByEmail` for `/admin/users`) +
+  `lib/tab-guard.ts` (`requireTab`, `writeAudit` for roster/RBAC actions) +
+  `src/services/rosterDefaults.ts` (upstream demo rosters / `APP_TABS` / RBAC defaults, pure data
+  so `reset*ToDefault` actions can import it; `api.ts` re-exports it).
 - `src/services/categoryHeuristics.ts` — keyword → category rules: `analyzeWithHeuristics()`
   (server fallback of `/api/ai/suggest-category`, 7 rules) and `analyzeWithClientHeuristics()`
   (client catch-path of `suggestCategoryWithAI()`, the shared 5 rules) — the two lists upstream
@@ -36,15 +42,15 @@
   `clickableProps.ts` (keyboard-operable clickable rows), `workflow-manual/*` (WorkflowDiagram's
   5 manual sections + data), `export-analytics/*` (ExportAnalyticsModal tabs + pure CSV/JSON).
 - `src/services/api.ts` — display helpers (badge text/colors, `APP_TABS`, `INITIAL_*`), AI fetch
-  wrappers, and the localStorage data that has **not** moved to the DB yet: RBAC/gatekeeper/
-  executive/HR-admin editors (slice 2), email settings + simulated dispatch log (slice 3),
-  recent searches (per-device by design). Tickets + notifications left it on 2026-10-09 (slice 1).
+  wrappers, and the localStorage data that has **not** moved to the DB yet: email settings +
+  simulated dispatch log (slice 3), recent searches (per-device by design). Tickets +
+  notifications left it on 2026-10-09 (slice 1); rosters + RBAC matrix the same day (slice 2).
 - `lib/ticket-scope.ts` (pure rules) + `lib/ticket-access.ts` (server-only: scoped
   ticket/notification reads) — who sees / may change which ticket; used by the shell layout and
   `lib/actions/tickets.ts|notifications.ts`. See business-rules.md. **`resolveViewer(session)`**
   (`lib/ticket-access.ts`) is the single place that turns a session into role + RBAC config +
-  gatekeeper categories (the layout's `appRole` comes from it too) — slice 2 swaps its body for
-  the roster-based role (decisions.md 2026-10-09 "App role comes from the people rosters").
+  gatekeeper categories (the layout's `appRole` comes from it too) — the role comes from the
+  people rosters since slice 2 (decisions.md 2026-10-09 "App role comes from the people rosters").
 - `src/services/sqliteDb.ts` — sql.js (SQLite-in-browser via WASM, binary fetched from a
   CDN) shadow copy of the tickets/officers/executives/notifications data, used only by
   `ExportAnalyticsModal`'s "SQL Query Studio" — not the source of truth.
@@ -97,10 +103,9 @@
   - `lib/auth-client.ts` — browser client (`authClient.signIn.social({ provider: 'keycloak' })`).
   - `lib/actions/auth.ts` — `ssoLogoutAction` only (local session cleanup + Keycloak backchannel
     logout). No LDAP/local login actions — SSO only.
-  - `lib/permissions.ts`/`lib/get-user-permissions.ts`/`lib/permissions-sync.ts` — RBAC for the
-    `/admin/*` section only: `users:read`/`users:update`, `roles:read/create/update/delete`,
-    `audit-logs:read`. This is a **separate system** from the app's own `UserRole` tab-visibility
-    model below — see ⚠ deviation.
+  - `lib/permissions.ts`/`lib/get-user-permissions.ts`/`lib/permissions-sync.ts` — permission
+    keys for server guards, derived from the roster role + RBAC tabs (`permissionsFor`, one
+    permission system since 2026-10-09; `Role`/`Permission` tables only back `/admin/setup`).
   - `lib/actions/admin-setup.ts`/`admin-roles.ts`/`admin-users.ts` — first-admin bootstrap, role
     CRUD, `assignUserRoleAction` (RBAC role) + `assignUserAppRoleAction` (this app's own
     `UserRole`).

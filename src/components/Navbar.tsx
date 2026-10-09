@@ -56,6 +56,7 @@ const DEFAULT_IDENTITY: ShellIdentity = {
   email: '',
   appRole: 'employee',
   roleName: null,
+  employee: null,
   permissions: [],
 };
 

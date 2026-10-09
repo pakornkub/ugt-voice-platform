@@ -28,7 +28,6 @@ import {
 import { ComplaintTicket, GrievanceCategory, TicketStatus } from '../types';
 import { CATEGORY_DEFINITIONS } from '../mockData';
 import { useShell } from '../app/shell-context';
-import { mapLoginEmailForTicket } from '../services/employeeDirectory';
 import { Language, useLanguage } from '../context/LanguageContext';
 import { clickableProps } from './clickableProps';
 
@@ -1342,13 +1341,8 @@ const SubmitterLine: React.FC<Readonly<{ ticket: ComplaintTicket }>> = ({ ticket
     if (!canViewAnonEmail) {
       return <>{pick(lang, 'Submitter: Anonymous', 'ผู้ยื่น: ไม่ระบุตัวตน (Anonymous)')}</>;
     }
-    const mapped = mapLoginEmailForTicket({
-      loginEmail: t.loginEmail,
-      submitterEmail: t.submitterEmail,
-      submitterEmployeeId: t.submitterEmployeeId,
-      submitterName: t.submitterName,
-    });
-    const email = t.loginEmail || t.submitterEmail || mapped.loginEmail;
+    // The server leaves the email out when this role may not see it (redactTicketForViewer).
+    const email = t.loginEmail || t.submitterEmail || '—';
     return (
       <span>
         {pick(lang, 'Submitter: Anonymous', 'ผู้ยื่น: ไม่ระบุตัวตน')}{' '}

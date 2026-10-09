@@ -691,3 +691,30 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   Lands with the localStorage → Server Action rewiring (rosters must be read from the DB) ·
   rejected: per-user role dropdown (only users who already logged in, and a second source of
   truth beside the rosters); dropping the RBAC category checkboxes (diverges from upstream).
+- 2026-10-09 **Roster roles as built (rewiring slice 2)** — role resolved in `resolveViewer` on every
+  request (React `cache` per request, no cross-request cache) so roster edits apply on the next
+  navigation; server permission keys follow the RBAC tabs (`permissionsFor`), `users:update` is
+  never granted; HR-admin reset keeps the caller's own row (the demo admins have placeholder
+  emails — a plain reset would lock everyone out); `User.AppRole` is left in the schema but unread
+  (drop it in a later migration once prod has run the data migration) · **because** a cross-request
+  cache would delay revocations and the reset/lock-out rules must hold on the server, not only in
+  the upstream UI · rejected: storing the resolved role back into `User.AppRole` (a second source
+  of truth that goes stale).
+- 2026-10-09 **Submit form prefill = the signed-in person's HR profile** (`ShellIdentity.employee`,
+  SSO name/email when not in the HR view); upstream's demo "pick an employee" chips become one chip
+  for the signed-in person · **because** with real SSO the four demo employees put someone else's
+  name/employee id on a real ticket · rejected: keeping the demo chips (wrong identity on tickets).
+- 2026-10-09 **`/login` "already signed in" redirect lives in the login page, not `src/proxy.ts`** —
+  the page checks the real session · **because** the proxy only sees cookie presence, and a stale
+  cookie looped `/ → layout → /login → proxy → /` forever · rejected: a DB session check in the proxy
+  (runs on every request — see `.claude/rules/ugt-nextjs-auth.md`).
+- 2026-10-09 **Lock-out rules are pre-checked in the UI as well as enforced on the server** — the
+  roster screens check "yourself" / "last active HR admin" before calling the action (same toasts
+  as upstream style) · **because** production Next.js replaces thrown Server Action messages with a
+  generic error, so codes like `LAST_ADMIN` never reach the client · rejected: returning
+  `{ ok, code }` results from every roster action (bigger change to the upstream call sites).
+- 2026-10-09 **Attachments follow ticket visibility** — `canReadAttachment` = `resolveViewer` +
+  `findVisibleTicket`, used for download AND upload (`src/app/api/files`) · **because** the old rule
+  read the now-unused `User.AppRole` and uploads only checked that the ticket existed (anyone could
+  attach to another person's ticket) · rejected: a separate attachment rule set (drifts from the
+  ticket scope).

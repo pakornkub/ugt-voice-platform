@@ -97,3 +97,10 @@ sqlserver`** → `migration_lock.toml` was hand-written during the offline migra
   ("Symlink node_modules … leaves the filesystem root")** → Turbopack refuses the junction → run
   `next dev --webpack` / `next build --webpack` there; a tsx script that imports a
   `server-only` module needs a tsconfig `paths` alias to `vitest.server-only-stub.js` (2026-10-09)
+- **Endless 307 `GET /` ↔ `/login` after a session expires (cookie still in the browser)** → the
+  proxy bounced `/login` to `/` on cookie presence while the layout bounced `/` back to `/login` on
+  the dead session → the login page now checks the real session itself (`src/app/login/page.tsx`)
+  (2026-10-09)
+- **`npm ci` fails with `EPERM … lightningcss.win32-x64-msvc.node` and leaves `node_modules` half
+  deleted** → a running `next dev` (preview server) holds the native module open → stop the dev
+  server, rerun `npm ci`, then `prisma generate` (2026-10-09)

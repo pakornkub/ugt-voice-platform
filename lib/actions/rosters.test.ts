@@ -7,7 +7,12 @@ import type { AppTabId, UserRole } from '@/types';
 
 const db = vi.hoisted(() => {
   const tx = {
-    hrAdminMember: { findMany: vi.fn(), updateMany: vi.fn(), createMany: vi.fn() },
+    hrAdminMember: {
+      findMany: vi.fn(),
+      updateMany: vi.fn(),
+      createMany: vi.fn(),
+      count: vi.fn(),
+    },
     gatekeeperOfficer: {
       findMany: vi.fn(),
       updateMany: vi.fn(),
@@ -25,7 +30,12 @@ const db = vi.hoisted(() => {
       create: vi.fn(),
       update: vi.fn(),
     },
-    executiveMember: { findMany: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
+    executiveMember: {
+      findMany: vi.fn(),
+      create: vi.fn(),
+      updateMany: vi.fn(),
+      createMany: vi.fn(),
+    },
     departmentGatekeeperConfig: { findMany: vi.fn() },
     roleAccessConfig: { findMany: vi.fn(), update: vi.fn() },
     activityLog: { create: vi.fn() },
@@ -34,9 +44,11 @@ const db = vi.hoisted(() => {
   return { prisma, tx };
 });
 const access = vi.hoisted(() => ({ requireTicketViewer: vi.fn() }));
+const roster = vi.hoisted(() => ({ candidateEmails: vi.fn() }));
 
 vi.mock('@/lib/prisma', () => ({ prisma: db.prisma }));
 vi.mock('@/lib/ticket-access', () => access);
+vi.mock('@/lib/roster-role', () => roster);
 
 const hrAdmins = await import('./hr-admins');
 const executives = await import('./executives');
@@ -85,6 +97,9 @@ const newAdmin = {
 beforeEach(() => {
   vi.clearAllMocks();
   access.requireTicketViewer.mockResolvedValue(admin);
+  // session email + the HR-view CurrentEmail alias
+  roster.candidateEmails.mockResolvedValue(['me@ube.co.th', 'me.alias@ube.co.th']);
+  db.tx.hrAdminMember.count.mockResolvedValue(1);
   db.prisma.activityLog.create.mockResolvedValue({});
   db.prisma.hrAdminMember.findMany.mockResolvedValue([]);
   db.prisma.executiveMember.findMany.mockResolvedValue([]);
@@ -157,9 +172,21 @@ describe('HR-admin roster', () => {
     await expect(hrAdmins.updateHrAdminMember('x', { position: 'y' })).rejects.toThrow('NOT_FOUND');
   });
 
+  it('treats the HR-view alias as yourself', async () => {
+    db.prisma.hrAdminMember.findFirst.mockResolvedValue(adminRow('a1', 'Me.Alias@ube.co.th'));
+    await expect(hrAdmins.deleteHrAdminMember('a1')).rejects.toThrow('CANNOT_REMOVE_SELF');
+  });
+
+  it('reset rolls back when the caller would not stay an active HR admin', async () => {
+    db.tx.hrAdminMember.findMany.mockResolvedValue([{ id: 'real', email: 'boss@ube.co.th' }]);
+    db.tx.hrAdminMember.count.mockResolvedValue(0);
+    await expect(hrAdmins.resetHrAdminsToDefault()).rejects.toThrow('LAST_ADMIN');
+  });
+
   it('reset keeps the caller in the roster', async () => {
     db.tx.hrAdminMember.findMany.mockResolvedValue([
       { id: 'mine', email: 'Me@ube.co.th' },
+      { id: 'alias', email: 'me.alias@ube.co.th' },
       { id: 'other', email: 'x@ube.co.th' },
     ]);
     await hrAdmins.resetHrAdminsToDefault();
@@ -198,7 +225,6 @@ describe('executive roster', () => {
 describe('executive reset', () => {
   it('replaces the roster with the demo executives', async () => {
     db.prisma.executiveMember.updateMany.mockReturnValue({});
-    db.prisma.executiveMember.createMany = vi.fn().mockReturnValue({});
     await executives.resetExecutivesToDefault();
     expect(db.prisma.executiveMember.createMany.mock.calls[0][0].data.length).toBeGreaterThan(0);
   });

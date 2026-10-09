@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { EmployeeSubmitForm } from './EmployeeSubmitForm';
 import { LanguageProvider } from '../context/LanguageContext';
 import { submitTicket } from '@/lib/actions/tickets';
-import type { ComplaintTicket } from '../types';
+import type { ComplaintTicket, EmployeeRecord } from '../types';
 
 // Server Action stand-in: echoes the payload back as the saved ticket.
 vi.mock('@/lib/actions/tickets', () => ({ submitTicket: vi.fn() }));
@@ -31,12 +31,27 @@ async function fill(user: ReturnType<typeof userEvent.setup>, id: string, text: 
 // the form is large; full-suite runs with coverage on a loaded CI box need headroom
 vi.setConfig({ testTimeout: 20000 });
 
+const ME: EmployeeRecord = {
+  employeeId: '01234',
+  nameTh: 'ปกรณ์ ทดสอบ',
+  nameEn: 'Pakorn Test',
+  loginEmail: 'pakorn.t@ube.co.th',
+  department: 'ไอที',
+  position: 'Developer',
+  phone: '',
+  status: 'active',
+};
+
 function renderForm() {
   const onTicketCreated = vi.fn();
   const onOpenTracking = vi.fn();
   render(
     <LanguageProvider>
-      <EmployeeSubmitForm onTicketCreated={onTicketCreated} onOpenTracking={onOpenTracking} />
+      <EmployeeSubmitForm
+        onTicketCreated={onTicketCreated}
+        onOpenTracking={onOpenTracking}
+        currentEmployee={ME}
+      />
     </LanguageProvider>
   );
   return { onTicketCreated, onOpenTracking };
@@ -58,6 +73,14 @@ describe('EmployeeSubmitForm', () => {
           updatedAt: '2026-10-09T00:00:00.000Z',
         }) as ComplaintTicket
     );
+  });
+
+  it('prefills the submitter from the signed-in person, not a demo employee', () => {
+    renderForm();
+    expect(byId('input-submitter-name')).toHaveValue('ปกรณ์ ทดสอบ');
+    expect(byId('input-submitter-id')).toHaveValue('01234');
+    expect(byId('input-submitter-email')).toHaveValue('pakorn.t@ube.co.th');
+    expect(screen.queryByText(/สมชาย/)).toBeNull();
   });
 
   it('renders in Thai by default', () => {

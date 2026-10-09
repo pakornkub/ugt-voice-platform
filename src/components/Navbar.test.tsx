@@ -89,6 +89,7 @@ describe('Navbar', () => {
         email: 'admin@example.com',
         appRole: 'admin',
         roleName: 'Administrator',
+        employee: null,
         permissions: ['users:read'],
       },
     });

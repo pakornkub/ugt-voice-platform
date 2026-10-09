@@ -5,6 +5,7 @@ import {
   AppTabId,
   ComplaintTicket,
   DepartmentGatekeeperConfig,
+  EmployeeRecord,
   GrievanceCategory,
   NotificationItem,
   RolePermissionConfig,
@@ -36,6 +37,8 @@ export interface ShellIdentity {
   appRole: UserRole;
   /** RBAC role name (e.g. "Administrator"), null if no admin-section role assigned. */
   roleName: string | null;
+  /** HR-view record of this user (vwHR_SC_Employee), null when not in the HR view / view unreachable. */
+  employee: EmployeeRecord | null;
   /** RBAC permission keys held by this user — governs visibility of the admin_users/admin_roles/admin_audit_logs tabs. */
   permissions: string[];
 }

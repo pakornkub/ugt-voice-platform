@@ -1,5 +1,5 @@
 // lib/ticket-access.ts — server-only reads behind the ticket rules in lib/ticket-scope.ts: who the
-// caller is (session → user.appRole → RoleAccessConfigs) and the tickets / notifications they may
+// caller is (session → roster role → RoleAccessConfigs) and the tickets / notifications they may
 // see. Used by the (shell) layout (initial page data) and by lib/actions/tickets.ts|notifications.ts
 // (mutations). Not a 'use server' module on purpose — nothing here is a client-callable endpoint.
 import 'server-only';

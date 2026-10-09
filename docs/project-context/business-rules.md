@@ -69,19 +69,32 @@ role + หมวดของ gatekeeper มาจาก `resolveViewer()` (`lib/
 - Gatekeeper เห็นเฉพาะคำร้องในหน่วยงานที่ตนรับผิดชอบ — กรองที่ server (หัวข้อด้านบน) และซ้ำที่
   `src/components/GatekeeperInbox.tsx` (ตัวกรอง UI เดิมของ upstream)
 
-## RBAC — สองระบบแยกกัน (`ugt-nextjs-auth-setup`, 2026-09-02 — ดู decisions.md)
+## บทบาทและสิทธิ์ — ระบบเดียว (rewiring slice 2, 2026-10-09 — decisions.md "App role comes from the people rosters")
 
-- **บทบาทหลักของแอป** มี 4 แบบ: employee / gatekeeper / executive / admin แต่ละ role มี
-  `allowedTabs` ที่ปรับได้ผ่านหน้า RBAC Management — implement ที่
-  `src/components/RoleBasedAccessManagement.tsx`, เก็บที่
-  `src/services/api.ts:getStoredRolePermissions/saveStoredRolePermissions` — **บทบาทของผู้ใช้
-  แต่ละคนตอนนี้มาจาก `user.appRole` จริงในฐานข้อมูล** (กำหนดโดย admin จากหน้า
-  "จัดการผู้ใช้" `/admin/users`) ไม่ใช่ dropdown สลับอิสระอีกต่อไป — ผู้ใช้ที่ยังไม่ถูกกำหนด
-  `appRole` จะเห็นหน้า "รอผู้ดูแลระบบกำหนดสิทธิ์การใช้งาน" แทนแอปจริง
-- **สิทธิ์หน้าผู้ดูแลระบบ** (`/admin/users`/`/admin/roles`/`/admin/audit-logs`) เป็นคนละระบบ —
-  ใช้ RBAC role/permission ใหม่ (`Role`/`Permission`/`RolePermission`) จัดการที่หน้า
-  `/admin/roles`, ไม่เกี่ยวกับบทบาทหลักของแอปด้านบน (ดู `docs/project-context/decisions.md`
-  เหตุผลที่ไม่รวมสองระบบเข้าด้วยกัน)
+- **ใครเป็นอะไร** มาจากรายชื่อ 3 ชุดในหน้า "จัดการผู้บริหาร & Gatekeeper" (ไม่มี dropdown กำหนดต่อคนแล้ว):
+  อยู่ใน `HrAdminMembers` (active) → `admin` · `ExecutiveMembers` (active) → `executive` ·
+  `GatekeeperOfficers` หมวดใดก็ได้ → `gatekeeper` · ที่เหลือที่ login SSO ได้ → `employee`; สูงสุดชนะ —
+  `lib/roster-role.ts:pickRole/resolveRosterRole`. จับคู่ด้วยอีเมล session + `CurrentEmail` ของ view HR
+  (`lib/directory.ts:findEmployeeByLogin`; view ล่ม → ใช้อีเมล session อย่างเดียว) ทุก request
+  (`cache` ต่อ request) → แก้รายชื่อแล้วมีผลตอนเปลี่ยนหน้าครั้งถัดไป
+- **ขอบเขต Gatekeeper** = หมวดที่เป็นเจ้าหน้าที่ ∩ checkbox หมวดของ role ในหน้า RBAC (ว่าง → `['HR']`) —
+  `lib/ticket-access.ts:resolveViewer` + `lib/roster-role.ts:gatekeeperScope`
+- **ทำอะไรได้** = matrix หน้า RBAC (`RoleAccessConfigs`) อย่างเดียว: แท็บที่เห็น; แก้รายชื่อได้ถ้ามีแท็บ
+  `admin_gatekeeper` หรือ `rbac_management`; แก้ matrix ได้ถ้ามี `rbac_management` (`lib/tab-guard.ts`);
+  permission key ฝั่ง server (`lib/get-user-permissions.ts:permissionsFor`): ไฟล์แนบทุก role,
+  `users:read` ← แท็บ `admin_users`, `audit-logs:read` ← แท็บ `admin_audit_logs`, `users:update` ไม่มีใครได้
+- **กันล็อกตัวเอง (server):** ลบ/ปิด/เปลี่ยนอีเมล HR admin ของตัวเองไม่ได้ (`CANNOT_REMOVE_SELF`), ห้ามเหลือ
+  HR admin active 0 คน (`LAST_ADMIN`) — `lib/actions/hr-admins.ts:assertKeepsAdmins`; รีเซ็ตรายชื่อ HR admin
+  เป็นค่าเริ่มต้นเก็บแถวของผู้กดไว้เสมอ; role admin ต้องมีแท็บ `rbac_management` +
+  `canManageRolePermissions` เสมอ (`ADMIN_LOCKOUT`, `lib/actions/role-access.ts`)
+- **`/admin/users` อ่านอย่างเดียว** — โชว์ role + รายชื่อที่เป็นที่มา (`lib/roster-role.ts:rosterRolesByEmail`,
+  จับคู่อีเมล login). `/admin/setup` ใส่คนแรกลง `HrAdminMembers` (Super Admin, รายละเอียดจาก view HR)
+- **ฟอร์มรายชื่อ** ช่องชื่อค้นจาก view HR (`HrNameField` + `lib/actions/directory.ts:searchHrEmployees`)
+  เลือกแล้วล็อกอีเมล; พิมพ์เองได้สำหรับคนนอก HR (badge "ไม่อยู่ใน HR" — รับเมลได้ login SSO ไม่ได้);
+  คนที่พ้นสภาพใน HR ขึ้น badge "พ้นสภาพใน HR" (`lib/directory.ts:hrStatusByEmails`); อีเมลเก็บตัวพิมพ์เล็กเสมอ
+- **ฟอร์มยื่นเรื่อง** เติมผู้ยื่นจากโปรไฟล์ HR ของผู้ login (`ShellIdentity.employee`) ไม่ใช่พนักงานตัวอย่าง
+- `User.AppRole` ไม่ถูกอ่านแล้ว (คงคอลัมน์ไว้; migration `20261009120000_roster_roles_data` คัดลอก admin เดิม
+  เข้า `HrAdminMembers`). ตาราง `Role`/`Permission` ใช้แค่ bootstrap `/admin/setup`
 
 ## ไฟล์แนบ (Attachments, `ugt-nextjs-upload-setup`, 2026-09-02)
 

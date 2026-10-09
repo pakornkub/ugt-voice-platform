@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   SlidersHorizontal,
   Shield,
@@ -37,21 +37,21 @@ import {
   GrievanceCategory,
   RolePermissionConfig,
   ExecutiveMember,
+  EmployeeRecord,
 } from '../types';
-import { EMPLOYEE_DATABASE } from '../services/employeeDirectory';
+import { APP_TABS } from '../services/api';
+import { CATEGORY_DEFINITIONS } from '../mockData';
+import { useShell } from '@/app/shell-context';
+import { saveRoleAccessConfigs, resetRolePermissionsToDefault } from '@/lib/actions/role-access';
 import {
-  APP_TABS,
-  getStoredRolePermissions,
-  saveStoredRolePermissions,
-  resetRolePermissionsToDefault,
-  getStoredExecutives,
   addExecutiveMember,
   updateExecutiveMember,
   deleteExecutiveMember,
-} from '../services/api';
-import { CATEGORY_DEFINITIONS } from '../mockData';
+} from '@/lib/actions/executives';
+import { getDirectoryPage, searchHrEmployees } from '@/lib/actions/directory';
 import { useConfirmDialog } from './ConfirmDialog';
-import { ExecStatusSelect, ExecutiveStatus, useExecutivesSync } from './executiveShared';
+import { ExecStatusSelect, ExecutiveStatus } from './executiveShared';
+import HrNameField from './HrNameField';
 import { clickableProps } from './clickableProps';
 
 const rolesList: UserRole[] = ['employee', 'gatekeeper', 'executive', 'admin'];
@@ -157,37 +157,634 @@ const AnonymousSimulatorCard: React.FC<AnonymousSimulatorCardProps> = ({
   </div>
 );
 
+const PERMISSION_SAVE_ERROR = '⚠️ บันทึกสิทธิ์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
+const PERMISSION_LOCKOUT_ERROR =
+  '⚠️ ไม่สามารถปิดสิทธิ์หน้า RBAC สำหรับ HR Admin เพื่อป้องกันการล็อกระบบ';
+const EXECUTIVE_SAVE_ERROR = '⚠️ บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
+
+const permissionErrorMessage = (error: unknown) =>
+  error instanceof Error && error.message.includes('ADMIN_LOCKOUT')
+    ? PERMISSION_LOCKOUT_ERROR
+    : PERMISSION_SAVE_ERROR;
+
+type HrStatusMap = Record<string, 'active' | 'inactive'> | null;
+type HrBadgeKind = 'missing' | 'inactive' | null;
+
+/** Which HR badge (if any) a roster e-mail earns. `null` map = HR view unreachable → no badges. */
+const hrBadgeFor = (email: string, hrStatus: HrStatusMap): HrBadgeKind => {
+  if (!hrStatus) return null;
+  const status = hrStatus[email.trim().toLowerCase()];
+  if (status === undefined) return 'missing';
+  return status === 'inactive' ? 'inactive' : null;
+};
+
+const HrBadge: React.FC<{ readonly kind: HrBadgeKind }> = ({ kind }) => {
+  if (kind === 'missing') {
+    return (
+      <span
+        title="ไม่พบในฐานข้อมูล HR — รับอีเมลแจ้งเตือนได้ แต่เข้าสู่ระบบด้วย SSO ไม่ได้"
+        className="rounded-full border border-amber-200 bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800"
+      >
+        ไม่อยู่ใน HR
+      </span>
+    );
+  }
+  if (kind === 'inactive') {
+    return (
+      <span
+        title="ไม่ใช่พนักงานที่ปฏิบัติงานอยู่ในฐานข้อมูล HR แล้ว"
+        className="rounded-full border border-rose-200 bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700"
+      >
+        พ้นสภาพใน HR
+      </span>
+    );
+  }
+  return null;
+};
+
+interface ExecForm {
+  name: string;
+  position: string;
+  department: string;
+  email: string;
+  phone: string;
+  roleType: ExecutiveMember['roleType'];
+  isWhistleblower: boolean;
+  canViewConfidential: boolean;
+  status: ExecutiveStatus;
+  /** Filled from an HR suggestion → the login e-mail is locked to the HR value. */
+  picked: boolean;
+}
+
+const EMPTY_EXEC_FORM: ExecForm = {
+  name: '',
+  position: '',
+  department: '',
+  email: '',
+  phone: '',
+  roleType: 'CEO',
+  isWhistleblower: true,
+  canViewConfidential: true,
+  status: 'active',
+  picked: false,
+};
+
+const execFormFromMember = (exec: ExecutiveMember): ExecForm => ({
+  name: exec.name,
+  position: exec.position,
+  department: exec.department,
+  email: exec.email,
+  phone: exec.phone || '',
+  roleType: exec.roleType,
+  isWhistleblower: exec.isPrimaryWhistleblowerReceiver,
+  canViewConfidential: exec.canViewConfidentialIdentities,
+  status: exec.status || 'active',
+  picked: false,
+});
+
+const execFieldsFromForm = (form: ExecForm) => ({
+  name: form.name.trim(),
+  position: form.position.trim() || 'ผู้บริหารระดับสูง',
+  department: form.department.trim() || 'Executive Committee',
+  email: form.email.trim(),
+  phone: form.phone.trim() || undefined,
+  roleType: form.roleType,
+  isPrimaryWhistleblowerReceiver: form.isWhistleblower,
+  canViewConfidentialIdentities: form.canViewConfidential,
+  status: form.status,
+});
+
+const EXEC_INPUT_CLASS =
+  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none';
+
+interface ExecutiveFormPanelProps {
+  readonly form: ExecForm;
+  readonly setForm: React.Dispatch<React.SetStateAction<ExecForm>>;
+  readonly isEditing: boolean;
+  readonly onSubmit: (e: React.FormEvent) => void;
+  readonly onCancel: () => void;
+}
+
+/** Add / edit form of the executive roster box. The name field suggests people from the HR view. */
+const ExecutiveFormPanel: React.FC<ExecutiveFormPanelProps> = ({
+  form,
+  setForm,
+  isEditing,
+  onSubmit,
+  onCancel,
+}) => {
+  const setField = <K extends keyof ExecForm>(key: K, value: ExecForm[K]) =>
+    setForm((prev) => ({ ...prev, [key]: value }));
+
+  const pickEmployee = (emp: EmployeeRecord) =>
+    setForm((prev) => ({
+      ...prev,
+      name: emp.nameTh,
+      email: emp.loginEmail,
+      position: emp.position,
+      department: emp.department,
+      picked: true,
+    }));
+
+  const emailClass = form.picked
+    ? EXEC_INPUT_CLASS.replace('bg-white', 'bg-slate-50')
+    : EXEC_INPUT_CLASS;
+
+  return (
+    <form
+      onSubmit={onSubmit}
+      className="animate-in fade-in space-y-4 rounded-xl border border-purple-200 bg-purple-50/50 p-4"
+    >
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-xs font-bold text-purple-950">
+          <Crown className="h-4 w-4 text-purple-600" />
+          {isEditing ? 'แก้ไขข้อมูลผู้บริหาร' : 'เพิ่มรายชื่อผู้บริหารระดับสูงใหม่'}
+        </span>
+        <span className="text-[11px] font-medium text-purple-700">
+          * ระบุชื่อ-นามสกุล และอีเมลเพื่อรับการแจ้งเตือน
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div>
+          <label className="mb-1 block text-[11px] font-bold text-slate-700">
+            ชื่อ - นามสกุล <span className="text-rose-500">*</span>
+          </label>
+          <HrNameField
+            id="exec-form-name"
+            required
+            placeholder="เช่น คุณประเสริฐ อัครเดชานนท์"
+            value={form.name}
+            onChange={(value) => setForm((prev) => ({ ...prev, name: value, picked: false }))}
+            onPick={pickEmployee}
+            search={searchHrEmployees}
+            className={EXEC_INPUT_CLASS}
+          />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-[11px] font-bold text-slate-700">
+            ตำแหน่งบริหาร <span className="text-rose-500">*</span>
+          </label>
+          <input
+            type="text"
+            required
+            placeholder="เช่น Chief Executive Officer (CEO)"
+            value={form.position}
+            onChange={(e) => setField('position', e.target.value)}
+            className={EXEC_INPUT_CLASS}
+          />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-[11px] font-bold text-slate-700">
+            ประเภทบทบาท (Role Level)
+          </label>
+          <select
+            value={form.roleType}
+            onChange={(e) => setField('roleType', e.target.value as ExecutiveMember['roleType'])}
+            className={EXEC_INPUT_CLASS}
+          >
+            <option value="CEO">CEO (ประธานเจ้าหน้าที่บริหาร)</option>
+            <option value="EVP">EVP (รองกรรมการผู้จัดการใหญ่)</option>
+            <option value="GRC_Chair">ประธานคณะกรรมการบรรษัทภิบาล</option>
+            <option value="Audit_Committee">คณะกรรมการตรวจสอบ (Audit Committee)</option>
+            <option value="Board_Member">กรรมการบริษัท (Board Member)</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-[11px] font-bold text-slate-700">
+            สังกัด / ฝ่ายงาน
+          </label>
+          <input
+            type="text"
+            placeholder="เช่น สำนักประธานเจ้าหน้าที่บริหาร"
+            value={form.department}
+            onChange={(e) => setField('department', e.target.value)}
+            className={EXEC_INPUT_CLASS}
+          />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-[11px] font-bold text-slate-700">
+            อีเมลองค์กร <span className="text-rose-500">*</span>
+          </label>
+          <input
+            type="email"
+            required
+            placeholder="executive@enterprise.co.th"
+            value={form.email}
+            readOnly={form.picked}
+            onChange={(e) => setField('email', e.target.value)}
+            className={emailClass}
+          />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-[11px] font-bold text-slate-700">
+            เบอร์โทรศัพท์ติดต่อภายใน
+          </label>
+          <input
+            type="text"
+            placeholder="เช่น 02-998-1001 หรือต่อ 101"
+            value={form.phone}
+            onChange={(e) => setField('phone', e.target.value)}
+            className={EXEC_INPUT_CLASS}
+          />
+        </div>
+
+        <ExecStatusSelect value={form.status} onChange={(status) => setField('status', status)} />
+      </div>
+
+      {/* Special Privileges Checkboxes */}
+      <div className="flex flex-wrap gap-4 pt-1">
+        <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-800">
+          <input
+            type="checkbox"
+            checked={form.isWhistleblower}
+            onChange={(e) => setField('isWhistleblower', e.target.checked)}
+            className="h-4 w-4 rounded text-purple-600 focus:ring-purple-500"
+          />
+          <span>รับข้อร้องเรียนส่งตรง (Whistleblower Direct Receiver)</span>
+        </label>
+
+        <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-800">
+          <input
+            type="checkbox"
+            checked={form.canViewConfidential}
+            onChange={(e) => setField('canViewConfidential', e.target.checked)}
+            className="h-4 w-4 rounded text-purple-600 focus:ring-purple-500"
+          />
+          <span>สิทธิ์เปิดดูตัวตนกรณีลับเฉพาะ (Confidential Disclosure)</span>
+        </label>
+      </div>
+
+      {/* Form Actions */}
+      <div className="flex items-center justify-end gap-2 border-t border-purple-200/80 pt-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-lg border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          ยกเลิก
+        </button>
+        <button
+          type="submit"
+          id="btn-save-exec-in-box"
+          className="flex items-center gap-1.5 rounded-lg bg-purple-700 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-purple-800"
+        >
+          <Save className="h-3.5 w-3.5" />
+          <span>{isEditing ? 'บันทึกการแก้ไข' : 'บันทึกรายชื่อผู้บริหาร'}</span>
+        </button>
+      </div>
+    </form>
+  );
+};
+
+interface ExecutiveCardProps {
+  readonly exec: ExecutiveMember;
+  readonly hrBadge: HrBadgeKind;
+  readonly onToggleStatus: (id: string) => void;
+  readonly onEdit: (exec: ExecutiveMember) => void;
+  readonly onDelete: (id: string, name: string) => void;
+}
+
+const ExecutiveCard: React.FC<ExecutiveCardProps> = ({
+  exec,
+  hrBadge,
+  onToggleStatus,
+  onEdit,
+  onDelete,
+}) => {
+  const isActive = exec.status === 'active';
+
+  return (
+    <div
+      className={`relative flex flex-col justify-between rounded-xl border p-3.5 transition-all ${
+        isActive
+          ? 'border-purple-200/90 bg-gradient-to-b from-white to-purple-50/20 shadow-2xs hover:shadow-xs'
+          : 'border-slate-200 bg-slate-50 opacity-60'
+      }`}
+    >
+      <div className="space-y-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-purple-200 bg-purple-100 text-xs font-bold text-purple-700">
+              <Crown className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <h4 className="truncate text-xs font-bold text-slate-900">{exec.name}</h4>
+              <span className="block truncate text-[10px] font-semibold text-purple-700">
+                {exec.position}
+              </span>
+            </div>
+          </div>
+
+          <span
+            className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+              isActive
+                ? 'border border-emerald-200 bg-emerald-100 text-emerald-800'
+                : 'bg-slate-200 text-slate-600'
+            }`}
+          >
+            {isActive ? 'Active' : 'Inactive'}
+          </span>
+        </div>
+
+        <div className="space-y-1 pt-1 text-[11px] text-slate-600">
+          <div className="flex items-center gap-1.5 truncate text-slate-500">
+            <Building className="h-3 w-3 shrink-0 text-slate-400" />
+            <span className="truncate">{exec.department}</span>
+          </div>
+
+          <div className="flex items-center gap-1.5 truncate font-mono text-slate-600">
+            <Mail className="h-3 w-3 shrink-0 text-indigo-500" />
+            <span className="truncate">{exec.email}</span>
+          </div>
+
+          {exec.phone && (
+            <div className="flex items-center gap-1.5 truncate text-slate-500">
+              <Phone className="h-3 w-3 shrink-0 text-slate-400" />
+              <span>{exec.phone}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Badges for Whistleblower & Confidential Privileges + HR directory status */}
+        <div className="flex flex-wrap gap-1 pt-1.5">
+          {exec.isPrimaryWhistleblowerReceiver && (
+            <span className="flex items-center gap-0.5 rounded border border-amber-200 bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-800">
+              <Shield className="h-2.5 w-2.5 text-amber-600" />
+              Whistleblower Receiver
+            </span>
+          )}
+
+          {exec.canViewConfidentialIdentities && (
+            <span className="flex items-center gap-0.5 rounded border border-purple-200 bg-purple-100 px-1.5 py-0.5 text-[9px] font-bold text-purple-800">
+              <Lock className="h-2.5 w-2.5 text-purple-600" />
+              Confidential Access
+            </span>
+          )}
+
+          <HrBadge kind={hrBadge} />
+        </div>
+      </div>
+
+      {/* Card Action Controls */}
+      <div className="mt-3 flex items-center justify-between border-t border-purple-100/80 pt-2 text-xs">
+        <button
+          type="button"
+          id={`btn-toggle-exec-${exec.id}`}
+          onClick={() => onToggleStatus(exec.id)}
+          className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition ${
+            isActive
+              ? 'border-amber-200 text-amber-700 hover:bg-amber-50'
+              : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
+          }`}
+        >
+          {isActive ? 'พักสถานะ' : 'เปิดใช้งาน'}
+        </button>
+
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => onEdit(exec)}
+            className="rounded p-1 text-slate-500 transition hover:bg-purple-50 hover:text-purple-700"
+            title="แก้ไขข้อมูล"
+          >
+            <Edit2 className="h-3.5 w-3.5" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onDelete(exec.id, exec.name)}
+            className="rounded p-1 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+            title="ลบรายชื่อ"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const DIRECTORY_SEARCH_DEBOUNCE_MS = 300;
+
+interface DirectoryCriteria {
+  query: string;
+  page: number;
+}
+
+interface DirectoryResult {
+  /** The criteria object this answer belongs to (identity check → loading flag). */
+  criteria: DirectoryCriteria;
+  error: boolean;
+  rows: EmployeeRecord[];
+  total: number;
+  pageSize: number;
+}
+
+const DirectoryRows: React.FC<{ readonly rows: EmployeeRecord[] }> = ({ rows }) => (
+  <div className="overflow-x-auto">
+    <table className="w-full overflow-hidden rounded-lg border border-slate-200 bg-white text-left text-xs">
+      <thead className="border-b border-slate-200 bg-slate-100 text-[11px] text-slate-700">
+        <tr>
+          <th className="px-3 py-2 font-bold">รหัสพนักงาน</th>
+          <th className="px-3 py-2 font-bold">ชื่อ-นามสกุล</th>
+          <th className="px-3 py-2 font-bold">ฝ่าย/แผนก</th>
+          <th className="px-3 py-2 font-bold text-indigo-700">Email ที่ใช้ในการ Login (Mapping)</th>
+          <th className="px-3 py-2 font-bold">สถานะ</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-slate-100">
+        {rows.map((emp) => (
+          <tr key={emp.employeeId} className="hover:bg-slate-50/60">
+            <td className="px-3 py-2 font-mono font-bold text-slate-700">{emp.employeeId}</td>
+            <td className="px-3 py-2 font-medium text-slate-900">
+              {emp.nameTh} ({emp.nameEn})
+            </td>
+            <td className="px-3 py-2 text-slate-600">{emp.department || '-'}</td>
+            <td className="px-3 py-2 font-mono font-semibold text-indigo-600">
+              {emp.loginEmail || '-'}
+            </td>
+            <td className="px-3 py-2">
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                  emp.status === 'active'
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : 'bg-slate-200 text-slate-600'
+                }`}
+              >
+                {emp.status === 'active' ? 'Active' : 'Inactive'}
+              </span>
+            </td>
+          </tr>
+        ))}
+        {rows.length === 0 && (
+          <tr>
+            <td colSpan={5} className="px-3 py-4 text-center text-slate-500">
+              ไม่พบข้อมูลพนักงาน
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+);
+
+interface DirectoryPagerProps {
+  readonly page: number;
+  readonly pageCount: number;
+  readonly onPageChange: (page: number) => void;
+}
+
+const DirectoryPager: React.FC<DirectoryPagerProps> = ({ page, pageCount, onPageChange }) => (
+  <div className="flex items-center justify-end gap-2 text-[11px] text-slate-600">
+    <button
+      type="button"
+      disabled={page <= 0}
+      onClick={() => onPageChange(page - 1)}
+      className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 font-semibold transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      ก่อนหน้า
+    </button>
+    <span className="font-mono">
+      หน้า {page + 1} / {pageCount}
+    </span>
+    <button
+      type="button"
+      disabled={page + 1 >= pageCount}
+      onClick={() => onPageChange(page + 1)}
+      className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 font-semibold transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      ถัดไป
+    </button>
+  </div>
+);
+
+/** Read-only, server-paged view of the HR employee directory (opened on demand). */
+const EmployeeDirectoryPanel: React.FC = () => {
+  const [searchText, setSearchText] = useState('');
+  const [criteria, setCriteria] = useState<DirectoryCriteria>({ query: '', page: 0 });
+  const [result, setResult] = useState<DirectoryResult | null>(null);
+
+  // Debounced search: a new query always restarts from the first page.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setCriteria((prev) => (prev.query === searchText ? prev : { query: searchText, page: 0 }));
+    }, DIRECTORY_SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchText]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getDirectoryPage(criteria.query, criteria.page)
+      .then((data) => {
+        if (!cancelled) setResult({ criteria, error: false, ...data });
+      })
+      .catch(() => {
+        if (!cancelled) setResult({ criteria, error: true, rows: [], total: 0, pageSize: 1 });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [criteria]);
+
+  // Only an answer for the current criteria counts; anything older is still "loading".
+  const current = result?.criteria === criteria ? result : null;
+  const total = result?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / (result?.pageSize || 1)));
+
+  return (
+    <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Database className="h-4 w-4 text-indigo-600" />
+          <span className="text-xs font-bold text-slate-900">
+            ฐานข้อมูลพนักงานสำหรับการ Mapping หลังบ้าน (Corporate Employee Directory):
+          </span>
+        </div>
+        <span className="font-mono text-[11px] text-slate-500">Total {total} Records</span>
+      </div>
+
+      <input
+        type="search"
+        aria-label="ค้นหาพนักงาน"
+        placeholder="ค้นหาชื่อ, รหัสพนักงาน, อีเมล หรือหน่วยงาน..."
+        value={searchText}
+        onChange={(e) => setSearchText(e.target.value)}
+        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+      />
+
+      {current === null && (
+        <p className="py-4 text-center text-xs text-slate-500">กำลังโหลดข้อมูลพนักงานจาก HR...</p>
+      )}
+      {current?.error && (
+        <p className="py-4 text-center text-xs text-rose-600">
+          ไม่สามารถเชื่อมต่อฐานข้อมูล HR ได้ในขณะนี้
+        </p>
+      )}
+      {current && !current.error && <DirectoryRows rows={current.rows} />}
+      {current && !current.error && (
+        <DirectoryPager
+          page={criteria.page}
+          pageCount={pageCount}
+          onPageChange={(page) => setCriteria((prev) => ({ ...prev, page }))}
+        />
+      )}
+
+      <p className="text-[10.5px] leading-snug text-slate-500">
+        ระบบเชื่อมโยงอัตโนมัติ: เมื่อพนักงานทำการยื่นเรื่องแบบไม่ระบุตัวตน ระบบจะ mapping
+        อีเมลล็อกอินของพนักงานเข้าระบบตั๋วหลังบ้าน โดยเปิดสิทธิ์ให้เฉพาะ Role ที่ถูก tick โดย HR
+        Admin & ตัวแทนผู้บริหาร มองเห็นได้เท่านั้น
+      </p>
+    </div>
+  );
+};
+
 interface RoleBasedAccessManagementProps {
-  currentRole: UserRole;
-  onNavigateTab: (tab: AppTabId) => void;
-  onPermissionsUpdated?: () => void;
+  readonly currentRole: UserRole;
+  readonly onNavigateTab: (tab: AppTabId) => void;
+  readonly onPermissionsUpdated?: () => void;
+  /** Executive roster as loaded on the server (kept in sync with every action result). */
+  readonly initialExecutives: ExecutiveMember[];
+  /** Lowercase e-mail → HR status; `null` when the HR view is unreachable (no HR badges). */
+  readonly hrStatus: HrStatusMap;
 }
 
 export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps> = ({
   currentRole,
   onNavigateTab,
   onPermissionsUpdated,
+  initialExecutives,
+  hrStatus,
 }) => {
+  const { rolePermissions } = useShell();
   const [permissions, setPermissions] = useState<Record<UserRole, RolePermissionConfig>>(
-    getStoredRolePermissions()
+    () => rolePermissions
   );
+  const [permissionsSource, setPermissionsSource] = useState(rolePermissions);
+  if (permissionsSource !== rolePermissions) {
+    // The server matrix changed (router.refresh) — adopt it.
+    setPermissionsSource(rolePermissions);
+    setPermissions(rolePermissions);
+  }
   const [selectedRoleForDetail, setSelectedRoleForDetail] = useState<UserRole>('employee');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [, setIsSaved] = useState(true);
 
   // Executive Management Direct In-Box State
-  const [executives, setExecutives] = useState<ExecutiveMember[]>(() => getStoredExecutives());
+  const [executives, setExecutives] = useState<ExecutiveMember[]>(() => initialExecutives);
+  const [executivesSource, setExecutivesSource] = useState(initialExecutives);
+  if (executivesSource !== initialExecutives) {
+    setExecutivesSource(initialExecutives);
+    setExecutives(initialExecutives);
+  }
   const [isAddingExec, setIsAddingExec] = useState(false);
   const [editingExecId, setEditingExecId] = useState<string | null>(null);
-  const [execName, setExecName] = useState('');
-  const [execPosition, setExecPosition] = useState('');
-  const [execDepartment, setExecDepartment] = useState('');
-  const [execEmail, setExecEmail] = useState('');
-  const [execPhone, setExecPhone] = useState('');
-  const [execRoleType, setExecRoleType] = useState<ExecutiveMember['roleType']>('CEO');
-  const [execIsWhistleblower, setExecIsWhistleblower] = useState(true);
-  const [execCanViewConfidential, setExecCanViewConfidential] = useState(true);
-  const [execStatus, setExecStatus] = useState<ExecutiveStatus>('active');
+  const [execForm, setExecForm] = useState<ExecForm>(EMPTY_EXEC_FORM);
 
   // Anonymous Submitter Email Simulation & Directory Preview
   const [simulatedRoleForAnonymous, setSimulatedRoleForAnonymous] =
@@ -197,103 +794,11 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
   // In-app confirmation dialog (replaces window.confirm — see ConfirmDialog.tsx)
   const { askConfirm, confirmDialog } = useConfirmDialog();
 
-  useExecutivesSync(setExecutives);
-
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => {
       setToastMessage(null);
     }, 3500);
-  };
-
-  const handleSaveExecSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!execName.trim() || !execEmail.trim()) {
-      showToast('⚠️ กรุณากรอกชื่อ-นามสกุล และอีเมลของผู้บริหาร');
-      return;
-    }
-
-    if (editingExecId) {
-      const updated = updateExecutiveMember(editingExecId, {
-        name: execName.trim(),
-        position: execPosition.trim() || 'ผู้บริหารระดับสูง',
-        department: execDepartment.trim() || 'Executive Committee',
-        email: execEmail.trim(),
-        phone: execPhone.trim() || undefined,
-        roleType: execRoleType,
-        isPrimaryWhistleblowerReceiver: execIsWhistleblower,
-        canViewConfidentialIdentities: execCanViewConfidential,
-        status: execStatus,
-      });
-      setExecutives(updated);
-      showToast(`อัปเดตข้อมูลผู้บริหาร "${execName}" เรียบร้อยแล้ว`);
-    } else {
-      const updated = addExecutiveMember({
-        name: execName.trim(),
-        position: execPosition.trim() || 'ผู้บริหารระดับสูง',
-        department: execDepartment.trim() || 'Executive Committee',
-        email: execEmail.trim(),
-        phone: execPhone.trim() || undefined,
-        roleType: execRoleType,
-        isPrimaryWhistleblowerReceiver: execIsWhistleblower,
-        canViewConfidentialIdentities: execCanViewConfidential,
-        receiveAlertNotifications: true,
-        assignedCommittees: ['คณะกรรมการบริหาร (ExCom)'],
-        status: execStatus,
-      });
-      setExecutives(updated);
-      showToast(`เพิ่มรายชื่อผู้บริหาร "${execName}" เข้าระบบเรียบร้อยแล้ว`);
-    }
-
-    // Reset Form
-    setIsAddingExec(false);
-    setEditingExecId(null);
-    setExecName('');
-    setExecPosition('');
-    setExecDepartment('');
-    setExecEmail('');
-    setExecPhone('');
-    setExecRoleType('CEO');
-    setExecIsWhistleblower(true);
-    setExecCanViewConfidential(true);
-    setExecStatus('active');
-  };
-
-  const handleStartEditExec = (exec: ExecutiveMember) => {
-    setEditingExecId(exec.id);
-    setExecName(exec.name);
-    setExecPosition(exec.position);
-    setExecDepartment(exec.department);
-    setExecEmail(exec.email);
-    setExecPhone(exec.phone || '');
-    setExecRoleType(exec.roleType);
-    setExecIsWhistleblower(exec.isPrimaryWhistleblowerReceiver);
-    setExecCanViewConfidential(exec.canViewConfidentialIdentities);
-    setExecStatus(exec.status || 'active');
-    setIsAddingExec(true);
-  };
-
-  const handleDeleteExec = (id: string, name: string) => {
-    askConfirm({
-      title: 'ยืนยันการลบรายชื่อผู้บริหาร',
-      message: `คุณต้องการลบรายชื่อผู้บริหาร "${name}" ออกจากระบบใช่หรือไม่?`,
-      confirmLabel: 'ลบรายชื่อ',
-      isDestructive: true,
-      onConfirm: () => {
-        const updated = deleteExecutiveMember(id);
-        setExecutives(updated);
-        showToast(`ลบรายชื่อผู้บริหาร "${name}" เรียบร้อยแล้ว`);
-      },
-    });
-  };
-
-  const handleToggleExecStatus = (id: string) => {
-    const target = executives.find((e) => e.id === id);
-    if (!target) return;
-    const newStatus = target.status === 'active' ? 'inactive' : 'active';
-    const updated = updateExecutiveMember(id, { status: newStatus });
-    setExecutives(updated);
-    showToast(`เปลี่ยนสถานะเป็น ${newStatus === 'active' ? 'เปิดใช้งาน' : 'ระงับชั่วคราว'}`);
   };
 
   const notifyPermissionsUpdated = () => {
@@ -306,18 +811,106 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
     }
   };
 
+  const closeExecForm = () => {
+    setIsAddingExec(false);
+    setEditingExecId(null);
+    setExecForm(EMPTY_EXEC_FORM);
+  };
+
+  /** Runs one roster write; on success adopts the returned roster, resolves `true`. */
+  const applyExecutiveChange = (
+    request: Promise<ExecutiveMember[]>,
+    successMsg: string
+  ): Promise<boolean> =>
+    request
+      .then((updated) => {
+        setExecutives(updated);
+        showToast(successMsg);
+        notifyPermissionsUpdated();
+        return true;
+      })
+      .catch(() => {
+        showToast(EXECUTIVE_SAVE_ERROR);
+        return false;
+      });
+
+  const handleSaveExecSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!execForm.name.trim() || !execForm.email.trim()) {
+      showToast('⚠️ กรุณากรอกชื่อ-นามสกุล และอีเมลของผู้บริหาร');
+      return;
+    }
+
+    const fields = execFieldsFromForm(execForm);
+    const saved = editingExecId
+      ? await applyExecutiveChange(
+          updateExecutiveMember(editingExecId, fields),
+          `อัปเดตข้อมูลผู้บริหาร "${execForm.name}" เรียบร้อยแล้ว`
+        )
+      : await applyExecutiveChange(
+          addExecutiveMember({
+            ...fields,
+            receiveAlertNotifications: true,
+            assignedCommittees: ['คณะกรรมการบริหาร (ExCom)'],
+          }),
+          `เพิ่มรายชื่อผู้บริหาร "${execForm.name}" เข้าระบบเรียบร้อยแล้ว`
+        );
+
+    if (saved) closeExecForm();
+  };
+
+  const handleStartEditExec = (exec: ExecutiveMember) => {
+    setEditingExecId(exec.id);
+    setExecForm(execFormFromMember(exec));
+    setIsAddingExec(true);
+  };
+
+  const handleDeleteExec = (id: string, name: string) => {
+    askConfirm({
+      title: 'ยืนยันการลบรายชื่อผู้บริหาร',
+      message: `คุณต้องการลบรายชื่อผู้บริหาร "${name}" ออกจากระบบใช่หรือไม่?`,
+      confirmLabel: 'ลบรายชื่อ',
+      isDestructive: true,
+      onConfirm: () => {
+        void applyExecutiveChange(
+          deleteExecutiveMember(id),
+          `ลบรายชื่อผู้บริหาร "${name}" เรียบร้อยแล้ว`
+        );
+      },
+    });
+  };
+
+  const handleToggleExecStatus = (id: string) => {
+    const target = executives.find((e) => e.id === id);
+    if (!target) return;
+    const newStatus = target.status === 'active' ? 'inactive' : 'active';
+    void applyExecutiveChange(
+      updateExecutiveMember(id, { status: newStatus }),
+      `เปลี่ยนสถานะเป็น ${newStatus === 'active' ? 'เปิดใช้งาน' : 'ระงับชั่วคราว'}`
+    );
+  };
+
   const commitPermissions = (
     updated: Record<UserRole, RolePermissionConfig>,
     toastMsg?: string
   ) => {
-    saveStoredRolePermissions(updated);
+    const previous = permissions;
+    // Optimistic: the matrix reflects the click at once; the server answer (or a revert) follows.
     setPermissions(updated);
     setIsSaved(false);
     setTimeout(() => setIsSaved(true), 800);
-    notifyPermissionsUpdated();
     if (toastMsg) {
       showToast(toastMsg);
     }
+    saveRoleAccessConfigs(updated)
+      .then((saved) => {
+        setPermissions(saved);
+        notifyPermissionsUpdated();
+      })
+      .catch((error: unknown) => {
+        setPermissions(previous);
+        showToast(permissionErrorMessage(error));
+      });
   };
 
   const handleToggleTabPermission = (role: UserRole, tabId: AppTabId) => {
@@ -420,10 +1013,13 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
       message: 'คุณต้องการรีเซ็ตสิทธิ์ของทุก Role กลับเป็นค่าเริ่มต้นตามนโยบายองค์กรใช่หรือไม่?',
       confirmLabel: 'รีเซ็ตค่าเริ่มต้น',
       onConfirm: () => {
-        const defaults = resetRolePermissionsToDefault();
-        setPermissions(defaults);
-        showToast('รีเซ็ตสิทธิ์ RBAC กลับเป็นค่าเริ่มต้นเรียบร้อยแล้ว');
-        notifyPermissionsUpdated();
+        resetRolePermissionsToDefault()
+          .then((defaults) => {
+            setPermissions(defaults);
+            showToast('รีเซ็ตสิทธิ์ RBAC กลับเป็นค่าเริ่มต้นเรียบร้อยแล้ว');
+            notifyPermissionsUpdated();
+          })
+          .catch((error: unknown) => showToast(permissionErrorMessage(error)));
       },
     });
   };
@@ -1242,63 +1838,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
         </div>
 
         {/* Corporate Employee Directory Collapsible */}
-        {showEmployeeDirectoryModal && (
-          <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Database className="h-4 w-4 text-indigo-600" />
-                <span className="text-xs font-bold text-slate-900">
-                  ฐานข้อมูลพนักงานสำหรับการ Mapping หลังบ้าน (Corporate Employee Directory):
-                </span>
-              </div>
-              <span className="font-mono text-[11px] text-slate-500">
-                Total {EMPLOYEE_DATABASE.length} Records
-              </span>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full overflow-hidden rounded-lg border border-slate-200 bg-white text-left text-xs">
-                <thead className="border-b border-slate-200 bg-slate-100 text-[11px] text-slate-700">
-                  <tr>
-                    <th className="px-3 py-2 font-bold">รหัสพนักงาน</th>
-                    <th className="px-3 py-2 font-bold">ชื่อ-นามสกุล</th>
-                    <th className="px-3 py-2 font-bold">ฝ่าย/แผนก</th>
-                    <th className="px-3 py-2 font-bold text-indigo-700">
-                      Email ที่ใช้ในการ Login (Mapping)
-                    </th>
-                    <th className="px-3 py-2 font-bold">สถานะ</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {EMPLOYEE_DATABASE.map((emp) => (
-                    <tr key={emp.employeeId} className="hover:bg-slate-50/60">
-                      <td className="px-3 py-2 font-mono font-bold text-slate-700">
-                        {emp.employeeId}
-                      </td>
-                      <td className="px-3 py-2 font-medium text-slate-900">
-                        {emp.nameTh} ({emp.nameEn})
-                      </td>
-                      <td className="px-3 py-2 text-slate-600">{emp.department}</td>
-                      <td className="px-3 py-2 font-mono font-semibold text-indigo-600">
-                        {emp.loginEmail}
-                      </td>
-                      <td className="px-3 py-2">
-                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-                          Active
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p className="text-[10.5px] leading-snug text-slate-500">
-              ระบบเชื่อมโยงอัตโนมัติ: เมื่อพนักงานทำการยื่นเรื่องแบบไม่ระบุตัวตน ระบบจะ mapping
-              อีเมลล็อกอินของพนักงานเข้าระบบตั๋วหลังบ้าน โดยเปิดสิทธิ์ให้เฉพาะ Role ที่ถูก tick โดย
-              HR Admin & ตัวแทนผู้บริหาร มองเห็นได้เท่านั้น
-            </p>
-          </div>
-        )}
+        {showEmployeeDirectoryModal && <EmployeeDirectoryPanel />}
       </div>
 
       {/* DEDICATED EXECUTIVE MANAGEMENT DIRECTORY BOX (กล่องใส่/แก้ไขรายชื่อคณะผู้บริหารโดยตรง) */}
@@ -1335,18 +1875,10 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
               id="btn-toggle-add-exec-form"
               onClick={() => {
                 if (isAddingExec) {
-                  setIsAddingExec(false);
-                  setEditingExecId(null);
+                  closeExecForm();
                 } else {
                   setEditingExecId(null);
-                  setExecName('');
-                  setExecPosition('');
-                  setExecDepartment('');
-                  setExecEmail('');
-                  setExecPhone('');
-                  setExecRoleType('CEO');
-                  setExecIsWhistleblower(true);
-                  setExecCanViewConfidential(true);
+                  setExecForm(EMPTY_EXEC_FORM);
                   setIsAddingExec(true);
                 }
               }}
@@ -1382,270 +1914,27 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
 
         {/* Add / Edit Form Panel */}
         {isAddingExec && (
-          <form
+          <ExecutiveFormPanel
+            form={execForm}
+            setForm={setExecForm}
+            isEditing={editingExecId !== null}
             onSubmit={handleSaveExecSubmit}
-            className="animate-in fade-in space-y-4 rounded-xl border border-purple-200 bg-purple-50/50 p-4"
-          >
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-xs font-bold text-purple-950">
-                <Crown className="h-4 w-4 text-purple-600" />
-                {editingExecId ? 'แก้ไขข้อมูลผู้บริหาร' : 'เพิ่มรายชื่อผู้บริหารระดับสูงใหม่'}
-              </span>
-              <span className="text-[11px] font-medium text-purple-700">
-                * ระบุชื่อ-นามสกุล และอีเมลเพื่อรับการแจ้งเตือน
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <div>
-                <label className="mb-1 block text-[11px] font-bold text-slate-700">
-                  ชื่อ - นามสกุล <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="เช่น คุณประเสริฐ อัครเดชานนท์"
-                  value={execName}
-                  onChange={(e) => setExecName(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-[11px] font-bold text-slate-700">
-                  ตำแหน่งบริหาร <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="เช่น Chief Executive Officer (CEO)"
-                  value={execPosition}
-                  onChange={(e) => setExecPosition(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-[11px] font-bold text-slate-700">
-                  ประเภทบทบาท (Role Level)
-                </label>
-                <select
-                  value={execRoleType}
-                  onChange={(e) => setExecRoleType(e.target.value as ExecutiveMember['roleType'])}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                >
-                  <option value="CEO">CEO (ประธานเจ้าหน้าที่บริหาร)</option>
-                  <option value="EVP">EVP (รองกรรมการผู้จัดการใหญ่)</option>
-                  <option value="GRC_Chair">ประธานคณะกรรมการบรรษัทภิบาล</option>
-                  <option value="Audit_Committee">คณะกรรมการตรวจสอบ (Audit Committee)</option>
-                  <option value="Board_Member">กรรมการบริษัท (Board Member)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-[11px] font-bold text-slate-700">
-                  สังกัด / ฝ่ายงาน
-                </label>
-                <input
-                  type="text"
-                  placeholder="เช่น สำนักประธานเจ้าหน้าที่บริหาร"
-                  value={execDepartment}
-                  onChange={(e) => setExecDepartment(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-[11px] font-bold text-slate-700">
-                  อีเมลองค์กร <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="email"
-                  required
-                  placeholder="executive@enterprise.co.th"
-                  value={execEmail}
-                  onChange={(e) => setExecEmail(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-[11px] font-bold text-slate-700">
-                  เบอร์โทรศัพท์ติดต่อภายใน
-                </label>
-                <input
-                  type="text"
-                  placeholder="เช่น 02-998-1001 หรือต่อ 101"
-                  value={execPhone}
-                  onChange={(e) => setExecPhone(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                />
-              </div>
-
-              <ExecStatusSelect value={execStatus} onChange={setExecStatus} />
-            </div>
-
-            {/* Special Privileges Checkboxes */}
-            <div className="flex flex-wrap gap-4 pt-1">
-              <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-800">
-                <input
-                  type="checkbox"
-                  checked={execIsWhistleblower}
-                  onChange={(e) => setExecIsWhistleblower(e.target.checked)}
-                  className="h-4 w-4 rounded text-purple-600 focus:ring-purple-500"
-                />
-                <span>รับข้อร้องเรียนส่งตรง (Whistleblower Direct Receiver)</span>
-              </label>
-
-              <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-800">
-                <input
-                  type="checkbox"
-                  checked={execCanViewConfidential}
-                  onChange={(e) => setExecCanViewConfidential(e.target.checked)}
-                  className="h-4 w-4 rounded text-purple-600 focus:ring-purple-500"
-                />
-                <span>สิทธิ์เปิดดูตัวตนกรณีลับเฉพาะ (Confidential Disclosure)</span>
-              </label>
-            </div>
-
-            {/* Form Actions */}
-            <div className="flex items-center justify-end gap-2 border-t border-purple-200/80 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsAddingExec(false);
-                  setEditingExecId(null);
-                }}
-                className="rounded-lg border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="submit"
-                id="btn-save-exec-in-box"
-                className="flex items-center gap-1.5 rounded-lg bg-purple-700 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-purple-800"
-              >
-                <Save className="h-3.5 w-3.5" />
-                <span>{editingExecId ? 'บันทึกการแก้ไข' : 'บันทึกรายชื่อผู้บริหาร'}</span>
-              </button>
-            </div>
-          </form>
+            onCancel={closeExecForm}
+          />
         )}
 
         {/* Executive Cards Grid */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {executives.map((exec) => {
-            const isActive = exec.status === 'active';
-
-            return (
-              <div
-                key={exec.id}
-                className={`relative flex flex-col justify-between rounded-xl border p-3.5 transition-all ${
-                  isActive
-                    ? 'border-purple-200/90 bg-gradient-to-b from-white to-purple-50/20 shadow-2xs hover:shadow-xs'
-                    : 'border-slate-200 bg-slate-50 opacity-60'
-                }`}
-              >
-                <div className="space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-purple-200 bg-purple-100 text-xs font-bold text-purple-700">
-                        <Crown className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <h4 className="truncate text-xs font-bold text-slate-900">{exec.name}</h4>
-                        <span className="block truncate text-[10px] font-semibold text-purple-700">
-                          {exec.position}
-                        </span>
-                      </div>
-                    </div>
-
-                    <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                        isActive
-                          ? 'border border-emerald-200 bg-emerald-100 text-emerald-800'
-                          : 'bg-slate-200 text-slate-600'
-                      }`}
-                    >
-                      {isActive ? 'Active' : 'Inactive'}
-                    </span>
-                  </div>
-
-                  <div className="space-y-1 pt-1 text-[11px] text-slate-600">
-                    <div className="flex items-center gap-1.5 truncate text-slate-500">
-                      <Building className="h-3 w-3 shrink-0 text-slate-400" />
-                      <span className="truncate">{exec.department}</span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 truncate font-mono text-slate-600">
-                      <Mail className="h-3 w-3 shrink-0 text-indigo-500" />
-                      <span className="truncate">{exec.email}</span>
-                    </div>
-
-                    {exec.phone && (
-                      <div className="flex items-center gap-1.5 truncate text-slate-500">
-                        <Phone className="h-3 w-3 shrink-0 text-slate-400" />
-                        <span>{exec.phone}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Badges for Whistleblower & Confidential Privileges */}
-                  <div className="flex flex-wrap gap-1 pt-1.5">
-                    {exec.isPrimaryWhistleblowerReceiver && (
-                      <span className="flex items-center gap-0.5 rounded border border-amber-200 bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-800">
-                        <Shield className="h-2.5 w-2.5 text-amber-600" />
-                        Whistleblower Receiver
-                      </span>
-                    )}
-
-                    {exec.canViewConfidentialIdentities && (
-                      <span className="flex items-center gap-0.5 rounded border border-purple-200 bg-purple-100 px-1.5 py-0.5 text-[9px] font-bold text-purple-800">
-                        <Lock className="h-2.5 w-2.5 text-purple-600" />
-                        Confidential Access
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Card Action Controls */}
-                <div className="mt-3 flex items-center justify-between border-t border-purple-100/80 pt-2 text-xs">
-                  <button
-                    type="button"
-                    id={`btn-toggle-exec-${exec.id}`}
-                    onClick={() => handleToggleExecStatus(exec.id)}
-                    className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition ${
-                      isActive
-                        ? 'border-amber-200 text-amber-700 hover:bg-amber-50'
-                        : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
-                    }`}
-                  >
-                    {isActive ? 'พักสถานะ' : 'เปิดใช้งาน'}
-                  </button>
-
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => handleStartEditExec(exec)}
-                      className="rounded p-1 text-slate-500 transition hover:bg-purple-50 hover:text-purple-700"
-                      title="แก้ไขข้อมูล"
-                    >
-                      <Edit2 className="h-3.5 w-3.5" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteExec(exec.id, exec.name)}
-                      className="rounded p-1 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
-                      title="ลบรายชื่อ"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          {executives.map((exec) => (
+            <ExecutiveCard
+              key={exec.id}
+              exec={exec}
+              hrBadge={hrBadgeFor(exec.email, hrStatus)}
+              onToggleStatus={handleToggleExecStatus}
+              onEdit={handleStartEditExec}
+              onDelete={handleDeleteExec}
+            />
+          ))}
         </div>
       </div>
 

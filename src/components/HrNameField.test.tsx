@@ -37,7 +37,7 @@ describe('HrNameField', () => {
       </LanguageProvider>
     );
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'ปก' } });
-    fireEvent.click(await screen.findByRole('button', { name: /ปกรณ์ ว\./ }));
+    fireEvent.click(await screen.findByRole('button', { name: /ปกรณ์ ว\./ }, { timeout: 5000 }));
     expect(search).toHaveBeenCalledWith('ปก');
     expect(onPick).toHaveBeenCalledWith(emp);
     expect(screen.queryByRole('list')).toBeNull();

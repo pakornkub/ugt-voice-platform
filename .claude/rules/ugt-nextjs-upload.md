@@ -26,17 +26,17 @@ the skill's `useTranslations('upload')` + `components/ui/button` /
 `entityType`/`entityId`) — see the `attachment` model in `prisma/schema.prisma`
 and `docs/project-context/decisions.md` for why.
 
-| กฎ                                                                                                                                                  | เหตุผล                                                                                    |
-| --------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| **ไม่มีสแกนไวรัส** (มติเจ้าของ 2026-10-09 — `[SCAN]` ของ skill ปิดไว้) แถวใหม่เป็น `scanStatus: 'unscanned'`                                        | ห้ามเพิ่มการสแกนไวรัสกลับมาโดยไม่มีมติใหม่                                                |
-| **path มาจาก id ที่ระบบสร้าง ห้ามมาจากชื่อไฟล์ผู้ใช้**                                                                                              | กัน path traversal — ชื่อเดิมเก็บใน DB ไว้แสดงผลเท่านั้น                                  |
-| **ห้ามเก็บไฟล์ใน `public/`**                                                                                                                        | ทุกอย่างใน `public/` เสิร์ฟโดยไม่ผ่าน auth                                                |
-| **ดาวน์โหลดผ่าน route ที่ guard เท่านั้น** — session → permission → `canReadAttachment` (ขอบเขตของ ticket) → บล็อกเฉพาะ `scanStatus === 'infected'` | ไฟล์อยู่บน volume ก็เพื่อให้ไม่มีทางลัดข้าม guard                                         |
-| **ส่งกลับเป็น `application/octet-stream` + `Content-Disposition: attachment` เสมอ**                                                                 | ไฟล์ `.svg`/`.html` ที่ไม่มีไวรัสก็ยังเป็น stored XSS ได้ถ้าเปิด inline บนโดเมนเรา        |
-| ไม่เจอไฟล์ กับ ไม่มีสิทธิ์ ตอบ **404 เหมือนกัน**                                                                                                    | 403 เป็นการยืนยันว่า id นั้นมีอยู่จริง                                                    |
-| ลบ = `IsDeleted = 1` ไม่ลบไฟล์ทันที — **ยังไม่มี retention/cleanup job ติดตั้ง**                                                                    | กู้คืนได้ · รอมติองค์กรเรื่อง background job ก่อนถึงจะลบไบต์จริงได้ (ดู decisions.md)     |
-| อัปโหลดใช้ **Route Handler ไม่ใช่ Server Action**                                                                                                   | Server Action จำกัด body ที่ `bodySizeLimit` (ค่าเริ่มต้น 1 MB) แล้ว error กำกวม          |
-| `canReadAttachment` เขียนจาก appRole + submitter email + RoleAccessConfigs ของโปรเจคนี้จริง                                                         | mirror ตรรกะเดียวกับ `GatekeeperInbox.tsx`/`ExecutiveDashboard.tsx` — ไม่ใช้ `!canSeeAll` |
+| กฎ                                                                                                                                                  | เหตุผล                                                                                |
+| --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| **ไม่มีสแกนไวรัส** (มติเจ้าของ 2026-10-09 — `[SCAN]` ของ skill ปิดไว้) แถวใหม่เป็น `scanStatus: 'unscanned'`                                        | ห้ามเพิ่มการสแกนไวรัสกลับมาโดยไม่มีมติใหม่                                            |
+| **path มาจาก id ที่ระบบสร้าง ห้ามมาจากชื่อไฟล์ผู้ใช้**                                                                                              | กัน path traversal — ชื่อเดิมเก็บใน DB ไว้แสดงผลเท่านั้น                              |
+| **ห้ามเก็บไฟล์ใน `public/`**                                                                                                                        | ทุกอย่างใน `public/` เสิร์ฟโดยไม่ผ่าน auth                                            |
+| **ดาวน์โหลดผ่าน route ที่ guard เท่านั้น** — session → permission → `canReadAttachment` (ขอบเขตของ ticket) → บล็อกเฉพาะ `scanStatus === 'infected'` | ไฟล์อยู่บน volume ก็เพื่อให้ไม่มีทางลัดข้าม guard                                     |
+| **ส่งกลับเป็น `application/octet-stream` + `Content-Disposition: attachment` เสมอ**                                                                 | ไฟล์ `.svg`/`.html` ที่ไม่มีไวรัสก็ยังเป็น stored XSS ได้ถ้าเปิด inline บนโดเมนเรา    |
+| ไม่เจอไฟล์ กับ ไม่มีสิทธิ์ ตอบ **404 เหมือนกัน**                                                                                                    | 403 เป็นการยืนยันว่า id นั้นมีอยู่จริง                                                |
+| ลบ = `IsDeleted = 1` ไม่ลบไฟล์ทันที — **ยังไม่มี retention/cleanup job ติดตั้ง**                                                                    | กู้คืนได้ · รอมติองค์กรเรื่อง background job ก่อนถึงจะลบไบต์จริงได้ (ดู decisions.md) |
+| อัปโหลดใช้ **Route Handler ไม่ใช่ Server Action**                                                                                                   | Server Action จำกัด body ที่ `bodySizeLimit` (ค่าเริ่มต้น 1 MB) แล้ว error กำกวม      |
+| `canReadAttachment` = เห็นเรื่องนั้นได้ (`resolveViewer` + `findVisibleTicket`, role จากรายชื่อ)                                                    | ไฟล์แนบต้องไม่กว้างกว่าสิทธิ์เห็นเรื่อง — ไม่อ่าน `User.AppRole` (เลิกใช้ 2026-10-09) |
 
 ```ts
 // ✅ ลำดับที่ถูก (ไม่มี virus scan ในโปรเจคนี้)
