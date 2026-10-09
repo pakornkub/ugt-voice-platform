@@ -93,3 +93,9 @@ sqlserver`** → `migration_lock.toml` was hand-written during the offline migra
 - **`npm ci` fails with `EPERM … lightningcss.win32-x64-msvc.node` and leaves `node_modules` half
   deleted** → a running `next dev` (preview server) holds the native module open → stop the dev
   server, rerun `npm ci`, then `prisma generate` (2026-10-09)
+- **Jenkins TypeScript stage: `TS2307: Cannot find module './x.webp'` while local `tsc` passes** →
+  static image imports are typed by `next/image-types/global`, referenced only from `next-env.d.ts`,
+  which `next dev/build` generates and `.gitignore` excludes; CI runs `tsc --noEmit` before
+  `next build`, so the file does not exist there → commit `src/static-images.d.ts` with
+  `/// <reference types="next/image-types/global" />`; reproduce locally by moving `next-env.d.ts`
+  aside and running `tsc` (2026-10-09). Stack-wide — candidate for `/ugt-contribute`.
