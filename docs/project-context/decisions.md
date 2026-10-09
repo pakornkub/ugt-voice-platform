@@ -777,3 +777,7 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   OWASP stage stayed UNSTABLE on non-exploitable findings, hiding real ones · rejected: downgrading
   eslint-config-next to 14.x (npm audit's "fix", incompatible with Next 16), overrides to
   non-existent fixed versions.
+- 2026-10-09 **Jenkins: `disableConcurrentBuilds()`** — a second push queues instead of running
+  `prisma migrate deploy` + `docker compose up` while the previous build still deploys (dev builds
+  #13/#14 overlapped) · rejected: a `lock()` around Deploy only (two builds would still race the
+  migrate step that runs inside Deploy before compose up — whole-job queuing is simpler).

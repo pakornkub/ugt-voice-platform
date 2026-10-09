@@ -18,6 +18,9 @@ pipeline {
 
     options {
         timestamps()
+        // One build per job at a time: a second push queues instead of running `prisma migrate
+        // deploy` + `docker compose up` against the same container while the first still deploys.
+        disableConcurrentBuilds()
         // No global timeout — OWASP NVD download can take 60-90 min on first run
         // Per-stage timeouts are set individually below
         buildDiscarder(logRotator(
