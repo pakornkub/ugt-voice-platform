@@ -271,7 +271,7 @@ model departmentGatekeeperConfig {
 
   departmentName         String  @map("DepartmentName") @db.NVarChar(300)
   departmentCode         String  @map("DepartmentCode") @db.NVarChar(50)
-  autoAssignMode         String  @default("off") @map("AutoAssignMode") @db.NVarChar(30) // off|round_robin|lead_manual|workload_balanced (lib/auto-assign.ts)
+  autoAssignMode         String  @default("lead_manual") @map("AutoAssignMode") @db.NVarChar(30) // off|round_robin|lead_manual|workload_balanced (lib/auto-assign.ts)
   escalationEmail        String? @map("EscalationEmail") @db.NVarChar(200)
   notificationWebhookUrl String? @map("NotificationWebhookUrl") @db.NVarChar(500)
 

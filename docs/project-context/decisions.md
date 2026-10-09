@@ -795,3 +795,9 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   category in on the Gatekeeper page (migration `20261009160000_auto_assign_default_off`) · rejected:
   keeping upstream's `lead_manual` default (every category would silently start assigning to its Lead
   on the next deploy).
+- 2026-10-09 **Auto-assign defaults to Lead Manual; new-ticket mail goes to the assignee** (owner) —
+  supersedes "Auto-assign defaults to `off`" above: every category starts on `lead_manual` (upstream's
+  "(แนะนำ)" mode; migration `20261009170000_auto_assign_default_lead`), and `notifyTicketSubmitted`
+  mails the assigned officer with the category Lead in CC (upstream's concept "notify the department
+  officer at once"), falling back to the Lead / escalation address when nobody was assigned ·
+  rejected: Lead-only mail (a round-robin/workload assignee would never hear about the ticket).

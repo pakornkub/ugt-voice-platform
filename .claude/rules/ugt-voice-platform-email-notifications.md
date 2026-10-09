@@ -14,8 +14,8 @@ paths:
 Decisions 2026-10-08 / 2026-10-09 (`docs/project-context/decisions.md`): email follows upstream's
 `AdminEmailNotificationSettings` model, which supersedes parts of `ugt-nextjs-mail.md` here:
 
-- Two triggers only — `onTicketSubmitted` (→ the category's Lead Gatekeeper, else the
-  department `escalationEmail`) and `onTicketResolved` (→ the submitter, on the transition into
+- Two triggers only — `onTicketSubmitted` (→ the auto-assigned officer with the category Lead in CC; unassigned → the
+  Lead, else the department `escalationEmail`) and `onTicketResolved` (→ the submitter, on the transition into
   `resolved` only) — each `{ enabled, subject, body }` plus `masterEnabled`. Tokens are
   single-brace `{ticketId}` (`interpolateEmailTemplate` in `src/services/emailDefaults.ts`).
 - Settings live in one `AppSettings` row (`email.notification-settings`, zod schema in

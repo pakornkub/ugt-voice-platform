@@ -252,6 +252,26 @@ describe('notifyTicketSubmitted', () => {
     expect(lastLog().body).toContain('สมชาย ใจดี');
   });
 
+  it('mails the auto-assigned officer with the Lead in CC, and logs the assignee', async () => {
+    await notifyTicketSubmitted(
+      ticket({ assignedOfficerName: 'สมศรี', assignedOfficerEmail: 'somsri@ube.co.th' }),
+      ctx
+    );
+    expect(mail.sendRenderedMail.mock.calls[0][0]).toMatchObject({
+      to: 'somsri@ube.co.th',
+      cc: 'lead.hr@ube.co.th',
+    });
+    expect(lastLog()).toMatchObject({ recipientEmail: 'somsri@ube.co.th', recipientName: 'สมศรี' });
+  });
+
+  it('does not CC the Lead when the Lead is the assignee', async () => {
+    await notifyTicketSubmitted(
+      ticket({ assignedOfficerName: 'Lead', assignedOfficerEmail: 'LEAD.hr@ube.co.th' }),
+      ctx
+    );
+    expect(mail.sendRenderedMail.mock.calls[0][0].cc).toBeUndefined();
+  });
+
   it('passes the actor through so dev mode redirects the mail', async () => {
     const devActor = { email: 'tester@ube.co.th', hasDevMode: true };
     await notifyTicketSubmitted(ticket(), { actor: devActor, userId: 'u' });

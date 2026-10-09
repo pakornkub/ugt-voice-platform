@@ -53,7 +53,8 @@ role + หมวดของ gatekeeper มาจาก `resolveViewer()` (`lib/
 
 - **จ่ายงานอัตโนมัติตอนยื่นเรื่อง** (2026-10-09) — server เลือกเจ้าหน้าที่เอง ไม่รับค่าจาก client
   (`lib/actions/tickets.ts:submitTicket` → `lib/auto-assign.ts:autoAssignOfficer`) ตาม `AutoAssignMode`
-  ของหมวด: `off` (**ค่าเริ่มต้น** — migration `20261009160000_auto_assign_default_off` ตั้งทุกหมวดเป็น off) = ไม่มอบหมาย (รอคัดกรองเอง) · `lead_manual` = Lead ของหมวด (ไม่มี Lead → คนแรก) ·
+  ของหมวด: `off` = ไม่มอบหมาย (รอคัดกรองเอง) · `lead_manual` (**ค่าเริ่มต้น** — migration
+  `20261009170000_auto_assign_default_lead` ตั้งทุกหมวดเป็นค่านี้) = Lead ของหมวด (ไม่มี Lead → คนแรก) ·
   `round_robin` = คนถัดจากผู้รับเรื่องล่าสุดของหมวด (วนกลับคนแรก) · `workload_balanced` = คนที่มีเรื่อง
   ค้าง (ไม่ใช่ resolved/closed) น้อยสุดในหมวด เสมอกันเอาตามลำดับรายชื่อ — นับเฉพาะเจ้าหน้าที่ active
   เรียงตาม `CreatedAt`; เรื่อง "ส่งตรง CEO/EVP" ไม่จ่ายอัตโนมัติ (RBAC อาจซ่อนเรื่องนี้จาก Gatekeeper);
@@ -145,10 +146,10 @@ role + หมวดของ gatekeeper มาจาก `resolveViewer()` (`lib/
 - **เรื่องส่งตรง CEO**: Gatekeeper ที่ไม่มี `canViewDirectCeoTickets` ไม่เห็นเรื่องเหล่านี้ใน inbox
   (`GatekeeperInbox.tsx` scopedTickets) และเปิดดูได้แค่หน้า Access Restricted
 - **Triage**: Gatekeeper ทบทวน urgency + riskSeverity แล้วส่งเข้า `updateTicketWorkflow`
-- **อีเมลแจ้งเตือน** (`AdminEmailNotificationSettings`, localStorage จนกว่าจะ rewiring):
-  `masterEnabled` + `onTicketSubmitted` (→ Lead Gatekeeper `leadOfficer.email` หรือ
-  `escalationEmail`) + `onTicketResolved` (→ ผู้ยื่น) ใช้ token `{ticketId}` ฯลฯ, มี dispatch log —
-  `dispatchEmailOnTicketSubmitted/Resolved` ใน `api.ts` ยังเป็นการจำลอง ไม่ได้ส่ง SMTP จริง
+- **อีเมลแจ้งเตือน** (`lib/email-notifications.ts`, ตั้งค่าใน `AppSettings`): `masterEnabled` +
+  `onTicketSubmitted` (→ เจ้าหน้าที่ที่ถูกจ่ายงานอัตโนมัติ + CC Lead ของหมวดเมื่อเป็นคนละคน;
+  ยังไม่มอบหมาย → Lead หรือ `escalationEmail`) + `onTicketResolved` (→ ผู้ยื่น) ใช้ token `{ticketId}`
+  ฯลฯ, ทุกครั้งลง `EmailDispatchLogs` (2026-10-09)
 - **CSAT**: เหลือดาวรวม + "ปัญหาได้รับการแก้ไขถาวรไหม" + ความคิดเห็น (`SatisfactionModal.tsx`) —
   คะแนนรายด้านทั้ง 4 ถูกบันทึกเท่ากับคะแนนรวม
 - **Dashboard ผู้บริหาร**: ตัด AI Strategic Briefing เหลือ "Real-Time Insights" + Top-3 ผู้ยื่น,

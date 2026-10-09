@@ -189,6 +189,8 @@ interface Recipient {
   role: EmailDispatchLog['recipientRole'];
   /** What the log (and the dev-mode banner) shows instead of `email` when it must stay hidden. */
   maskedEmail?: string;
+  /** Copied in (e.g. the category Lead when someone else was assigned). */
+  cc?: string;
 }
 
 interface DispatchSpec {
@@ -221,6 +223,7 @@ async function deliver(spec: DispatchSpec, subject: string, bodyText: string): P
       subject,
       html: renderBodyHtml(bodyText, spec.vars.trackingUrl),
       to,
+      cc: spec.recipient.cc,
       bannerTo: spec.recipient.maskedEmail,
       actor: spec.actor,
     });
@@ -275,6 +278,9 @@ export interface NotifiableTicket {
   submitterEmail: string | null;
   loginEmail: string | null;
   createdAt: Date;
+  /** Set when lib/auto-assign.ts picked an officer at submit time. */
+  assignedOfficerName?: string | null;
+  assignedOfficerEmail?: string | null;
 }
 
 export interface NotifyContext {
@@ -283,13 +289,27 @@ export interface NotifyContext {
   userId: string;
 }
 
-/** Category Lead Gatekeeper (upstream's recipient), else the department's escalation address. */
-async function gatekeeperRecipient(category: string): Promise<Recipient> {
+/**
+ * The officer the ticket was assigned to, with the category Lead in CC when that is someone else.
+ * Unassigned → the Lead Gatekeeper (upstream's recipient), else the department's escalation address.
+ */
+async function gatekeeperRecipient(ticket: NotifiableTicket): Promise<Recipient> {
+  const { category } = ticket;
   const config = await prisma.departmentGatekeeperConfig.findFirst({
     where: { category, isDeleted: false },
     include: { officers: { where: { isDeleted: false }, orderBy: { createdAt: 'asc' } } },
   });
   const lead = config?.officers.find((o) => o.isLead) ?? config?.officers[0];
+  const assigned = ticket.assignedOfficerEmail?.trim();
+  if (assigned) {
+    const leadEmail = lead?.email?.trim();
+    return {
+      email: assigned,
+      name: ticket.assignedOfficerName || assigned,
+      role: 'gatekeeper',
+      cc: leadEmail && leadEmail.toLowerCase() !== assigned.toLowerCase() ? leadEmail : undefined,
+    };
+  }
   return {
     email: lead?.email || config?.escalationEmail,
     name: lead?.name || `Gatekeeper ประจำฝ่าย ${categoryTh(category)}`,
@@ -326,14 +346,14 @@ async function submittedSkipReason(ticket: NotifiableTicket): Promise<string | u
     : 'Direct-to-executive ticket: the gatekeeper role may not view it';
 }
 
-/** Upstream rule "ticket submitted": tell the category's Lead Gatekeeper. Never throws. */
+/** Upstream rule "ticket submitted": tell the assigned officer (CC Lead), else the Lead. Never throws. */
 export async function notifyTicketSubmitted(
   ticket: NotifiableTicket,
   ctx: NotifyContext
 ): Promise<void> {
   try {
     const settings = await loadEmailSettings();
-    const recipient = await gatekeeperRecipient(ticket.category);
+    const recipient = await gatekeeperRecipient(ticket);
     const sender = senderIdentity(ticket);
     await dispatch({
       trigger: 'ticket_submitted',
