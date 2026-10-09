@@ -30,6 +30,7 @@ export interface TabDefinition {
   nameTh: string;
   nameEn: string;
   descriptionTh: string;
+  descriptionEn?: string;
   category: 'core' | 'operations' | 'executive' | 'administration';
   iconName: string;
   defaultRoles: UserRole[];
@@ -40,6 +41,7 @@ export interface RolePermissionConfig {
   roleTitleTh: string;
   roleTitleEn: string;
   descriptionTh: string;
+  descriptionEn?: string;
   badgeColor: string;
   allowedTabs: AppTabId[];
   // Gatekeeper departmental scope
@@ -180,7 +182,9 @@ export interface CategoryInfo {
   nameTh: string;
   nameEn: string;
   descriptionTh: string;
+  descriptionEn?: string;
   responsibleDept: string;
+  responsibleDeptEn?: string;
   badgeColor: string;
   iconName: string;
 }
