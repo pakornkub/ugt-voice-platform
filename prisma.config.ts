@@ -10,8 +10,8 @@ import { config } from 'dotenv';
 import { defineConfig } from 'prisma/config';
 
 // Load .env.local first (overrides .env)
-config({ path: '.env.local' });
-config();
+config({ path: '.env.local', quiet: true });
+config({ quiet: true });
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',

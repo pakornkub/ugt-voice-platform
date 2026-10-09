@@ -75,3 +75,13 @@ sqlserver`** → `migration_lock.toml` was hand-written during the offline migra
   from the shell → start Next with `node --use-system-ca node_modules/next/dist/bin/next dev`
   (keeps TLS verification) or set `NODE_TLS_REJECT_UNAUTHORIZED=0` in `.env.local` (dev only).
   Discovery is fetched once at auth init — restart the dev server after fixing (2026-10-09)
+- **SSO login → `/login?error=internal_server_error` right after Keycloak; no User/Account row
+  created** → Better Auth ≥ 1.7 scopes account identity by issuer and queries `account.issuer` in
+  the OAuth callback (`findAccountOwnerByKey`); the schema (from the org auth-setup asset, written
+  for 1.6) had no `Issuer` column, so the query throws and Better Auth maps it to
+  `internal_server_error` → add `issuer String @map("Issuer") @db.NVarChar(450)` +
+  `@@unique([issuer, accountId])` (migration `20261009000000_account_issuer`). Stack-wide: the
+  `ugt-nextjs-auth-setup` schema asset has the same gap — candidate for `/ugt-contribute` (2026-10-09)
+- **Offline `prisma migrate diff … > migration.sql` contains `◇ injected env (N) from .env…` lines**
+  → dotenv ≥ 17 logs to STDOUT from `prisma.config.ts` → `config({ quiet: true })` (kit 4.63
+  fix), delete the stray lines (2026-10-09)
