@@ -21,8 +21,11 @@ export async function runReport(reportId: unknown): Promise<RunReportResult> {
   let viewer: TicketViewer;
   try {
     viewer = await requireTicketViewer();
-  } catch {
-    return refused('UNAUTHORIZED');
+  } catch (error) {
+    // Only a missing session is 'UNAUTHORIZED'; a DB outage must not read as an expired login.
+    return refused(
+      error instanceof Error && error.message === 'UNAUTHORIZED' ? 'UNAUTHORIZED' : 'FAILED'
+    );
   }
   if (!canRunReports(viewer)) return refused('FORBIDDEN');
 

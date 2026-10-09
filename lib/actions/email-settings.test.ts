@@ -170,6 +170,16 @@ describe('resetEmailNotificationSettings', () => {
   });
 });
 
+describe('dispatch log is for HR admins only', () => {
+  it('returns no rows and refuses clearing for a non-admin with the roster tab', async () => {
+    access.requireTicketViewer.mockResolvedValue(viewer('gatekeeper', ['admin_gatekeeper']));
+    notifications.listDispatchLogs.mockResolvedValue([{ id: 'x' }]);
+    expect(await actions.getEmailDispatchLogs()).toEqual([]);
+    await expect(actions.clearEmailDispatchLogs()).rejects.toThrow('FORBIDDEN');
+    expect(notifications.clearDispatchLogs).not.toHaveBeenCalled();
+  });
+});
+
 describe('clearEmailDispatchLogs', () => {
   it('clears for the acting user and audits it', async () => {
     await actions.clearEmailDispatchLogs();

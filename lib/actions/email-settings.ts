@@ -25,7 +25,9 @@ export async function getEmailNotificationSettings(): Promise<EmailNotificationS
 }
 
 export async function getEmailDispatchLogs(): Promise<EmailDispatchLog[]> {
-  await requireTab(ROSTER_TABS);
+  const viewer = await requireTab(ROSTER_TABS);
+  // The log spans every category — HR admins only, even if another role has the roster tab.
+  if (viewer.role !== 'admin') return [];
   return listDispatchLogs();
 }
 
@@ -62,6 +64,7 @@ export async function resetEmailNotificationSettings(): Promise<EmailNotificatio
 /** Soft-deletes every dispatch-log row ("Clear Logs"). */
 export async function clearEmailDispatchLogs(): Promise<void> {
   const viewer = await requireTab(ROSTER_TABS);
+  if (viewer.role !== 'admin') throw new Error('FORBIDDEN');
   await clearDispatchLogs(viewer.userId);
   writeAudit(viewer, AUDIT_ACTIONS.EMAIL_LOGS_CLEAR, {});
 }

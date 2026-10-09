@@ -244,7 +244,7 @@ export function AuditLogsTable({
           <dialog
             open
             aria-labelledby="audit-detail-title"
-            className="animate-in fade-in zoom-in-95 relative flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+            className="animate-in fade-in zoom-in-95 relative m-0 flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-0 shadow-2xl"
           >
             <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 p-4">
               <h2 id="audit-detail-title" className="text-sm font-bold text-slate-900">

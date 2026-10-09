@@ -208,9 +208,12 @@ describe('rendering helpers', () => {
     expect(renderBodyHtml('plain')).not.toContain('<a ');
   });
 
-  it('builds the tracking link from APP_URL + basePath', () => {
-    expect(trackingUrlFor('TK-2026-1111')).toBe(
-      'https://ugtweb.ube.co.th/ugt-voice-platform/#tracking=TK-2026-1111'
+  it('links to the gatekeeper inbox or the tracking page under APP_URL + basePath', () => {
+    expect(trackingUrlFor('/gatekeeper')).toBe(
+      'https://ugtweb.ube.co.th/ugt-voice-platform/gatekeeper'
+    );
+    expect(trackingUrlFor('/my-tickets')).toBe(
+      'https://ugtweb.ube.co.th/ugt-voice-platform/my-tickets'
     );
   });
 
@@ -236,7 +239,7 @@ describe('notifyTicketSubmitted', () => {
     expect(mailArgs.subject).toContain('High');
     expect(mailArgs.html).toContain('&lt;b&gt;แย่&lt;/b&gt; &amp; &quot;มาก&quot;');
     expect(mailArgs.html).not.toContain('<b>แย่');
-    expect(mailArgs.html).toContain('https://ugtweb.ube.co.th/ugt-voice-platform/#tracking=');
+    expect(mailArgs.html).toContain('https://ugtweb.ube.co.th/ugt-voice-platform/gatekeeper');
     expect(lastLog()).toMatchObject({
       triggerEvent: 'ticket_submitted',
       ticketId: 'tk1',
@@ -336,6 +339,9 @@ describe('notifyTicketSubmitted', () => {
     expect(mail.sendRenderedMail).not.toHaveBeenCalled();
     expect(lastLog()).toMatchObject({ status: 'disabled' });
     expect(lastLog().errorMessage).toContain('Direct-to-executive');
+    // the withheld ticket text is not kept in the log either
+    expect(lastLog().body).not.toContain(ticket().description ?? '__none__');
+    expect(lastLog().body).toContain('ไม่ได้ส่ง');
 
     db.prisma.roleAccessConfig.findFirst.mockResolvedValue(null);
     await notifyTicketSubmitted(ticket({ isDirectToExecutive: true }), ctx);
@@ -377,6 +383,15 @@ describe('notifyTicketResolved', () => {
       status: 'sent',
     });
     expect(lastLog().body).toContain('Gatekeeper Supervisor');
+  });
+
+  it('mails the signed-in login email first, never a typed submitter address', async () => {
+    await notifyTicketResolved(
+      ticket({ loginEmail: 'real@ube.co.th', submitterEmail: 'typed@elsewhere.com' }),
+      details,
+      ctx
+    );
+    expect(mail.sendRenderedMail.mock.calls[0][0].to).toBe('real@ube.co.th');
   });
 
   it('uses the login email when the submitter email is empty, and fails when there is none', async () => {

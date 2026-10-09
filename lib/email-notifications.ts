@@ -148,9 +148,10 @@ export function mailActorFor(viewer: Pick<TicketViewer, 'email' | 'role' | 'conf
 }
 
 /** Absolute link for the mail — mail is opened outside the app, so a relative URL is useless. */
-export function trackingUrlFor(trackingCode: string): string {
+/** Where the mail's link lands: the gatekeeper inbox for staff, the tracking page for submitters. */
+export function trackingUrlFor(page: '/gatekeeper' | '/my-tickets'): string {
   const origin = (env.APP_URL || env.BETTER_AUTH_URL || '').replace(/\/+$/, '');
-  return `${origin}${env.NEXT_PUBLIC_BASE_PATH}/#tracking=${trackingCode}`;
+  return `${origin}${env.NEXT_PUBLIC_BASE_PATH}${page}`;
 }
 
 /** Plain-text template → HTML. Every value (and the admin's text) is escaped; newlines kept. */
@@ -202,6 +203,8 @@ interface DispatchSpec {
   subjectPrefix?: string;
 }
 
+const NOT_SENT_BODY = '(ไม่ได้ส่งอีเมลฉบับนี้ — ระบบไม่เก็บเนื้อหา)';
+
 type Outcome = Pick<EmailDispatchLog, 'status'> & { errorMessage?: string };
 
 async function deliver(spec: DispatchSpec, subject: string, bodyText: string): Promise<Outcome> {
@@ -240,7 +243,8 @@ async function dispatch(spec: DispatchSpec): Promise<EmailDispatchLog> {
       recipientName: spec.recipient.name.slice(0, 200),
       recipientRole: spec.recipient.role,
       subject,
-      body: bodyText,
+      // A skipped/failed mail keeps no ticket text — the log must not reveal what was withheld.
+      body: outcome.status === 'sent' ? bodyText : NOT_SENT_BODY,
       status: outcome.status,
       deliveryChannel: DELIVERY_CHANNEL,
       errorMessage: outcome.errorMessage,
@@ -349,7 +353,7 @@ export async function notifyTicketSubmitted(
         urgency: ticket.urgency,
         description: ticket.description || '-',
         submissionDate: formatDate(ticket.createdAt),
-        trackingUrl: trackingUrlFor(ticket.trackingCode),
+        trackingUrl: trackingUrlFor('/gatekeeper'),
       },
     });
   } catch (error) {
@@ -363,7 +367,8 @@ export interface ResolvedDetails {
 }
 
 function submitterRecipient(ticket: NotifiableTicket): Recipient {
-  const email = ticket.submitterEmail || ticket.loginEmail;
+  // loginEmail is the signed-in submitter (server-set); the typed submitterEmail only for legacy rows.
+  const email = ticket.loginEmail || ticket.submitterEmail;
   if (ticket.confidentiality === 'standard_named') {
     return { email, name: ticket.submitterName || 'พนักงานผู้ยื่นเรื่อง', role: 'employee' };
   }
@@ -400,7 +405,7 @@ export async function notifyTicketResolved(
         resolvedDate: formatDate(new Date()),
         resolutionNotes:
           details.resolutionNotes || 'ดำเนินการแก้ไขและปรับปรุงตามขั้นตอนเรียบร้อยแล้ว',
-        trackingUrl: trackingUrlFor(ticket.trackingCode),
+        trackingUrl: trackingUrlFor('/my-tickets'),
       },
     });
   } catch (error) {
@@ -432,7 +437,7 @@ function testVars(trigger: 'ticket_submitted' | 'ticket_resolved'): Record<strin
     resolvedDate: now,
     resolutionNotes:
       'ได้ปรับปรุงแบบฟอร์มเบิกจ่ายออนไลน์และเพิ่มช่องทางยืนยันเอกสารผ่านระบบอัตโนมัติแล้ว',
-    trackingUrl: trackingUrlFor('TK-2026-TEST'),
+    trackingUrl: trackingUrlFor('/my-tickets'),
   };
 }
 

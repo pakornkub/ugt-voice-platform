@@ -753,3 +753,11 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
 - 2026-10-09 **`User.AppRole` dropped** (migration `20261009140000_drop_user_app_role`, runs after the
   roster data migration that copied `AppRole=admin` users into `HrAdminMembers`) · **because** the
   role comes from the rosters and an unread column invites someone to trust it again.
+- 2026-10-09 **Email review fixes** — dev mode is granted to **every** role on the dev environment
+  (not only admin), so no QA action on dev mails a real person; the resolved mail goes to the
+  signed-in submitter's `loginEmail` first (a typed `submitterEmail` only for legacy rows, and it
+  must be one plain address); the dispatch log keeps the body only for `sent` rows and is readable /
+  clearable by HR admins only; mail links land on `/gatekeeper` (staff) or `/my-tickets`
+  (submitter) — upstream's `#tracking=` hash was read by nothing · **because** the review found a
+  client-chosen recipient, real mail from non-admin testers on dev, and withheld ticket text
+  readable through the log.

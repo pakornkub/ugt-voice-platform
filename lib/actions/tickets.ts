@@ -81,6 +81,8 @@ const TICKET_FIELDS = z.looseObject({
     .enum(['submitted', 'gatekeeper_triaged', 'in_progress', 'resolved', 'closed'])
     .optional(),
   urgency: z.enum(['Low', 'Medium', 'High', 'Critical']).optional(),
+  // One plain address (the resolved mail may go here for legacy rows) — no lists, no headers.
+  submitterEmail: z.union([z.literal(''), z.email().max(200)]).optional(),
   riskSeverity: z.enum(['Low', 'Moderate', 'High', 'Severe']).optional(),
   rootCauseCategory: z
     .enum(['Process', 'People', 'Equipment/Tools', 'Policy/Governance', 'Workplace/Facilities'])
@@ -394,7 +396,7 @@ export async function updateTicketWorkflow(
     notifyTicketResolved(
       updated,
       {
-        resolvedBy: actor,
+        resolvedBy: viewer.name || actor,
         resolutionNotes:
           updates.resolutionSummary ||
           updates.actionNote ||

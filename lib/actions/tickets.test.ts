@@ -138,6 +138,13 @@ describe('reads', () => {
 });
 
 describe('submitTicket', () => {
+  it('refuses a submitter email that is not one plain address', async () => {
+    await expect(
+      submitTicket({ ...payload, submitterEmail: 'a@x.com, b@y.com' })
+    ).rejects.toThrow();
+    expect(db.prisma.ticket.create).not.toHaveBeenCalled();
+  });
+
   it('stamps the session login email, writes the notification and the audit log', async () => {
     db.prisma.ticket.create.mockImplementation(async ({ data }) =>
       row({ ...data, timeline: [], id: 'tk-new' })
@@ -368,7 +375,8 @@ describe('updateTicketWorkflow — resolved email', () => {
     expect(mail.notifyTicketResolved).toHaveBeenCalledTimes(1);
     const [notified, details, ctx] = mail.notifyTicketResolved.mock.calls[0];
     expect(notified).toMatchObject({ id: 'tk1', status: 'resolved' });
-    expect(details).toEqual({ resolvedBy: 'Gatekeeper Supervisor', resolutionNotes: 'แก้แล้ว' });
+    // the real officer's name, as upstream's mail showed — not the generic triage label
+    expect(details).toEqual({ resolvedBy: 'Session gatekeeper', resolutionNotes: 'แก้แล้ว' });
     expect(ctx.userId).toBe('user-gatekeeper');
   });
 

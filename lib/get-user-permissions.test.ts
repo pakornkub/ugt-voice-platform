@@ -11,10 +11,11 @@ describe('permissionsFor', () => {
   it('gives every role attachments and follows the RBAC tabs for users / audit logs', async () => {
     const { permissionsFor } = await import('./get-user-permissions');
     const { PERMISSIONS } = await import('./permissions');
-    expect(permissionsFor('employee', ['submit'])).toEqual([
-      PERMISSIONS.FILES_CREATE,
-      PERMISSIONS.FILES_READ,
-    ]);
+    const employee = permissionsFor('employee', ['submit']);
+    expect(employee).toEqual(
+      expect.arrayContaining([PERMISSIONS.FILES_CREATE, PERMISSIONS.FILES_READ])
+    );
+    expect(employee).not.toContain(PERMISSIONS.USERS_READ);
     expect(permissionsFor('gatekeeper', ['admin_audit_logs'])).toContain(
       PERMISSIONS.AUDIT_LOGS_READ
     );
@@ -36,12 +37,15 @@ describe('permissionsFor', () => {
 });
 
 describe('mail dev mode', () => {
-  it('is granted to admin only on the dev environment', async () => {
+  it('is granted to every role on the dev environment and to nobody in production', async () => {
     const { permissionsFor } = await import('./get-user-permissions');
     const { PERMISSIONS } = await import('./permissions');
     expect(permissionsFor('admin', [])).toContain(PERMISSIONS.DEV_MODE);
+    expect(permissionsFor('gatekeeper', [])).toContain(PERMISSIONS.DEV_MODE);
+    expect(permissionsFor('employee', [])).toContain(PERMISSIONS.DEV_MODE);
     testEnv.NEXT_PUBLIC_BASE_PATH = '/ugt-voice-platform';
     expect(permissionsFor('admin', [])).not.toContain(PERMISSIONS.DEV_MODE);
+    expect(permissionsFor('employee', [])).not.toContain(PERMISSIONS.DEV_MODE);
     testEnv.NEXT_PUBLIC_BASE_PATH = '/ugt-voice-platform-dev';
   });
 });
