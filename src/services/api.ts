@@ -20,6 +20,9 @@ const BASE_PATH = env.NEXT_PUBLIC_BASE_PATH;
 // Collision-free local id. Upstream used `${Date.now()}-${random 0-999}`, which repeats when two
 // items are created in the same millisecond — removing one recent search then removed both.
 // crypto.randomUUID exists in every place this runs (HTTPS/localhost browsers, Node 22, jsdom).
+/** The page origin in the browser, empty on the server (links are built client-side). */
+const appOrigin = (): string => globalThis.location?.origin ?? '';
+
 const uniqueId = (prefix: string): string => `${prefix}-${globalThis.crypto.randomUUID()}`;
 
 const STORAGE_KEY_GATEKEEPERS = 'enterprise_grievance_gatekeepers_v3';
@@ -190,8 +193,8 @@ export async function getClusterInsightsWithAI(tickets: ComplaintTicket[]) {
 export function logTicketSubmittedEmail(ticket: ComplaintTicket) {
   try {
     dispatchEmailOnTicketSubmitted(ticket);
-  } catch (emailErr) {
-    console.warn('Auto email dispatch error on ticket submit:', emailErr);
+  } catch (error_) {
+    console.warn('Auto email dispatch error on ticket submit:', error_);
   }
 }
 
@@ -208,8 +211,8 @@ export function logTicketResolvedEmail(
         'ดำเนินการตรวจสอบและแก้ไขปัญหาเรียบร้อยตามมาตรฐานการปฏิบัติงาน',
       updates.actorName || 'เจ้าหน้าที่ Gatekeeper'
     );
-  } catch (emailErr) {
-    console.warn('Auto email dispatch error on ticket resolve:', emailErr);
+  } catch (error_) {
+    console.warn('Auto email dispatch error on ticket resolve:', error_);
   }
 }
 
@@ -405,11 +408,11 @@ export function getStoredEmailNotificationSettings(): EmailNotificationSettings 
         ...parsed,
         onTicketSubmitted: {
           ...DEFAULT_EMAIL_SETTINGS.onTicketSubmitted,
-          ...(parsed.onTicketSubmitted || {}),
+          ...parsed.onTicketSubmitted,
         },
         onTicketResolved: {
           ...DEFAULT_EMAIL_SETTINGS.onTicketResolved,
-          ...(parsed.onTicketResolved || {}),
+          ...parsed.onTicketResolved,
         },
       };
     }
@@ -519,7 +522,7 @@ export function dispatchEmailOnTicketSubmitted(ticket: ComplaintTicket): EmailDi
     urgency: ticket.urgency,
     description: ticket.description || '-',
     submissionDate: new Date(ticket.createdAt).toLocaleString('th-TH'),
-    trackingUrl: `${typeof window !== 'undefined' ? window.location.origin : ''}${BASE_PATH}/#tracking=${ticket.trackingCode}`,
+    trackingUrl: `${appOrigin()}${BASE_PATH}/#tracking=${ticket.trackingCode}`,
   };
 
   const isEnabled = settings.masterEnabled && settings.onTicketSubmitted.enabled;
@@ -572,7 +575,7 @@ export function dispatchEmailOnTicketResolved(
     resolvedBy: resolvedBy || 'เจ้าหน้าที่ผู้รับผิดชอบ',
     resolvedDate: new Date().toLocaleString('th-TH'),
     resolutionNotes: resolutionNotes || 'ดำเนินการแก้ไขและปรับปรุงตามขั้นตอนเรียบร้อยแล้ว',
-    trackingUrl: `${typeof window !== 'undefined' ? window.location.origin : ''}${BASE_PATH}/#tracking=${ticket.trackingCode}`,
+    trackingUrl: `${appOrigin()}${BASE_PATH}/#tracking=${ticket.trackingCode}`,
   };
 
   const isEnabled = settings.masterEnabled && settings.onTicketResolved.enabled;
@@ -623,7 +626,7 @@ export function sendTestEmailNotification(
     resolvedDate: new Date().toLocaleString('th-TH'),
     resolutionNotes:
       'ได้ปรับปรุงแบบฟอร์มเบิกจ่ายออนไลน์และเพิ่มช่องทางยืนยันเอกสารผ่านระบบอัตโนมัติแล้ว',
-    trackingUrl: `${typeof window !== 'undefined' ? window.location.origin : ''}${BASE_PATH}/#tracking=TK-2026-TEST`,
+    trackingUrl: `${appOrigin()}${BASE_PATH}/#tracking=TK-2026-TEST`,
   };
 
   const template =
@@ -659,7 +662,7 @@ export function sendTestEmailNotification(
 // ============================================================================
 
 export function getRecentSearches(): RecentSearchItem[] {
-  if (typeof window === 'undefined') return [];
+  if (typeof globalThis.window === 'undefined') return [];
   const stored = safeStorage.getItem(STORAGE_KEY_RECENT_SEARCHES);
   if (!stored) return [];
   try {
@@ -671,7 +674,7 @@ export function getRecentSearches(): RecentSearchItem[] {
 }
 
 export function saveRecentSearches(items: RecentSearchItem[]): void {
-  if (typeof window === 'undefined') return;
+  if (typeof globalThis.window === 'undefined') return;
   safeStorage.setItem(STORAGE_KEY_RECENT_SEARCHES, JSON.stringify(items));
 }
 
@@ -716,6 +719,6 @@ export function removeRecentSearch(id: string): RecentSearchItem[] {
 }
 
 export function clearRecentSearches(): void {
-  if (typeof window === 'undefined') return;
+  if (typeof globalThis.window === 'undefined') return;
   safeStorage.removeItem(STORAGE_KEY_RECENT_SEARCHES);
 }

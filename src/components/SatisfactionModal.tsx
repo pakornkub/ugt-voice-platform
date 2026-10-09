@@ -209,9 +209,9 @@ export const SatisfactionModal: React.FC<Readonly<SatisfactionModalProps>> = ({
                   id="btn-resolved-no"
                   onClick={() => setIsResolvedPermanently(false)}
                   className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold shadow-2xs transition ${
-                    !isResolvedPermanently
-                      ? 'border border-rose-600 bg-rose-600 text-white shadow-xs ring-2 ring-rose-300'
-                      : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
+                    isResolvedPermanently
+                      ? 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
+                      : 'border border-rose-600 bg-rose-600 text-white shadow-xs ring-2 ring-rose-300'
                   }`}
                 >
                   <X className="h-4 w-4" />
