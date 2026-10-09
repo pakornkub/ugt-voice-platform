@@ -58,6 +58,14 @@
   (client-safe labels/columns) + `lib/actions/reports.ts:runReport` — the five preset reports of
   `ExportAnalyticsModal`'s "SQL Query Studio" (admin only). Replaced the sql.js browser shadow DB
   on 2026-10-09 (rewiring slice 5).
+- `lib/auto-assign.ts` (server-only: `pickAssignee` pure + `autoAssignOfficer` per category
+  `AutoAssignMode`) — called by `lib/actions/tickets.ts:submitTicket`; the assignee then receives
+  the new-ticket mail with the Lead in CC (2026-10-09).
+- i18n: `src/context/useTr.ts` (`tr(en, th)`), `LanguageContext` (also sets `<html lang>`),
+  `src/services/serverText.ts` (`localizeServerText` — maps server-written Thai stored in
+  timeline/notification/log rows to EN at render time; keep in step with `lib/actions/tickets.ts`,
+  `lib/ticket-scope.ts`, `lib/email-notifications.ts`), `src/components/AuthLanguageSwitch.tsx`
+  (login/setup) — every screen bilingual since 2026-10-09.
 - `src/services/safeStorage.ts` — SSR-safe `localStorage` wrapper (no-ops on the server;
   needed because Next.js server-renders `'use client'` components once before hydration).
 - `src/types.ts` — domain model (`ComplaintTicket`, `NotificationItem`, `RolePermissionConfig`,

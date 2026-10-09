@@ -4,75 +4,53 @@ Last updated: 2026-10-09
 
 ## In progress
 
-- Nothing in progress. The localStorage → SQL Server rewiring is complete (slices 1–5). Everything
-  is on `main` and pushed to `develop` (dev deploy).
-- Dev deploy runs four migrations in order:
-  - `20261009120000_roster_roles_data`
-  - `20261009130000_email_dispatch_logs`
-  - `20261009140000_drop_user_app_role`
-  - `20261009150000_notification_reads`
+- Nothing in progress. `main` = `develop` = prod (`2f1e450`, pushed 2026-10-09; Jenkins
+  `ugt-voice-platform` deploys it). Dev build #20 green, Quality Gate OK (`new_violations` 0).
+- Migrations applied on DEV, and run on prod by the deploy: `account_issuer`, `roster_roles_data`,
+  `email_dispatch_logs`, `drop_user_app_role`, `notification_reads`, `auto_assign_default_off`,
+  `auto_assign_default_lead` (all `20261009*`).
 
 ## Next
 
-- **Owner QA on dev** (needs a real SSO login; Claude can't enter passwords) at
-  `https://ugtweb.ube.co.th/ugt-voice-platform-dev`:
-  - roster pickers and HR badges, and the `/admin/users` source column
-  - submit with real attachments, then download them from the tracking modal
-  - email settings, a test send, and the dispatch log
-  - SQL Query Studio preset reports
-  - per-person notification badges
-  - Dev mode is on for every role on dev, so all workflow mail comes back to the actor.
-- **Prod deploy** = push `main` to `origin` (Jenkins `ugt-voice-platform`). This is the owner's
-  call; auto mode blocks Claude from deploying prod. Before the deploy:
-  - The prod Keycloak client `ugt-voice-platform` must exist.
-  - The app DB login must not be `sa`.
-  - SMTP settings must be set in `env-ugt-voice-platform`.
-  - In prod, dev mode is off, so mail goes to real people.
-- **OWASP UNSTABLE:** high findings left in the `eslint-config-next` dev-tool chain (`braces` has no
-  fix yet).
-- **`/ugt-contribute`** (needs the owner's OK, opens PRs on the platform repo):
-  - auth-setup schema lacks `Account.Issuer` (Better Auth 1.7)
-  - upload-setup `verify.mjs` requires ClamAV although scanning is opt-in
-  - proxy `/login` redirect on cookie presence loops on a stale cookie
-- **Remaining Sonar debt** (pre-existing, outside the gate): `EmployeeSubmitForm` component
-  complexity, plus a few upstream a11y items.
-- **`/setup-matt-pocock-skills`** has not been run; run it before the first `/grill-with-docs`.
+- **Owner QA on prod** (SSO login needs the owner; Claude can't enter passwords — the auto-mode
+  classifier also blocks Claude from starting SSO on prod): first login → `/admin/setup`, then
+  roster pickers, RBAC, a test ticket. Prod mail goes to real people (no dev mode).
+- **Clean up QA data on DEV**: tickets TK-2026-5377 and TK-2026-1184 (+ attachment, email log rows).
+- **Platform PRs** pakornkub/ugt-claude-platform #16–#20 — merge one at a time in that order and
+  renumber the later versions (all bump from 4.73.0); `/plugin update` only after merge + tag.
+- **Gemini / PDPA**: complaint text (incl. anonymous) goes to Google Gemini when `GEMINI_API_KEY` is
+  set — Compliance/DPO to confirm, or remove the key. `/api/ai/*` only checks cookie presence (no
+  real session, no rate limit) — small hardening task if wanted.
+- OWASP: two reviewed suppressions (`braces`, `sprintf-js`) — remove when fixed versions ship.
+- `/setup-matt-pocock-skills` has not been run; run it before the first `/grill-with-docs`.
 
 ## Open Questions
 
-- **`DATABASE_URL` uses the `sa` login** (dev and prod `.env`). DBA/owner: create an app login per
-  `docs/admin-handoff.md` §1.1 before prod.
-- `.claude/settings.json` has an uncommitted change that empties `enabledPlugins`. Owner: commit
-  it, or run `git checkout -- .claude/settings.json`.
-- `.claude/launch.json` has local edits (`node --use-system-ca` dev server); not committed.
+- **`DATABASE_URL` uses the `sa` login** (dev and prod) and its password was printed in Jenkins logs
+  of dev builds ≤ #14 and prod build #2 (fixed since `36db572`) — DBA/owner: rotate it now and switch
+  to an app login per `docs/admin-handoff.md` §1.1.
+- Prod Keycloak client `ugt-voice-platform` and prod SMTP values in `env-ugt-voice-platform` —
+  unverified by Claude; owner to confirm with a real login / test send.
+- `.claude/settings.json` (empties `enabledPlugins`) and `.claude/launch.json` local edits — not
+  committed; owner: commit or `git checkout --` them.
 - Retention for soft-deleted attachments: no cleanup job yet. Owner: Admin/Compliance.
 - Approval chain (`HR_SC_AuthorizeEmployee_ms`) is not used. Revisit if a workflow needs it.
 
 ## Done (newest first — older chunks condensed; full detail in git log + docs/project-context/)
 
-- 2026-10-09 **Slice 4, real attachments** (`53bf56a`):
-  - Picker in the submit form; files upload after the ticket exists.
-  - Tracking modal shows guarded download links.
-  - Upload route checks Origin and Content-Length.
-  - Per-person notification reads (`0502a6c`); `User.AppRole` dropped.
-- 2026-10-09 **Slice 3, email** (`211b19c`, review fixes `0390502`):
-  - Settings in `AppSettings`; `EmailDispatchLogs` table.
-  - Real SMTP via `lib/email-notifications.ts`.
-  - Dev mode on the dev environment only.
-- 2026-10-09 **Slice 5, SQL Query Studio** (`805975d`): five server-side preset reports; sql.js
-  removed.
-- 2026-10-09 **Sonar / a11y debt** (`98acc71`, `fbdde98`, `b469d7c`): labels, dialogs,
-  `SatisfactionModal` split, memoized shell context, deprecated `FormEvent` → `SubmitEvent`. Quality
-  Gate OK on dev.
-- 2026-10-09 **Slice 2, roles from the people rosters** (`a495462`, `49eea9a`): HR-view pickers,
-  guarded roster/RBAC actions, read-only `/admin/users`.
-- 2026-10-09 **Slice 1, tickets + notifications in SQL Server** (`20f0c7b`). Responsive header/pills
-  (`d0900d3`, `40e43f3`); stale-cookie login loop fixed.
-- 2026-10-09 **Single permission system** (`ba61cc2`). SSO issuer fix (`c255456`). Dev deploy
-  green; DEV DB live.
-- 2026-10-09 **Upstream port phase 2** merged. Renames/infra:
-  - App id `ugt-voice-platform`; basePath on `ugtweb.ube.co.th`.
-  - ClamAV removed.
-  - DB names `UGT_VoicePlatform[_DEV]`.
-- 2026-10-08 Upstream port phase 1 (`8e3b46c`); Next.js 15 → 16 (`c02b8c9`). Earlier: harness, CI/CD,
-  setup chunks, Vite → Next.js migration (2026-09).
+- 2026-10-09 **Prod deploy**: `main` pushed (`9713263..2f1e450`, 42 commits).
+- 2026-10-09 **Every screen bilingual TH/EN** (`87929b7`, Sonar fix `2f1e450`): admin pages,
+  manual, inbox, report, export/SQL Studio, login/setup language switch; stored Thai server text
+  mapped by `src/services/serverText.ts`; AI routes answer in the UI language. Thai output unchanged.
+- 2026-10-09 **Auto-assign real** (`88af630`, `beda23d`): `lib/auto-assign.ts` per category mode
+  (off / lead_manual default / round_robin / workload_balanced); new-ticket mail → assignee, CC Lead.
+  Verified live on DEV (TK-2026-1184 → HR Lead, System timeline row, mail Sent).
+- 2026-10-09 **Platform PRs** #16–#20 opened (login loop, Account.Issuer, no concurrent deploys,
+  upload verify without scan, OWASP dev-chain suppressions); entries removed from troubleshooting.md.
+- 2026-10-09 **Tech debt + docs** (`672b2a7`, `744232d`, `9bbce0e`): HR badge AD-login match,
+  `EmployeeSubmitForm` split, Sonar fixes, manual + admin-handoff updated. Jenkins:
+  `disableConcurrentBuilds`, migrate step no longer prints `DATABASE_URL` (`36db572`).
+- 2026-10-09 **Rewiring slices 1–5** (`20f0c7b`, `a495462`, `211b19c`, `53bf56a`, `805975d`):
+  tickets/notifications, roster roles, email + dispatch log, attachments, preset reports in SQL Server.
+- 2026-10-09 Single permission system (`ba61cc2`), SSO issuer fix (`c255456`), dev deploy green.
+- 2026-10-08 Upstream port phase 1/2, Next.js 16. Earlier: harness, CI/CD, setup chunks (2026-09).
