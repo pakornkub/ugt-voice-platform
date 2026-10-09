@@ -4,6 +4,7 @@ import { INITIAL_ROLE_PERMISSIONS } from '@/services/api';
 import type { TicketViewer } from '@/lib/ticket-scope';
 import type { UserRole } from '@/types';
 
+const assign = vi.hoisted(() => ({ autoAssignOfficer: vi.fn() }));
 const db = vi.hoisted(() => {
   const prisma = {
     ticket: { create: vi.fn(), update: vi.fn() },
@@ -30,6 +31,7 @@ const mail = vi.hoisted(() => ({
 vi.mock('@/lib/prisma', () => db);
 vi.mock('@/lib/email-notifications', () => mail);
 vi.mock('@/lib/ticket-access', () => access);
+vi.mock('@/lib/auto-assign', () => assign);
 
 const {
   getTicketByTrackingCode,
@@ -115,6 +117,7 @@ beforeEach(() => {
   mail.mailActorFor.mockReturnValue({ email: 'employee@ube.co.th', hasDevMode: false });
   mail.notifyTicketSubmitted.mockResolvedValue(undefined);
   mail.notifyTicketResolved.mockResolvedValue(undefined);
+  assign.autoAssignOfficer.mockResolvedValue(null);
 });
 
 describe('reads', () => {
@@ -156,7 +159,8 @@ describe('submitTicket', () => {
     expect(data.loginEmail).toBe('employee@ube.co.th');
     expect(data.createdBy).toBe('user-employee');
     expect(data.trackingCode).toMatch(/^TK-\d{4}-\d{4}$/);
-    expect(data.timeline.create).toMatchObject({
+    expect(data.timeline.create).toHaveLength(1);
+    expect(data.timeline.create[0]).toMatchObject({
       actor: 'สมชาย',
       notes: 'ระบบได้รับเรื่องและเข้าสู่คิวคัดกรองของ Gatekeeper',
     });
@@ -201,10 +205,42 @@ describe('submitTicket', () => {
 
     const { data } = db.prisma.ticket.create.mock.calls[0][0];
     expect(data.isAnonymousMapped).toBe(true);
-    expect(data.timeline.create.actor).toBe('พนักงานผู้ยื่นเรื่อง (ไม่ระบุตัวตน)');
-    expect(data.timeline.create.notes).toContain('ยื่นเรื่องแบบไม่ระบุตัวตน');
+    expect(data.timeline.create[0].actor).toBe('พนักงานผู้ยื่นเรื่อง (ไม่ระบุตัวตน)');
+    expect(data.timeline.create[0].notes).toContain('ยื่นเรื่องแบบไม่ระบุตัวตน');
     const notifs = db.prisma.notification.createMany.mock.calls[0][0].data;
     expect(notifs.map((n: { type: string }) => n.type)).toEqual(['new_ticket', 'direct_ceo_alert']);
+  });
+
+  it('assigns the officer the category mode picks, ignoring one sent by the client', async () => {
+    db.prisma.ticket.create.mockImplementation(async ({ data }) => row({ ...data, timeline: [] }));
+    assign.autoAssignOfficer.mockResolvedValue({ name: 'สมศรี', email: 'somsri@ube.co.th' });
+
+    await submitTicket({ ...payload, assignedOfficerName: 'Mallory', assignedOfficerEmail: 'm@x' });
+
+    expect(assign.autoAssignOfficer).toHaveBeenCalledWith('HR');
+    const { data } = db.prisma.ticket.create.mock.calls[0][0];
+    expect(data).toMatchObject({
+      assignedOfficerName: 'สมศรี',
+      assignedOfficerEmail: 'somsri@ube.co.th',
+    });
+    expect(data.timeline.create[1]).toMatchObject({
+      actorRole: 'System',
+      action: 'มอบหมายเจ้าหน้าที่ผู้รับผิดชอบอัตโนมัติ: สมศรี',
+    });
+  });
+
+  it('leaves the ticket unassigned when the mode is off or the ticket goes to executives', async () => {
+    db.prisma.ticket.create.mockImplementation(async ({ data }) => row({ ...data, timeline: [] }));
+    assign.autoAssignOfficer.mockResolvedValue(null);
+    await submitTicket(payload);
+    assign.autoAssignOfficer.mockResolvedValue({ name: 'สมศรี', email: 'somsri@ube.co.th' });
+    await submitTicket({ ...payload, isDirectToExecutive: true });
+
+    expect(assign.autoAssignOfficer).toHaveBeenCalledTimes(1);
+    for (const [{ data }] of db.prisma.ticket.create.mock.calls) {
+      expect(data.assignedOfficerEmail).toBeNull();
+      expect(data.timeline.create).toHaveLength(1);
+    }
   });
 
   it('writes the ticket and its notifications in one transaction', async () => {

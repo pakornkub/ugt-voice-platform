@@ -233,7 +233,7 @@ export interface DepartmentGatekeeperConfig {
   departmentCode: string;
   leadOfficer: GatekeeperOfficer;
   officers: GatekeeperOfficer[];
-  autoAssignMode: 'round_robin' | 'lead_manual' | 'workload_balanced';
+  autoAssignMode: 'off' | 'round_robin' | 'lead_manual' | 'workload_balanced';
   escalationEmail?: string;
   notificationWebhookUrl?: string;
   updatedAt: string;

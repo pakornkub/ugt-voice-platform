@@ -781,3 +781,12 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   `prisma migrate deploy` + `docker compose up` while the previous build still deploys (dev builds
   #13/#14 overlapped) · rejected: a `lock()` around Deploy only (two builds would still race the
   migrate step that runs inside Deploy before compose up — whole-job queuing is simpler).
+- 2026-10-09 **Auto-assign works for real, and can be turned off** (owner) — the category's
+  `AutoAssignMode` (`off` new · `lead_manual` · `round_robin` · `workload_balanced`) picks the officer on
+  the server at submit time (`lib/auto-assign.ts`); upstream only stored the setting · rejected: a
+  separate on/off flag beside the mode (one select is simpler and `off` reads as a mode), a stored
+  round-robin pointer (derived from the category's latest assigned ticket instead — no new column).
+- 2026-10-09 **Every screen bilingual TH/EN** (owner) — supersedes the parts of the upstream-parity
+  decision that left admin pages, the manual and export Thai-only. Thai copy stays verbatim as the
+  `th` branch; server-written text already stored in Thai (timeline/notifications) is mapped to EN on
+  the client · rejected: rewriting stored rows (history would change under audit).

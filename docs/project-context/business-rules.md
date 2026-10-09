@@ -51,6 +51,14 @@ role + หมวดของ gatekeeper มาจาก `resolveViewer()` (`lib/
 
 ## Gatekeeper triage
 
+- **จ่ายงานอัตโนมัติตอนยื่นเรื่อง** (2026-10-09) — server เลือกเจ้าหน้าที่เอง ไม่รับค่าจาก client
+  (`lib/actions/tickets.ts:submitTicket` → `lib/auto-assign.ts:autoAssignOfficer`) ตาม `AutoAssignMode`
+  ของหมวด: `off` = ไม่มอบหมาย (รอคัดกรองเอง) · `lead_manual` = Lead ของหมวด (ไม่มี Lead → คนแรก) ·
+  `round_robin` = คนถัดจากผู้รับเรื่องล่าสุดของหมวด (วนกลับคนแรก) · `workload_balanced` = คนที่มีเรื่อง
+  ค้าง (ไม่ใช่ resolved/closed) น้อยสุดในหมวด เสมอกันเอาตามลำดับรายชื่อ — นับเฉพาะเจ้าหน้าที่ active
+  เรียงตาม `CreatedAt`; เรื่อง "ส่งตรง CEO/EVP" ไม่จ่ายอัตโนมัติ (RBAC อาจซ่อนเรื่องนี้จาก Gatekeeper);
+  มอบหมายได้ = เพิ่ม timeline `actorRole: 'System'` อีกแถว · แก้ผู้รับผิดชอบทีหลังได้ใน triage modal ตามเดิม
+
 - **ไม่มี SLA แล้ว** (ตัดทั้งระบบตาม upstream `8d885a3`, 2026-10-08): ไม่มี
   `slaTargetHours`/`slaDueDate`/`slaStatus`/`defaultSlaHours`/`slaComplianceRate` และไม่มี
   notification `sla_warning` — ความเร่งด่วนดูจาก `urgency` (Low/Medium/High/Critical) +

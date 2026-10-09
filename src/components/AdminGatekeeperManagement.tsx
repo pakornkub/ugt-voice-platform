@@ -1051,6 +1051,7 @@ const GatekeepersTab: React.FC<GatekeepersTabProps> = ({ panel, tickets, hrStatu
                 }
                 className="w-full max-w-md rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               >
+                <option value="off">ปิดการจ่ายงานอัตโนมัติ (คัดกรองและมอบหมายเอง)</option>
                 <option value="lead_manual">จ่ายให้ Lead คัดกรองก่อนเสมอ (แนะนำ)</option>
                 <option value="round_robin">จ่ายวนตามลำดับเจ้าหน้าที่ (Round-Robin)</option>
                 <option value="workload_balanced">จ่ายตามภาระงานคงค้าง (Workload Balanced)</option>

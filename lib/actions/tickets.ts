@@ -11,6 +11,7 @@
 // lib/email-notifications.ts honours the admin's settings, writes the dispatch log and never throws.
 import { randomInt } from 'node:crypto';
 import { Prisma } from '@prisma/client';
+import { autoAssignOfficer } from '@/lib/auto-assign';
 import { AUDIT_ACTIONS, type AuditAction } from '@/lib/audit-actions';
 import {
   mailActorFor,
@@ -204,6 +205,16 @@ function submissionTimeline(payload: SubmitPayload, isAnonymous: boolean) {
   };
 }
 
+function autoAssignTimeline(officerName: string) {
+  return {
+    status: 'submitted',
+    actor: 'ระบบจ่ายงานอัตโนมัติ (Auto-Assign)',
+    actorRole: 'System',
+    action: `มอบหมายเจ้าหน้าที่ผู้รับผิดชอบอัตโนมัติ: ${officerName}`,
+    notes: 'ตามรูปแบบการจ่ายงานที่ตั้งค่าไว้ของหมวดหมู่นี้',
+  };
+}
+
 /**
  * The login email is always the signed-in user's — it is what "my tickets" and the anonymous
  * mapping key on. The submitter fields are the form's (prefilled from the HR view). Files are
@@ -215,6 +226,11 @@ export async function submitTicket(payload: SubmitPayload): Promise<ComplaintTic
   TICKET_FIELDS.parse(payload);
 
   const isAnonymous = payload.confidentiality === 'anonymous';
+  // The server picks the officer (category's AutoAssignMode) — never the client. Direct-to-
+  // executive tickets stay unassigned: a gatekeeper must not be handed what RBAC may hide.
+  const officer = payload.isDirectToExecutive ? null : await autoAssignOfficer(payload.category);
+  const timeline = [submissionTimeline(payload, isAnonymous)];
+  if (officer) timeline.push(autoAssignTimeline(officer.name));
   const data: Omit<Prisma.ticketCreateInput, 'trackingCode'> = {
     type: payload.type,
     category: payload.category,
@@ -231,14 +247,14 @@ export async function submitTicket(payload: SubmitPayload): Promise<ComplaintTic
     loginEmail: viewer.email,
     isAnonymousMapped: isAnonymous || !!payload.isAnonymousMapped,
     gatekeeperDepartment: payload.gatekeeperDepartment,
-    assignedOfficerName: payload.assignedOfficerName,
-    assignedOfficerEmail: payload.assignedOfficerEmail,
+    assignedOfficerName: officer?.name ?? null,
+    assignedOfficerEmail: officer?.email ?? null,
     status: 'submitted',
     urgency: payload.urgency,
     riskSeverity: payload.riskSeverity,
     sentiment: payload.sentiment,
     createdBy: viewer.userId,
-    timeline: { create: submissionTimeline(payload, isAnonymous) },
+    timeline: { create: timeline },
   };
 
   const created = await createTicketWithNotifications(data);

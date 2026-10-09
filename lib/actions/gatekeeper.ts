@@ -32,7 +32,7 @@ const OfficerFields = z.object({
 const ConfigFields = z.object({
   departmentName: z.string().trim().min(1).max(300),
   departmentCode: z.string().trim().max(50),
-  autoAssignMode: z.enum(['round_robin', 'lead_manual', 'workload_balanced']),
+  autoAssignMode: z.enum(['off', 'round_robin', 'lead_manual', 'workload_balanced']),
   escalationEmail: z.string().trim().max(200).optional(),
   notificationWebhookUrl: z.union([z.literal(''), z.url().max(500)]).optional(),
   officers: z.array(OfficerFields).min(1).max(100),
