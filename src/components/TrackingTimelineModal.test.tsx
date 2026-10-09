@@ -1,14 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TrackingTimelineModal } from './TrackingTimelineModal';
 import { LanguageProvider } from '../context/LanguageContext';
 import { INITIAL_COMPLAINTS } from '../mockData';
+import { sendAnonymousChatMessage, updateTicketWorkflow } from '@/lib/actions/tickets';
+import { renderWithShell } from '@/test/shell';
 import type { ComplaintTicket, UserRole } from '../types';
 
-// saveStoredTickets mirrors into sql.js, which would fetch its WASM from a CDN
-vi.mock('../services/sqliteDb', () => ({
-  syncAllTicketsToSqlite: vi.fn().mockResolvedValue(undefined),
+vi.mock('@/lib/actions/tickets', () => ({
+  sendAnonymousChatMessage: vi.fn(),
+  updateTicketWorkflow: vi.fn(),
 }));
 
 const byId = (id: string) => document.getElementById(id) as HTMLElement;
@@ -23,7 +25,7 @@ function renderModal(ticket = directCeoTicket, currentRole: UserRole = 'employee
     onOpenSatisfactionModal: vi.fn(),
     onTicketUpdated: vi.fn(),
   };
-  render(
+  renderWithShell(
     <LanguageProvider>
       <TrackingTimelineModal {...props} />
     </LanguageProvider>
@@ -32,10 +34,41 @@ function renderModal(ticket = directCeoTicket, currentRole: UserRole = 'employee
 }
 
 describe('TrackingTimelineModal', () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    vi.mocked(sendAnonymousChatMessage).mockImplementation(async (id, message, senderRole) => ({
+      ...directCeoTicket,
+      anonymousMessages: [
+        {
+          id: 'chat-1',
+          ticketId: id,
+          senderRole,
+          senderDisplayName: 'Anonymous',
+          message,
+          timestamp: '2026-10-09T00:00:00.000Z',
+          isStaff: false,
+        },
+      ],
+    }));
+    vi.mocked(updateTicketWorkflow).mockImplementation(async (id, updates) => ({
+      ...directCeoTicket,
+      timeline: [
+        ...directCeoTicket.timeline,
+        {
+          id: 'tl-note',
+          timestamp: '2026-10-09T00:00:00.000Z',
+          actor: updates.actorName ?? '',
+          actorRole: updates.actorRole ?? 'Employee',
+          action: 'note',
+          status: directCeoTicket.status,
+          notes: updates.actionNote,
+        },
+      ],
+    }));
+  });
 
   it('renders nothing without a ticket', () => {
-    const { container } = render(
+    const { container } = renderWithShell(
       <LanguageProvider>
         <TrackingTimelineModal
           ticket={null}
@@ -75,9 +108,44 @@ describe('TrackingTimelineModal', () => {
     await user.type(byId('input-anonymous-chat'), 'ขอชี้แจงเพิ่มเติม');
     await user.click(byId('btn-send-anonymous-chat'));
 
-    expect(props.onTicketUpdated).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(props.onTicketUpdated).toHaveBeenCalledTimes(1));
+    expect(sendAnonymousChatMessage).toHaveBeenCalledWith(
+      directCeoTicket.id,
+      'ขอชี้แจงเพิ่มเติม',
+      'employee'
+    );
     const updated = props.onTicketUpdated.mock.calls[0][0];
     expect(updated.anonymousMessages.at(-1).message).toBe('ขอชี้แจงเพิ่มเติม');
+  });
+
+  it('appends an employee follow-up note to the timeline through the Server Action', async () => {
+    const user = userEvent.setup();
+    const props = renderModal();
+
+    await user.type(screen.getByPlaceholderText('พิมพ์ข้อความบันทึกลง Timeline...'), 'ขอสอบถาม');
+    await user.click(screen.getByRole('button', { name: 'ส่งบันทึก' }));
+
+    await waitFor(() => expect(props.onTicketUpdated).toHaveBeenCalledTimes(1));
+    expect(updateTicketWorkflow).toHaveBeenCalledWith(directCeoTicket.id, {
+      actorName: directCeoTicket.submitterName,
+      actorRole: 'Employee',
+      actionNote: 'ขอสอบถาม',
+    });
+    expect(screen.getByPlaceholderText('พิมพ์ข้อความบันทึกลง Timeline...')).toHaveValue('');
+  });
+
+  it('keeps the note when the Server Action fails', async () => {
+    const user = userEvent.setup();
+    vi.mocked(updateTicketWorkflow).mockRejectedValueOnce(new Error('FORBIDDEN'));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const props = renderModal();
+
+    await user.type(screen.getByPlaceholderText('พิมพ์ข้อความบันทึกลง Timeline...'), 'ขอสอบถาม');
+    await user.click(screen.getByRole('button', { name: 'ส่งบันทึก' }));
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'ส่งบันทึก' })).toBeEnabled());
+    expect(props.onTicketUpdated).not.toHaveBeenCalled();
+    expect(screen.getByPlaceholderText('พิมพ์ข้อความบันทึกลง Timeline...')).toHaveValue('ขอสอบถาม');
   });
 
   it('opens and closes the printable investigation report from the Report button', async () => {

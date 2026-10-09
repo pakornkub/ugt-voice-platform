@@ -641,6 +641,30 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   Interim limit: the RBAC matrix (still localStorage) drives menus; server guards follow the app
   role until the DB rewiring lets them read `RoleAccessConfigs` · rejected: keeping both systems
   (two places to grant access, duplicate screens).
+- 2026-10-09 **DB rewiring slice 1: tickets + notifications live in SQL Server; ShellContext +
+  `router.refresh()` pattern** (coordinator design) — `src/app/(shell)/layout.tsx`
+  loads, per request, the signed-in user's visible tickets (`lib/ticket-access.ts`
+  `listVisibleTickets`), the notifications of those tickets, `RoleAccessConfigs` and
+  `DepartmentGatekeeperConfigs` and passes them to `Shell` (`data` prop → `ShellContext`);
+  components read role permissions / gatekeeper configs from `useShell()` instead of
+  `getStored*()`. Mutations call the Server Actions in `lib/actions/tickets.ts|notifications.ts`,
+  then `router.refresh()`; only notification read-marks are optimistic (`useOptimistic`), and the
+  tracking modal shows the ticket the action returns. Removed from `src/services/api.ts`: ticket +
+  notification localStorage (`getStoredTickets` … `submitEvaluation`, keys `_tickets_v5` /
+  `_notifs_v3`). Server-side scope = `lib/ticket-scope.ts` (business-rules.md) — out-of-scope
+  tickets answer "not found", never "forbidden". The old notification-type workflow mail hooks
+  (`sendNotificationMail` → `ticket.*` templates) were removed from `tickets.ts`: upstream's
+  simulated dispatch log stays client-side (`logTicketSubmittedEmail`/`logTicketResolvedEmail`
+  after the action) and slice 3 adds real delivery per the upstream settings model — because
+  `.env.local` has a real `SMTP_HOST` and the old hooks would have mailed seed addresses with
+  rules nobody chose · rejected: client-side SWR/React Query cache (a second data layer to keep in
+  sync; refresh re-runs one server render) · rejected: keeping the RBAC/gatekeeper reads on
+  localStorage until slice 2 (server scope and menus would disagree). Interim until slice 2: the
+  RBAC / gatekeeper-officer editors still save to localStorage, so their edits no longer change
+  menus, inbox scope or triage officer lists (those now come from the DB seed). Role + scope sit
+  behind one helper, `resolveViewer(session)` in `lib/ticket-access.ts` (role, RBAC config,
+  `gatekeeperCategories`), used by the layout and every ticket check, so the roster decision below
+  is a one-function swap in slice 2.
 - 2026-10-09 **App role comes from the people rosters, not a per-user dropdown** (owner
   decision) — supersedes the `/admin/users` app-role dropdown part of the "One permission
   system" entry above. Three layers: (1) _who_ = HR view `vwHR_SC_Employee` (read-only, search

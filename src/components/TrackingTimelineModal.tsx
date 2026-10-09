@@ -30,10 +30,10 @@ import {
   getUrgencyColor,
   getRiskSeverityBadgeText,
   getRiskSeverityColor,
-  updateTicketWorkflow,
-  getStoredRolePermissions,
-  sendAnonymousChatMessage,
+  logTicketResolvedEmail,
 } from '../services/api';
+import { sendAnonymousChatMessage, updateTicketWorkflow } from '@/lib/actions/tickets';
+import { useShell } from '../app/shell-context';
 import { mapLoginEmailForTicket } from '../services/employeeDirectory';
 import { useLanguage } from '../context/LanguageContext';
 import { InvestigationReportModal } from './InvestigationReportModal';
@@ -1190,11 +1190,11 @@ export const TrackingTimelineModal: React.FC<Readonly<TrackingTimelineModalProps
   const [chatMessage, setChatMessage] = useState('');
   const [isSendingChat, setIsSendingChat] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const { rolePermissions } = useShell();
 
   if (!ticket) return null;
 
   // Strict RBAC security verification for Whistleblower / Direct to CEO complaints
-  const rolePermissions = getStoredRolePermissions();
   const currentRoleConfig: RoleConfig = rolePermissions[currentRole] || rolePermissions.employee;
   const canViewDirectCeo =
     currentRole === 'employee' ? true : (currentRoleConfig?.canViewDirectCeoTickets ?? false);
@@ -1208,20 +1208,23 @@ export const TrackingTimelineModal: React.FC<Readonly<TrackingTimelineModalProps
     if (!inquiryText.trim()) return;
 
     setIsSubmittingNote(true);
-    const updated = updateTicketWorkflow(ticket.id, {
+    const updates = {
       actorName:
         ticket.confidentiality === 'anonymous'
           ? tr('Employee (Anonymous)', 'พนักงาน (ไม่เปิดเผยตัวตน)')
           : ticket.submitterName || tr('Employee', 'พนักงาน'),
       actorRole: 'Employee',
       actionNote: inquiryText,
-    });
-
-    if (updated) {
-      onTicketUpdated(updated);
-      setInquiryText('');
-    }
-    setIsSubmittingNote(false);
+    };
+    updateTicketWorkflow(ticket.id, updates)
+      .then((updated) => {
+        if (!updated) return;
+        logTicketResolvedEmail(updated, updates);
+        onTicketUpdated(updated);
+        setInquiryText('');
+      })
+      .catch((error) => console.error('updateTicketWorkflow failed', error))
+      .finally(() => setIsSubmittingNote(false));
   };
 
   const handleSendChatMessage = (e: React.FormEvent) => {
@@ -1229,13 +1232,14 @@ export const TrackingTimelineModal: React.FC<Readonly<TrackingTimelineModalProps
     if (!chatMessage.trim()) return;
 
     setIsSendingChat(true);
-    const updated = sendAnonymousChatMessage(ticket.id, chatMessage.trim(), currentRole);
-
-    if (updated) {
-      onTicketUpdated(updated);
-      setChatMessage('');
-    }
-    setIsSendingChat(false);
+    sendAnonymousChatMessage(ticket.id, chatMessage.trim(), currentRole)
+      .then((updated) => {
+        if (!updated) return;
+        onTicketUpdated(updated);
+        setChatMessage('');
+      })
+      .catch((error) => console.error('sendAnonymousChatMessage failed', error))
+      .finally(() => setIsSendingChat(false));
   };
 
   return (

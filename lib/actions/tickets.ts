@@ -1,36 +1,36 @@
 'use server';
 
-// src/lib/actions/tickets.ts — Prisma-backed replacement surface for the
-// ticket-related functions in src/services/api.ts (getStoredTickets,
-// getTicketByTrackingCode, submitTicket, updateTicketWorkflow,
-// submitEvaluation). NOT yet wired into any component — see
-// docs/project-context/architecture.md for call-site rewiring status.
+// lib/actions/tickets.ts — the ticket workflow, persisted in SQL Server (slice 1 of the
+// localStorage → DB rewiring, 2026-10-09). Same rules and Thai strings as upstream's
+// src/services/api.ts (tracking codes, timeline entries, one notification per event, anonymous
+// mapping), plus what a multi-user server needs: every action runs
+// session → permission/scope (lib/ticket-scope.ts) → action → audit log.
 //
-// Session/permission checks are intentionally absent: there is no real
-// authentication yet (SSO lands in ugt-nextjs-auth-setup). Once it does,
-// every mutation here needs a session guard + permission check + real
-// CreatedBy/UpdatedBy/actor id per .claude/rules/ugt-nextjs-database.md and
-// references/raw-sql-and-sp.md's Server Action frame.
-//
-// ugt-nextjs-mail-setup (2026-09-02): this is where the workflow email hook
-// plugs in. See docs/project-context/decisions.md for the scoping decision —
-// in short: notifications the app already generates (below) also go out by
-// email via sendTemplatedMail(), called right after the Notification row is
-// written, in try/catch, so a mail outage never fails the ticket mutation.
-// This module is NOT yet called by any component (still open — see
-// docs/project-context/architecture.md's ⚠ deviation), so no real email
-// goes out today; the wiring is correct and ready for when the call sites
-// switch from src/services/api.ts's localStorage functions to these.
-import { headers } from 'next/headers';
-import type { ticket as TicketRow } from '@prisma/client';
-import { auth } from '@/lib/auth';
-import { env } from '@/lib/env';
-import { sendTemplatedMail, type MailActor } from '@/lib/email';
-import { getUserPermissions } from '@/lib/get-user-permissions';
-import { PERMISSIONS } from '@/lib/permissions';
+// Email: upstream's simulated dispatch log stays client-side (the components call
+// dispatchEmailOnTicket* after these return) until slice 3 moves the email settings to
+// AppSettings and sends real mail from here.
+import { randomInt } from 'node:crypto';
+import { Prisma } from '@prisma/client';
 import { AUDIT_ACTIONS, type AuditAction } from '@/lib/audit-actions';
 import { prisma } from '@/lib/prisma';
-import { getEmployeeById } from '@/services/employeeDirectory';
+import {
+  findVisibleTicket,
+  findVisibleTicketWithRelations,
+  listVisibleTickets,
+  requireTicketViewer,
+  TICKET_INCLUDE,
+} from '@/lib/ticket-access';
+import {
+  canSubmit,
+  canTriage,
+  isOwnTicket,
+  ownTicketsWhere,
+  PROTECTED_ACTOR_NAME,
+  redactTicketForViewer,
+  touchesTriageFields,
+  type TicketViewer,
+} from '@/lib/ticket-scope';
+import { z } from 'zod';
 import { mapTicket } from './mappers';
 import type {
   ComplaintTicket,
@@ -40,93 +40,6 @@ import type {
   UrgencyLevel,
   UserRole,
 } from '@/types';
-
-const APP_NAME = env.NEXT_PUBLIC_APP_NAME ?? 'UGT VoicePlatform';
-
-/** Full URL for a link inside an email — email opens outside the app, so a
- *  relative path is useless there (org rule, .claude/rules/ugt-nextjs-mail.md). */
-function detailUrl(path: string): string {
-  const base = env.APP_URL?.replace(/\/$/, '') ?? '';
-  const prefix = env.NEXT_PUBLIC_BASE_PATH ?? '';
-  return `${base}${prefix}${path}`;
-}
-
-/**
- * The user whose action triggered this mutation, as a mail actor (dev mode
- * redirect — see lib/email.ts). No session yet reaching this module in
- * practice (see the module header), so this degrades to "no dev mode" rather
- * than throwing — a Server Action must not 500 just because it was called
- * outside a request context that happens to lack a session.
- */
-async function resolveMailActor(): Promise<MailActor> {
-  try {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session) return { email: null, hasDevMode: false };
-    const perms = await getUserPermissions(session.user.id);
-    return { email: session.user.email, hasDevMode: perms.includes(PERMISSIONS.DEV_MODE) };
-  } catch {
-    return { email: null, hasDevMode: false };
-  }
-}
-
-/** Send one notification's matching workflow email — never lets a mail
- * failure fail the caller's ticket mutation (org rule: send after commit,
- * catch + log). No-op for notification types this project has no template
- * for (e.g. a future type added without a matching mail template yet). */
-async function sendNotificationMail(
-  notif: {
-    trackingCode: string;
-    title: string;
-    message: string;
-    type: NotificationItem['type'];
-  },
-  recipients: { to?: string | string[] | null; recipientName?: string | null }
-): Promise<void> {
-  const to = recipients.to;
-  if (!to || (Array.isArray(to) && to.length === 0)) return;
-
-  const templateKey =
-    notif.type === 'new_ticket'
-      ? ('ticket.new_ticket' as const)
-      : notif.type === 'status_update'
-        ? ('ticket.status_update' as const)
-        : notif.type === 'satisfaction_pending'
-          ? ('ticket.satisfaction_pending' as const)
-          : notif.type === 'direct_ceo_alert'
-            ? ('ticket.direct_ceo_alert' as const)
-            : null;
-  if (!templateKey) return;
-
-  try {
-    const actor = await resolveMailActor();
-    await sendTemplatedMail({
-      templateKey,
-      to,
-      actor: actor,
-      vars: {
-        appName: APP_NAME,
-        recipientName: recipients.recipientName || 'ผู้เกี่ยวข้อง',
-        trackingCode: notif.trackingCode,
-        notificationTitle: notif.title,
-        notificationMessage: notif.message,
-        detailUrl: detailUrl(notif.type === 'direct_ceo_alert' ? '/executive' : '/my-tickets'),
-      },
-    });
-  } catch (error) {
-    console.error('sendNotificationMail failed', { templateKey, error });
-  }
-}
-
-const TICKET_INCLUDE = {
-  timeline: { orderBy: { createdAt: 'asc' as const } },
-  evaluation: true,
-  // Real Attachments (ugt-nextjs-upload-setup, 2026-09-02) — includes both
-  // submission-time and timeline-note attachments (mapTicket doesn't split
-  // them; TrackingTimelineModal can filter by attachment.url's id against a
-  // given TimelineLog if that split view is ever needed).
-  attachments: { where: { isDeleted: false }, orderBy: { createdAt: 'asc' as const } },
-  anonymousMessages: { where: { isDeleted: false }, orderBy: { createdAt: 'asc' as const } },
-} as const;
 
 function actionLabelForStatus(status: TicketStatus, note?: string): string {
   switch (status) {
@@ -145,135 +58,70 @@ function actionLabelForStatus(status: TicketStatus, note?: string): string {
   }
 }
 
-function statusBadgeText(status: TicketStatus): string {
-  switch (status) {
-    case 'submitted':
-      return 'ยื่นเรื่องแล้ว (Submitted)';
-    case 'gatekeeper_triaged':
-      return 'หน่วยงานรับเรื่อง (Triaged)';
-    case 'in_progress':
-      return 'กำลังแก้ไข (In Progress)';
-    case 'resolved':
-      return 'แก้ไขเสร็จสิ้น (Resolved)';
-    case 'closed':
-      return 'ปิดเรื่องสมบูรณ์ (Closed)';
-  }
+const STATUS_BADGE_TEXT: Record<TicketStatus, string> = {
+  submitted: 'ยื่นเรื่องแล้ว (Submitted)',
+  gatekeeper_triaged: 'หน่วยงานรับเรื่อง (Triaged)',
+  in_progress: 'กำลังแก้ไข (In Progress)',
+  resolved: 'แก้ไขเสร็จสิ้น (Resolved)',
+  closed: 'ปิดเรื่องสมบูรณ์ (Closed)',
+};
+
+// Server Actions are public endpoints — the enum-shaped columns are plain NVARCHAR, so check them
+// here (src/types.ts unions) before they reach the DB.
+const TICKET_FIELDS = z.looseObject({
+  type: z.enum(['complaint', 'suggestion']).optional(),
+  category: z.enum(['HR', 'Compliance', 'Ethics', 'Fraud', 'Harassment', 'Quality']).optional(),
+  confidentiality: z.enum(['anonymous', 'confidential_restricted', 'standard_named']).optional(),
+  status: z
+    .enum(['submitted', 'gatekeeper_triaged', 'in_progress', 'resolved', 'closed'])
+    .optional(),
+  urgency: z.enum(['Low', 'Medium', 'High', 'Critical']).optional(),
+  riskSeverity: z.enum(['Low', 'Moderate', 'High', 'Severe']).optional(),
+  rootCauseCategory: z
+    .enum(['Process', 'People', 'Equipment/Tools', 'Policy/Governance', 'Workplace/Facilities'])
+    .optional(),
+});
+
+const rating = z.number().int().min(1).max(5);
+const EVALUATION_SCORES = z.looseObject({
+  overallScore: rating,
+  speedRating: rating,
+  resolutionQualityRating: rating,
+  serviceMannerRating: rating,
+  clarityRating: rating,
+});
+
+async function auditLog(userId: string, action: AuditAction, detail: unknown) {
+  await prisma.activityLog
+    .create({ data: { userId, action, detail: JSON.stringify(detail) } })
+    .catch(() => {});
 }
 
 export async function getTickets(): Promise<ComplaintTicket[]> {
-  const rows = await prisma.ticket.findMany({
-    where: { isDeleted: false },
-    include: TICKET_INCLUDE,
-    orderBy: { createdAt: 'desc' },
-  });
-  return rows.map(mapTicket);
+  return listVisibleTickets(await requireTicketViewer());
 }
 
+/** Tracking-code lookup (Navbar search, notifications, recent searches) — scoped like the list. */
 export async function getTicketByTrackingCode(
   trackingCode: string
 ): Promise<ComplaintTicket | null> {
-  const row = await prisma.ticket.findFirst({
-    where: { trackingCode: trackingCode.trim() },
-    include: TICKET_INCLUDE,
-  });
-  return row ? mapTicket(row) : null;
+  const viewer = await requireTicketViewer();
+  return findVisibleTicketWithRelations(viewer, { trackingCode: trackingCode.trim() });
 }
 
-/**
- * Backend mapping of the login email, same precedence as upstream's
- * mapLoginEmailForTicket(): explicit loginEmail → employee-directory lookup by
- * employee id → the submitter's own email. Upstream's last resort is the mock
- * "current login employee"; server-side that is the signed-in session user.
- * The directory is the upstream mock until the HR view lands (decisions.md
- * 2026-10-08).
- */
-async function resolveLoginEmail(payload: {
-  loginEmail?: string;
-  submitterEmployeeId?: string;
-  submitterEmail?: string;
-}): Promise<string | undefined> {
-  const explicit = payload.loginEmail?.trim();
-  if (explicit) return explicit;
-  const fromDirectory = getEmployeeById(payload.submitterEmployeeId?.trim())?.loginEmail;
-  if (fromDirectory) return fromDirectory;
-  const submitterEmail = payload.submitterEmail?.trim();
-  if (submitterEmail) return submitterEmail;
-  try {
-    const session = await auth.api.getSession({ headers: await headers() });
-    return session?.user.email;
-  } catch {
-    return undefined;
-  }
+type SubmitPayload = Omit<
+  ComplaintTicket,
+  'id' | 'trackingCode' | 'createdAt' | 'updatedAt' | 'timeline' | 'status' | 'anonymousMessages'
+>;
+
+function isUniqueViolation(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
 }
 
-export async function submitTicket(
-  payload: Omit<
-    ComplaintTicket,
-    'id' | 'trackingCode' | 'createdAt' | 'updatedAt' | 'timeline' | 'status' | 'anonymousMessages'
-  >
-): Promise<ComplaintTicket> {
-  const year = new Date().getFullYear();
-  const randomCode = Math.floor(1000 + Math.random() * 9000);
-  const trackingCode = `TK-${year}-${randomCode}`;
-  const finalLoginEmail = await resolveLoginEmail(payload);
+type CreatedTicket = Prisma.ticketGetPayload<{ include: typeof TICKET_INCLUDE }>;
 
-  const created = await prisma.ticket.create({
-    data: {
-      trackingCode,
-      type: payload.type,
-      category: payload.category,
-      title: payload.title,
-      description: payload.description,
-      locationOrUnit: payload.locationOrUnit,
-      isDirectToExecutive: payload.isDirectToExecutive,
-      confidentiality: payload.confidentiality,
-      submitterName: payload.submitterName,
-      submitterEmployeeId: payload.submitterEmployeeId,
-      submitterDepartment: payload.submitterDepartment,
-      submitterEmail: payload.submitterEmail || finalLoginEmail,
-      submitterPhone: payload.submitterPhone,
-      loginEmail: finalLoginEmail,
-      isAnonymousMapped:
-        payload.confidentiality === 'anonymous' ? true : !!payload.isAnonymousMapped,
-      gatekeeperDepartment: payload.gatekeeperDepartment,
-      assignedOfficerName: payload.assignedOfficerName,
-      assignedOfficerEmail: payload.assignedOfficerEmail,
-      status: 'submitted',
-      urgency: payload.urgency,
-      riskSeverity: payload.riskSeverity,
-      sentiment: payload.sentiment,
-      // No AttachmentsJson column anymore (ugt-nextjs-upload-setup, 2026-09-02
-      // — see prisma/schema.prisma's `attachment` model). `payload.attachments`
-      // is whatever the caller's fake simulator built (no real bytes exist for
-      // it — see docs/project-context/decisions.md) and is intentionally not
-      // persisted here; a real attachment is created by POSTing to
-      // `/api/files` with this ticket's `id` once it exists below.
-      timeline: {
-        create: {
-          status: 'submitted',
-          actor: payload.submitterName || 'พนักงานผู้ยื่นเรื่อง',
-          actorRole: 'Employee',
-          action: payload.isDirectToExecutive
-            ? 'ยื่นเรื่องส่งตรงถึงผู้บริหารระดับสูง (CEO/EVP Whistleblower Channel)'
-            : 'ยื่นเรื่องเข้าระบบสำเร็จ',
-          notes: payload.isDirectToExecutive
-            ? 'ติดแท็กสำคัญพิเศษ: ส่งตรงถึงโต๊ะทำงานผู้บริหารระดับสูง'
-            : 'ระบบได้รับเรื่องและเข้าสู่คิวคัดกรองของ Gatekeeper',
-        },
-      },
-    },
-    include: TICKET_INCLUDE,
-  });
-
-  const notifs: Array<{
-    ticketId: string;
-    trackingCode: string;
-    title: string;
-    message: string;
-    type: NotificationItem['type'];
-    recipientRole: 'employee' | 'executive';
-    recipientEmail?: string | null;
-  }> = [
+function submissionNotifications(created: CreatedTicket): Prisma.notificationCreateManyInput[] {
+  const notifs: Prisma.notificationCreateManyInput[] = [
     {
       ticketId: created.id,
       trackingCode: created.trackingCode,
@@ -294,158 +142,252 @@ export async function submitTicket(
       recipientRole: 'executive',
     });
   }
-  await prisma.notification.createMany({ data: notifs });
-
-  // Workflow email — after the ticket + notifications commit, never blocking
-  // the response (see sendNotificationMail's own try/catch).
-  for (const notif of notifs) {
-    const to =
-      notif.type === 'direct_ceo_alert'
-        ? (
-            await prisma.executiveMember.findMany({
-              where: { isActive: true, isDeleted: false, receiveAlertNotifications: true },
-              select: { email: true },
-            })
-          ).map((e) => e.email)
-        : notif.recipientEmail;
-    await sendNotificationMail(notif, {
-      to,
-      recipientName: notif.type === 'direct_ceo_alert' ? 'ผู้บริหาร' : created.submitterName,
-    });
-  }
-
-  return mapTicket(created);
+  return notifs;
 }
 
+/**
+ * Ticket + its notifications in one transaction. TK-YYYY-NNNN is random (upstream format) and
+ * unique-indexed — a collision rolls the transaction back and retries with a new code.
+ */
+async function createTicketWithNotifications(
+  data: Omit<Prisma.ticketCreateInput, 'trackingCode'>,
+  attemptsLeft = 5
+): Promise<CreatedTicket> {
+  const trackingCode = `TK-${new Date().getFullYear()}-${randomInt(1000, 10000)}`;
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const created = await tx.ticket.create({
+        data: { ...data, trackingCode },
+        include: TICKET_INCLUDE,
+      });
+      await tx.notification.createMany({ data: submissionNotifications(created) });
+      return created;
+    });
+  } catch (error) {
+    if (!isUniqueViolation(error) || attemptsLeft <= 1) throw error;
+    return createTicketWithNotifications(data, attemptsLeft - 1);
+  }
+}
+
+function submissionTimeline(payload: SubmitPayload, isAnonymous: boolean) {
+  let notes = 'ระบบได้รับเรื่องและเข้าสู่คิวคัดกรองของ Gatekeeper';
+  if (isAnonymous) {
+    notes =
+      'ยื่นเรื่องแบบไม่ระบุตัวตน (ระบบเชื่อมโยงอีเมลล็อกอินหลังบ้านจากฐานข้อมูลพนักงานเรียบร้อยแล้ว)';
+  } else if (payload.isDirectToExecutive) {
+    notes = 'ติดแท็กสำคัญพิเศษ: ส่งตรงถึงโต๊ะทำงานผู้บริหารระดับสูง';
+  }
+  return {
+    status: 'submitted',
+    actor: isAnonymous
+      ? 'พนักงานผู้ยื่นเรื่อง (ไม่ระบุตัวตน)'
+      : payload.submitterName || 'พนักงานผู้ยื่นเรื่อง',
+    actorRole: 'Employee',
+    action: payload.isDirectToExecutive
+      ? 'ยื่นเรื่องส่งตรงถึงผู้บริหารระดับสูง (CEO/EVP Whistleblower Channel)'
+      : 'ยื่นเรื่องเข้าระบบสำเร็จ',
+    notes,
+  };
+}
+
+/**
+ * The login email is always the signed-in user's — it is what "my tickets" and the anonymous
+ * mapping key on. The submitter fields stay whatever the form sent (the employee-directory mock
+ * until slice 4). Simulated attachments are not persisted (slice 5 wires real uploads).
+ */
+export async function submitTicket(payload: SubmitPayload): Promise<ComplaintTicket> {
+  const viewer = await requireTicketViewer();
+  if (!canSubmit(viewer)) throw new Error('FORBIDDEN');
+  TICKET_FIELDS.parse(payload);
+
+  const isAnonymous = payload.confidentiality === 'anonymous';
+  const data: Omit<Prisma.ticketCreateInput, 'trackingCode'> = {
+    type: payload.type,
+    category: payload.category,
+    title: payload.title,
+    description: payload.description,
+    locationOrUnit: payload.locationOrUnit,
+    isDirectToExecutive: payload.isDirectToExecutive,
+    confidentiality: payload.confidentiality,
+    submitterName: payload.submitterName,
+    submitterEmployeeId: payload.submitterEmployeeId,
+    submitterDepartment: payload.submitterDepartment,
+    submitterEmail: payload.submitterEmail || viewer.email,
+    submitterPhone: payload.submitterPhone,
+    loginEmail: viewer.email,
+    isAnonymousMapped: isAnonymous || !!payload.isAnonymousMapped,
+    gatekeeperDepartment: payload.gatekeeperDepartment,
+    assignedOfficerName: payload.assignedOfficerName,
+    assignedOfficerEmail: payload.assignedOfficerEmail,
+    status: 'submitted',
+    urgency: payload.urgency,
+    riskSeverity: payload.riskSeverity,
+    sentiment: payload.sentiment,
+    createdBy: viewer.userId,
+    timeline: { create: submissionTimeline(payload, isAnonymous) },
+  };
+
+  const created = await createTicketWithNotifications(data);
+
+  await auditLog(viewer.userId, AUDIT_ACTIONS.TICKETS_SUBMIT, {
+    ticketId: created.id,
+    trackingCode: created.trackingCode,
+  });
+  return redactTicketForViewer(viewer, mapTicket(created));
+}
+
+interface WorkflowUpdates {
+  status?: TicketStatus;
+  assignedOfficerName?: string;
+  assignedOfficerEmail?: string;
+  gatekeeperDepartment?: string;
+  resolutionSummary?: string;
+  actionNote?: string;
+  /** Hint only — the server derives the timeline actor (workflowActor). */
+  actorName?: string;
+  /** Ignored — kept so the upstream call sites stay unchanged. */
+  actorRole?: string;
+  attachmentName?: string;
+  urgency?: UrgencyLevel;
+  riskSeverity?: ComplaintTicket['riskSeverity'];
+  rootCauseCategory?: ComplaintTicket['rootCauseCategory'];
+  preventiveActionPlan?: string;
+  clusterGroup?: string;
+}
+
+function statusNotification(trackingCode: string, status: TicketStatus, actorName: string) {
+  if (status === 'resolved') {
+    return {
+      type: 'satisfaction_pending' as NotificationItem['type'],
+      title: `แก้ไขเสร็จสิ้น: รหัส ${trackingCode}`,
+      message:
+        'หน่วยงานได้ดำเนินการแก้ไขปัญหาเรียบร้อยแล้ว กรุณาให้คะแนนประเมินความพึงพอใจเพื่อพัฒนาองค์กร',
+    };
+  }
+  return {
+    type: 'status_update' as NotificationItem['type'],
+    title: `อัปเดตความคืบหน้า (${trackingCode})`,
+    message: `เรื่องของคุณมีการเปลี่ยนสถานะเป็น "${STATUS_BADGE_TEXT[status]}" โดย ${actorName}`,
+  };
+}
+
+// Upstream GatekeeperInbox's fixed triage label (the audit log records the real user).
+const TRIAGE_ACTOR = { actor: 'Gatekeeper Supervisor', actorRole: 'Gatekeeper Lead' };
+
+type ActorTicket = {
+  confidentiality: string;
+  submitterName: string | null;
+  loginEmail: string | null;
+  submitterEmail: string | null;
+};
+
+/**
+ * Who a timeline entry is from — never taken from the client, so nobody can post as staff or as
+ * the submitter. Triage → upstream's triage label. The submitter's own note → upstream
+ * TrackingTimelineModal's label (the client's TH/EN pick is honoured only if it is one of them).
+ * Anyone else's note → their session name + role.
+ */
+function workflowActor(
+  viewer: TicketViewer,
+  ticket: ActorTicket,
+  triage: boolean,
+  requested?: string
+): { actor: string; actorRole: string } {
+  if (triage) return TRIAGE_ACTOR;
+  if (!isOwnTicket(viewer, ticket)) {
+    return { actor: viewer.name, actorRole: TIMELINE_ACTOR_ROLE[viewer.role] };
+  }
+  let labels = ['พนักงาน', 'Employee'];
+  if (ticket.confidentiality === 'anonymous') {
+    labels = ['พนักงาน (ไม่เปิดเผยตัวตน)', 'Employee (Anonymous)'];
+  } else if (ticket.submitterName) {
+    labels = [ticket.submitterName];
+  }
+  const actor = requested && labels.includes(requested) ? requested : labels[0];
+  return { actor, actorRole: 'Employee' };
+}
+
+/**
+ * Gatekeeper triage (status / officer / urgency / CAPA) needs the gatekeeper tab in the RBAC
+ * matrix; anyone who can see the ticket may add a plain note (the employee inquiry box).
+ */
 export async function updateTicketWorkflow(
   ticketId: string,
-  updates: {
-    status?: TicketStatus;
-    assignedOfficerName?: string;
-    assignedOfficerEmail?: string;
-    gatekeeperDepartment?: string;
-    resolutionSummary?: string;
-    actionNote?: string;
-    actorName: string;
-    actorRole: string;
-    attachmentName?: string;
-    urgency?: UrgencyLevel;
-    riskSeverity?: ComplaintTicket['riskSeverity'];
-    rootCauseCategory?: ComplaintTicket['rootCauseCategory'];
-    preventiveActionPlan?: string;
-    clusterGroup?: string;
-  }
+  updates: WorkflowUpdates
 ): Promise<ComplaintTicket | null> {
-  const current = await prisma.ticket.findUnique({ where: { id: ticketId } });
+  const viewer = await requireTicketViewer();
+  const current = await findVisibleTicket(viewer, { id: ticketId });
   if (!current) return null;
+  const triage = touchesTriageFields(updates);
+  if (triage && !canTriage(viewer)) throw new Error('FORBIDDEN');
+  TICKET_FIELDS.parse(updates);
 
   const newStatus = updates.status ?? (current.status as TicketStatus);
   const now = new Date();
+  const { actor, actorRole } = workflowActor(viewer, current, triage, updates.actorName);
+  // A confidential submitter's own name must not travel in a notification other roles can read.
+  const notifActor =
+    current.confidentiality === 'confidential_restricted' && actorRole === 'Employee'
+      ? PROTECTED_ACTOR_NAME
+      : actor;
+  const notif = statusNotification(current.trackingCode, newStatus, notifActor);
 
-  const updated = await prisma.ticket.update({
-    where: { id: ticketId },
-    data: {
-      status: newStatus,
-      assignedOfficerName: updates.assignedOfficerName,
-      assignedOfficerEmail: updates.assignedOfficerEmail,
-      gatekeeperDepartment: updates.gatekeeperDepartment,
-      resolutionSummary: updates.resolutionSummary,
-      urgency: updates.urgency,
-      riskSeverity: updates.riskSeverity,
-      rootCauseCategory: updates.rootCauseCategory,
-      preventiveActionPlan: updates.preventiveActionPlan,
-      clusterGroup: updates.clusterGroup,
-      resolvedAt: newStatus === 'resolved' ? now : undefined,
-      closedAt: newStatus === 'closed' ? now : undefined,
-      timeline: {
-        create: {
-          status: newStatus,
-          action: actionLabelForStatus(newStatus, updates.actionNote),
-          actor: updates.actorName,
-          actorRole: updates.actorRole,
-          notes: updates.actionNote,
-          attachmentName: updates.attachmentName,
+  const updated = await prisma.$transaction(async (tx) => {
+    const ticket = await tx.ticket.update({
+      where: { id: ticketId },
+      data: {
+        status: newStatus,
+        assignedOfficerName: updates.assignedOfficerName,
+        assignedOfficerEmail: updates.assignedOfficerEmail,
+        gatekeeperDepartment: updates.gatekeeperDepartment,
+        resolutionSummary: updates.resolutionSummary,
+        urgency: updates.urgency,
+        riskSeverity: updates.riskSeverity,
+        rootCauseCategory: updates.rootCauseCategory,
+        preventiveActionPlan: updates.preventiveActionPlan,
+        clusterGroup: updates.clusterGroup,
+        resolvedAt: newStatus === 'resolved' ? now : undefined,
+        closedAt: newStatus === 'closed' ? now : undefined,
+        updatedBy: viewer.userId,
+        timeline: {
+          create: {
+            status: newStatus,
+            action: actionLabelForStatus(newStatus, updates.actionNote),
+            actor,
+            actorRole,
+            notes: updates.actionNote,
+            attachmentName: updates.attachmentName,
+          },
         },
       },
-    },
-    include: TICKET_INCLUDE,
+      include: TICKET_INCLUDE,
+    });
+    await tx.notification.create({
+      data: {
+        ticketId: ticket.id,
+        trackingCode: ticket.trackingCode,
+        ...notif,
+        recipientRole: 'employee',
+        recipientEmail: ticket.submitterEmail,
+      },
+    });
+    return ticket;
   });
 
-  let notifType: NotificationItem['type'] = 'status_update';
-  let notifTitle = `อัปเดตความคืบหน้า (${updated.trackingCode})`;
-  let notifMsg = `เรื่องของคุณมีการเปลี่ยนสถานะเป็น "${statusBadgeText(newStatus)}" โดย ${updates.actorName}`;
-  if (newStatus === 'resolved') {
-    notifType = 'satisfaction_pending';
-    notifTitle = `แก้ไขเสร็จสิ้น: รหัส ${updated.trackingCode}`;
-    notifMsg =
-      'หน่วยงานได้ดำเนินการแก้ไขปัญหาเรียบร้อยแล้ว กรุณาให้คะแนนประเมินความพึงพอใจเพื่อพัฒนาองค์กร';
-  }
-  await prisma.notification.create({
-    data: {
-      ticketId: updated.id,
-      trackingCode: updated.trackingCode,
-      title: notifTitle,
-      message: notifMsg,
-      type: notifType,
-      recipientRole: 'employee',
-      recipientEmail: updated.submitterEmail,
-    },
+  await auditLog(viewer.userId, AUDIT_ACTIONS.TICKETS_UPDATE, {
+    ticketId,
+    trackingCode: updated.trackingCode,
+    status: newStatus,
   });
-
-  await sendNotificationMail(
-    { trackingCode: updated.trackingCode, title: notifTitle, message: notifMsg, type: notifType },
-    { to: updated.submitterEmail, recipientName: updated.submitterName }
-  );
-
-  return mapTicket(updated);
-}
-
-async function auditLog(userId: string, action: AuditAction, detail: unknown) {
-  await prisma.activityLog
-    .create({ data: { userId, action, detail: JSON.stringify(detail) } })
-    .catch(() => {});
+  return redactTicketForViewer(viewer, mapTicket(updated));
 }
 
 const STAFF_ROLES: UserRole[] = ['gatekeeper', 'executive', 'admin'];
 
 type ChatTicket = Pick<
-  TicketRow,
-  | 'confidentiality'
-  | 'submitterName'
-  | 'assignedOfficerName'
-  | 'gatekeeperDepartment'
-  | 'category'
-  | 'loginEmail'
-  | 'submitterEmail'
+  ComplaintTicket,
+  'confidentiality' | 'submitterName' | 'assignedOfficerName' | 'gatekeeperDepartment' | 'category'
 >;
-
-/**
- * session → permission for the anonymous chat. This project's "permission" for
- * ticket workflow is the app role on the user row (`user.appRole`, assigned
- * from /admin/users): the caller may only post as the role they hold, and an
- * employee only on a ticket that is theirs (login email / submitter email).
- * Per-department scoping for gatekeepers lands with the rewiring, together with
- * the other ticket actions (see handoff.md → Next).
- */
-async function requireChatAccess(ticket: ChatTicket, senderRole: UserRole) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) throw new Error('UNAUTHORIZED');
-
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { appRole: true },
-  });
-  if (user?.appRole !== senderRole) throw new Error('FORBIDDEN');
-
-  if (senderRole === 'employee') {
-    const email = session.user.email.toLowerCase();
-    const owns = [ticket.loginEmail, ticket.submitterEmail].some(
-      (candidate) => candidate?.toLowerCase() === email
-    );
-    if (!owns) throw new Error('FORBIDDEN');
-  }
-  return session;
-}
 
 function defaultChatSenderName(ticket: ChatTicket, senderRole: UserRole): string {
   switch (senderRole) {
@@ -472,24 +414,25 @@ const TIMELINE_ACTOR_ROLE: Record<UserRole, string> = {
   admin: 'Gatekeeper',
 };
 
-// Anonymous 2-way chat (Complainant <-> Gatekeeper/Executive) — port of
-// src/services/api.ts sendAnonymousChatMessage. Guard order per org contract:
-// session → permission → action → audit log. The message, its timeline entry
-// and the counterpart notification are written in one transaction.
+/**
+ * Anonymous 2-way chat (complainant ↔ staff). The caller may only post as the role they hold, on
+ * a ticket they can see. The message, its timeline entry and the counterpart notification are
+ * written in one transaction.
+ */
 export async function sendAnonymousChatMessage(
   ticketId: string,
   messageText: string,
-  senderRole: UserRole,
-  senderDisplayName?: string
+  senderRole: UserRole
 ): Promise<ComplaintTicket | null> {
-  const current = await prisma.ticket.findUnique({ where: { id: ticketId } });
-  if (!current) return null;
-
-  const session = await requireChatAccess(current, senderRole);
+  const viewer = await requireTicketViewer();
+  if (viewer.role !== senderRole) throw new Error('FORBIDDEN');
+  const row = await findVisibleTicket(viewer, { id: ticketId });
+  if (!row) return null;
+  const current = mapTicket(row);
 
   const isStaff = STAFF_ROLES.includes(senderRole);
   const text = messageText.trim();
-  const finalSenderName = senderDisplayName || defaultChatSenderName(current, senderRole);
+  const finalSenderName = defaultChatSenderName(current, senderRole);
 
   const updated = await prisma.$transaction(async (tx) => {
     const ticket = await tx.ticket.update({
@@ -503,6 +446,7 @@ export async function sendAnonymousChatMessage(
             isStaff,
             isReadByEmployee: !isStaff,
             isReadByStaff: isStaff,
+            createdBy: viewer.userId,
           },
         },
         timeline: {
@@ -538,40 +482,49 @@ export async function sendAnonymousChatMessage(
   });
 
   // Never log the message body — anonymous submitters rely on it staying out of logs.
-  await auditLog(session.user.id, AUDIT_ACTIONS.TICKETS_CHAT_SEND, {
+  await auditLog(viewer.userId, AUDIT_ACTIONS.TICKETS_CHAT_SEND, {
     ticketId,
     trackingCode: updated.trackingCode,
     senderRole,
   });
 
-  return mapTicket(updated);
+  return redactTicketForViewer(viewer, mapTicket(updated));
 }
 
+/**
+ * CSAT — only the submitter, only on a resolved ticket; closes it. (The evaluation is upserted so
+ * a row left from an earlier close of a reopened ticket doesn't trip the unique TicketId.)
+ */
 export async function submitEvaluation(
   ticketId: string,
   evaluationData: Omit<SatisfactionEvaluation, 'id' | 'ticketId' | 'evaluatedAt'>
 ): Promise<ComplaintTicket | null> {
-  const current = await prisma.ticket.findUnique({ where: { id: ticketId } });
+  const viewer = await requireTicketViewer();
+  EVALUATION_SCORES.parse(evaluationData);
+  const current = await findVisibleTicket(viewer, {
+    AND: [{ id: ticketId }, ownTicketsWhere(viewer.email), { status: 'resolved' }],
+  });
   if (!current) return null;
   const now = new Date();
+  const evaluation = {
+    overallScore: evaluationData.overallScore,
+    speedRating: evaluationData.speedRating,
+    resolutionQualityRating: evaluationData.resolutionQualityRating,
+    serviceMannerRating: evaluationData.serviceMannerRating,
+    clarityRating: evaluationData.clarityRating,
+    isResolvedPermanently: evaluationData.isResolvedPermanently,
+    feedbackComment: evaluationData.feedbackComment,
+    improvementSuggestions: evaluationData.improvementSuggestions,
+    createdAt: now,
+  };
 
   const updated = await prisma.ticket.update({
     where: { id: ticketId },
     data: {
       status: 'closed',
       closedAt: now,
-      evaluation: {
-        create: {
-          overallScore: evaluationData.overallScore,
-          speedRating: evaluationData.speedRating,
-          resolutionQualityRating: evaluationData.resolutionQualityRating,
-          serviceMannerRating: evaluationData.serviceMannerRating,
-          clarityRating: evaluationData.clarityRating,
-          isResolvedPermanently: evaluationData.isResolvedPermanently,
-          feedbackComment: evaluationData.feedbackComment,
-          improvementSuggestions: evaluationData.improvementSuggestions,
-        },
-      },
+      updatedBy: viewer.userId,
+      evaluation: { upsert: { create: evaluation, update: evaluation } },
       timeline: {
         create: {
           status: 'closed',
@@ -588,5 +541,10 @@ export async function submitEvaluation(
     include: TICKET_INCLUDE,
   });
 
-  return mapTicket(updated);
+  await auditLog(viewer.userId, AUDIT_ACTIONS.TICKETS_EVALUATE, {
+    ticketId,
+    trackingCode: updated.trackingCode,
+    overallScore: evaluationData.overallScore,
+  });
+  return redactTicketForViewer(viewer, mapTicket(updated));
 }

@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ExecutiveDashboard, getTicketRootCauseCategory } from './ExecutiveDashboard';
 import { LanguageProvider, useLanguage } from '../context/LanguageContext';
 import { INITIAL_COMPLAINTS } from '../mockData';
-import { getStoredRolePermissions, saveStoredRolePermissions } from '../services/api';
-import type { ComplaintTicket } from '../types';
+import { renderWithShell, withRoleConfig } from '@/test/shell';
+import type { ComplaintTicket, RolePermissionConfig } from '../types';
 
 const isResolved = (t: ComplaintTicket) => t.status === 'resolved' || t.status === 'closed';
 const isPending = (t: ComplaintTicket) =>
@@ -16,13 +16,17 @@ function LangToggle() {
   return <button onClick={toggleLang}>toggle-lang</button>;
 }
 
-const renderDashboard = (tickets: ComplaintTicket[] = INITIAL_COMPLAINTS) => {
+const renderDashboard = (
+  tickets: ComplaintTicket[] = INITIAL_COMPLAINTS,
+  executive: Partial<RolePermissionConfig> = {}
+) => {
   const onSelectTicket = vi.fn();
-  const view = render(
+  const view = renderWithShell(
     <LanguageProvider>
       <ExecutiveDashboard tickets={tickets} onSelectTicket={onSelectTicket} />
       <LangToggle />
-    </LanguageProvider>
+    </LanguageProvider>,
+    { rolePermissions: withRoleConfig('executive', executive) }
   );
   return { onSelectTicket, ...view };
 };
@@ -236,9 +240,9 @@ describe('ExecutiveDashboard', () => {
       loginEmail: 'anon.user@company.internal',
     };
 
-    const openAnonymousRow = async () => {
+    const openAnonymousRow = async (executive: Partial<RolePermissionConfig> = {}) => {
       const user = userEvent.setup({ delay: null });
-      renderDashboard([anonymous]);
+      renderDashboard([anonymous], executive);
       await user.click(screen.getByRole('button', { name: /^จำนวนเรื่องทั้งหมด/ }));
       return within(getModal()).getByRole('button', { name: /TK-ANON-1/ });
     };
@@ -251,26 +255,17 @@ describe('ExecutiveDashboard', () => {
     });
 
     it('hides the login email when the permission is off', async () => {
-      const permissions = getStoredRolePermissions();
-      saveStoredRolePermissions({
-        ...permissions,
-        executive: { ...permissions.executive, canViewAnonymousSubmitterEmail: false },
-      });
-
-      const row = await openAnonymousRow();
+      const row = await openAnonymousRow({ canViewAnonymousSubmitterEmail: false });
 
       expect(row).toHaveTextContent('ผู้ยื่น: ไม่ระบุตัวตน (Anonymous)');
       expect(row).not.toHaveTextContent('anon.user@company.internal');
     });
 
     it('masks restricted identities when the executive may not view them', async () => {
-      const permissions = getStoredRolePermissions();
-      saveStoredRolePermissions({
-        ...permissions,
-        executive: { ...permissions.executive, canViewConfidentialIdentities: false },
-      });
       const user = userEvent.setup({ delay: null });
-      renderDashboard([{ ...INITIAL_COMPLAINTS[0], confidentiality: 'confidential_restricted' }]);
+      renderDashboard([{ ...INITIAL_COMPLAINTS[0], confidentiality: 'confidential_restricted' }], {
+        canViewConfidentialIdentities: false,
+      });
 
       await user.click(screen.getByRole('button', { name: /^จำนวนเรื่องทั้งหมด/ }));
 

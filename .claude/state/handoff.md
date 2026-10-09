@@ -4,9 +4,9 @@ Last updated: 2026-10-09
 
 ## In progress
 
-- **localStorage → Server Action rewiring, slice 1** (tickets core + `ShellContext`) — session
-  `rewire-1-tickets`, branch `claude/rewire-1-tickets-33274d`; role/scope behind one helper so
-  slice 2 can swap in the roster-based role. Slices after it: see Next.
+- **localStorage → DB rewiring, slice 1 done** (tickets + notifications + `ShellContext`) on branch
+  `claude/rewire-1-tickets-33274d` — awaiting coordinator merge. Role/scope sit behind one helper
+  (`resolveViewer`, `lib/ticket-access.ts`) so slice 2 swaps in the roster-based role. Next: see below.
 
 ## Next
 
@@ -29,6 +29,15 @@ Last updated: 2026-10-09
   - **Slice 5 — SQL Query Studio** → preset reports before wiring to SQL Server.
   - Stay per-device: recent searches, language preference, `get/setActiveGatekeeperDepartment`
     (→ plain React state).
+  - Left open by slice 1 (pattern: decisions.md 2026-10-09 "slice 1" — layout → `ShellContext` →
+    Server Action → `router.refresh()`):
+    - **Interim gap until slice 2**: RBAC / GK-officer / executive / HR-admin editors still save to
+      localStorage, but menus, inbox scope and triage officer lists read the DB — edits do nothing.
+      Their write actions in `lib/actions/{role-access,gatekeeper,executives,hr-admins}.ts` are unguarded.
+    - `lib/actions/tickets.ts` sends **no** mail (slice 3 replaces client `logTicket*Email`).
+    - Simulated attachments are not persisted; slice 4: `lib/attachment-access.ts` should reuse
+      `ticketScopeWhere`.
+    - Notification `IsRead` is one shared flag per row — per-user read table if it matters.
 - OWASP UNSTABLE: 5 high left, all `eslint-config-next` dev-tool chain (`braces` has no fix yet).
 - `/ugt-contribute`: org `ugt-nextjs-auth-setup` schema lacks `Account.Issuer` (Better Auth 1.7);
   `ugt-nextjs-upload-setup` `verify.mjs` requires ClamAV although scan is opt-in.
@@ -45,6 +54,10 @@ Last updated: 2026-10-09
 - Approval chain (`HR_SC_AuthorizeEmployee_ms`) not used — revisit if a workflow needs it.
 
 ## Done (newest first — older chunks condensed; full detail in git log + docs/project-context/)
+
+- 2026-10-09 **Rewiring slice 1**: tickets / timeline / CSAT / anonymous chat / notifications in SQL
+  Server via guarded Server Actions; server-side visibility (`lib/ticket-scope.ts`); shell data
+  from the layout via `ShellContext`; ticket localStorage removed from `api.ts`.
 
 - 2026-10-09 **Single permission system** (`ba61cc2`): upstream RBAC page governs every tab incl.
   `admin_users`/`admin_audit_logs`; `/admin/roles` + `/admin/mail-templates` retired;

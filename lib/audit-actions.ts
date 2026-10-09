@@ -42,6 +42,10 @@ export const AUDIT_ACTIONS = {
 
   // Anonymous ticket chat — written by lib/actions/tickets.ts (upstream port, 2026-10-08)
   TICKETS_CHAT_SEND: 'tickets.chat-send',
+  // Ticket workflow — written by lib/actions/tickets.ts (DB rewiring slice 1, 2026-10-09)
+  TICKETS_SUBMIT: 'tickets.submit',
+  TICKETS_UPDATE: 'tickets.update',
+  TICKETS_EVALUATE: 'tickets.evaluate',
 
   // EXTENSION POINT: project-domain actions here, same `<resource>.<verb>` shape
 } as const;
