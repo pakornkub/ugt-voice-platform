@@ -172,6 +172,7 @@ describe('WorkflowDiagram workflow section', () => {
     expect(screen.getByText('R/A (วิเคราะห์)')).toHaveClass('bg-purple-100');
     expect(screen.getByText('R/A (ตั้งค่า)')).toHaveClass('bg-slate-200');
     expect(screen.getByText('C (ดูแลระบบ)')).toHaveClass('text-slate-500');
+    expect(screen.getByText('R/A (กำหนดสิทธิ์)')).toHaveClass('bg-slate-200');
     expect(screen.getByText(/Accountable \(ผู้รับผิดชอบผล\)/)).toBeInTheDocument();
   });
 });
@@ -326,6 +327,17 @@ describe('WorkflowDiagram role guides', () => {
     }
   );
 
+  it('describes roster-based roles, SSO and read-only user management in the admin guide', async () => {
+    const { user } = renderManual();
+    await openTab(user, 'role_guides');
+    await user.click(screen.getByRole('button', { name: /ผู้ดูแลระบบ \(Admin\) จัดสรร/ }));
+
+    expect(screen.getByText('4. ใครได้บทบาทอะไร (รายชื่อผู้มีบทบาท)')).toBeInTheDocument();
+    expect(screen.getByText(/ไม่มีตัวสลับบทบาท/)).toBeInTheDocument();
+    expect(screen.getByText('6. จัดการผู้ใช้ (อ่านอย่างเดียว)')).toBeInTheDocument();
+    expect(screen.getByText('7. ส่งออกข้อมูลและ SQL Query Studio')).toBeInTheDocument();
+  });
+
   it('launches the guide target without a role switcher', async () => {
     const { user, onNavigateTab } = renderManual({ onSwitchRole: undefined });
     await openTab(user, 'role_guides');
@@ -384,7 +396,7 @@ describe('WorkflowDiagram FAQ', () => {
     const { user } = renderManual();
     await openTab(user, 'faq');
 
-    expect(questionButtons()).toHaveLength(8);
+    expect(questionButtons()).toHaveLength(9);
     expect(screen.getByText(FIRST_ANSWER)).toBeInTheDocument();
     expect(screen.queryByText(SECOND_ANSWER)).not.toBeInTheDocument();
 
@@ -411,7 +423,16 @@ describe('WorkflowDiagram FAQ', () => {
     ).not.toBeInTheDocument();
 
     await user.clear(search);
-    expect(questionButtons()).toHaveLength(8);
+    expect(questionButtons()).toHaveLength(9);
+  });
+
+  it('explains how roles are assigned from the people rosters', async () => {
+    const { user } = renderManual();
+    await openTab(user, 'faq');
+
+    await user.click(screen.getByRole('button', { name: /ฉันจะได้สิทธิ์ Gatekeeper/ }));
+    expect(screen.getByText(/ไม่มีตัวสลับบทบาท/)).toBeInTheDocument();
+    expect(screen.getByText(/บทบาทสูงสุดชนะ/)).toBeInTheDocument();
   });
 
   it('shows an empty state echoing the search term when nothing matches', async () => {

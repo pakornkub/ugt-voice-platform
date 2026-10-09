@@ -75,13 +75,6 @@ sqlserver`** → `migration_lock.toml` was hand-written during the offline migra
   from the shell → start Next with `node --use-system-ca node_modules/next/dist/bin/next dev`
   (keeps TLS verification) or set `NODE_TLS_REJECT_UNAUTHORIZED=0` in `.env.local` (dev only).
   Discovery is fetched once at auth init — restart the dev server after fixing (2026-10-09)
-- **SSO login → `/login?error=internal_server_error` right after Keycloak; no User/Account row
-  created** → Better Auth ≥ 1.7 scopes account identity by issuer and queries `account.issuer` in
-  the OAuth callback (`findAccountOwnerByKey`); the schema (from the org auth-setup asset, written
-  for 1.6) had no `Issuer` column, so the query throws and Better Auth maps it to
-  `internal_server_error` → add `issuer String @map("Issuer") @db.NVarChar(450)` +
-  `@@unique([issuer, accountId])` (migration `20261009000000_account_issuer`). Stack-wide: the
-  `ugt-nextjs-auth-setup` schema asset has the same gap — candidate for `/ugt-contribute` (2026-10-09)
 - **Offline `prisma migrate diff … > migration.sql` contains `◇ injected env (N) from .env…` lines**
   → dotenv ≥ 17 logs to STDOUT from `prisma.config.ts` → `config({ quiet: true })` (kit 4.63
   fix), delete the stray lines (2026-10-09)
@@ -97,18 +90,6 @@ sqlserver`** → `migration_lock.toml` was hand-written during the offline migra
   ("Symlink node_modules … leaves the filesystem root")** → Turbopack refuses the junction → run
   `next dev --webpack` / `next build --webpack` there; a tsx script that imports a
   `server-only` module needs a tsconfig `paths` alias to `vitest.server-only-stub.js` (2026-10-09)
-- **Endless 307 `GET /` ↔ `/login` after a session expires (cookie still in the browser)** → the
-  proxy bounced `/login` to `/` on cookie presence while the layout bounced `/` back to `/login` on
-  the dead session → the login page now checks the real session itself (`src/app/login/page.tsx`)
-  (2026-10-09)
 - **`npm ci` fails with `EPERM … lightningcss.win32-x64-msvc.node` and leaves `node_modules` half
   deleted** → a running `next dev` (preview server) holds the native module open → stop the dev
   server, rerun `npm ci`, then `prisma generate` (2026-10-09)
-- **Jenkins build log shows the full `DATABASE_URL` (DB password) in the Deploy stage** → Jenkins
-  runs `sh` with `-x`, so the migrate step's `DB_URL=$(grep …)` assignment and `docker run -e
-DATABASE_URL="$DB_URL"` were echoed → `set +x` at the top of that `sh` block, export
-  `DATABASE_URL` and pass `-e DATABASE_URL` without a value. Rotate the DB password if old logs
-  exist (2026-10-09)
-- **Deploy fails: `container name "/ugt-voice-platform-dev" is already in use`** → two pipeline runs
-  of the same job overlapped and both ran `docker compose up` → `disableConcurrentBuilds()` in the
-  Jenkinsfile `options {}` (2026-10-09)
