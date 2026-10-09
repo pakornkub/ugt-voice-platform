@@ -10,6 +10,7 @@ import { prisma } from '@/lib/prisma';
 import { gatekeeperScope, resolveRosterRole } from '@/lib/roster-role';
 import {
   gatekeeperDepartments,
+  isNotificationForViewer,
   redactNotificationForViewer,
   redactTicketForViewer,
   ticketScopeWhere,
@@ -120,9 +121,9 @@ export async function listVisibleNotifications(
   const readIds = new Set(reads.map((r) => r.notificationId));
   return rows
     .filter((n) => n.ticketId && visible.has(n.ticketId))
-    .map((n) =>
-      redactNotificationForViewer(viewer, { ...mapNotification(n), read: readIds.has(n.id) })
-    );
+    .map((n) => ({ ...mapNotification(n), read: readIds.has(n.id) }))
+    .filter((n) => isNotificationForViewer(viewer, n))
+    .map((n) => redactNotificationForViewer(viewer, n));
 }
 
 export async function visibleTicketIds(viewer: TicketViewer): Promise<string[]> {

@@ -119,6 +119,25 @@ describe('TrackingTimelineModal', () => {
     expect(updated.anonymousMessages.at(-1).message).toBe('ขอชี้แจงเพิ่มเติม');
   });
 
+  it('says so when a chat message fails to send and keeps the typed text', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.mocked(sendAnonymousChatMessage).mockRejectedValueOnce(new Error('network'));
+    const props = renderModal();
+
+    await user.click(byId('tab-btn-chat'));
+    await user.type(byId('input-anonymous-chat'), 'ขอชี้แจงเพิ่มเติม');
+    await user.click(byId('btn-send-anonymous-chat'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('ส่งข้อความไม่สำเร็จ');
+    expect(byId('input-anonymous-chat')).toHaveValue('ขอชี้แจงเพิ่มเติม');
+    expect(props.onTicketUpdated).not.toHaveBeenCalled();
+
+    await user.click(byId('btn-send-anonymous-chat')); // retry succeeds → the alert goes away
+    await waitFor(() => expect(props.onTicketUpdated).toHaveBeenCalledTimes(1));
+    expect(byId('chat-send-error')).toBeNull();
+  });
+
   it('appends an employee follow-up note to the timeline through the Server Action', async () => {
     const user = userEvent.setup();
     const props = renderModal();

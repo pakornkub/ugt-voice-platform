@@ -801,3 +801,9 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   mails the assigned officer with the category Lead in CC (upstream's concept "notify the department
   officer at once"), falling back to the Lead / escalation address when nobody was assigned ·
   rejected: Lead-only mail (a round-robin/workload assignee would never hear about the ticket).
+- 2026-10-09 **Anonymous chat: in-app notification + 30 s polling** (owner) — chat messages raise a
+  `chat_message` notification for the other side only (never the sender) and a toast; the shell
+  calls `router.refresh()` every 30 s while the tab is visible (and on returning to it), so the
+  bell, lists and an open chat update without a reload · rejected: SSE/WebSocket push (needs a
+  long-lived connection through the reverse proxy and a pub/sub — not worth it at this volume;
+  upgrade path noted in `shell.tsx`), email per chat message (owner asked for in-app only).

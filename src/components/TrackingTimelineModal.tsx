@@ -358,10 +358,20 @@ const ChatPanel: React.FC<
     currentRole: UserRole;
     chatMessage: string;
     isSending: boolean;
+    /** The last send failed — the typed text is kept so it can be sent again. */
+    sendFailed: boolean;
     onChatMessageChange: (value: string) => void;
     onSubmit: (e: React.SubmitEvent) => void;
   }>
-> = ({ ticket, currentRole, chatMessage, isSending, onChatMessageChange, onSubmit }) => {
+> = ({
+  ticket,
+  currentRole,
+  chatMessage,
+  isSending,
+  sendFailed,
+  onChatMessageChange,
+  onSubmit,
+}) => {
   const { tr } = useTr();
   const isProtected = isProtectedIdentity(ticket);
   const isEmployee = currentRole === 'employee';
@@ -458,6 +468,19 @@ const ChatPanel: React.FC<
             <span>{tr('Send', 'ส่งข้อความ')}</span>
           </button>
         </form>
+        {sendFailed && (
+          <p
+            id="chat-send-error"
+            role="alert"
+            className="mt-2 flex items-center gap-1.5 text-xs font-medium text-rose-700"
+          >
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            {tr(
+              'Message not sent — your text is kept. Check your connection or refresh the page, then press Send again.',
+              'ส่งข้อความไม่สำเร็จ — ข้อความที่พิมพ์ยังอยู่ ตรวจสอบการเชื่อมต่อหรือรีเฟรชหน้า แล้วกดส่งอีกครั้ง'
+            )}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -1192,6 +1215,7 @@ export const TrackingTimelineModal: React.FC<Readonly<TrackingTimelineModalProps
   const [activeViewMode, setActiveViewMode] = useState<'timeline' | 'chat'>('timeline');
   const [chatMessage, setChatMessage] = useState('');
   const [isSendingChat, setIsSendingChat] = useState(false);
+  const [chatSendFailed, setChatSendFailed] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const { rolePermissions } = useShell();
 
@@ -1234,13 +1258,20 @@ export const TrackingTimelineModal: React.FC<Readonly<TrackingTimelineModalProps
     if (!chatMessage.trim()) return;
 
     setIsSendingChat(true);
+    setChatSendFailed(false);
     sendAnonymousChatMessage(ticket.id, chatMessage.trim(), currentRole)
       .then((updated) => {
-        if (!updated) return;
+        if (!updated) {
+          setChatSendFailed(true); // the ticket is no longer visible to this viewer
+          return;
+        }
         onTicketUpdated(updated);
         setChatMessage('');
       })
-      .catch((error) => console.error('sendAnonymousChatMessage failed', error))
+      .catch((error) => {
+        console.error('sendAnonymousChatMessage failed', error);
+        setChatSendFailed(true);
+      })
       .finally(() => setIsSendingChat(false));
   };
 
@@ -1265,6 +1296,7 @@ export const TrackingTimelineModal: React.FC<Readonly<TrackingTimelineModalProps
               currentRole={currentRole}
               chatMessage={chatMessage}
               isSending={isSendingChat}
+              sendFailed={chatSendFailed}
               onChatMessageChange={setChatMessage}
               onSubmit={handleSendChatMessage}
             />

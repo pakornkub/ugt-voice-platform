@@ -150,6 +150,22 @@ export function redactTicketForViewer(
   };
 }
 
+/**
+ * An anonymous-chat notification goes to the other side only, never back to its sender
+ * (2026-10-09): staff → the submitter (recipientEmail = the ticket's login email), submitter →
+ * the staff who can see the ticket. Every other notification follows ticket visibility alone.
+ */
+export function isNotificationForViewer(
+  viewer: Pick<TicketViewer, 'email' | 'role'>,
+  notification: Pick<NotificationItem, 'type' | 'recipientRole' | 'recipientEmail'>
+): boolean {
+  if (notification.type !== 'chat_message') return true;
+  if (notification.recipientRole === 'employee') {
+    return notification.recipientEmail?.toLowerCase() === viewer.email.toLowerCase();
+  }
+  return viewer.role !== 'employee';
+}
+
 /** A notification's recipient email is only for its recipient. */
 export function redactNotificationForViewer(
   viewer: Pick<TicketViewer, 'email'>,

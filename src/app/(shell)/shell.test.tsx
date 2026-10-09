@@ -316,3 +316,68 @@ describe('Shell (bilingual)', () => {
     ).toBeInTheDocument();
   });
 });
+
+describe('Shell live updates', () => {
+  const chatNotification: NotificationItem = {
+    id: 'chat-n1',
+    ticketId: ticket.id,
+    trackingCode: ticket.trackingCode,
+    title: `[ข้อความใหม่จากเจ้าหน้าที่] ${ticket.trackingCode}`,
+    message: 'Gatekeeper: ขอรายละเอียดเพิ่ม',
+    timestamp: '2026-10-09T01:00:00.000Z',
+    read: false,
+    type: 'chat_message',
+  };
+
+  const shellWith = (notifications: NotificationItem[]) => (
+    <LanguageProvider>
+      <Shell
+        identity={{
+          name: 'Test',
+          email: 'test@ube.co.th',
+          appRole: 'employee',
+          roleName: null,
+          employee: null,
+          permissions: [],
+        }}
+        data={{
+          tickets: INITIAL_COMPLAINTS,
+          notifications,
+          rolePermissions: INITIAL_ROLE_PERMISSIONS,
+          gatekeeperConfigs: INITIAL_GATEKEEPER_CONFIGS,
+          gatekeeperCategories: [],
+        }}
+      >
+        <p>page</p>
+      </Shell>
+    </LanguageProvider>
+  );
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it('re-fetches the server data every 30 seconds while the tab is visible', () => {
+    vi.useFakeTimers();
+    try {
+      render(shellWith([notification]));
+      expect(router.refresh).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(30_000);
+      expect(router.refresh).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('pops an in-app alert when a new chat message arrives, but not for history on load', async () => {
+    const { rerender } = render(shellWith([chatNotification]));
+    expect(screen.queryByText(`[ข้อความใหม่จากเจ้าหน้าที่] ${ticket.trackingCode}`)).toBeNull();
+
+    const arrived = { ...chatNotification, id: 'chat-n2' };
+    rerender(shellWith([arrived, chatNotification]));
+    expect(
+      await screen.findByText(`[ข้อความใหม่จากเจ้าหน้าที่] ${ticket.trackingCode}`)
+    ).toBeInTheDocument();
+  });
+});

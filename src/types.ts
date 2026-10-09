@@ -172,7 +172,8 @@ export interface NotificationItem {
   message: string;
   timestamp: string;
   read: boolean;
-  type: 'status_update' | 'new_ticket' | 'direct_ceo_alert' | 'satisfaction_pending';
+  type:
+    'status_update' | 'new_ticket' | 'direct_ceo_alert' | 'satisfaction_pending' | 'chat_message';
   recipientRole?: UserRole;
   recipientEmail?: string;
 }

@@ -48,6 +48,11 @@ role + หมวดของ gatekeeper มาจาก `resolveViewer()` (`lib/
   standard_named ไม่ปิด · `recipientEmail` ของ notification ส่งให้เฉพาะผู้รับ
 - คำร้องนอก scope ตอบเหมือน "ไม่พบ" (`null`) ไม่บอกว่ามีอยู่; ทุก mutation เขียน `ActivityLogs`
   (`tickets.submit|update|evaluate|chat-send`, ไม่เก็บข้อความแชท)
+- **แจ้งเตือนแชทนิรนาม** (2026-10-09): notification `type: 'chat_message'` ในแอปเท่านั้น (ไม่มีอีเมล) ·
+  เจ้าหน้าที่ส่ง → ผู้ยื่น (`recipientEmail` = อีเมลล็อกอินของเรื่อง), ผู้ยื่นตอบ → เจ้าหน้าที่ที่เห็นเรื่อง ·
+  ไม่เด้งกลับหาผู้ส่ง (`lib/ticket-scope.ts:isNotificationForViewer`) · หน้าจอดึงข้อมูลใหม่ทุก 30 วิ
+  ตอนแท็บเปิดอยู่ และทันทีเมื่อกลับมาที่แท็บ (`src/app/(shell)/shell.tsx`) — ข้อความใหม่ขึ้น toast +
+  badge กระดิ่ง, modal ที่เปิดอยู่อัปเดตเอง · ส่งไม่สำเร็จ → แจ้งในหน้าแชท ข้อความที่พิมพ์ไม่หาย
 
 ## Gatekeeper triage
 

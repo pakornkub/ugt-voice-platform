@@ -464,7 +464,11 @@ describe('sendAnonymousChatMessage', () => {
       senderDisplayName: 'Gatekeeper ประจำฝ่าย Human Resources',
     });
     expect(data.timeline.create.notes).toBe('[Anonymous Q&A] ขอรายละเอียดเพิ่ม');
-    expect(db.prisma.notification.create.mock.calls[0][0].data.recipientRole).toBe('employee');
+    expect(db.prisma.notification.create.mock.calls[0][0].data).toMatchObject({
+      type: 'chat_message',
+      recipientRole: 'employee',
+      recipientEmail: row().loginEmail,
+    });
     const audit = db.prisma.activityLog.create.mock.calls[0][0].data.detail as string;
     expect(audit).not.toContain('ขอรายละเอียดเพิ่ม');
   });

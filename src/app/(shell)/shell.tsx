@@ -1,6 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useOptimistic, useState, useTransition } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useOptimistic,
+  useRef,
+  useState,
+  useTransition,
+} from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Navbar } from '@/components/Navbar';
 import { TrackingTimelineModal } from '@/components/TrackingTimelineModal';
@@ -20,6 +28,7 @@ import {
   Bell,
   CheckCircle2,
   Clock,
+  MessageSquare,
   Smartphone,
   X,
 } from 'lucide-react';
@@ -76,6 +85,22 @@ export default function Shell({
   }, []);
 
   const refreshData = useCallback(() => router.refresh(), [router]);
+
+  // New chat messages / notifications from other people show up without a reload (owner request
+  // 2026-10-09): re-fetch the server data every 30 s while the tab is visible, and right away
+  // when the person comes back to the tab.
+  // ponytail: polling; switch to SSE/WebSocket if 30 s ever feels too slow.
+  useEffect(() => {
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible') router.refresh();
+    };
+    const timer = setInterval(refreshIfVisible, POLL_MS);
+    document.addEventListener('visibilitychange', refreshIfVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+    };
+  }, [router]);
 
   // Recent searches stay per-device (localStorage) — read after mount so SSR and hydration match.
   useEffect(() => {
@@ -240,6 +265,26 @@ export default function Shell({
       }),
     [notifications, canViewDirectCeo]
   );
+
+  // The open modal follows the polled list, unless the copy it holds is newer (a just-sent
+  // message arrives from the Server Action before the refresh does).
+  const trackingTicket = useMemo(
+    () => freshestTicket(selectedTicketForTracking, tickets),
+    [selectedTicketForTracking, tickets]
+  );
+
+  // In-app alert for an anonymous-chat message that arrived since the last poll (the bell badge
+  // updates too). The first list after page load is history, not news.
+  const seenNotificationIds = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    const seen = seenNotificationIds.current;
+    seenNotificationIds.current = new Set(visibleNotifications.map((n) => n.id));
+    if (!seen) return;
+    const arrived = visibleNotifications.find(
+      (n) => n.type === 'chat_message' && !n.read && !seen.has(n.id)
+    );
+    if (arrived) showNotification(localizeServerText(arrived.title, lang));
+  }, [visibleNotifications, showNotification, lang]);
 
   const contextValue = useMemo(
     () => ({
@@ -509,9 +554,9 @@ export default function Shell({
         )}
 
         {/* Real-time Tracking & Progress Timeline Modal */}
-        {selectedTicketForTracking && (
+        {trackingTicket && (
           <TrackingTimelineModal
-            ticket={selectedTicketForTracking}
+            ticket={trackingTicket}
             currentRole={currentRole}
             onClose={() => setSelectedTicketForTracking(null)}
             onOpenSatisfactionModal={(t) => {
@@ -556,9 +601,28 @@ export default function Shell({
   );
 }
 
+const POLL_MS = 30_000;
+
+/** Timeline entries + chat messages only ever grow, so the longer copy is the newer one. */
+const ticketProgress = (t: ComplaintTicket) =>
+  (t.timeline?.length ?? 0) + (t.anonymousMessages?.length ?? 0);
+
+function freshestTicket(
+  selected: ComplaintTicket | null,
+  tickets: readonly ComplaintTicket[]
+): ComplaintTicket | null {
+  if (!selected) return null;
+  const listed = tickets.find((t) => t.id === selected.id);
+  return listed && ticketProgress(listed) >= ticketProgress(selected) ? listed : selected;
+}
+
 const NOTIFICATION_ICONS: Partial<
   Record<NotificationItem['type'], { box: string; icon: React.ReactNode }>
 > = {
+  chat_message: {
+    box: 'bg-indigo-100 text-indigo-700',
+    icon: <MessageSquare className="h-3.5 w-3.5" />,
+  },
   direct_ceo_alert: {
     box: 'bg-purple-100 text-purple-700',
     icon: <Crown className="h-3.5 w-3.5" />,

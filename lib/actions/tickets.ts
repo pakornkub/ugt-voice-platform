@@ -521,9 +521,10 @@ export async function sendAnonymousChatMessage(
           ? `[ข้อความใหม่จากเจ้าหน้าที่] ${ticket.trackingCode}`
           : `[ข้อความใหม่จากผู้ร้องเรียน] ${ticket.trackingCode}`,
         message: `${finalSenderName}: ${text.substring(0, 75)}${text.length > 75 ? '...' : ''}`,
-        type: 'status_update',
+        // In-app only (no mail); isNotificationForViewer keeps it from echoing back to the sender.
+        type: 'chat_message',
         recipientRole: isStaff ? 'employee' : 'gatekeeper',
-        recipientEmail: isStaff ? ticket.submitterEmail : null,
+        recipientEmail: isStaff ? ticket.loginEmail || ticket.submitterEmail : null,
       },
     });
 

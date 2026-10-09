@@ -3,6 +3,7 @@ import {
   canSubmit,
   canTriage,
   gatekeeperDepartments,
+  isNotificationForViewer,
   isOwnTicket,
   PROTECTED_ACTOR_NAME,
   redactNotificationForViewer,
@@ -198,5 +199,32 @@ describe('redactNotificationForViewer', () => {
     };
     expect(redactNotificationForViewer({ email: 'me@ube.co.th' }, n)).toBe(n);
     expect(redactNotificationForViewer({ email: 'x@ube.co.th' }, n).recipientEmail).toBeUndefined();
+  });
+});
+
+describe('isNotificationForViewer', () => {
+  const employee = { email: 'Somchai@ube.co.th', role: 'employee' as const };
+  const gatekeeper = { email: 'gk@ube.co.th', role: 'gatekeeper' as const };
+  const toSubmitter = {
+    type: 'chat_message' as const,
+    recipientRole: 'employee' as const,
+    recipientEmail: 'somchai@ube.co.th',
+  };
+  const toStaff = { type: 'chat_message' as const, recipientRole: 'gatekeeper' as const };
+
+  it('sends a staff chat message to the submitter only, never back to the staff', () => {
+    expect(isNotificationForViewer(employee, toSubmitter)).toBe(true);
+    expect(isNotificationForViewer(gatekeeper, toSubmitter)).toBe(false);
+  });
+
+  it('sends a submitter reply to staff only, never back to the submitter', () => {
+    expect(isNotificationForViewer(gatekeeper, toStaff)).toBe(true);
+    expect(isNotificationForViewer(employee, toStaff)).toBe(false);
+  });
+
+  it('leaves every other notification to ticket visibility', () => {
+    expect(
+      isNotificationForViewer(gatekeeper, { type: 'status_update', recipientRole: 'employee' })
+    ).toBe(true);
   });
 });
