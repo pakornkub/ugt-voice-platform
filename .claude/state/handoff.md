@@ -4,7 +4,9 @@ Last updated: 2026-10-09
 
 ## In progress
 
-- **localStorage → Server Action rewiring** (item 4 of the post-port plan) — starting now; see Next.
+- **localStorage → Server Action rewiring, slice 1** (tickets core + `ShellContext`) — session
+  `rewire-1-tickets`, branch `claude/rewire-1-tickets-33274d`; role/scope behind one helper so
+  slice 2 can swap in the roster-based role. Slices after it: see Next.
 
 ## Next
 
@@ -13,17 +15,20 @@ Last updated: 2026-10-09
 - **Prod deploy** = push `main` to `origin` (Jenkins `ugt-voice-platform` polls `main`) — owner's
   call (auto mode blocks Claude from deploying prod). `origin/main` is `9713263` (no SSO issuer
   fix yet); prod Keycloak client `ugt-voice-platform` must exist; app login must not be `sa`.
-- **localStorage → Server Action rewiring** (`src/services/api.ts` → `lib/actions/*`) — unblocked
-  (DEV DB migrated + seeded). Gaps beyond call-site swaps (audit in `decisions.md` 2026-09-03):
-  - `reset{GatekeeperConfigs,Executives,HrAdmins,RolePermissions}ToDefault` have no Server Action.
-  - `get/setActiveGatekeeperDepartment` → plain React state.
-  - Ticket actions lack session/permission guards — copy `requireChatAccess`
-    (`sendAnonymousChatMessage`), add gatekeeper department scoping.
-  - `lib/directory.ts` on `vwHR_SC_Employee` replaces the mock `src/services/employeeDirectory.ts`.
-  - `RoleAccessConfigs` from DB → `getUserPermissions()` reads it instead of the fixed
-    `permissionsForAppRole` mapping (decisions 2026-10-09).
-  - Email settings (`AdminEmailNotificationSettings`) → `AppSettings` + real SMTP via `lib/email.ts`.
-- Redesign `ExportAnalyticsModal`'s SQL Query Studio as preset reports before wiring it to SQL Server.
+- **Rewiring slices after slice 1** (`src/services/api.ts` → `lib/actions/*`, UX stays upstream's):
+  - **Slice 2 — rosters, role and config tables** (decisions 2026-10-09 "App role comes from the
+    people rosters", `d6c9ac5`): `lib/directory.ts` on `vwHR_SC_Employee` (replaces mock
+    `src/services/employeeDirectory.ts`); HR-view picker in the 4 roster forms; role resolved per
+    page load (HrAdmin > Executive > GK officer > employee); GK scope = officer categories ∩
+    `assignedDepartments`; `/admin/users` read-only; `/admin/setup` seeds `HrAdminMembers`;
+    self/last-admin guards; gatekeeper/executive/HR-admin/RBAC edits + `reset*ToDefault` as
+    Server Actions; `getUserPermissions()` reads `RoleAccessConfigs` from the DB.
+  - **Slice 3 — email**: `AdminEmailNotificationSettings` → `AppSettings` + real SMTP
+    (`lib/email.ts`) + dispatch log.
+  - **Slice 4 — attachments**: `FileUpload` in the submit form and timeline.
+  - **Slice 5 — SQL Query Studio** → preset reports before wiring to SQL Server.
+  - Stay per-device: recent searches, language preference, `get/setActiveGatekeeperDepartment`
+    (→ plain React state).
 - OWASP UNSTABLE: 5 high left, all `eslint-config-next` dev-tool chain (`braces` has no fix yet).
 - `/ugt-contribute`: org `ugt-nextjs-auth-setup` schema lacks `Account.Issuer` (Better Auth 1.7);
   `ugt-nextjs-upload-setup` `verify.mjs` requires ClamAV although scan is opt-in.
