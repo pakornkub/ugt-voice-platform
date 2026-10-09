@@ -77,14 +77,27 @@ describe('directory', () => {
     await expect(hrStatusByEmails([' '])).resolves.toEqual({});
     expect(queryRaw).not.toHaveBeenCalled();
     queryRaw.mockResolvedValue([
-      { email: 'a@ube.co.th', workstatus: 'Resign' },
-      { email: 'a@ube.co.th', workstatus: 'Active' },
-      { email: 'b@ube.co.th', workstatus: 'Resign' },
+      { email: 'a@ube.co.th', adLogin: 'a', workstatus: 'Resign' },
+      { email: 'a@ube.co.th', adLogin: 'a', workstatus: 'Active' },
+      { email: 'b@ube.co.th', adLogin: 'b', workstatus: 'Resign' },
     ]);
     await expect(hrStatusByEmails(['A@ube.co.th', 'b@ube.co.th'])).resolves.toEqual({
       'a@ube.co.th': 'active',
       'b@ube.co.th': 'inactive',
     });
+  });
+
+  it('matches a roster email from SSO by the AD login local part', async () => {
+    const { hrStatusByEmails } = await import('./directory');
+    queryRaw.mockResolvedValue([
+      { email: 'pakornwo@ube.co.th', adLogin: 'pakornwo', workstatus: 'Active' },
+    ]);
+    await expect(hrStatusByEmails(['Pakornwo@ube.com', 'nobody@ube.com'])).resolves.toEqual({
+      'pakornwo@ube.com': 'active',
+    });
+    const sql = JSON.stringify(queryRaw.mock.calls[0]);
+    expect(sql).toContain('"pakornwo@ube.com"');
+    expect(sql).toContain('"pakornwo"');
   });
 
   it('pages the directory with an escaped filter and a numeric total', async () => {

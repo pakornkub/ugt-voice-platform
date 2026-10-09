@@ -96,23 +96,35 @@ export async function searchDirectory(query: string): Promise<EmployeeRecord[]> 
 
 export type HrStatus = 'active' | 'inactive';
 
-/** HR-view status per roster email (missing key = not in the HR view) — for the roster badges. */
+/** HR-view status per roster email (missing key = not in the HR view) — for the roster badges.
+ * Same matching as findEmployeeByLogin: CurrentEmail, else the AD login (bare or DOMAIN\) equal to
+ * the email or its local part — a roster email from SSO (e.g. @ube.com) still finds its HR row. */
 export async function hrStatusByEmails(
   emails: readonly string[]
 ): Promise<Record<string, HrStatus>> {
   const wanted = [...new Set(emails.map((e) => e.trim().toLowerCase()).filter(Boolean))];
   if (wanted.length === 0) return {};
-  // ponytail: one IN list — rosters are tens of rows, far below SQL Server's 2100-parameter cap.
-  const rows = await prisma.$queryRaw<{ email: string; workstatus: string | null }[]>`
+  const logins = [...new Set([...wanted, ...wanted.map((e) => e.split('@')[0])])];
+  // ponytail: IN lists — rosters are tens of rows, far below SQL Server's 2100-parameter cap.
+  const rows = await prisma.$queryRaw<
+    { email: string | null; adLogin: string | null; workstatus: string | null }[]
+  >`
     SELECT CAST(LOWER(CurrentEmail) AS NVARCHAR(200)) AS email,
+      CAST(LOWER(SUBSTRING(ADLoginName, CHARINDEX('\\', ADLoginName) + 1, 200)) AS NVARCHAR(200)) AS adLogin,
       CAST(workstatus AS NVARCHAR(50)) AS workstatus FROM ${HR_VIEW}
-    WHERE LOWER(CurrentEmail) IN (${Prisma.join(wanted)})`;
+    WHERE LOWER(CurrentEmail) IN (${Prisma.join(wanted)})
+      OR LOWER(SUBSTRING(ADLoginName, CHARINDEX('\\', ADLoginName) + 1, 200)) IN (${Prisma.join(logins)})`;
   const result: Record<string, HrStatus> = {};
-  for (const row of rows) {
-    // An active row wins over an old inactive one with the same email.
-    if (result[row.email] !== 'active') {
-      result[row.email] = row.workstatus?.trim().toLowerCase() === 'active' ? 'active' : 'inactive';
-    }
+  for (const email of wanted) {
+    const local = email.split('@')[0];
+    const matches = rows.filter(
+      (r) => r.email === email || r.adLogin === email || r.adLogin === local
+    );
+    if (matches.length === 0) continue;
+    // An active row wins over an old inactive one for the same person.
+    result[email] = matches.some((r) => r.workstatus?.trim().toLowerCase() === 'active')
+      ? 'active'
+      : 'inactive';
   }
   return result;
 }
