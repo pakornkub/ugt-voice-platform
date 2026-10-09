@@ -24,3 +24,10 @@
     display: none;
   }
 }
+
+/* Small badges/pills (10–11px text, rounded) never break mid-label or get squeezed by their row —
+   a two-line "7 รายการ" chip reads as broken (2026-10-09, docs/DESIGN.md §10). */
+:is(.text-\[9px\], .text-\[10px\], .text-\[11px\]):is(.rounded, .rounded-md, .rounded-full) {
+  white-space: nowrap;
+  flex-shrink: 0;
+}

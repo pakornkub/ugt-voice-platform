@@ -733,7 +733,7 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
                     </span>
                   )}
                 </div>
-                <span className="rounded border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">
+                <span className="shrink-0 rounded border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap text-indigo-700">
                   {lang === 'en' ? '6 Standard Categories' : '6 หมวดหมู่มาตรฐาน'}
                 </span>
               </div>

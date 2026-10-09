@@ -523,7 +523,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
       </div>
 
       {/* Role Quick Status Cards & Role Switcher Simulator */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {rolesList.map((roleKey) => {
           const config = permissions[roleKey];
           const isCurrent = currentRole === roleKey;
@@ -540,9 +540,9 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
               }`}
             >
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className={`rounded-lg border p-1.5 ${config.badgeColor}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <div className={`shrink-0 rounded-lg border p-1.5 ${config.badgeColor}`}>
                       {getRoleIcon(roleKey)}
                     </div>
                     <span className="text-xs font-bold text-slate-900">
@@ -551,7 +551,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                   </div>
 
                   {isCurrent && (
-                    <span className="rounded-full border border-indigo-200 bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-800">
+                    <span className="shrink-0 rounded-full border border-indigo-200 bg-indigo-100 px-2 py-0.5 text-[10px] font-bold whitespace-nowrap text-indigo-800">
                       มุมมองปัจจุบัน
                     </span>
                   )}
@@ -1329,7 +1329,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               id="btn-toggle-add-exec-form"
@@ -1350,7 +1350,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
                   setIsAddingExec(true);
                 }
               }}
-              className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold shadow-xs transition ${
+              className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold whitespace-nowrap shadow-xs transition ${
                 isAddingExec
                   ? 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                   : 'bg-purple-600 text-white hover:bg-purple-700'
@@ -1372,7 +1372,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
             <button
               type="button"
               onClick={() => onNavigateTab('admin_gatekeeper')}
-              className="flex items-center gap-1 rounded-xl border border-purple-200 bg-purple-50 px-3 py-2 text-xs font-semibold text-purple-700 transition hover:bg-purple-100"
+              className="flex items-center gap-1 rounded-xl border border-purple-200 bg-purple-50 px-3 py-2 text-xs font-semibold whitespace-nowrap text-purple-700 transition hover:bg-purple-100"
             >
               <span>เปิดศูนย์บุคลากรเต็มรูปแบบ</span>
               <ChevronRight className="h-3.5 w-3.5" />

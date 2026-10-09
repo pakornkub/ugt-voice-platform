@@ -567,8 +567,8 @@ const DashboardHeader: React.FC = () => {
         </p>
       </div>
 
-      <div className="flex items-center gap-2">
-        <span className="rounded-full border border-purple-400/20 bg-white/10 px-3 py-1 font-mono text-xs text-purple-200">
+      <div className="flex shrink-0 items-center gap-2">
+        <span className="rounded-full border border-purple-400/20 bg-white/10 px-3 py-1 font-mono text-xs whitespace-nowrap text-purple-200">
           {pick(lang, 'Real-Time Insights', 'ข้อมูลภาพรวมแบบเรียลไทม์')}
         </span>
       </div>
