@@ -1,21 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_SQL, PRESET_QUERIES, buildResultGrid } from './sqlStudioData';
+import { REPORTS } from '@/lib/report-catalog';
+import { buildResultCsv, buildResultGrid } from './sqlStudioData';
 
-describe('SQL studio constants', () => {
-  it('ships five uniquely titled preset queries that read from the tickets tables', () => {
-    expect(PRESET_QUERIES).toHaveLength(5);
-    expect(new Set(PRESET_QUERIES.map((p) => p.title)).size).toBe(5);
-    for (const preset of PRESET_QUERIES) {
-      expect(preset.sql).toMatch(/FROM tickets/);
-      expect(preset.sql.trimEnd().endsWith(';')).toBe(true);
+describe('preset report catalog', () => {
+  it('ships the five upstream example reports, uniquely named, without SLA metrics', () => {
+    expect(REPORTS).toHaveLength(5);
+    expect(new Set(REPORTS.map((r) => r.id)).size).toBe(5);
+    expect(new Set(REPORTS.map((r) => r.labelTh)).size).toBe(5);
+    for (const report of REPORTS) {
+      expect(report.columns.length).toBeGreaterThan(0);
+      expect(new Set(report.columns).size).toBe(report.columns.length);
+      expect(JSON.stringify(report)).not.toMatch(/SLA/i);
     }
-  });
-
-  it('has a default query and no SLA metrics anywhere', () => {
-    expect(DEFAULT_SQL).toMatch(/^-- /);
-    expect(DEFAULT_SQL).toContain('GROUP BY category');
-    const everything = [DEFAULT_SQL, ...PRESET_QUERIES.map((p) => p.sql + p.title)].join('\n');
-    expect(everything).not.toMatch(/SLA/i);
   });
 });
 
@@ -39,5 +35,22 @@ describe('buildResultGrid', () => {
 
   it('returns an empty grid for an empty result', () => {
     expect(buildResultGrid({ columns: [], rows: [] })).toEqual({ columns: [], rows: [] });
+  });
+});
+
+describe('buildResultCsv', () => {
+  it('writes a BOM, a quoted header and one quoted row per result row', () => {
+    const csv = buildResultCsv({
+      columns: ['หมวดหมู่', 'จำนวน'],
+      rows: [
+        ['HR', 3],
+        ['say "hi"', null],
+      ],
+    });
+    expect(csv).toBe('﻿"หมวดหมู่","จำนวน"\n"HR","3"\n"say ""hi""",""');
+  });
+
+  it('is just the header for an empty result', () => {
+    expect(buildResultCsv({ columns: ['a'], rows: [] })).toBe('﻿"a"');
   });
 });

@@ -1,5 +1,6 @@
 import { CATEGORY_DEFINITIONS } from '../../mockData';
 import type { ComplaintTicket, ConfidentialityLevel, TicketStatus } from '../../types';
+import { formatValue } from './formatValue';
 import type { ExportFilters, ExportMetrics } from './types';
 
 const MS_PER_HOUR = 1000 * 3600;
@@ -245,7 +246,7 @@ export const CSV_COLUMNS: readonly CsvColumn[] = [
 
 export function escapeCsv(val: unknown): string {
   if (val === undefined || val === null) return '""';
-  const str = String(val).replaceAll('"', '""');
+  const str = formatValue(val).replaceAll('"', '""');
   return `"${str}"`;
 }
 

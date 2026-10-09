@@ -1,6 +1,6 @@
 export type ExportDatasetType =
   'comprehensive' | 'operational_ops' | 'root_cause_capa' | 'csat_quality';
-export type ExportFileFormat = 'sqlite' | 'csv' | 'json';
+export type ExportFileFormat = 'csv' | 'json';
 export type ExportTabId = 'export' | 'sql_studio' | 'guide';
 
 export interface ExportFilters {

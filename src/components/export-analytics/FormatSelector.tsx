@@ -1,5 +1,5 @@
 import React from 'react';
-import { Database as DatabaseIcon, FileCode, FileSpreadsheet } from 'lucide-react';
+import { FileCode, FileSpreadsheet } from 'lucide-react';
 import { SelectedMark } from './SelectedMark';
 import type { ExportFileFormat } from './types';
 
@@ -7,23 +7,11 @@ interface FormatOption {
   id: ExportFileFormat;
   icon: React.ReactNode;
   title: string;
-  description: React.ReactNode;
+  description: string;
   selectedLabel: string;
 }
 
 const FORMAT_OPTIONS: readonly FormatOption[] = [
-  {
-    id: 'sqlite',
-    icon: <DatabaseIcon className="h-5 w-5 text-emerald-600" />,
-    title: 'SQLite Database (.sqlite)',
-    description: (
-      <>
-        ไฟล์ฐานข้อมูล Binary สมบูรณ์ เปิดด้วย{' '}
-        <strong>DB Browser for SQLite, DBeaver, TablePlus</strong> หรือ Python sqlite3 ได้ 100%
-      </>
-    ),
-    selectedLabel: 'เลือกอยู่ (แนะนำ)',
-  },
   {
     id: 'csv',
     icon: <FileSpreadsheet className="h-5 w-5 text-emerald-600" />,
@@ -51,14 +39,14 @@ interface FormatSelectorProps {
 }
 
 export const FormatSelector: React.FC<Readonly<FormatSelectorProps>> = ({ selected, onSelect }) => (
-  <div role="group" aria-labelledby="export-format-heading">
-    <p
+  <fieldset className="min-w-0">
+    <legend
       id="export-format-heading"
-      className="mb-2 block text-xs font-bold tracking-wider text-slate-700 uppercase"
+      className="mb-2 block p-0 text-xs font-bold tracking-wider text-slate-700 uppercase"
     >
       1. เลือกรูปแบบไฟล์ที่ต้องการดาวน์โหลด (File Format)
-    </p>
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+    </legend>
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       {FORMAT_OPTIONS.map((option) => {
         const isSelected = selected === option.id;
         return (
@@ -84,5 +72,5 @@ export const FormatSelector: React.FC<Readonly<FormatSelectorProps>> = ({ select
         );
       })}
     </div>
-  </div>
+  </fieldset>
 );

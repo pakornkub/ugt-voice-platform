@@ -55,13 +55,13 @@ export const DatasetSelector: React.FC<Readonly<DatasetSelectorProps>> = ({
   selected,
   onSelect,
 }) => (
-  <div role="group" aria-labelledby="export-dataset-heading">
-    <p
+  <fieldset className="min-w-0">
+    <legend
       id="export-dataset-heading"
-      className="mb-2 block text-xs font-bold tracking-wider text-slate-700 uppercase"
+      className="mb-2 block p-0 text-xs font-bold tracking-wider text-slate-700 uppercase"
     >
       2. เลือกโปรไฟล์ข้อมูลสำหรับการวิเคราะห์ (Dataset Profile)
-    </p>
+    </legend>
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {DATASET_OPTIONS.map((ds) => {
         const isSelected = selected === ds.id;
@@ -86,5 +86,5 @@ export const DatasetSelector: React.FC<Readonly<DatasetSelectorProps>> = ({
         );
       })}
     </div>
-  </div>
+  </fieldset>
 );

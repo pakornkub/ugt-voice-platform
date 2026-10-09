@@ -1,25 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ExportAnalyticsModal } from './ExportAnalyticsModal';
 import { INITIAL_COMPLAINTS } from '../mockData';
-import {
-  downloadSqliteDatabaseFile,
-  executeSqlAnalyticsQuery,
-  importSqliteDatabaseFile,
-  syncAllTicketsToSqlite,
-} from '../services/sqliteDb';
+import { runReport } from '@/lib/actions/reports';
+import { REPORT_ERROR_MESSAGES } from '@/lib/report-catalog';
 
-// sql.js loads its WASM from a CDN — not reachable (or wanted) in unit tests.
-vi.mock('../services/sqliteDb', () => ({
-  downloadSqliteDatabaseFile: vi.fn(),
-  executeSqlAnalyticsQuery: vi.fn(),
-  importSqliteDatabaseFile: vi.fn(),
-  syncAllTicketsToSqlite: vi.fn(),
-}));
+// The studio runs preset reports through a Server Action (SQL Server) — mocked here.
+vi.mock('@/lib/actions/reports', () => ({ runReport: vi.fn() }));
 
 const TOTAL = INITIAL_COMPLAINTS.length;
-const EMPTY_RESULT = { columns: [], rows: [], executionTimeMs: 0 };
+const EMPTY_RESULT = { ok: true as const, columns: [], rows: [], executionTimeMs: 0 };
 
 function renderModal(props: Partial<React.ComponentProps<typeof ExportAnalyticsModal>> = {}) {
   const onClose = vi.fn();
@@ -31,8 +22,7 @@ function renderModal(props: Partial<React.ComponentProps<typeof ExportAnalyticsM
 
 const button = (name: string | RegExp) => screen.getByRole('button', { name });
 const openSqlStudio = (user: ReturnType<typeof userEvent.setup>) =>
-  user.click(button(/SQLite Query Studio/));
-const textareaValue = () => (screen.getByLabelText('SQL Editor') as HTMLTextAreaElement).value;
+  user.click(button(/SQL Query Studio/));
 
 function deferred<T = void>() {
   let resolve!: (value: T) => void;
@@ -45,42 +35,28 @@ function deferred<T = void>() {
 }
 
 beforeEach(() => {
-  vi.mocked(downloadSqliteDatabaseFile).mockReset().mockResolvedValue(undefined);
-  vi.mocked(executeSqlAnalyticsQuery).mockReset().mockResolvedValue(EMPTY_RESULT);
-  vi.mocked(importSqliteDatabaseFile).mockReset().mockResolvedValue(0);
-  vi.mocked(syncAllTicketsToSqlite).mockReset().mockResolvedValue(undefined);
+  vi.mocked(runReport).mockReset().mockResolvedValue(EMPTY_RESULT);
 });
 
 describe('open / close', () => {
-  it('renders nothing while closed and does not sync the database', () => {
+  it('renders nothing while closed and runs no report', () => {
     const { container } = renderModal({ isOpen: false });
     expect(container).toBeEmptyDOMElement();
-    expect(syncAllTicketsToSqlite).not.toHaveBeenCalled();
+    expect(runReport).not.toHaveBeenCalled();
   });
 
-  it('shows the hub with the export tab active and syncs the tickets once', () => {
+  it('shows the hub with the export tab active and no SQLite engine', () => {
     renderModal();
-    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('SQLite & BI Data Hub');
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('BI Data Hub');
     expect(screen.getByText('1. เลือกรูปแบบไฟล์ที่ต้องการดาวน์โหลด (File Format)')).toBeVisible();
-    expect(syncAllTicketsToSqlite).toHaveBeenCalledTimes(1);
-    expect(syncAllTicketsToSqlite).toHaveBeenCalledWith(INITIAL_COMPLAINTS);
+    expect(screen.queryByText(/SQLite/)).not.toBeInTheDocument();
+    expect(runReport).not.toHaveBeenCalled();
   });
 
-  it('does not sync when there are no tickets', () => {
+  it('disables the download when there are no tickets', () => {
     renderModal({ tickets: [] });
-    expect(syncAllTicketsToSqlite).not.toHaveBeenCalled();
     expect(screen.getByText('0 รายการ')).toBeInTheDocument();
-    expect(button(/^ดาวน์โหลดไฟล์ SQLite/)).toBeDisabled();
-  });
-
-  it('survives a failing initial sync', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    vi.mocked(syncAllTicketsToSqlite).mockRejectedValueOnce(new Error('wasm blocked'));
-    renderModal();
-    await vi.waitFor(() => expect(warn).toHaveBeenCalled());
-    expect(warn.mock.calls[0][0]).toBe('Initial SQLite sync error:');
-    expect(screen.getByRole('heading', { level: 2 })).toBeInTheDocument();
-    warn.mockRestore();
+    expect(button(/^ดาวน์โหลดไฟล์/)).toBeDisabled();
   });
 
   it('calls onClose from both the header X and the footer close button', async () => {
@@ -99,8 +75,8 @@ describe('tabs', () => {
     const user = userEvent.setup();
     renderModal();
 
-    const exportMarker = () => screen.queryByText(/ฐานข้อมูล SQLite ภายในเบราว์เซอร์/);
-    const sqlMarker = () => screen.queryByText('SQLite Interactive Query Console');
+    const exportMarker = () => screen.queryByText(/เลือกรูปแบบไฟล์ที่ต้องการดาวน์โหลด/);
+    const sqlMarker = () => screen.queryByText('SQL Query Studio');
     const guideMarker = () => screen.queryByText(/คำแนะนำ: โครงสร้างข้อมูลที่ระบบจัดเตรียมไว้/);
 
     expect(exportMarker()).toBeInTheDocument();
@@ -117,24 +93,9 @@ describe('tabs', () => {
     expect(sqlMarker()).not.toBeInTheDocument();
     expect(exportMarker()).not.toBeInTheDocument();
 
-    await user.click(button(/ดาวน์โหลดข้อมูล \(\.sqlite/));
+    await user.click(button(/ดาวน์โหลดข้อมูล \(Excel CSV/));
     expect(exportMarker()).toBeInTheDocument();
     expect(guideMarker()).not.toBeInTheDocument();
-  });
-
-  it('runs the default query only the first time the SQL studio is opened', async () => {
-    const user = userEvent.setup();
-    renderModal();
-    expect(executeSqlAnalyticsQuery).not.toHaveBeenCalled();
-
-    await openSqlStudio(user);
-    await screen.findByText(/ไม่มีข้อมูล หรือยังไม่ได้รันคำสั่ง SQL/);
-    expect(executeSqlAnalyticsQuery).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(executeSqlAnalyticsQuery).mock.calls[0][0]).toContain('GROUP BY category');
-
-    await user.click(button(/คู่มือมิติข้อมูล/));
-    await openSqlStudio(user);
-    expect(executeSqlAnalyticsQuery).toHaveBeenCalledTimes(1);
   });
 
   it('lists the four guide topics', async () => {
@@ -154,32 +115,23 @@ describe('tabs', () => {
     renderModal();
     expect(screen.queryByText(/SLA/)).not.toBeInTheDocument();
     await openSqlStudio(user);
-    expect(screen.getByText('SQL Editor')).toBeInTheDocument();
+    expect(screen.getByText('รายงานที่เลือก (Report)')).toBeInTheDocument();
     expect(screen.queryByText(/SLA/)).not.toBeInTheDocument();
-    expect(textareaValue()).not.toMatch(/SLA/);
     await user.click(button(/คู่มือมิติข้อมูล/));
     expect(screen.queryByText(/SLA/)).not.toBeInTheDocument();
   });
 });
 
 describe('format and dataset selection', () => {
-  it('selects one file format at a time and updates the hint and download label', async () => {
+  it('offers CSV and JSON only, with CSV selected, and updates the hint', async () => {
     const user = userEvent.setup();
     renderModal();
-    const sqlite = button(/^SQLite Database \(\.sqlite\)/);
     const csv = button(/^Excel CSV \(UTF-8 BOM\)/);
     const json = button(/^JSON Document/);
 
-    expect(sqlite).toHaveAttribute('aria-pressed', 'true');
-    expect(csv).toHaveAttribute('aria-pressed', 'false');
-    expect(json).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByText('เลือกอยู่ (แนะนำ)')).toBeInTheDocument();
-    expect(screen.getByText(/ก้อนสมบูรณ์ พร้อม Table & Schema/)).toBeInTheDocument();
-
-    await user.click(csv);
+    expect(screen.queryByRole('button', { name: /sqlite/i })).not.toBeInTheDocument();
     expect(csv).toHaveAttribute('aria-pressed', 'true');
-    expect(sqlite).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.queryByText('เลือกอยู่ (แนะนำ)')).not.toBeInTheDocument();
+    expect(json).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByText(/UTF-8 with BOM รองรับภาษาไทย/)).toBeInTheDocument();
     expect(button(`ดาวน์โหลดไฟล์ (${TOTAL} รายการ)`)).toBeInTheDocument();
 
@@ -187,6 +139,12 @@ describe('format and dataset selection', () => {
     expect(json).toHaveAttribute('aria-pressed', 'true');
     expect(csv).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByText(/JSON Structured Document/)).toBeInTheDocument();
+  });
+
+  it('groups the format and dataset choices in labelled fieldsets', () => {
+    renderModal();
+    expect(screen.getByRole('group', { name: /File Format/ })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: /Dataset Profile/ })).toBeInTheDocument();
   });
 
   it('selects one dataset profile at a time', async () => {
@@ -252,12 +210,12 @@ describe('filters and metrics preview', () => {
   it('disables the download and shows N/A when nothing matches', async () => {
     const user = userEvent.setup();
     renderModal();
-    expect(button(/^ดาวน์โหลดไฟล์ SQLite/)).toBeEnabled();
+    expect(button(/^ดาวน์โหลดไฟล์/)).toBeEnabled();
     await user.selectOptions(screen.getByLabelText('หน่วยงาน / หมวดหมู่'), 'Fraud');
     await user.selectOptions(screen.getByLabelText('สถานะการดำเนินงาน'), 'closed');
     expect(screen.getByText('0 รายการ')).toBeInTheDocument();
     expect(screen.getByText('N/A')).toBeInTheDocument();
-    expect(button(/^ดาวน์โหลดไฟล์ SQLite/)).toBeDisabled();
+    expect(button(/^ดาวน์โหลดไฟล์/)).toBeDisabled();
   });
 });
 
@@ -299,27 +257,12 @@ describe('downloading', () => {
     vi.useRealTimers();
   });
 
-  it('downloads the SQLite database file and shows the success banner', async () => {
-    const user = userEvent.setup();
-    renderModal();
-    expect(screen.queryByText('ดาวน์โหลดสำเร็จ!')).not.toBeInTheDocument();
-
-    await user.click(button(/^ดาวน์โหลดไฟล์ SQLite/));
-
-    expect(downloadSqliteDatabaseFile).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(downloadSqliteDatabaseFile).mock.calls[0][0]).toMatch(
-      /^enterprise_grievance_v3_\d{4}-\d{2}-\d{2}\.sqlite$/
-    );
-    expect(await screen.findByText('ดาวน์โหลดสำเร็จ!')).toBeInTheDocument();
-    expect(blobs).toHaveLength(0);
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-  });
-
   it('hides the success banner again after four seconds', async () => {
     vi.useFakeTimers();
     renderModal();
+    expect(screen.queryByText('ดาวน์โหลดสำเร็จ!')).not.toBeInTheDocument();
     await act(async () => {
-      fireEvent.click(button(/^ดาวน์โหลดไฟล์ SQLite/));
+      fireEvent.click(button(/^ดาวน์โหลดไฟล์/));
     });
     expect(screen.getByText('ดาวน์โหลดสำเร็จ!')).toBeInTheDocument();
     act(() => {
@@ -331,7 +274,6 @@ describe('downloading', () => {
   it('exports a UTF-8 BOM CSV with one data row per ticket and no SLA columns', async () => {
     const user = userEvent.setup();
     renderModal();
-    await user.click(button(/^Excel CSV/));
     await user.click(button(`ดาวน์โหลดไฟล์ (${TOTAL} รายการ)`));
 
     expect(blobs).toHaveLength(1);
@@ -349,12 +291,12 @@ describe('downloading', () => {
     expect(downloads[0]).toMatch(/^grievance_bi_analytics_comprehensive_\d{4}-\d{2}-\d{2}\.csv$/);
     expect(revoke).toHaveBeenCalledWith('blob:mock');
     expect(await screen.findByText('ดาวน์โหลดสำเร็จ!')).toBeInTheDocument();
+    expect(screen.queryByText(/SQLite|DBeaver/)).not.toBeInTheDocument();
   });
 
   it('exports only the filtered tickets and names the file after the dataset profile', async () => {
     const user = userEvent.setup();
     renderModal();
-    await user.click(button(/^Excel CSV/));
     await user.click(button(/Employee Voice & CSAT Quality/));
     await user.selectOptions(screen.getByLabelText('สถานะการดำเนินงาน'), 'closed');
     await user.click(button('ดาวน์โหลดไฟล์ (2 รายการ)'));
@@ -396,64 +338,80 @@ describe('downloading', () => {
     const user = userEvent.setup();
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    vi.mocked(downloadSqliteDatabaseFile).mockRejectedValueOnce(new Error('disk full'));
+    URL.createObjectURL = vi.fn(() => {
+      throw new Error('disk full');
+    });
     renderModal();
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 
-    await user.click(button(/^ดาวน์โหลดไฟล์ SQLite/));
+    await user.click(button(/^ดาวน์โหลดไฟล์/));
 
-    await waitFor(() =>
-      expect(alertSpy).toHaveBeenCalledWith('เกิดข้อผิดพลาดในการส่งออกไฟล์ กรุณาลองใหม่อีกครั้ง')
-    );
+    expect(alertSpy).toHaveBeenCalledWith('เกิดข้อผิดพลาดในการส่งออกไฟล์ กรุณาลองใหม่อีกครั้ง');
     expect(error).toHaveBeenCalledWith('Export failed:', expect.any(Error));
     expect(screen.queryByText('ดาวน์โหลดสำเร็จ!')).not.toBeInTheDocument();
-    expect(button(/^ดาวน์โหลดไฟล์ SQLite/)).toBeEnabled();
+    expect(button(/^ดาวน์โหลดไฟล์/)).toBeEnabled();
   });
 
-  it('shows progress on a retry after a failed export', async () => {
+  it('exports the shown report result as a CSV', async () => {
     const user = userEvent.setup();
-    vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
-    const pending = deferred();
-    vi.mocked(downloadSqliteDatabaseFile)
-      .mockRejectedValueOnce(new Error('first fails'))
-      .mockReturnValueOnce(pending.promise);
-    renderModal();
-
-    await user.click(button(/^ดาวน์โหลดไฟล์ SQLite/));
-    await waitFor(() => expect(alertSpy).toHaveBeenCalledTimes(1));
-
-    await user.click(button(/^ดาวน์โหลดไฟล์ SQLite/));
-    expect(button('กำลังประมวลผล...')).toBeDisabled();
-
-    await act(async () => pending.resolve());
-    expect(await screen.findByText('ดาวน์โหลดสำเร็จ!')).toBeInTheDocument();
-    expect(button(/^ดาวน์โหลดไฟล์ SQLite/)).toBeEnabled();
-  });
-});
-
-describe('SQL studio', () => {
-  it('runs the default query on open and renders columns, rows and NULL cells', async () => {
-    const user = userEvent.setup();
-    vi.mocked(executeSqlAnalyticsQuery).mockResolvedValueOnce({
-      columns: ['หมวดหมู่', 'จำนวน'],
-      rows: [
-        ['HR', 3],
-        ['Fraud', null],
-      ],
-      executionTimeMs: 1.5,
+    vi.mocked(runReport).mockResolvedValueOnce({
+      ok: true,
+      columns: ['หมวดหมู่', 'จำนวนเคส'],
+      rows: [['HR', 3]],
+      executionTimeMs: 1,
     });
     renderModal();
     await openSqlStudio(user);
+    await user.click(await screen.findByRole('button', { name: 'ส่งออกผลลัพธ์ CSV' }));
 
+    expect(blobs).toHaveLength(1);
+    expect(blobs[0].type).toBe('text/csv;charset=utf-8;');
+    expect(blobs[0].text).toBe('﻿"หมวดหมู่","จำนวนเคส"\n"HR","3"');
+    expect(downloads[0]).toMatch(/^sql_report_category_pareto_\d{4}-\d{2}-\d{2}\.csv$/);
+  });
+});
+
+describe('SQL studio (preset reports)', () => {
+  const PARETO_RESULT = {
+    ok: true as const,
+    columns: ['หมวดหมู่', 'จำนวนเคส'],
+    rows: [
+      ['HR', 3],
+      ['Fraud', null],
+    ],
+    executionTimeMs: 1.5,
+  };
+
+  it('runs the first report on open and renders columns, rows and NULL cells', async () => {
+    const user = userEvent.setup();
+    vi.mocked(runReport).mockResolvedValueOnce(PARETO_RESULT);
+    renderModal();
+    await openSqlStudio(user);
+
+    expect(runReport).toHaveBeenCalledTimes(1);
+    expect(runReport).toHaveBeenCalledWith('category_pareto');
     expect(await screen.findByRole('columnheader', { name: 'หมวดหมู่' })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'จำนวน' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'จำนวนเคส' })).toBeInTheDocument();
     expect(screen.getAllByRole('row')).toHaveLength(3);
     expect(screen.getByRole('cell', { name: 'HR' })).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: '3' })).toBeInTheDocument();
     expect(screen.getByRole('cell', { name: 'NULL' })).toBeInTheDocument();
     expect(screen.getByText('2 แถว')).toBeInTheDocument();
     expect(screen.getByText('เวลาประมวลผล: 1.5 ms')).toBeInTheDocument();
-    expect(screen.queryByText(/ไม่มีข้อมูล หรือยังไม่ได้รันคำสั่ง SQL/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/ยังไม่ได้รันรายงาน/)).not.toBeInTheDocument();
+  });
+
+  it('shows the real-database note where the SQL editor used to be, and no editor', async () => {
+    const user = userEvent.setup();
+    renderModal();
+    await openSqlStudio(user);
+    expect(
+      screen.getByText(
+        'รายงานสำเร็จรูปจากฐานข้อมูลจริง (SQL Server) — เฉพาะเรื่องที่คุณมีสิทธิ์เห็น'
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(screen.queryByText(/นำเข้า \.sqlite|บันทึก \.sqlite/)).not.toBeInTheDocument();
+    expect(screen.getByRole('group', { name: /Preset Reports/ })).toBeInTheDocument();
   });
 
   it('shows the empty state for a result without rows', async () => {
@@ -461,154 +419,123 @@ describe('SQL studio', () => {
     renderModal();
     await openSqlStudio(user);
     expect(await screen.findByText('0 แถว')).toBeInTheDocument();
-    expect(screen.getByText('ไม่มีข้อมูล หรือยังไม่ได้รันคำสั่ง SQL')).toBeInTheDocument();
+    expect(screen.getByText('ไม่มีข้อมูล หรือยังไม่ได้รันรายงาน')).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'ส่งออกผลลัพธ์ CSV' })).not.toBeInTheDocument();
   });
 
-  it('runs the edited query from the editor with the Execute button', async () => {
+  it('runs the first report only the first time the studio is opened', async () => {
+    const user = userEvent.setup();
+    renderModal();
+    expect(runReport).not.toHaveBeenCalled();
+
+    await openSqlStudio(user);
+    await screen.findByText('0 แถว');
+    expect(runReport).toHaveBeenCalledTimes(1);
+
+    await user.click(button(/คู่มือมิติข้อมูล/));
+    await openSqlStudio(user);
+    expect(runReport).toHaveBeenCalledTimes(1);
+  });
+
+  it('runs a picked report and marks it as selected', async () => {
     const user = userEvent.setup();
     renderModal();
     await openSqlStudio(user);
     await screen.findByText('0 แถว');
-    expect(textareaValue()).toContain('GROUP BY category');
+    expect(button(/^1\. /)).toHaveAttribute('aria-pressed', 'true');
 
-    vi.mocked(executeSqlAnalyticsQuery).mockResolvedValueOnce({
+    await user.click(button(/2\. ตรวจสอบเคสที่กำลังดำเนินการ/));
+
+    expect(runReport).toHaveBeenLastCalledWith('in_progress_tickets');
+    expect(runReport).toHaveBeenCalledTimes(2);
+    expect(button(/^2\. /)).toHaveAttribute('aria-pressed', 'true');
+    expect(button(/^1\. /)).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByText(/เรื่องที่หน่วยงานรับเรื่องแล้วหรือกำลังแก้ไข/)).toBeInTheDocument();
+  });
+
+  it('re-runs the selected report with the run button', async () => {
+    const user = userEvent.setup();
+    renderModal();
+    await openSqlStudio(user);
+    await screen.findByText('0 แถว');
+    await user.click(button(/3\. สรุปคะแนน CSAT/));
+    vi.mocked(runReport).mockResolvedValueOnce({
+      ok: true,
       columns: ['n'],
       rows: [[42]],
       executionTimeMs: 0.2,
     });
-    fireEvent.change(screen.getByLabelText('SQL Editor'), { target: { value: 'SELECT 42 AS n;' } });
-    expect(textareaValue()).toBe('SELECT 42 AS n;');
-    await user.click(button('รัน SQL (Execute)'));
 
-    expect(executeSqlAnalyticsQuery).toHaveBeenLastCalledWith('SELECT 42 AS n;');
+    await user.click(button('รันรายงาน (Run)'));
+
+    expect(runReport).toHaveBeenLastCalledWith('csat_by_category');
     expect(await screen.findByRole('cell', { name: '42' })).toBeInTheDocument();
     expect(screen.getByText('1 แถว')).toBeInTheDocument();
   });
 
-  it('shows the busy label while a query is running', async () => {
+  it('shows the busy label while a report is running', async () => {
     const user = userEvent.setup();
     const pending = deferred<typeof EMPTY_RESULT>();
-    vi.mocked(executeSqlAnalyticsQuery).mockReturnValueOnce(pending.promise);
+    vi.mocked(runReport).mockReturnValueOnce(pending.promise);
     renderModal();
     await openSqlStudio(user);
 
-    expect(button('กำลังรัน Query...')).toBeDisabled();
+    expect(button('กำลังรันรายงาน...')).toBeDisabled();
     await act(async () => pending.resolve(EMPTY_RESULT));
-    expect(button('รัน SQL (Execute)')).toBeEnabled();
+    expect(button('รันรายงาน (Run)')).toBeEnabled();
   });
 
-  it('renders the message when the query rejects', async () => {
+  it('shows the message when the server refuses the run', async () => {
     const user = userEvent.setup();
-    vi.mocked(executeSqlAnalyticsQuery).mockRejectedValueOnce(new Error('near "FROM": syntax'));
+    vi.mocked(runReport).mockResolvedValueOnce({ ok: false, error: 'FORBIDDEN' });
     renderModal();
     await openSqlStudio(user);
 
-    expect(await screen.findByText('SQL Error:')).toBeInTheDocument();
-    expect(screen.getByText(/near "FROM": syntax/)).toBeInTheDocument();
+    expect(await screen.findByText('ข้อผิดพลาด:')).toBeInTheDocument();
+    expect(screen.getByText(REPORT_ERROR_MESSAGES.FORBIDDEN)).toBeInTheDocument();
     expect(screen.queryByText(/แถว$/)).not.toBeInTheDocument();
   });
 
-  it('falls back to a generic message for non-Error rejections', async () => {
+  it('falls back to a generic message when the action itself rejects', async () => {
     const user = userEvent.setup();
-    vi.mocked(executeSqlAnalyticsQuery).mockRejectedValueOnce('boom');
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.mocked(runReport).mockRejectedValueOnce(new Error('network'));
     renderModal();
     await openSqlStudio(user);
-    expect(await screen.findByText(/SQL Execution Error/)).toBeInTheDocument();
+
+    expect(await screen.findByText(REPORT_ERROR_MESSAGES.FAILED)).toBeInTheDocument();
+    expect(error).toHaveBeenCalledWith('Report failed:', expect.any(Error));
+    error.mockRestore();
   });
 
-  it('renders an error returned by the query service', async () => {
+  it('keeps the newest pick when an earlier, slower run finishes last', async () => {
     const user = userEvent.setup();
-    vi.mocked(executeSqlAnalyticsQuery).mockResolvedValueOnce({
-      ...EMPTY_RESULT,
-      error: 'no such table: nope',
+    const slow = deferred<typeof PARETO_RESULT>();
+    vi.mocked(runReport).mockReturnValueOnce(slow.promise);
+    renderModal();
+    await openSqlStudio(user);
+
+    vi.mocked(runReport).mockResolvedValueOnce({
+      ok: true,
+      columns: ['n'],
+      rows: [['newest']],
+      executionTimeMs: 0,
     });
-    renderModal();
-    await openSqlStudio(user);
-    expect(await screen.findByText(/no such table: nope/)).toBeInTheDocument();
+    await user.click(button(/5\. ช่องทางสายตรงผู้บริหาร/));
+    expect(await screen.findByRole('cell', { name: 'newest' })).toBeInTheDocument();
+
+    await act(async () => slow.resolve(PARETO_RESULT));
+    expect(screen.getByRole('cell', { name: 'newest' })).toBeInTheDocument();
+    expect(screen.queryByRole('cell', { name: 'HR' })).not.toBeInTheDocument();
   });
 
-  it('loads a preset into the editor and runs it', async () => {
-    const user = userEvent.setup();
-    renderModal();
-    await openSqlStudio(user);
-    await screen.findByText('0 แถว');
-    expect(textareaValue()).not.toContain("WHERE status = 'in_progress'");
-
-    await user.click(button(/2\. ตรวจสอบเคสที่กำลังดำเนินการ/));
-
-    expect(textareaValue()).toContain(
-      "WHERE status = 'in_progress' OR status = 'gatekeeper_triaged'"
-    );
-    expect(executeSqlAnalyticsQuery).toHaveBeenLastCalledWith(textareaValue());
-    expect(executeSqlAnalyticsQuery).toHaveBeenCalledTimes(2);
-  });
-
-  it('offers all five presets', async () => {
+  it('offers all five reports', async () => {
     const user = userEvent.setup();
     renderModal();
     await openSqlStudio(user);
     for (const prefix of ['1.', '2.', '3.', '4.', '5.']) {
       expect(button(new RegExp(`^${prefix.replace('.', '\\.')} `))).toBeInTheDocument();
     }
-  });
-
-  it('saves the database through the Save .sqlite button', async () => {
-    const user = userEvent.setup();
-    renderModal();
-    await openSqlStudio(user);
-    await user.click(button('บันทึก .sqlite'));
-    expect(downloadSqliteDatabaseFile).toHaveBeenCalledTimes(1);
-    expect(downloadSqliteDatabaseFile).toHaveBeenCalledWith();
-  });
-});
-
-describe('SQLite import', () => {
-  const sqliteFile = () => new File(['data'], 'backup.sqlite', { type: 'application/x-sqlite3' });
-
-  it('imports a file, reports the row count and re-runs the query', async () => {
-    const user = userEvent.setup();
-    vi.mocked(importSqliteDatabaseFile).mockResolvedValueOnce(7);
-    renderModal();
-    await openSqlStudio(user);
-    await screen.findByText('0 แถว');
-    expect(screen.queryByText(/นำเข้าสำเร็จ/)).not.toBeInTheDocument();
-    expect(executeSqlAnalyticsQuery).toHaveBeenCalledTimes(1);
-
-    const file = sqliteFile();
-    await user.upload(screen.getByLabelText('นำเข้า .sqlite'), file);
-
-    expect(importSqliteDatabaseFile).toHaveBeenCalledWith(file);
-    expect(await screen.findByText('นำเข้าสำเร็จ! พบ 7 รายการในฐานข้อมูล')).toBeInTheDocument();
-    await vi.waitFor(() => expect(executeSqlAnalyticsQuery).toHaveBeenCalledTimes(2));
-  });
-
-  it('reports the error when the import fails', async () => {
-    const user = userEvent.setup();
-    vi.mocked(importSqliteDatabaseFile).mockRejectedValueOnce(new Error('not a database'));
-    renderModal();
-    await openSqlStudio(user);
-    await user.upload(screen.getByLabelText('นำเข้า .sqlite'), sqliteFile());
-
-    expect(await screen.findByText('เกิดข้อผิดพลาด: not a database')).toBeInTheDocument();
-    expect(screen.queryByText(/นำเข้าสำเร็จ/)).not.toBeInTheDocument();
-  });
-
-  it('stringifies non-Error failures', async () => {
-    const user = userEvent.setup();
-    vi.mocked(importSqliteDatabaseFile).mockRejectedValueOnce('plain text');
-    renderModal();
-    await openSqlStudio(user);
-    await user.upload(screen.getByLabelText('นำเข้า .sqlite'), sqliteFile());
-    expect(await screen.findByText('เกิดข้อผิดพลาด: plain text')).toBeInTheDocument();
-  });
-
-  it('ignores a change event without a file', async () => {
-    const user = userEvent.setup();
-    renderModal();
-    await openSqlStudio(user);
-    fireEvent.change(screen.getByLabelText('นำเข้า .sqlite'), { target: { files: [] } });
-    expect(importSqliteDatabaseFile).not.toHaveBeenCalled();
-    expect(screen.queryByText(/นำเข้า(สำเร็จ|ฐานข้อมูล)/)).not.toBeInTheDocument();
   });
 });

@@ -1,14 +1,10 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Download, X, Lightbulb, Database as DatabaseIcon, Terminal } from 'lucide-react';
+import { runReport } from '@/lib/actions/reports';
+import { REPORT_ERROR_MESSAGES, REPORTS, type ReportId } from '@/lib/report-catalog';
 import { ComplaintTicket } from '../types';
-import {
-  downloadSqliteDatabaseFile,
-  executeSqlAnalyticsQuery,
-  importSqliteDatabaseFile,
-  syncAllTicketsToSqlite,
-} from '../services/sqliteDb';
 import { dateStamp, downloadBlob } from './export-analytics/download';
 import {
   buildCsvContent,
@@ -19,7 +15,7 @@ import {
 } from './export-analytics/exportData';
 import { ExportTab } from './export-analytics/ExportTab';
 import { GuideTab } from './export-analytics/GuideTab';
-import { DEFAULT_SQL } from './export-analytics/sqlStudioData';
+import { buildResultCsv } from './export-analytics/sqlStudioData';
 import { SqlStudioTab } from './export-analytics/SqlStudioTab';
 import { TabButton } from './export-analytics/TabButton';
 import type {
@@ -42,32 +38,29 @@ const EXPORT_ERROR_MESSAGE = 'เกิดข้อผิดพลาดใน�
 
 const INITIAL_FILTERS: ExportFilters = { department: 'ALL', status: 'ALL', timeRange: 'ALL' };
 
+const failedResult = (error: string): SqlResult => ({
+  columns: [],
+  rows: [],
+  executionTimeMs: 0,
+  error,
+});
+
 export const ExportAnalyticsModal: React.FC<Readonly<ExportAnalyticsModalProps>> = ({
   isOpen,
   onClose,
   tickets = [],
 }) => {
-  const [selectedFormat, setSelectedFormat] = useState<ExportFileFormat>('sqlite');
+  const [selectedFormat, setSelectedFormat] = useState<ExportFileFormat>('csv');
   const [datasetType, setDatasetType] = useState<ExportDatasetType>('comprehensive');
   const [filters, setFilters] = useState<ExportFilters>(INITIAL_FILTERS);
-  const [isExporting, setIsExporting] = useState<boolean>(false);
   const [exportSuccess, setExportSuccess] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<ExportTabId>('export');
 
-  // SQL Studio State
-  const [sqlQuery, setSqlQuery] = useState<string>(DEFAULT_SQL);
+  // SQL Studio State — preset reports run on the server (lib/actions/reports.ts)
+  const [selectedReportId, setSelectedReportId] = useState<ReportId>(REPORTS[0].id);
   const [sqlResult, setSqlResult] = useState<SqlResult | null>(null);
   const [isExecutingSql, setIsExecutingSql] = useState(false);
-  const [importStatus, setImportStatus] = useState<string | null>(null);
-
-  // Sync SQLite when modal opens
-  useEffect(() => {
-    if (isOpen && tickets.length > 0) {
-      syncAllTicketsToSqlite(tickets).catch((err) => {
-        console.warn('Initial SQLite sync error:', err);
-      });
-    }
-  }, [isOpen, tickets]);
+  const latestRun = useRef(0); // a slow earlier run must not overwrite a newer pick
 
   // Filtered tickets + analytics preview based on selections
   const filteredTickets = useMemo(() => filterTickets(tickets, filters), [tickets, filters]);
@@ -78,22 +71,23 @@ export const ExportAnalyticsModal: React.FC<Readonly<ExportAnalyticsModalProps>>
   const updateFilter = (key: keyof ExportFilters, value: string) =>
     setFilters((prev) => ({ ...prev, [key]: value }));
 
-  const runSqlQuery = async (queryToRun?: string) => {
-    const q = queryToRun || sqlQuery;
+  const runSelectedReport = async (reportId: ReportId) => {
+    latestRun.current += 1;
+    const runId = latestRun.current;
     setIsExecutingSql(true);
+    let next: SqlResult;
     try {
-      const res = await executeSqlAnalyticsQuery(q);
-      setSqlResult(res);
+      const res = await runReport(reportId);
+      next = res.ok
+        ? { columns: res.columns, rows: res.rows, executionTimeMs: res.executionTimeMs }
+        : failedResult(REPORT_ERROR_MESSAGES[res.error]);
     } catch (err) {
-      setSqlResult({
-        columns: [],
-        rows: [],
-        executionTimeMs: 0,
-        error: err instanceof Error ? err.message : 'SQL Execution Error',
-      });
-    } finally {
-      setIsExecutingSql(false);
+      console.error('Report failed:', err);
+      next = failedResult(REPORT_ERROR_MESSAGES.FAILED);
     }
+    if (runId !== latestRun.current) return;
+    setSqlResult(next);
+    setIsExecutingSql(false);
   };
 
   const exportJson = () => {
@@ -113,54 +107,35 @@ export const ExportAnalyticsModal: React.FC<Readonly<ExportAnalyticsModalProps>>
     downloadBlob(blob, `grievance_bi_analytics_${datasetType}_${dateStamp()}.csv`);
   };
 
-  const exportInSelectedFormat = async () => {
-    if (selectedFormat === 'sqlite') {
-      // Direct binary .sqlite file download
-      await downloadSqliteDatabaseFile(`enterprise_grievance_v3_${dateStamp()}.sqlite`);
-    } else if (selectedFormat === 'json') {
-      exportJson();
-    } else {
-      exportCsv();
-    }
-  };
-
-  const handleDownload = async () => {
-    setIsExporting(true);
+  const handleDownload = () => {
     try {
-      await exportInSelectedFormat();
+      if (selectedFormat === 'json') {
+        exportJson();
+      } else {
+        exportCsv();
+      }
       setExportSuccess(true);
       setTimeout(() => setExportSuccess(false), 4000);
     } catch (err) {
       console.error('Export failed:', err);
       globalThis.alert(EXPORT_ERROR_MESSAGE); // same blocking alert as upstream
-    } finally {
-      setIsExporting(false);
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      setImportStatus('กำลังนำเข้าฐานข้อมูล SQLite...');
-      const count = await importSqliteDatabaseFile(file);
-      setImportStatus(`นำเข้าสำเร็จ! พบ ${count} รายการในฐานข้อมูล`);
-      setTimeout(() => setImportStatus(null), 4000);
-      runSqlQuery();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setImportStatus(`เกิดข้อผิดพลาด: ${message}`);
-    }
+  const exportReportCsv = () => {
+    if (!sqlResult) return;
+    const blob = new Blob([buildResultCsv(sqlResult)], { type: 'text/csv;charset=utf-8;' });
+    downloadBlob(blob, `sql_report_${selectedReportId}_${dateStamp()}.csv`);
   };
 
   const openSqlStudio = () => {
     setActiveTab('sql_studio');
-    if (!sqlResult) runSqlQuery();
+    if (!sqlResult) runSelectedReport(selectedReportId);
   };
 
-  const selectPreset = (sql: string) => {
-    setSqlQuery(sql);
-    runSqlQuery(sql);
+  const selectReport = (reportId: ReportId) => {
+    setSelectedReportId(reportId);
+    runSelectedReport(reportId);
   };
 
   return (
@@ -178,15 +153,15 @@ export const ExportAnalyticsModal: React.FC<Readonly<ExportAnalyticsModalProps>>
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-bold">
-                  ศูนย์ข้อมูล SQLite & ส่งออกข้อมูลวิเคราะห์ (SQLite & BI Data Hub)
+                  ศูนย์ข้อมูล & ส่งออกข้อมูลวิเคราะห์ (BI Data Hub)
                 </h2>
                 <span className="rounded-full border border-emerald-400/30 bg-emerald-400/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-200">
-                  SQLite in Browser (Wasm)
+                  SQL Server
                 </span>
               </div>
               <p className="mt-0.5 text-xs text-emerald-100/80">
-                จัดเก็บข้อมูลทั้งหมดในรูปแบบฐานข้อมูลเชิงสัมพันธ์ SQLite สามารถรันคำสั่ง SQL
-                หรือดาวน์โหลดไฟล์ .sqlite ไปเปิดได้ทันที
+                ข้อมูลทั้งหมดจัดเก็บในฐานข้อมูลเชิงสัมพันธ์ SQL Server สามารถรันรายงานสำเร็จรูป
+                หรือดาวน์โหลดไฟล์ CSV / JSON ไปเปิดได้ทันที
               </p>
             </div>
           </div>
@@ -207,14 +182,14 @@ export const ExportAnalyticsModal: React.FC<Readonly<ExportAnalyticsModalProps>>
             id="tab-export-config"
             active={activeTab === 'export'}
             icon={<Download className="h-3.5 w-3.5" />}
-            label="ดาวน์โหลดข้อมูล (.sqlite, Excel CSV, JSON)"
+            label="ดาวน์โหลดข้อมูล (Excel CSV, JSON)"
             onClick={() => setActiveTab('export')}
           />
           <TabButton
             id="tab-sql-studio"
             active={activeTab === 'sql_studio'}
             icon={<Terminal className="h-3.5 w-3.5 text-indigo-600" />}
-            label="SQLite Query Studio (รัน SQL สดบนเว็บ)"
+            label="SQL Query Studio (รายงานสำเร็จรูป)"
             onClick={openSqlStudio}
           />
           <TabButton
@@ -237,22 +212,18 @@ export const ExportAnalyticsModal: React.FC<Readonly<ExportAnalyticsModalProps>>
               filters={filters}
               onFilterChange={updateFilter}
               metrics={metrics}
-              isExporting={isExporting}
               exportSuccess={exportSuccess}
               onDownload={handleDownload}
             />
           )}
           {activeTab === 'sql_studio' && (
             <SqlStudioTab
-              sqlQuery={sqlQuery}
-              onSqlQueryChange={setSqlQuery}
+              selectedReportId={selectedReportId}
               sqlResult={sqlResult}
               isExecuting={isExecutingSql}
-              importStatus={importStatus}
-              onRun={() => runSqlQuery()}
-              onSelectPreset={selectPreset}
-              onFileUpload={handleFileUpload}
-              onSaveSqlite={() => downloadSqliteDatabaseFile()}
+              onRun={() => runSelectedReport(selectedReportId)}
+              onSelectReport={selectReport}
+              onExportCsv={exportReportCsv}
             />
           )}
           {activeTab === 'guide' && <GuideTab />}
@@ -262,7 +233,7 @@ export const ExportAnalyticsModal: React.FC<Readonly<ExportAnalyticsModalProps>>
         <div className="flex shrink-0 items-center justify-between border-t border-slate-200 bg-slate-100 px-6 py-3">
           <div className="flex items-center gap-2 text-xs text-slate-500">
             <span className="inline-block h-2 w-2 rounded-full bg-emerald-500"></span>
-            <span>SQLite Wasm Engine พร้อมใช้งาน | Schema v3.0 Relational Model</span>
+            <span>เชื่อมต่อฐานข้อมูล SQL Server | Schema v3.0 Relational Model</span>
           </div>
           <button
             id="btn-export-modal-footer-close"

@@ -4,20 +4,12 @@ import { DatasetSelector } from './DatasetSelector';
 import { FilterPanel } from './FilterPanel';
 import { FormatSelector } from './FormatSelector';
 import { MetricsPreview } from './MetricsPreview';
-import { SqliteBanner } from './SqliteBanner';
 import type { ExportDatasetType, ExportFileFormat, ExportFilters, ExportMetrics } from './types';
 
 const FORMAT_HINTS: Record<ExportFileFormat, string> = {
-  sqlite: '📁 ดาวน์โหลดไฟล์ฐานข้อมูล .sqlite Binary ก้อนสมบูรณ์ พร้อม Table & Schema ทั้งหมด',
   csv: '📊 ไฟล์ Excel CSV แบบ UTF-8 with BOM รองรับภาษาไทย',
   json: '📄 ไฟล์ JSON Structured Document',
 };
-
-function downloadLabel(isExporting: boolean, format: ExportFileFormat, count: number) {
-  if (isExporting) return 'กำลังประมวลผล...';
-  if (format === 'sqlite') return 'ดาวน์โหลดไฟล์ SQLite (.sqlite)';
-  return `ดาวน์โหลดไฟล์ (${count} รายการ)`;
-}
 
 interface ExportTabProps {
   selectedFormat: ExportFileFormat;
@@ -27,7 +19,6 @@ interface ExportTabProps {
   filters: ExportFilters;
   onFilterChange: (key: keyof ExportFilters, value: string) => void;
   metrics: ExportMetrics;
-  isExporting: boolean;
   exportSuccess: boolean;
   onDownload: () => void;
 }
@@ -40,12 +31,10 @@ export const ExportTab: React.FC<Readonly<ExportTabProps>> = ({
   filters,
   onFilterChange,
   metrics,
-  isExporting,
   exportSuccess,
   onDownload,
 }) => (
   <>
-    <SqliteBanner />
     <FormatSelector selected={selectedFormat} onSelect={onFormatChange} />
     <DatasetSelector selected={datasetType} onSelect={onDatasetChange} />
     <FilterPanel filters={filters} onChange={onFilterChange} />
@@ -58,7 +47,7 @@ export const ExportTab: React.FC<Readonly<ExportTabProps>> = ({
         type="button"
         id="btn-trigger-download"
         onClick={onDownload}
-        disabled={isExporting || metrics.total === 0}
+        disabled={metrics.total === 0}
         className={`flex w-full items-center justify-center gap-2 rounded-xl px-6 py-2.5 text-xs font-bold shadow-md transition sm:w-auto ${
           metrics.total === 0
             ? 'cursor-not-allowed bg-slate-200 text-slate-400'
@@ -66,7 +55,7 @@ export const ExportTab: React.FC<Readonly<ExportTabProps>> = ({
         }`}
       >
         <Download className="h-4 w-4" />
-        <span>{downloadLabel(isExporting, selectedFormat, metrics.total)}</span>
+        <span>{`ดาวน์โหลดไฟล์ (${metrics.total} รายการ)`}</span>
       </button>
     </div>
 
@@ -74,8 +63,8 @@ export const ExportTab: React.FC<Readonly<ExportTabProps>> = ({
       <div className="animate-in fade-in flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs text-emerald-800 duration-200">
         <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
         <div>
-          <span className="font-bold">ดาวน์โหลดสำเร็จ!</span> ไฟล์พร้อมเปิดใช้งานใน DB Browser for
-          SQLite, DBeaver หรือ Excel ได้ทันที
+          <span className="font-bold">ดาวน์โหลดสำเร็จ!</span> ไฟล์พร้อมเปิดใช้งานใน Excel
+          หรือเครื่องมือวิเคราะห์ข้อมูลได้ทันที
         </div>
       </div>
     )}
