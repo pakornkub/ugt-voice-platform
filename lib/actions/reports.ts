@@ -6,24 +6,14 @@
 // (lib/reports.ts). The outcome is returned, not thrown: a thrown message is scrubbed in
 // production, so the UI would never learn why a run was refused.
 import { z } from 'zod';
-import { prisma } from '@/lib/prisma';
+import { AUDIT_ACTIONS } from '@/lib/audit-actions';
 import { REPORT_IDS, type ReportErrorCode, type RunReportResult } from '@/lib/report-catalog';
 import { canRunReports, runPresetReport } from '@/lib/reports';
+import { writeAudit } from '@/lib/tab-guard';
 import { requireTicketViewer } from '@/lib/ticket-access';
 import type { TicketViewer } from '@/lib/ticket-scope';
 
-// TODO(lead): replace with AUDIT_ACTIONS.REPORTS_RUN ('reports.run') once lib/audit-actions.ts has it.
-const REPORTS_RUN_ACTION = 'reports.run';
-
 const ReportInput = z.enum(REPORT_IDS);
-
-function auditReportRun(viewer: TicketViewer, detail: object): void {
-  prisma.activityLog
-    .create({
-      data: { userId: viewer.userId, action: REPORTS_RUN_ACTION, detail: JSON.stringify(detail) },
-    })
-    .catch(() => {}); // an audit failure must never fail the report itself
-}
 
 const refused = (error: ReportErrorCode): RunReportResult => ({ ok: false, error });
 
@@ -41,7 +31,10 @@ export async function runReport(reportId: unknown): Promise<RunReportResult> {
 
   try {
     const result = await runPresetReport(viewer, parsed.data);
-    auditReportRun(viewer, { reportId: parsed.data, rows: result.rows.length });
+    writeAudit(viewer, AUDIT_ACTIONS.REPORTS_RUN, {
+      reportId: parsed.data,
+      rows: result.rows.length,
+    });
     return { ok: true, ...result };
   } catch (error) {
     console.error('runReport failed', error);

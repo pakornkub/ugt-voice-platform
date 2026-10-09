@@ -37,7 +37,6 @@ import {
   getUrgencyBadgeText,
   suggestCategoryWithAI,
   AICategorySuggestionResult,
-  logTicketSubmittedEmail,
 } from '../services/api';
 import { submitTicket } from '@/lib/actions/tickets';
 import { useLanguage } from '../context/LanguageContext';
@@ -441,7 +440,6 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
       attachments,
     })
       .then((newTicket) => {
-        logTicketSubmittedEmail(newTicket);
         setCreatedTicket(newTicket);
         onTicketCreated(newTicket);
       })

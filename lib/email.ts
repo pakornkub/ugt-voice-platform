@@ -79,16 +79,37 @@ export interface SendTemplatedMailOptions {
 export async function sendTemplatedMail(opts: SendTemplatedMailOptions): Promise<void> {
   const template = await getMailTemplate(opts.templateKey);
   const { subject, html } = renderComposedMail(opts.templateKey, template, opts.vars);
+  await sendRenderedMail({ subject, html, to: opts.to, cc: opts.cc, actor: opts.actor });
+}
 
+export interface SendRenderedMailOptions {
+  subject: string;
+  html: string;
+  to: string | string[];
+  cc?: string | string[];
+  actor: MailActor;
+  /**
+   * Recipients named in the dev-mode banner instead of `to` — for mail whose real address must
+   * not be shown to the tester (an anonymous submitter's).
+   */
+  bannerTo?: string | string[];
+}
+
+/**
+ * Delivery with the dev-mode rule, for mail whose subject/body the caller already rendered (the
+ * admin-editable ticket notifications are not `MailTemplateKey` templates: the admin writes the
+ * whole message, greeting and sign-off included, so the fixed chrome would duplicate it).
+ */
+export async function sendRenderedMail(opts: SendRenderedMailOptions): Promise<void> {
   const devMode = opts.actor.hasDevMode && !!opts.actor.email;
   if (devMode) {
     await sendMail({
       to: opts.actor.email as string,
-      subject: `[DEV] ${subject}`,
-      html: buildDevBanner({ to: opts.to, cc: opts.cc }) + html,
+      subject: `[DEV] ${opts.subject}`,
+      html: buildDevBanner({ to: opts.bannerTo ?? opts.to, cc: opts.cc }) + opts.html,
     });
     return;
   }
 
-  await sendMail({ to: opts.to, cc: opts.cc, subject, html });
+  await sendMail({ to: opts.to, cc: opts.cc, subject: opts.subject, html: opts.html });
 }

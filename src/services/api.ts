@@ -4,8 +4,6 @@ import {
   GrievanceCategory,
   TicketStatus,
   UrgencyLevel,
-  EmailNotificationSettings,
-  EmailDispatchLog,
   RecentSearchItem,
 } from '../types';
 import { CATEGORY_DEFINITIONS, INITIAL_GATEKEEPER_CONFIGS } from '../mockData';
@@ -20,14 +18,10 @@ const BASE_PATH = env.NEXT_PUBLIC_BASE_PATH;
 // Collision-free local id. Upstream used `${Date.now()}-${random 0-999}`, which repeats when two
 // items are created in the same millisecond — removing one recent search then removed both.
 // crypto.randomUUID exists in every place this runs (HTTPS/localhost browsers, Node 22, jsdom).
-/** The page origin in the browser, empty on the server (links are built client-side). */
-const appOrigin = (): string => globalThis.location?.origin ?? '';
 
 const uniqueId = (prefix: string): string => `${prefix}-${globalThis.crypto.randomUUID()}`;
 
 const STORAGE_KEY_GATEKEEPERS = 'enterprise_grievance_gatekeepers_v3';
-const STORAGE_KEY_EMAIL_SETTINGS = 'enterprise_grievance_email_settings_v1';
-const STORAGE_KEY_EMAIL_LOGS = 'enterprise_grievance_email_logs_v1';
 const STORAGE_KEY_RECENT_SEARCHES = 'enterprise_grievance_recent_searches_v1';
 
 export {
@@ -187,35 +181,6 @@ export async function getClusterInsightsWithAI(tickets: ComplaintTicket[]) {
   }
 }
 
-// Upstream's simulated email dispatch log (localStorage) — the ticket itself now lives in the DB
-// (lib/actions/tickets.ts), so the components call these after the Server Action returns.
-// Slice 3 of the rewiring moves delivery server-side (AppSettings + SMTP).
-export function logTicketSubmittedEmail(ticket: ComplaintTicket) {
-  try {
-    dispatchEmailOnTicketSubmitted(ticket);
-  } catch (error_) {
-    console.warn('Auto email dispatch error on ticket submit:', error_);
-  }
-}
-
-export function logTicketResolvedEmail(
-  ticket: ComplaintTicket,
-  updates: { resolutionSummary?: string; actionNote?: string; actorName?: string }
-) {
-  if (ticket.status !== 'resolved') return;
-  try {
-    dispatchEmailOnTicketResolved(
-      ticket,
-      updates.resolutionSummary ||
-        updates.actionNote ||
-        'ดำเนินการตรวจสอบและแก้ไขปัญหาเรียบร้อยตามมาตรฐานการปฏิบัติงาน',
-      updates.actorName || 'เจ้าหน้าที่ Gatekeeper'
-    );
-  } catch (error_) {
-    console.warn('Auto email dispatch error on ticket resolve:', error_);
-  }
-}
-
 export function getStatusBadgeText(status: TicketStatus, lang: 'th' | 'en' = 'th') {
   if (lang === 'en') {
     switch (status) {
@@ -339,330 +304,12 @@ export function getRiskSeverityColor(risk: ComplaintTicket['riskSeverity']) {
   }
 }
 
-// =========================================================================
-// EMAIL NOTIFICATION SYSTEM (Admin Settings, Dynamic Templates & Dispatch)
-// =========================================================================
-
-export const DEFAULT_EMAIL_SETTINGS: EmailNotificationSettings = {
-  masterEnabled: true,
-  onTicketSubmitted: {
-    enabled: true,
-    subject:
-      '[VoicePlatform แจ้งเรื่องใหม่] {ticketId}: มีข้อร้องเรียนใหม่ ({categoryTh}) - {urgency}',
-    body: `เรียน ทีมงาน Gatekeeper ประจำฝ่าย {categoryTh},
-
-ระบบ VoicePlatform ขอแจ้งเตือนว่ามีผู้ยื่นเรื่องข้อร้องเรียน/ข้อเสนอแนะใหม่เข้าระบบ โดยมีรายละเอียดดังนี้:
-
-- รหัสติดตาม (Tracking ID): {ticketId}
-- หมวดหมู่ (Category): {categoryTh} ({category})
-- หัวข้อเรื่อง (Title): {title}
-- ระดับความเร่งด่วน (Urgency): {urgency}
-- ผู้ยื่นเรื่อง (Submitter): {senderName} ({senderDept})
-- วันที่และเวลาที่ยื่น (Submitted At): {submissionDate}
-
-รายละเอียดข้อร้องเรียน:
-"{description}"
-
-กรุณาเข้าสู่ระบบเพื่อดำเนินการคัดกรอง (Triage), ตรวจสอบความถูกต้อง, มอบหมายเจ้าหน้าที่ผู้รับผิดชอบ และประสานงานแก้ไขปัญหาตามระเบียบนโยบายขององค์กรต่อไป
-
-เข้าสู่ระบบจัดการเคส: {trackingUrl}
-
-ขอแสดงความนับถือ,
-ระบบรับเรื่องร้องเรียนและข้อเสนอแนะองค์กร VoicePlatform`,
-  },
-  onTicketResolved: {
-    enabled: true,
-    subject:
-      '[VoicePlatform แจ้งผลการแก้ไข] เรื่อง {ticketId}: ดำเนินการแก้ไขเสร็จสิ้นเรียบร้อยแล้ว',
-    body: `เรียน คุณ {recipientName},
-
-ระบบ VoicePlatform ขอแจ้งให้ท่านทราบว่า ข้อร้องเรียน/ข้อเสนอแนะของท่านได้รับการตรวจสอบและดำเนินการแก้ไขเสร็จสิ้นเรียบร้อยแล้ว
-
-ข้อมูลสรุปการดำเนินงาน:
-- รหัสติดตาม (Tracking ID): {ticketId}
-- หัวข้อเรื่อง (Title): {title}
-- หมวดหมู่ (Category): {categoryTh}
-- ผู้ดำเนินการปิดเคส: {resolvedBy}
-- วันที่ดำเนินการเสร็จสิ้น: {resolvedDate}
-
-สรุปผลการแก้ไขและการดำเนินงาน:
-"{resolutionNotes}"
-
-ท่านสามารถเข้าสู่ระบบเพื่อตรวจสอบรายละเอียดการดำเนินงานย้อนหลัง (Audit Timeline) และโปรดร่วมสละเวลา 1 นาทีในการทำแบบประเมินความพึงพอใจ (CSAT Rating) เพื่อเป็นข้อมูลในการปรับปรุงมาตรฐานการบริการขององค์กรต่อไป
-
-ตรวจสอบผลการแก้ไขและทำแบบประเมิน: {trackingUrl}
-
-ขอแสดงความนับถือ,
-ทีมงาน VoicePlatform & แผนก {categoryTh}`,
-  },
-  updatedAt: new Date().toISOString(),
-};
-
-export function getStoredEmailNotificationSettings(): EmailNotificationSettings {
-  try {
-    const raw = safeStorage.getItem(STORAGE_KEY_EMAIL_SETTINGS);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      return {
-        ...DEFAULT_EMAIL_SETTINGS,
-        ...parsed,
-        onTicketSubmitted: {
-          ...DEFAULT_EMAIL_SETTINGS.onTicketSubmitted,
-          ...parsed.onTicketSubmitted,
-        },
-        onTicketResolved: {
-          ...DEFAULT_EMAIL_SETTINGS.onTicketResolved,
-          ...parsed.onTicketResolved,
-        },
-      };
-    }
-  } catch (err) {
-    console.error('Failed to parse email notification settings', err);
-  }
-  return DEFAULT_EMAIL_SETTINGS;
-}
-
-export function saveStoredEmailNotificationSettings(settings: EmailNotificationSettings) {
-  try {
-    safeStorage.setItem(STORAGE_KEY_EMAIL_SETTINGS, JSON.stringify(settings));
-  } catch (err) {
-    console.error('Failed to save email notification settings', err);
-  }
-}
-
-export function updateEmailNotificationSettings(
-  settings: Partial<EmailNotificationSettings>
-): EmailNotificationSettings {
-  const current = getStoredEmailNotificationSettings();
-  const updated: EmailNotificationSettings = {
-    ...current,
-    ...settings,
-    updatedAt: new Date().toISOString(),
-  };
-  saveStoredEmailNotificationSettings(updated);
-  return updated;
-}
-
-export function resetEmailNotificationSettings(): EmailNotificationSettings {
-  const reset = {
-    ...DEFAULT_EMAIL_SETTINGS,
-    updatedAt: new Date().toISOString(),
-  };
-  saveStoredEmailNotificationSettings(reset);
-  return reset;
-}
-
-export function getStoredEmailDispatchLogs(): EmailDispatchLog[] {
-  try {
-    const raw = safeStorage.getItem(STORAGE_KEY_EMAIL_LOGS);
-    if (raw) {
-      return JSON.parse(raw);
-    }
-  } catch (err) {
-    console.error('Failed to parse email dispatch logs', err);
-  }
-  return [];
-}
-
-export function addEmailDispatchLog(log: EmailDispatchLog) {
-  try {
-    const current = getStoredEmailDispatchLogs();
-    const updated = [log, ...current].slice(0, 100);
-    safeStorage.setItem(STORAGE_KEY_EMAIL_LOGS, JSON.stringify(updated));
-  } catch (err) {
-    console.error('Failed to store email dispatch log', err);
-  }
-}
-
-export function clearEmailDispatchLogs() {
-  try {
-    safeStorage.removeItem(STORAGE_KEY_EMAIL_LOGS);
-  } catch (err) {
-    console.error('Failed to clear email dispatch logs', err);
-  }
-}
-
-export function interpolateEmailTemplate(template: string, vars: Record<string, string>): string {
-  let result = template;
-  for (const [key, val] of Object.entries(vars)) {
-    // split/join, not String.replace — a "$&" in user text must not act as a pattern
-    result = result.split(`{${key}}`).join(val ?? '-');
-  }
-  return result;
-}
-
-export function dispatchEmailOnTicketSubmitted(ticket: ComplaintTicket): EmailDispatchLog | null {
-  const settings = getStoredEmailNotificationSettings();
-  const catConfig = CATEGORY_DEFINITIONS[ticket.category];
-  const gkConfigs = getStoredGatekeeperConfigs();
-  const targetGk = gkConfigs[ticket.category];
-
-  const recipientEmail =
-    targetGk?.leadOfficer?.email ||
-    targetGk?.escalationEmail ||
-    `${ticket.category.toLowerCase()}-gatekeeper@enterprise.co.th`;
-  const recipientName =
-    targetGk?.leadOfficer?.name || `Gatekeeper ประจำฝ่าย ${catConfig?.nameTh || ticket.category}`;
-
-  const vars: Record<string, string> = {
-    ticketId: ticket.trackingCode || ticket.id,
-    title: ticket.title || '-',
-    category: ticket.category,
-    categoryTh: catConfig?.nameTh || ticket.category,
-    senderName:
-      ticket.confidentiality === 'anonymous'
-        ? 'ผู้ยื่นเรื่องนิรนาม (Anonymous)'
-        : ticket.submitterName || 'พนักงานผู้ยื่นเรื่อง',
-    senderDept:
-      ticket.confidentiality === 'anonymous'
-        ? 'ไม่เปิดเผยสังกัด'
-        : ticket.submitterDepartment || 'ทั่วไป',
-    senderEmail: ticket.submitterEmail || '-',
-    recipientName,
-    urgency: ticket.urgency,
-    description: ticket.description || '-',
-    submissionDate: new Date(ticket.createdAt).toLocaleString('th-TH'),
-    trackingUrl: `${appOrigin()}${BASE_PATH}/#tracking=${ticket.trackingCode}`,
-  };
-
-  const isEnabled = settings.masterEnabled && settings.onTicketSubmitted.enabled;
-  const subject = interpolateEmailTemplate(settings.onTicketSubmitted.subject, vars);
-  const body = interpolateEmailTemplate(settings.onTicketSubmitted.body, vars);
-
-  const log: EmailDispatchLog = {
-    id: uniqueId('elog'),
-    timestamp: new Date().toISOString(),
-    trigger: 'ticket_submitted',
-    ticketId: ticket.id,
-    trackingCode: ticket.trackingCode,
-    recipientEmail,
-    recipientName,
-    recipientRole: 'gatekeeper',
-    subject,
-    body,
-    status: isEnabled ? 'sent' : 'disabled',
-    deliveryChannel: 'SMTP / Enterprise Mail Gateway (Simulated)',
-  };
-
-  addEmailDispatchLog(log);
-  return log;
-}
-
-export function dispatchEmailOnTicketResolved(
-  ticket: ComplaintTicket,
-  resolutionNotes: string,
-  resolvedBy: string
-): EmailDispatchLog | null {
-  const settings = getStoredEmailNotificationSettings();
-  const catConfig = CATEGORY_DEFINITIONS[ticket.category];
-
-  const recipientEmail =
-    ticket.submitterEmail ||
-    (ticket.confidentiality === 'anonymous'
-      ? 'anonymous-submitter@voiceplatform.internal'
-      : 'employee@enterprise.co.th');
-  const recipientName =
-    ticket.confidentiality === 'anonymous'
-      ? 'ผู้ยื่นเรื่อง (Anonymous Submitter)'
-      : ticket.submitterName || 'พนักงานผู้ยื่นเรื่อง';
-
-  const vars: Record<string, string> = {
-    ticketId: ticket.trackingCode || ticket.id,
-    title: ticket.title || '-',
-    category: ticket.category,
-    categoryTh: catConfig?.nameTh || ticket.category,
-    recipientName,
-    resolvedBy: resolvedBy || 'เจ้าหน้าที่ผู้รับผิดชอบ',
-    resolvedDate: new Date().toLocaleString('th-TH'),
-    resolutionNotes: resolutionNotes || 'ดำเนินการแก้ไขและปรับปรุงตามขั้นตอนเรียบร้อยแล้ว',
-    trackingUrl: `${appOrigin()}${BASE_PATH}/#tracking=${ticket.trackingCode}`,
-  };
-
-  const isEnabled = settings.masterEnabled && settings.onTicketResolved.enabled;
-  const subject = interpolateEmailTemplate(settings.onTicketResolved.subject, vars);
-  const body = interpolateEmailTemplate(settings.onTicketResolved.body, vars);
-
-  const log: EmailDispatchLog = {
-    id: uniqueId('elog'),
-    timestamp: new Date().toISOString(),
-    trigger: 'ticket_resolved',
-    ticketId: ticket.id,
-    trackingCode: ticket.trackingCode,
-    recipientEmail,
-    recipientName,
-    recipientRole: 'employee',
-    subject,
-    body,
-    status: isEnabled ? 'sent' : 'disabled',
-    deliveryChannel: 'SMTP / Enterprise Mail Gateway (Simulated)',
-  };
-
-  addEmailDispatchLog(log);
-  return log;
-}
-
-export function sendTestEmailNotification(
-  triggerType: 'ticket_submitted' | 'ticket_resolved',
-  targetEmail?: string
-): EmailDispatchLog {
-  const settings = getStoredEmailNotificationSettings();
-  const testVars: Record<string, string> = {
-    ticketId: 'TK-2026-TEST',
-    title: 'ตัวอย่าง: ติดขัดขั้นตอนการส่งเอกสารและระบบเบิกจ่าย',
-    category: 'HR',
-    categoryTh: 'ทรัพยากรบุคคลและแรงงานสัมพันธ์',
-    senderName: 'สมศักดิ์ มั่นคง',
-    senderDept: 'ฝ่ายปฏิบัติการคลังสินค้า',
-    senderEmail: 'somsak.m@enterprise.co.th',
-    recipientName:
-      triggerType === 'ticket_submitted'
-        ? 'คุณวิภาวรรณ สดใส (Lead Gatekeeper)'
-        : 'สมศักดิ์ มั่นคง (พนักงาน)',
-    urgency: 'Urgent',
-    description:
-      'ทดสอบส่งข้อความแจ้งเตือนทางระบบอีเมลอัตโนมัติ เพื่อตรวจสอบความถูกต้องของ Subject และ Body Template',
-    submissionDate: new Date().toLocaleString('th-TH'),
-    resolvedBy: 'คุณนพดล เกียรติสกุล (HR Gatekeeper)',
-    resolvedDate: new Date().toLocaleString('th-TH'),
-    resolutionNotes:
-      'ได้ปรับปรุงแบบฟอร์มเบิกจ่ายออนไลน์และเพิ่มช่องทางยืนยันเอกสารผ่านระบบอัตโนมัติแล้ว',
-    trackingUrl: `${appOrigin()}${BASE_PATH}/#tracking=TK-2026-TEST`,
-  };
-
-  const template =
-    triggerType === 'ticket_submitted' ? settings.onTicketSubmitted : settings.onTicketResolved;
-  const subject = interpolateEmailTemplate(template.subject, testVars);
-  const body = interpolateEmailTemplate(template.body, testVars);
-
-  const log: EmailDispatchLog = {
-    id: uniqueId('elog'),
-    timestamp: new Date().toISOString(),
-    trigger: 'test_dispatch',
-    ticketId: 'TK-2026-TEST',
-    trackingCode: 'TK-2026-TEST',
-    recipientEmail:
-      targetEmail ||
-      (triggerType === 'ticket_submitted'
-        ? 'hr-gatekeeper@enterprise.co.th'
-        : 'employee.test@enterprise.co.th'),
-    recipientName: testVars.recipientName,
-    recipientRole: 'test',
-    subject: `[TEST SIMULATION] ${subject}`,
-    body,
-    status: 'sent',
-    deliveryChannel: 'SMTP / Enterprise Mail Gateway (Simulated)',
-  };
-
-  addEmailDispatchLog(log);
-  return log;
-}
-
 // ============================================================================
 // RECENT TRACKING SEARCHES MANAGEMENT
 // ============================================================================
 
 export function getRecentSearches(): RecentSearchItem[] {
-  if (typeof globalThis.window === 'undefined') return [];
+  if (globalThis.window === undefined) return [];
   const stored = safeStorage.getItem(STORAGE_KEY_RECENT_SEARCHES);
   if (!stored) return [];
   try {
@@ -674,7 +321,7 @@ export function getRecentSearches(): RecentSearchItem[] {
 }
 
 export function saveRecentSearches(items: RecentSearchItem[]): void {
-  if (typeof globalThis.window === 'undefined') return;
+  if (globalThis.window === undefined) return;
   safeStorage.setItem(STORAGE_KEY_RECENT_SEARCHES, JSON.stringify(items));
 }
 
@@ -719,6 +366,6 @@ export function removeRecentSearch(id: string): RecentSearchItem[] {
 }
 
 export function clearRecentSearches(): void {
-  if (typeof globalThis.window === 'undefined') return;
+  if (globalThis.window === undefined) return;
   safeStorage.removeItem(STORAGE_KEY_RECENT_SEARCHES);
 }

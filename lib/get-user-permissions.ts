@@ -1,4 +1,5 @@
 // lib/get-user-permissions.ts — ugt-nextjs-auth-setup, 2026-09-02.
+import { env } from '@/lib/env';
 import { prisma } from '@/lib/prisma';
 import { PERMISSIONS } from '@/lib/permissions';
 import { resolveViewer } from '@/lib/ticket-access';
@@ -23,6 +24,11 @@ const TAB_KEYS: ReadonlyArray<[AppTabId, string]> = [
 ];
 const TAB_GUARDED = new Set<string>([...TAB_KEYS.map(([, key]) => key), PERMISSIONS.USERS_UPDATE]);
 
+// Mail dev mode redirects every workflow mail to the person who triggered it — only on the dev
+// environment (basePath '/ugt-voice-platform-dev', also local), never in production, where an HR
+// admin resolving a ticket must still mail the submitter (decisions.md 2026-10-09).
+const isDevEnvironment = () => (env.NEXT_PUBLIC_BASE_PATH ?? '').endsWith('-dev');
+
 /**
  * Everyone may upload/download attachments (per-ticket scope is still enforced by
  * canReadAttachment); users / audit-log pages follow the RBAC tabs; admin also gets the remaining
@@ -34,6 +40,7 @@ export function permissionsFor(role: UserRole, allowedTabs: readonly AppTabId[])
   for (const [tab, key] of TAB_KEYS) if (allowedTabs.includes(tab)) keys.add(key);
   if (role === 'admin') {
     for (const key of Object.values(PERMISSIONS)) if (!TAB_GUARDED.has(key)) keys.add(key);
+    if (!isDevEnvironment()) keys.delete(PERMISSIONS.DEV_MODE);
   }
   return [...keys];
 }

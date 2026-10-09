@@ -53,6 +53,16 @@ export const AUDIT_ACTIONS = {
   RBAC_UPDATE: 'rbac.update',
   CONFIG_RESET: 'config.reset',
 
+  // Email notifications — admin settings + dispatch log; written by lib/actions/email-settings.ts
+  // (rewiring slice 3). Switch states / trigger only — never subject, body or recipients.
+  EMAIL_SETTINGS_UPDATE: 'email-settings.update',
+  EMAIL_SETTINGS_RESET: 'email-settings.reset',
+  EMAIL_LOGS_CLEAR: 'email-logs.clear',
+  EMAIL_TEST_SEND: 'email-settings.test-send',
+
+  // Preset reports (SQL Query Studio) — written by lib/actions/reports.ts (rewiring slice 5)
+  REPORTS_RUN: 'reports.run',
+
   // EXTENSION POINT: project-domain actions here, same `<resource>.<verb>` shape
 } as const;
 

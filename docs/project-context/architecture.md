@@ -51,9 +51,13 @@
   (`lib/ticket-access.ts`) is the single place that turns a session into role + RBAC config +
   gatekeeper categories (the layout's `appRole` comes from it too) — the role comes from the
   people rosters since slice 2 (decisions.md 2026-10-09 "App role comes from the people rosters").
-- `src/services/sqliteDb.ts` — sql.js (SQLite-in-browser via WASM, binary fetched from a
-  CDN) shadow copy of the tickets/officers/executives/notifications data, used only by
-  `ExportAnalyticsModal`'s "SQL Query Studio" — not the source of truth.
+- `lib/email-notifications.ts` (server-only: recipients, rendering, `EmailDispatchLogs` rows) +
+  `lib/actions/email-settings.ts` (AppSettings `email.notification-settings`, logs, test send) +
+  `src/services/emailDefaults.ts` (upstream defaults + interpolation) — rewiring slice 3, 2026-10-09.
+- `lib/reports.ts` (server-only, Prisma, scoped by `ticketScopeWhere`) + `lib/report-catalog.ts`
+  (client-safe labels/columns) + `lib/actions/reports.ts:runReport` — the five preset reports of
+  `ExportAnalyticsModal`'s "SQL Query Studio" (admin only). Replaced the sql.js browser shadow DB
+  on 2026-10-09 (rewiring slice 5).
 - `src/services/safeStorage.ts` — SSR-safe `localStorage` wrapper (no-ops on the server;
   needed because Next.js server-renders `'use client'` components once before hydration).
 - `src/types.ts` — domain model (`ComplaintTicket`, `NotificationItem`, `RolePermissionConfig`,
@@ -91,8 +95,8 @@
   - `prisma/seed.ts` — mirrors `src/mockData.ts` (tickets/timeline/evaluations/gatekeeper
     configs & officers/notifications) plus a hand-mirrored copy of `src/services/api.ts`'s
     `INITIAL_EXECUTIVES`/`INITIAL_HR_ADMINS`/`INITIAL_ROLE_PERMISSIONS` (not imported directly
-    — importing `api.ts` from a Node script would drag in the browser-only `sqliteDb.ts`/
-    `sql.js`). Keep these three lists in sync until `api.ts` is retired.
+    — since 2026-10-09 they live in the pure `src/services/rosterDefaults.ts`, which the
+    `reset*ToDefault` actions import). Keep the seed lists in sync with that module.
 
 - **Auth + RBAC (added 2026-09-02, `ugt-nextjs-auth-setup`) — SSO (Keycloak) only, live once
   real Keycloak values land (currently placeholders, see `docs/admin-handoff.md` §2):**
@@ -260,8 +264,7 @@ up` testing.
   Tracking-code search / notification click → `getTicketByTrackingCode` (server, scoped).
 - ยื่นคำร้อง: `EmployeeSubmitForm` → `submitTicket` Server Action (`loginEmail` = session email,
   timeline + notifications in SQL Server) → client logs upstream's simulated email
-  (`logTicketSubmittedEmail`) → `handleTicketCreated` → `router.refresh()`. sql.js gets the tickets
-  only when `ExportAnalyticsModal` opens (`syncAllTicketsToSqlite(tickets)`).
+  (`logTicketSubmittedEmail`) → `handleTicketCreated` → `router.refresh()`.
 - AI triage: EmployeeSubmitForm "วิเคราะห์ด้วย Gemini AI" → `analyzeGrievanceWithAI()` in
   api.ts → `POST /api/ai/analyze-complaint` → `src/app/api/ai/analyze-complaint/route.ts` →
   Gemini API (falls back to static heuristics when `GEMINI_API_KEY` is unset).
@@ -315,8 +318,8 @@ Live แล้ว (slice 1, 2026-10-09): `Tickets`/`TicketTimelineLogs`/`TicketE
   เหตุผล: (1) ยังไม่มี SQL Server จริงให้เชื่อมต่อ (รอ Admin/DBA ตาม
   `docs/admin-handoff.md`), (2) การสลับทุก call site จาก sync localStorage เป็น async Server
   Action เป็นงาน UI-refactor ขนาดใหญ่แยกต่างหากจากการติดตั้ง DB layer — แผนสลับอยู่ในคิวถัดไป
-  (`.claude/state/handoff.md` → Open Questions). `src/services/sqliteDb.ts` (sql.js shadow
-  copy สำหรับ SQL Studio) ไม่แตะต้อง ยังทำงานเหมือนเดิมทุกประการ.
+  (`.claude/state/handoff.md` → Open Questions). (ปิดแล้ว 2026-10-09: ทุก slice ย้ายเสร็จ —
+  ดู decisions.md)
 - ⚠ deviation (2026-09-02): `TicketTimelineLogs`/`TicketEvaluations` (append-only log/CSAT
   submission) และ `Notifications` (system-generated) ไม่มี audit column ครบชุด — ตัดเหลือ
   เท่าที่มีความหมาย (`CreatedAt` อย่างเดียวสำหรับสองตัวแรก, `CreatedAt`/`UpdatedAt` สำหรับ
@@ -383,9 +386,8 @@ Live แล้ว (slice 1, 2026-10-09): `Tickets`/`TicketTimelineLogs`/`TicketE
   hand-built Tailwind, ไม่มี i18n catalog (`messages/mail.*.ts` ของ skill ไม่ได้ติดตั้ง) —
   เหตุผลเดียวกับหน้า auth-setup ทั้ง 3 หน้า (มติต้นโปรเจค "คงดีไซน์เดิม/hand-built ทุกหน้า" —
   ดู decisions.md).
-- ⚠ deviation: `ExportAnalyticsModal`'s "SQL Query Studio" รันคำสั่ง SQL ที่ผู้ใช้พิมพ์เอง
-  ได้อิสระกับ sql.js ในเบราว์เซอร์ — ยอมรับได้ตอนนี้เพราะยังไม่มี backend จริง แต่ต้องปรับเป็น
-  preset reports ก่อนต่อกับ SQL Server จริง (มติแล้ว ดู decisions.md).
+- (ปิดแล้ว 2026-10-09) "SQL Query Studio" เคยรัน SQL อิสระกับ sql.js ในเบราว์เซอร์ — ตอนนี้เป็น
+  preset reports ฝั่ง server (`lib/reports.ts`) ตามมติเดิม.
 - ⚠ deviation (2026-09-02): `ugt-nextjs-design-setup` รันในโหมด scan-only — **ไม่ได้ติดตั้ง**
   shadcn/ui, Base UI primitives, org UI kit (`DataTable`/`StatusBadge`/`FormDialog`/...),
   `next-intl`, หรือ shell block ใด ๆ เหตุผล: มติต้นโปรเจค "คงดีไซน์/UX เดิมทุกประการ" ทำให้

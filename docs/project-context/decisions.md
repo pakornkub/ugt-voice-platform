@@ -718,3 +718,29 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   read the now-unused `User.AppRole` and uploads only checked that the ticket existed (anyone could
   attach to another person's ticket) · rejected: a separate attachment rule set (drifts from the
   ticket scope).
+- 2026-10-09 **SQL Query Studio = five server-side preset reports, no free SQL** (rewiring slice 5,
+  `lib/reports.ts`) — upstream's five example queries become `category_pareto`,
+  `in_progress_tickets`, `csat_by_category`, `root_cause_breakdown`, `direct_to_executive`; Prisma
+  only, scoped by `ticketScopeWhere(viewer)`, admin only (mirrors the Navbar export button);
+  `runReport` returns `{ ok, error }` instead of throwing (prod masks thrown messages). sql.js, the
+  CDN WASM fetch and the `.sqlite` import/export format are removed (they worked on a stale,
+  partial browser copy) · **because** free SQL against SQL Server was already ruled out and the
+  browser copy no longer holds the real data · rejected: raw `$queryRaw` reports (no need at this
+  volume), extra reports upstream never had.
+- 2026-10-09 **Email notifications delivered server-side (rewiring slice 3)** — settings JSON in
+  `AppSettings` (`email.notification-settings`), attempts logged in the new `EmailDispatchLogs`
+  table (column `TriggerEvent` — `Trigger` is reserved); `lib/email-notifications.ts` mails after
+  the ticket transaction commits, never awaited, never failing the save; delivery via the new
+  `sendRenderedMail` in `lib/email.ts` (admin writes the whole message, so the fixed
+  `sendTemplatedMail` chrome would duplicate the greeting/footer; dev-mode rule kept) · resolved
+  mail only on the transition into `resolved` (upstream re-mailed on every later note); no
+  invented recipients (upstream made up `*-gatekeeper@enterprise.co.th` — now a `failed` log);
+  test send goes to the signed-in admin only · privacy: neutral labels for anonymous /
+  confidential_restricted submitters in gatekeeper mail, anonymous addresses never shown in logs,
+  direct-to-executive tickets not mailed to gatekeepers who may not see them · **because** real
+  delivery must not leak what the inbox hides and must not break saving when SMTP is down ·
+  rejected: new `MailTemplateKey` templates (double greeting), raw `sendMail` (loses dev mode).
+- 2026-10-09 **Mail dev mode only on the dev environment** — `dev-mode:enable` is granted to admin
+  only when the basePath ends with `-dev` (`permissionsFor`) · **because** dev mode redirects every
+  workflow mail to whoever triggered it, so in production an HR admin resolving a ticket would
+  never mail the submitter · rejected: a dedicated tester role (no roster for it yet).

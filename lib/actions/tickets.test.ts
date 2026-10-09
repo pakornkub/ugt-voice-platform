@@ -21,7 +21,14 @@ const access = vi.hoisted(() => ({
   TICKET_INCLUDE: {},
 }));
 
+const mail = vi.hoisted(() => ({
+  mailActorFor: vi.fn(),
+  notifyTicketSubmitted: vi.fn(),
+  notifyTicketResolved: vi.fn(),
+}));
+
 vi.mock('@/lib/prisma', () => db);
+vi.mock('@/lib/email-notifications', () => mail);
 vi.mock('@/lib/ticket-access', () => access);
 
 const {
@@ -105,6 +112,9 @@ beforeEach(() => {
   db.prisma.notification.create.mockResolvedValue({});
   db.prisma.notification.createMany.mockResolvedValue({});
   access.requireTicketViewer.mockResolvedValue(viewer('employee'));
+  mail.mailActorFor.mockReturnValue({ email: 'employee@ube.co.th', hasDevMode: false });
+  mail.notifyTicketSubmitted.mockResolvedValue(undefined);
+  mail.notifyTicketResolved.mockResolvedValue(undefined);
 });
 
 describe('reads', () => {
@@ -148,6 +158,33 @@ describe('submitTicket', () => {
       data: expect.objectContaining({ userId: 'user-employee', action: 'tickets.submit' }),
     });
     expect(ticket).toMatchObject({ id: 'tk-new', status: 'submitted' });
+  });
+
+  it('emails the category gatekeeper after the save, without waiting for or failing on the mail', async () => {
+    db.prisma.ticket.create.mockImplementation(async ({ data }) =>
+      row({ ...data, timeline: [], id: 'tk-new' })
+    );
+    mail.notifyTicketSubmitted.mockReturnValue(new Promise(() => {})); // SMTP still pending
+
+    const ticket = await submitTicket(payload);
+
+    expect(ticket.id).toBe('tk-new');
+    expect(mail.notifyTicketSubmitted).toHaveBeenCalledTimes(1);
+    const [notified, ctx] = mail.notifyTicketSubmitted.mock.calls[0];
+    expect(notified).toMatchObject({ id: 'tk-new', category: 'HR' });
+    expect(ctx).toEqual({
+      actor: { email: 'employee@ube.co.th', hasDevMode: false },
+      userId: 'user-employee',
+    });
+    expect(db.prisma.$transaction.mock.invocationCallOrder[0]).toBeLessThan(
+      mail.notifyTicketSubmitted.mock.invocationCallOrder[0]
+    );
+  });
+
+  it('does not email anyone when the ticket was not saved', async () => {
+    db.prisma.ticket.create.mockRejectedValue(new Error('db down'));
+    await expect(submitTicket(payload)).rejects.toThrow('db down');
+    expect(mail.notifyTicketSubmitted).not.toHaveBeenCalled();
   });
 
   it('hides the anonymous submitter in the timeline and alerts executives on direct tickets', async () => {
@@ -313,6 +350,53 @@ describe('updateTicketWorkflow', () => {
       data: expect.objectContaining({ action: 'tickets.update' }),
     });
     expect(updated?.status).toBe('resolved');
+  });
+});
+
+describe('updateTicketWorkflow — resolved email', () => {
+  const resolve = { status: 'resolved' as const, resolutionSummary: 'แก้แล้ว' };
+
+  beforeEach(() => {
+    access.requireTicketViewer.mockResolvedValue(viewer('gatekeeper'));
+    access.findVisibleTicket.mockResolvedValue(row({ status: 'in_progress' }));
+    db.prisma.ticket.update.mockResolvedValue(row({ status: 'resolved' }));
+  });
+
+  it('emails the submitter once, when the ticket becomes resolved', async () => {
+    await updateTicketWorkflow('tk1', resolve);
+
+    expect(mail.notifyTicketResolved).toHaveBeenCalledTimes(1);
+    const [notified, details, ctx] = mail.notifyTicketResolved.mock.calls[0];
+    expect(notified).toMatchObject({ id: 'tk1', status: 'resolved' });
+    expect(details).toEqual({ resolvedBy: 'Gatekeeper Supervisor', resolutionNotes: 'แก้แล้ว' });
+    expect(ctx.userId).toBe('user-gatekeeper');
+  });
+
+  it('falls back to the action note, then to the default summary', async () => {
+    await updateTicketWorkflow('tk1', { status: 'resolved', actionNote: 'หมายเหตุ' });
+    expect(mail.notifyTicketResolved.mock.calls[0][1].resolutionNotes).toBe('หมายเหตุ');
+
+    await updateTicketWorkflow('tk1', { status: 'resolved' });
+    expect(mail.notifyTicketResolved.mock.calls[1][1].resolutionNotes).toContain(
+      'ตามมาตรฐานการปฏิบัติงาน'
+    );
+  });
+
+  it('does not email for other status changes', async () => {
+    db.prisma.ticket.update.mockResolvedValue(row({ status: 'in_progress' }));
+    await updateTicketWorkflow('tk1', { status: 'in_progress' });
+    expect(mail.notifyTicketResolved).not.toHaveBeenCalled();
+  });
+
+  it('does not email again for a later note on an already resolved ticket', async () => {
+    access.requireTicketViewer.mockResolvedValue(viewer('employee'));
+    access.findVisibleTicket.mockResolvedValue(row({ status: 'resolved' }));
+    db.prisma.ticket.update.mockResolvedValue(row({ status: 'resolved' }));
+
+    await updateTicketWorkflow('tk1', { actorName: 'สมชาย', actionNote: 'ขอบคุณ' });
+    access.requireTicketViewer.mockResolvedValue(viewer('gatekeeper'));
+    await updateTicketWorkflow('tk1', resolve); // re-saving 'resolved' is not a new transition
+    expect(mail.notifyTicketResolved).not.toHaveBeenCalled();
   });
 });
 

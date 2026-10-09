@@ -28,7 +28,6 @@ import {
   getStatusColor,
   getUrgencyBadgeText,
   getUrgencyColor,
-  logTicketResolvedEmail,
 } from '../services/api';
 import { updateTicketWorkflow } from '@/lib/actions/tickets';
 import { useShell } from '../app/shell-context';
@@ -774,7 +773,6 @@ const TriageModal: React.FC<Readonly<TriageModalProps>> = ({ ticket, onClose, on
     updateTicketWorkflow(ticket.id, updates)
       .then((updated) => {
         if (!updated) return;
-        logTicketResolvedEmail(updated, updates);
         onSaved(updated);
       })
       .catch((error) => {

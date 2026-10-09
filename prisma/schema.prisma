@@ -627,3 +627,35 @@ model appSetting {
 
   @@map("AppSettings")
 }
+
+// ─── Email dispatch log ────────────────────────────────────────────────────
+// Rewiring slice 3 (2026-10-09): one row per email the app tried to send for a ticket event
+// (or a test send) — status sent | failed | disabled. Settings live in AppSettings
+// ('email.notification-settings'). `Trigger` is a T-SQL reserved word, hence TriggerEvent.
+// TicketId is a loose reference (no FK) like Notifications — the log outlives a deleted ticket.
+
+model emailDispatchLog {
+  id String @id @default(cuid()) @map("Id")
+
+  triggerEvent    String  @map("TriggerEvent") @db.NVarChar(30) // ticket_submitted | ticket_resolved | test_dispatch
+  ticketId        String? @map("TicketId") @db.NVarChar(100)
+  trackingCode    String  @map("TrackingCode") @db.NVarChar(30)
+  recipientEmail  String  @map("RecipientEmail") @db.NVarChar(200)
+  recipientName   String  @map("RecipientName") @db.NVarChar(200)
+  recipientRole   String  @map("RecipientRole") @db.NVarChar(20) // gatekeeper | employee | admin | test
+  subject         String  @map("Subject") @db.NVarChar(1000)
+  body            String  @map("Body") @db.NVarChar(Max)
+  status          String  @map("Status") @db.NVarChar(20) // sent | failed | disabled
+  deliveryChannel String? @map("DeliveryChannel") @db.NVarChar(200)
+  errorMessage    String? @map("ErrorMessage") @db.NVarChar(1000)
+
+  isActive  Boolean  @default(true) @map("IsActive")
+  isDeleted Boolean  @default(false) @map("IsDeleted")
+  createdBy String?  @map("CreatedBy")
+  createdAt DateTime @default(now()) @map("CreatedAt")
+  updatedBy String?  @map("UpdatedBy")
+  updatedAt DateTime @updatedAt @map("UpdatedAt")
+
+  @@index([createdAt])
+  @@map("EmailDispatchLogs")
+}

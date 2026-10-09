@@ -6,11 +6,8 @@
 //   - Tickets / timeline / evaluations / gatekeeper configs & officers /
 //     notifications come straight from src/mockData.ts.
 //   - Executives / HR admins / role-access config are hand-mirrored from
-//     src/services/api.ts's INITIAL_EXECUTIVES / INITIAL_HR_ADMINS /
-//     INITIAL_ROLE_PERMISSIONS below (NOT imported from api.ts directly —
-//     that file also pulls in the browser-only sql.js/localStorage layer via
-//     src/services/sqliteDb.ts, which has no place in a Node seed script).
-//     Keep these three lists in sync with api.ts until it is retired.
+//     src/services/rosterDefaults.ts's INITIAL_EXECUTIVES / INITIAL_HR_ADMINS /
+//     INITIAL_ROLE_PERMISSIONS below. Keep these three lists in sync with it.
 // Reuses the app's own Prisma singleton (mssql driver adapter + parsed
 // DATABASE_URL) instead of `new PrismaClient()` — a bare client has no
 // adapter and throws immediately (Prisma 7 requires one for every driver).

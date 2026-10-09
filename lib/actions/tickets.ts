@@ -6,12 +6,17 @@
 // mapping), plus what a multi-user server needs: every action runs
 // session → permission/scope (lib/ticket-scope.ts) → action → audit log.
 //
-// Email: upstream's simulated dispatch log stays client-side (the components call
-// dispatchEmailOnTicket* after these return) until slice 3 moves the email settings to
-// AppSettings and sends real mail from here.
+// Email (slice 3, 2026-10-09): after the transaction commits, submitTicket tells the category's
+// Lead Gatekeeper and updateTicketWorkflow tells the submitter when a ticket becomes resolved —
+// lib/email-notifications.ts honours the admin's settings, writes the dispatch log and never throws.
 import { randomInt } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { AUDIT_ACTIONS, type AuditAction } from '@/lib/audit-actions';
+import {
+  mailActorFor,
+  notifyTicketResolved,
+  notifyTicketSubmitted,
+} from '@/lib/email-notifications';
 import { prisma } from '@/lib/prisma';
 import {
   findVisibleTicket,
@@ -233,6 +238,10 @@ export async function submitTicket(payload: SubmitPayload): Promise<ComplaintTic
     ticketId: created.id,
     trackingCode: created.trackingCode,
   });
+  // Not awaited: SMTP latency must not hold up the submitter (notify* never rejects).
+  notifyTicketSubmitted(created, { actor: mailActorFor(viewer), userId: viewer.userId }).catch(
+    () => {}
+  );
   return redactTicketForViewer(viewer, mapTicket(created));
 }
 
@@ -379,6 +388,21 @@ export async function updateTicketWorkflow(
     trackingCode: updated.trackingCode,
     status: newStatus,
   });
+  // Only the transition into 'resolved' mails the submitter — a later note on a resolved ticket
+  // (updates.status undefined) must not send it again.
+  if (newStatus === 'resolved' && current.status !== 'resolved') {
+    notifyTicketResolved(
+      updated,
+      {
+        resolvedBy: actor,
+        resolutionNotes:
+          updates.resolutionSummary ||
+          updates.actionNote ||
+          'ดำเนินการตรวจสอบและแก้ไขปัญหาเรียบร้อยตามมาตรฐานการปฏิบัติงาน',
+      },
+      { actor: mailActorFor(viewer), userId: viewer.userId }
+    ).catch(() => {});
+  }
   return redactTicketForViewer(viewer, mapTicket(updated));
 }
 

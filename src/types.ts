@@ -307,6 +307,8 @@ export interface EmailDispatchLog {
   body: string;
   status: 'sent' | 'failed' | 'disabled';
   deliveryChannel?: string;
+  /** Why a dispatch failed or was skipped (SMTP error, no recipient, …). */
+  errorMessage?: string;
 }
 
 export interface RecentSearchItem {

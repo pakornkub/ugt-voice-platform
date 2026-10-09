@@ -30,7 +30,6 @@ import {
   getUrgencyColor,
   getRiskSeverityBadgeText,
   getRiskSeverityColor,
-  logTicketResolvedEmail,
 } from '../services/api';
 import { sendAnonymousChatMessage, updateTicketWorkflow } from '@/lib/actions/tickets';
 import { useShell } from '../app/shell-context';
@@ -1215,7 +1214,6 @@ export const TrackingTimelineModal: React.FC<Readonly<TrackingTimelineModalProps
     updateTicketWorkflow(ticket.id, updates)
       .then((updated) => {
         if (!updated) return;
-        logTicketResolvedEmail(updated, updates);
         onTicketUpdated(updated);
         setInquiryText('');
       })

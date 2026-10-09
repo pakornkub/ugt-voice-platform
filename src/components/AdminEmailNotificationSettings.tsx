@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Mail,
   Send,
@@ -19,14 +19,14 @@ import {
 } from 'lucide-react';
 import { EmailNotificationSettings, EmailNotificationTemplate, EmailDispatchLog } from '../types';
 import {
-  getStoredEmailNotificationSettings,
-  saveStoredEmailNotificationSettings,
-  resetEmailNotificationSettings,
-  getStoredEmailDispatchLogs,
   clearEmailDispatchLogs,
+  getEmailDispatchLogs,
+  getEmailNotificationSettings,
+  resetEmailNotificationSettings,
+  saveEmailNotificationSettings,
   sendTestEmailNotification,
-  interpolateEmailTemplate,
-} from '../services/api';
+} from '@/lib/actions/email-settings';
+import { interpolateEmailTemplate } from '../services/emailDefaults';
 import { Language, useLanguage } from '../context/LanguageContext';
 import { useConfirmDialog } from './ConfirmDialog';
 
@@ -518,8 +518,19 @@ const DispatchLogTable: React.FC<DispatchLogTableProps> = ({ logs, onClear, onVi
                         </span>
                       )}
                       {log.status === 'disabled' && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-600"
+                          title={log.errorMessage}
+                        >
                           {tr('Disabled', 'ระบบปิด (Disabled)')}
+                        </span>
+                      )}
+                      {log.status === 'failed' && (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-700"
+                          title={log.errorMessage}
+                        >
+                          {tr('Failed', 'ส่งไม่สำเร็จ (Failed)')}
                         </span>
                       )}
                     </td>
@@ -549,9 +560,24 @@ interface LogDetailModalProps {
   readonly onClose: () => void;
 }
 
+const STATUS_TEXT_CLASS: Record<EmailDispatchLog['status'], string> = {
+  sent: 'text-emerald-600',
+  disabled: 'text-slate-500',
+  failed: 'text-rose-600',
+};
+
 const LogDetailModal: React.FC<LogDetailModalProps> = ({ log, onClose }) => {
   const { lang } = useLanguage();
   const tr = makeTranslate(lang);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
+
   const facts: [string, string, string][] = [
     [tr('Tracking ID:', 'รหัสติดตาม:'), log.trackingCode, 'font-bold font-mono'],
     [
@@ -565,10 +591,9 @@ const LogDetailModal: React.FC<LogDetailModalProps> = ({ log, onClose }) => {
 
   return (
     <div className="animate-fadeIn fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
-      <div
-        role="dialog"
-        aria-modal="true"
-        className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+      <dialog
+        open
+        className="static m-0 flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-0 shadow-2xl"
       >
         <div className="flex items-center justify-between bg-slate-900 p-5 text-white">
           <div className="flex items-center gap-2">
@@ -617,13 +642,18 @@ const LogDetailModal: React.FC<LogDetailModalProps> = ({ log, onClose }) => {
 
           <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-[11px] text-slate-400">
             <span>
-              {tr('Delivery Channel: ', 'ช่องทางส่ง: ')}{' '}
-              {log.deliveryChannel || 'SMTP Gateway (Simulated)'}
+              {tr('Delivery Channel: ', 'ช่องทางส่ง: ')} {log.deliveryChannel || 'SMTP Gateway'}
             </span>
-            <span className="font-semibold text-emerald-600">
+            <span className={`font-semibold ${STATUS_TEXT_CLASS[log.status]}`}>
               {tr('Status: ', 'สถานะ: ')} {log.status}
             </span>
           </div>
+          {log.errorMessage && (
+            <p className="text-[11px] text-slate-500">
+              {tr('Reason: ', 'สาเหตุ: ')}
+              {log.errorMessage}
+            </p>
+          )}
         </div>
 
         <div className="flex justify-end border-t border-slate-200 bg-slate-50 p-4">
@@ -635,37 +665,67 @@ const LogDetailModal: React.FC<LogDetailModalProps> = ({ log, onClose }) => {
             {tr('Close Window', 'ปิดหน้าต่าง')}
           </button>
         </div>
-      </div>
+      </dialog>
     </div>
   );
 };
 
-export const AdminEmailNotificationSettings: React.FC = () => {
+/** A message that clears itself after `ms`; the timer is dropped with the component. */
+function useTimedMessage(ms: number) {
+  const [message, setMessage] = useState<string | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const flash = (text: string) => {
+    clearTimeout(timer.current);
+    setMessage(text);
+    timer.current = setTimeout(() => setMessage(null), ms);
+  };
+  return [message, flash] as const;
+}
+
+interface PanelProps {
+  readonly initialSettings: EmailNotificationSettings;
+  readonly initialLogs: EmailDispatchLog[];
+}
+
+const EmailSettingsPanel: React.FC<PanelProps> = ({ initialSettings, initialLogs }) => {
   const { lang } = useLanguage();
   const tr = makeTranslate(lang);
   const { askConfirm, confirmDialog } = useConfirmDialog();
-  const [settings, setSettings] = useState<EmailNotificationSettings>(() =>
-    getStoredEmailNotificationSettings()
-  );
-  const [logs, setLogs] = useState<EmailDispatchLog[]>(() => getStoredEmailDispatchLogs());
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [settings, setSettings] = useState<EmailNotificationSettings>(initialSettings);
+  const [logs, setLogs] = useState<EmailDispatchLog[]>(initialLogs);
+  const [saveSuccess, flashSaved] = useTimedMessage(3000);
+  const [testSuccessMessage, flashTestSuccess] = useTimedMessage(4000);
+  const [errorMessage, flashError] = useTimedMessage(4000);
   const [activePreview, setActivePreview] = useState<'submitted' | 'resolved' | null>(null);
-  const [testSuccessMessage, setTestSuccessMessage] = useState<string | null>(null);
   const [selectedLogForDetail, setSelectedLogForDetail] = useState<EmailDispatchLog | null>(null);
+  const busy = useRef(false);
 
-  const flashSaved = () => {
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
+  /** One Server Action at a time; production masks error messages, so any failure is generic. */
+  const run = async <T,>(op: () => Promise<T>, apply: (result: T) => void) => {
+    if (busy.current) return;
+    busy.current = true;
+    try {
+      apply(await op());
+    } catch {
+      flashError(
+        tr('⚠️ Could not save. Please try again.', '⚠️ บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')
+      );
+    } finally {
+      busy.current = false;
+    }
   };
 
   const updateTemplate = (key: TemplateKey, patch: Partial<EmailNotificationTemplate>) => {
     setSettings((prev) => ({ ...prev, [key]: { ...prev[key], ...patch } }));
   };
 
-  const handleSave = () => {
-    saveStoredEmailNotificationSettings(settings);
-    flashSaved();
+  const applySaved = (saved: EmailNotificationSettings) => {
+    setSettings(saved);
+    flashSaved(tr('Settings saved successfully', 'บันทึกการตั้งค่าสำเร็จ'));
   };
+
+  const handleSave = () => run(() => saveEmailNotificationSettings(settings), applySaved);
 
   const handleReset = () => {
     askConfirm({
@@ -675,25 +735,35 @@ export const AdminEmailNotificationSettings: React.FC = () => {
         'คุณต้องการคืนค่าเทมเพลตและค่าคอนฟิกการแจ้งเตือน Email ทั้งหมดกลับสู่ค่ามาตรฐานใช่หรือไม่?'
       ),
       confirmLabel: tr('Reset to Default', 'รีเซ็ตเป็นค่าเริ่มต้น'),
-      onConfirm: () => {
-        setSettings(resetEmailNotificationSettings());
-        flashSaved();
-      },
+      onConfirm: () => run(resetEmailNotificationSettings, applySaved),
     });
   };
 
-  const handleTestDispatch = (type: 'ticket_submitted' | 'ticket_resolved') => {
-    sendTestEmailNotification(type);
-    setLogs(getStoredEmailDispatchLogs());
+  const applyTestLog = (type: 'ticket_submitted' | 'ticket_resolved', log: EmailDispatchLog) => {
+    setLogs((prev) => [log, ...prev].slice(0, 100));
+    if (log.status === 'failed') {
+      flashError(
+        tr(
+          '⚠️ The test email could not be sent. See the reason in the logs below.',
+          '⚠️ ส่งอีเมลทดสอบไม่สำเร็จ ดูสาเหตุได้ในตารางประวัติด้านล่าง'
+        )
+      );
+      return;
+    }
     const toGatekeeper = type === 'ticket_submitted';
-    setTestSuccessMessage(
+    flashTestSuccess(
       tr(
         `Simulated email ${toGatekeeper ? 'alert to Gatekeeper' : 'resolution alert to Employee'} sent successfully! View in logs below.`,
         `จำลองการส่งอีเมล ${toGatekeeper ? 'แจ้งเตือนเคสใหม่หา Gatekeeper' : 'แจ้งผลการแก้ไขหาพนักงาน'} สำเร็จ! ตรวจสอบได้ในตารางประวัติด้านล่าง`
       )
     );
-    setTimeout(() => setTestSuccessMessage(null), 4000);
   };
+
+  const handleTestDispatch = (type: 'ticket_submitted' | 'ticket_resolved') =>
+    run(
+      () => sendTestEmailNotification(type),
+      (log) => applyTestLog(type, log)
+    );
 
   const handleClearLogs = () => {
     askConfirm({
@@ -704,10 +774,7 @@ export const AdminEmailNotificationSettings: React.FC = () => {
       ),
       confirmLabel: tr('Clear Logs', 'ล้างประวัติ'),
       isDestructive: true,
-      onConfirm: () => {
-        clearEmailDispatchLogs();
-        setLogs([]);
-      },
+      onConfirm: () => run(clearEmailDispatchLogs, () => setLogs([])),
     });
   };
 
@@ -813,7 +880,15 @@ export const AdminEmailNotificationSettings: React.FC = () => {
             {saveSuccess && (
               <span className="animate-fadeIn inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
                 <CheckCircle2 className="h-3.5 w-3.5" />
-                {tr('Settings saved successfully', 'บันทึกการตั้งค่าสำเร็จ')}
+                {saveSuccess}
+              </span>
+            )}
+            {errorMessage && (
+              <span
+                role="alert"
+                className="animate-fadeIn inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700"
+              >
+                {errorMessage}
               </span>
             )}
             {testSuccessMessage && (
@@ -992,4 +1067,59 @@ export const AdminEmailNotificationSettings: React.FC = () => {
       {confirmDialog}
     </div>
   );
+};
+
+interface AdminEmailNotificationSettingsProps {
+  /** Server-provided first paint; without them the panel loads both through the Server Actions. */
+  readonly initialSettings?: EmailNotificationSettings;
+  readonly initialLogs?: EmailDispatchLog[];
+}
+
+interface LoadedData {
+  settings: EmailNotificationSettings;
+  logs: EmailDispatchLog[];
+}
+
+export const AdminEmailNotificationSettings: React.FC<AdminEmailNotificationSettingsProps> = ({
+  initialSettings,
+  initialLogs,
+}) => {
+  const { lang } = useLanguage();
+  const tr = makeTranslate(lang);
+  const [data, setData] = useState<LoadedData | null>(
+    initialSettings && initialLogs ? { settings: initialSettings, logs: initialLogs } : null
+  );
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  useEffect(() => {
+    if (data) return;
+    let cancelled = false;
+    Promise.all([getEmailNotificationSettings(), getEmailDispatchLogs()])
+      .then(([settings, logs]) => {
+        if (!cancelled) setData({ settings, logs });
+      })
+      .catch(() => {
+        if (!cancelled) setLoadFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [data]);
+
+  if (!data) {
+    return (
+      <div
+        id="admin-email-notifications-panel"
+        className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-xs text-slate-500 shadow-xs"
+      >
+        {loadFailed
+          ? tr(
+              '⚠️ Could not load the email settings. Please refresh the page.',
+              '⚠️ โหลดการตั้งค่าอีเมลไม่สำเร็จ กรุณารีเฟรชหน้านี้'
+            )
+          : tr('Loading email settings…', 'กำลังโหลดการตั้งค่าอีเมล…')}
+      </div>
+    );
+  }
+  return <EmailSettingsPanel initialSettings={data.settings} initialLogs={data.logs} />;
 };
