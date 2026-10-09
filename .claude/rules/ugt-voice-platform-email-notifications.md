@@ -17,7 +17,9 @@ upstream's `AdminEmailNotificationSettings` model, which supersedes parts of
   (`EmailNotificationSettings` in `src/types.ts`). Tokens are single-brace `{ticketId}`,
   substituted by `interpolateEmailTemplate()`.
 - **Today** it is localStorage + a simulated dispatch log (`dispatchEmailOn*` in
-  `src/services/api.ts`). At the DB rewiring the settings move to `AppSettings`, delivery goes
+  `src/services/api.ts`), written client-side by `logTicketSubmittedEmail` /
+  `logTicketResolvedEmail` after the ticket Server Action returns — tickets themselves are in the
+  DB since slice 1 (2026-10-09), and `lib/actions/tickets.ts` sends **no** mail. In slice 3 the settings move to `AppSettings`, delivery goes
   through `lib/email.ts` `sendTemplatedMail()` from `lib/actions/tickets.ts`, and the old
   `NotificationItem['type']`-keyed templates (`ticket.new_ticket` …, editable at
   `/admin/mail-templates`) are retired.

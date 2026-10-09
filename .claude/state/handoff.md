@@ -4,7 +4,9 @@ Last updated: 2026-10-09
 
 ## In progress
 
-- **localStorage → Server Action rewiring** (item 4 of the post-port plan) — starting now; see Next.
+- **localStorage → DB rewiring, 6 slices** (1 tickets+notifications · 2 config tables + server
+  permissions · 3 email settings + SMTP · 4 HR-view directory · 5 attachments · 6 SQL-studio
+  presets). Slice 1 done on branch `claude/rewire-1-tickets-33274d` — awaiting coordinator merge.
 
 ## Next
 
@@ -13,17 +15,20 @@ Last updated: 2026-10-09
 - **Prod deploy** = push `main` to `origin` (Jenkins `ugt-voice-platform` polls `main`) — owner's
   call (auto mode blocks Claude from deploying prod). `origin/main` is `9713263` (no SSO issuer
   fix yet); prod Keycloak client `ugt-voice-platform` must exist; app login must not be `sa`.
-- **localStorage → Server Action rewiring** (`src/services/api.ts` → `lib/actions/*`) — unblocked
-  (DEV DB migrated + seeded). Gaps beyond call-site swaps (audit in `decisions.md` 2026-09-03):
-  - `reset{GatekeeperConfigs,Executives,HrAdmins,RolePermissions}ToDefault` have no Server Action.
-  - `get/setActiveGatekeeperDepartment` → plain React state.
-  - Ticket actions lack session/permission guards — copy `requireChatAccess`
-    (`sendAnonymousChatMessage`), add gatekeeper department scoping.
-  - `lib/directory.ts` on `vwHR_SC_Employee` replaces the mock `src/services/employeeDirectory.ts`.
-  - `RoleAccessConfigs` from DB → `getUserPermissions()` reads it instead of the fixed
-    `permissionsForAppRole` mapping (decisions 2026-10-09).
-  - Email settings (`AdminEmailNotificationSettings`) → `AppSettings` + real SMTP via `lib/email.ts`.
-- Redesign `ExportAnalyticsModal`'s SQL Query Studio as preset reports before wiring it to SQL Server.
+- **Rewiring slices 2–6** — pattern in decisions.md 2026-10-09 "slice 1" (layout loads →
+  `ShellContext` → Server Action → `router.refresh()`; ticket scope in `lib/ticket-scope.ts`):
+  - Slice 2, most urgent — **interim gap**: the RBAC / gatekeeper-officer / executive / HR-admin
+    editors still save to localStorage, but menus, inbox scope and triage officer lists now come
+    from the DB seed, so those edits do nothing until slice 2. Guard every write in
+    `lib/actions/{role-access,gatekeeper,executives,hr-admins}.ts`; add `reset*ToDefault`;
+    `get/setActiveGatekeeperDepartment` → React state; `getUserPermissions()` → `RoleAccessConfigs`.
+  - Slice 3: email settings → `AppSettings`; real mail from `lib/actions/tickets.ts` (sends none
+    today); replaces the client-side `logTicket*Email` simulation.
+  - Slice 4: `lib/directory.ts` on `vwHR_SC_Employee` replaces `src/services/employeeDirectory.ts`.
+  - Slice 5: real uploads — simulated attachments are **not persisted** since slice 1; make
+    `lib/attachment-access.ts` reuse `ticketScopeWhere` (it has its own older rules).
+  - Slice 6: SQL Query Studio → preset reports before wiring it to SQL Server.
+  - Notification `IsRead` is one shared flag per row — per-user read table if it matters.
 - OWASP UNSTABLE: 5 high left, all `eslint-config-next` dev-tool chain (`braces` has no fix yet).
 - `/ugt-contribute`: org `ugt-nextjs-auth-setup` schema lacks `Account.Issuer` (Better Auth 1.7);
   `ugt-nextjs-upload-setup` `verify.mjs` requires ClamAV although scan is opt-in.
@@ -40,6 +45,10 @@ Last updated: 2026-10-09
 - Approval chain (`HR_SC_AuthorizeEmployee_ms`) not used — revisit if a workflow needs it.
 
 ## Done (newest first — older chunks condensed; full detail in git log + docs/project-context/)
+
+- 2026-10-09 **Rewiring slice 1**: tickets / timeline / CSAT / anonymous chat / notifications in SQL
+  Server via guarded Server Actions; server-side visibility (`lib/ticket-scope.ts`); shell data
+  from the layout via `ShellContext`; ticket localStorage removed from `api.ts`.
 
 - 2026-10-09 **Single permission system** (`ba61cc2`): upstream RBAC page governs every tab incl.
   `admin_users`/`admin_audit_logs`; `/admin/roles` + `/admin/mail-templates` retired;

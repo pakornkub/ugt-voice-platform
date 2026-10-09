@@ -90,3 +90,10 @@ sqlserver`** → `migration_lock.toml` was hand-written during the offline migra
   `${Date.now()}-${random 0-999}`, so two items created in the same millisecond could share an id
   and removing one removed both → `uniqueId()` in `src/services/api.ts` (`crypto.randomUUID`) +
   regression test in `src/services/api.test.ts` (2026-10-09)
+- **Executive/admin see zero tickets although the DB has rows** → Prisma renders an empty
+  `{ AND: [] }` nested inside `OR` as false on SQL Server → `ticketScopeWhere` returns
+  `{ isDeleted: false }` when a role has no restriction; never emit an empty `AND` (2026-10-09)
+- **Worktree with `node_modules` as a junction to the main checkout: `next dev`/`next build` fail
+  ("Symlink node_modules … leaves the filesystem root")** → Turbopack refuses the junction → run
+  `next dev --webpack` / `next build --webpack` there; a tsx script that imports a
+  `server-only` module needs a tsconfig `paths` alias to `vitest.server-only-stub.js` (2026-10-09)

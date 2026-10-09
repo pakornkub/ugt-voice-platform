@@ -17,13 +17,32 @@
   implement ที่ `src/types.ts:ComplaintTicket.isDirectToExecutive`, แสดงผลที่
   `src/components/ExecutiveDashboard.tsx` (assumption: ไม่ได้ไล่อ่าน routing logic ทุกจุด)
 
+## ใครเห็น/ทำอะไรกับคำร้องได้ — บังคับที่ server (DB rewiring slice 1, 2026-10-09)
+
+กติกาอยู่ที่ `lib/ticket-scope.ts` (pure, เทสต์ `lib/ticket-scope.test.ts`) — ใช้ทั้ง list ใน
+`src/app/(shell)/layout.tsx`, การค้นด้วยรหัสติดตาม และทุก Server Action ใน `lib/actions/tickets.ts`;
+role = `user.appRole`, flag มาจากแถว `RoleAccessConfigs` ของ role นั้น (ไม่มีแถว = เห็นแค่ของตัวเอง)
+
+- **ทุก role** เห็นคำร้องที่ตัวเองยื่น: `loginEmail` = อีเมล session (`submitTicket` ตั้งเองเสมอ
+  ไม่เชื่อค่าจากฟอร์ม) หรือ `submitterEmail` บนแถวเก่าที่ไม่มี `loginEmail`
+- **employee**: เฉพาะของตัวเอง
+- **gatekeeper**: `assignedDepartments` (ว่าง → `['HR']` เหมือน GatekeeperInbox), เรื่องส่งตรง CEO
+  เฉพาะเมื่อมี `canViewDirectCeoTickets` — `canViewAllDepartments` ไม่มีผล (เหมือน UI upstream)
+- **executive / admin**: ทุกหน่วยงาน, เรื่องส่งตรง CEO ตาม `canViewDirectCeoTickets`
+- **notification**: เห็นเมื่อเห็นคำร้องของมัน (`TicketId`) + ฝั่ง client ยังซ่อน CEO alert จาก role ที่
+  ไม่มี `canViewDirectCeoTickets`; `IsRead` เป็น flag เดียวต่อแถว (คนที่เห็นคำร้องเดียวกันใช้ร่วมกัน)
+- **ยื่นเรื่อง**: role ที่มีแท็บ `submit` · **triage** (status/ผู้รับผิดชอบ/urgency/risk/CAPA): role ที่มี
+  แท็บ `gatekeeper` · **โน้ต / แชทนิรนาม / CSAT**: ใครก็ได้ที่เห็นคำร้อง (แชทส่งในนาม role ตัวเองเท่านั้น)
+- คำร้องนอก scope ตอบเหมือน "ไม่พบ" (`null`) ไม่บอกว่ามีอยู่; ทุก mutation เขียน `ActivityLogs`
+  (`tickets.submit|update|evaluate|chat-send`, ไม่เก็บข้อความแชท)
+
 ## Gatekeeper triage
 
 - **ไม่มี SLA แล้ว** (ตัดทั้งระบบตาม upstream `8d885a3`, 2026-10-08): ไม่มี
   `slaTargetHours`/`slaDueDate`/`slaStatus`/`defaultSlaHours`/`slaComplianceRate` และไม่มี
   notification `sla_warning` — ความเร่งด่วนดูจาก `urgency` (Low/Medium/High/Critical) +
   `riskSeverity` ที่ Gatekeeper แก้ได้ผ่าน `updateTicketWorkflow()`
-  (`src/services/api.ts`) — implement ที่ `src/types.ts:ComplaintTicket`
+  (`lib/actions/tickets.ts`) — implement ที่ `src/types.ts:ComplaintTicket`
 - ผู้ยื่นแบบ anonymous ถูก map อีเมลล็อกอินหลังบ้านจากฐานข้อมูลพนักงาน
   (`ComplaintTicket.loginEmail`/`isAnonymousMapped`, `src/services/employeeDirectory.ts`) —
   เฉพาะ role ที่มี `canViewAnonymousSubmitterEmail` (executive/admin โดย default) เห็นอีเมลนี้
@@ -34,10 +53,8 @@
   (`dispatchEmailOn*` ใน api.ts) จนกว่าจะสลับเป็น `AppSettings` + SMTP (decisions.md 2026-10-08)
 - ปุ่มสลับแท็บถูกกรองด้วย `allowedTabs` ของ role (`shell.tsx:navigateTab`), การแจ้งเตือนสายตรง
   CEO เห็นเฉพาะ role ที่มี `canViewDirectCeoTickets`
-- Gatekeeper เห็นเฉพาะคำร้องในหน่วยงานที่ตนรับผิดชอบ ยกเว้นมี `canViewAllDepartments` —
-  implement ที่ `src/components/GatekeeperInbox.tsx`, config ที่
-  `src/types.ts:RolePermissionConfig`/`DepartmentGatekeeperConfig` (assumption: filter logic
-  ไม่ได้ตรวจทุกบรรทัด)
+- Gatekeeper เห็นเฉพาะคำร้องในหน่วยงานที่ตนรับผิดชอบ — กรองที่ server (หัวข้อด้านบน) และซ้ำที่
+  `src/components/GatekeeperInbox.tsx` (ตัวกรอง UI เดิมของ upstream)
 
 ## RBAC — สองระบบแยกกัน (`ugt-nextjs-auth-setup`, 2026-09-02 — ดู decisions.md)
 
@@ -76,8 +93,8 @@
 
 - ผู้ยื่นเรื่องประเมินความพึงพอใจได้หลังคำร้อง resolved/closed ให้คะแนน 1-5 ใน หลายมิติ
   (ความเร็ว/คุณภาพการแก้ไข/มารยาท/ความชัดเจน) — implement ที่
-  `src/components/SatisfactionModal.tsx`, บันทึกที่ `src/services/api.ts:submitEvaluation`
-  (assumption: ยังไม่ได้ตรวจ validation ครบทุก field)
+  `src/components/SatisfactionModal.tsx`, บันทึกที่ `lib/actions/tickets.ts:submitEvaluation`
+  (ส่งซ้ำ = เขียนทับผลเดิมเหมือน upstream; server ยังไม่ validate ช่วงคะแนน)
 
 ## Upstream port phase 2 — as-built (2026-10-09, upstream `d20ca0b`)
 
@@ -87,7 +104,7 @@
   (`mapLoginEmailForTicket`, `src/services/employeeDirectory.ts` — ยังเป็น mock); ปุ่ม AI ช่วยเลือก
   หมวดเรียก `suggestCategoryWithAI` → `/api/ai/suggest-category` และ fallback เป็น keyword ฝั่ง
   client (`src/services/categoryHeuristics.ts`)
-- **แชทนิรนามสองทาง**: `sendAnonymousChatMessage` (`src/services/api.ts`) เพิ่ม message + timeline +
+- **แชทนิรนามสองทาง**: `sendAnonymousChatMessage` (`lib/actions/tickets.ts`) เพิ่ม message + timeline +
   notification สลับผู้รับ employee/gatekeeper — UI ที่ `TrackingTimelineModal`
 - **สิทธิ์เห็นอีเมลผู้ยื่นนิรนาม**: `canViewAnonymousSubmitterEmail` ใน RoleAccessConfigs (ค่าเริ่มต้น
   executive/admin) — ใช้ใน `TrackingTimelineModal` และ `ExecutiveDashboard`

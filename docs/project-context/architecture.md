@@ -35,8 +35,13 @@
   `executiveShared.tsx` (exec-status select/sync shared by RBAC + gatekeeper admin),
   `clickableProps.ts` (keyboard-operable clickable rows), `workflow-manual/*` (WorkflowDiagram's
   5 manual sections + data), `export-analytics/*` (ExportAnalyticsModal tabs + pure CSV/JSON).
-- `src/services/api.ts` — **still the live data layer** (localStorage) that every component
-  calls — see ⚠ deviation below. `INITIAL_EXECUTIVES`/`INITIAL_HR_ADMINS` also live here.
+- `src/services/api.ts` — display helpers (badge text/colors, `APP_TABS`, `INITIAL_*`), AI fetch
+  wrappers, and the localStorage data that has **not** moved to the DB yet: RBAC/gatekeeper/
+  executive/HR-admin editors (slice 2), email settings + simulated dispatch log (slice 3),
+  recent searches (per-device by design). Tickets + notifications left it on 2026-10-09 (slice 1).
+- `lib/ticket-scope.ts` (pure rules) + `lib/ticket-access.ts` (server-only: session → viewer,
+  scoped ticket/notification reads) — who sees / may change which ticket; used by the shell layout
+  and `lib/actions/tickets.ts|notifications.ts`. See business-rules.md.
 - `src/services/sqliteDb.ts` — sql.js (SQLite-in-browser via WASM, binary fetched from a
   CDN) shadow copy of the tickets/officers/executives/notifications data, used only by
   `ExportAnalyticsModal`'s "SQL Query Studio" — not the source of truth.
@@ -69,7 +74,7 @@
     added ahead of the general `@/*` -> `./src/*` rule from Phase A (TS tries `paths` entries
     in listing order, so the more specific one must come first).
   - `src/lib/actions/*` — Prisma-backed Server Actions mirroring `src/services/api.ts`'s
-    function signatures (see `api.md` → Server Actions). Not called by any component yet.
+    function signatures (see `api.md` → Server Actions). `tickets.ts`/`notifications.ts` are live (slice 1, guarded); the rest are read-only from the shell layout or unused until slice 2.
   - `prisma/migrations/20260902000000_init/` — generated **offline** (`prisma migrate diff
 --from-empty`, no live SQL Server at authoring time); apply via `prisma migrate resolve
 --applied` once real DB values land, not by replaying `migrate dev` — see
@@ -238,9 +243,17 @@ up` testing.
   `canViewDirectCeoTickets`, bottom-nav buttons by `allowedTabs`, every tracking-code lookup is
   recorded via `addRecentSearch()`, ExportAnalytics modal opens for `admin` only.
 
-- ยื่นคำร้อง: `EmployeeSubmitForm` (`src/components/EmployeeSubmitForm.tsx`) →
-  `submitTicket()` in `src/services/api.ts` → `localStorage` → async mirror to sql.js via
-  `syncAllTicketsToSqlite()` in `src/services/sqliteDb.ts`.
+- **Shell data (DB rewiring slice 1, 2026-10-09)**: `src/app/(shell)/layout.tsx` (server) →
+  session + `user.appRole` → `RoleAccessConfigs`/`DepartmentGatekeeperConfigs` + the user's visible
+  tickets (`listVisibleTickets`) + their notifications → `<Shell data>` → `ShellContext`
+  (`tickets`, `notifications`, `rolePermissions`, `gatekeeperConfigs`) → pages/components
+  (`useShell()`). Writes: component → Server Action (`lib/actions/tickets.ts|notifications.ts`,
+  session → scope/permission → Prisma → `ActivityLogs`) → `router.refresh()` re-runs the layout.
+  Tracking-code search / notification click → `getTicketByTrackingCode` (server, scoped).
+- ยื่นคำร้อง: `EmployeeSubmitForm` → `submitTicket` Server Action (`loginEmail` = session email,
+  timeline + notifications in SQL Server) → client logs upstream's simulated email
+  (`logTicketSubmittedEmail`) → `handleTicketCreated` → `router.refresh()`. sql.js gets the tickets
+  only when `ExportAnalyticsModal` opens (`syncAllTicketsToSqlite(tickets)`).
 - AI triage: EmployeeSubmitForm "วิเคราะห์ด้วย Gemini AI" → `analyzeGrievanceWithAI()` in
   api.ts → `POST /api/ai/analyze-complaint` → `src/app/api/ai/analyze-complaint/route.ts` →
   Gemini API (falls back to static heuristics when `GEMINI_API_KEY` is unset).
@@ -253,12 +266,10 @@ up` testing.
 - Tab navigation: `Navbar` (`src/components/Navbar.tsx`, prop-driven, unchanged) →
   `navigateTab()` in `src/app/(shell)/shell.tsx` → `router.push()` → route change →
   `usePathname()` recomputes `activeTab`, passed back into `Navbar` via `ShellContext`.
-- Workflow email (added 2026-09-02, `ugt-nextjs-mail-setup`): `lib/actions/tickets.ts`'s
-  `submitTicket`/`updateTicketWorkflow` write a `Notification` row (as before), then call
-  `sendNotificationMail()` → `sendTemplatedMail()` (`lib/email.ts`) → `getMailTemplate()`
-  (`lib/mail-templates.ts`, AppSettings override or in-code default) → nodemailer, all inside
-  try/catch (a mail failure never fails the ticket mutation). **Not live yet** — see ⚠
-  deviation below, same root cause as the Prisma persistence layer's.
+- Workflow email: **no real mail from ticket actions right now** — the 2026-09-02 notification-type
+  hooks were removed in slice 1 (decisions.md 2026-10-09); upstream's simulated dispatch log runs
+  client-side after the action. Slice 3 sends real mail from `lib/actions/tickets.ts` via
+  `sendTemplatedMail()` (`lib/email.ts`) per the upstream settings model in `AppSettings`.
 - File attachment (added 2026-09-02, `ugt-nextjs-upload-setup`): `FileUpload.tsx` →
   `POST /api/files` (session → permission `files:create` → ticket/timeline-log exist →
   `writeStoredFile()` on the volume → `Attachments` row → audit log) →
@@ -280,14 +291,17 @@ up` testing.
 | `RoleAccessConfigs`                                    | `RoleBasedAccessManagement` (`rbac_management` tab)                                                  |
 | `Attachments`                                          | ticket + timeline-note file uploads — `FileUpload.tsx`, `/api/files*`                                |
 
-ยังไม่ใช่ live source — ดู ⚠ deviation ด้านล่าง (schema/migration/seed พร้อมใช้แล้ว แต่
-component ทั้งหมดยังอ่าน/เขียน `localStorage` ผ่าน `src/services/api.ts` เหมือนเดิม)
+Live แล้ว (slice 1, 2026-10-09): `Tickets`/`TicketTimelineLogs`/`TicketEvaluations`/
+`TicketAnonymousMessages`/`Notifications` + อ่าน `RoleAccessConfigs`/`DepartmentGatekeeperConfigs`/
+`GatekeeperOfficers` · ยังไม่ live: การแก้ config/ผู้บริหาร/HR admin (slice 2), `Attachments` (slice 5)
 
 ## ⚠ Deviations (2026-09-02, ทั้งหมดเป็นผลจากการ migrate Phase A ที่จงใจคงพฤติกรรมเดิมไว้ก่อน
 
 เว้นแต่ระบุวันที่อื่น)
 
-- ⚠ deviation (2026-09-02): มี schema/migration/seed/Server Actions (Prisma + SQL Server)
+- ⚠ deviation (**partly retired 2026-10-09** — tickets + notifications are live in SQL Server,
+  slice 1; config editing/email/directory/attachments/SQL studio still localStorage until slices
+  2–6) (2026-09-02): มี schema/migration/seed/Server Actions (Prisma + SQL Server)
   พร้อมแล้ว (`prisma/`, `lib/prisma.ts`, `src/lib/actions/`) แต่**ยังไม่ใช่ live persistence
   layer** — ทุก component ยังอ่าน/เขียน `localStorage` ผ่าน `src/services/api.ts` เหมือนเดิม —
   เหตุผล: (1) ยังไม่มี SQL Server จริงให้เชื่อมต่อ (รอ Admin/DBA ตาม
