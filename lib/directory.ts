@@ -51,7 +51,7 @@ export function toEmployeeRecord(row: HrEmployeeRow): EmployeeRecord {
 
 /** Escapes LIKE wildcards so user input is matched literally (T-SQL bracket escaping). */
 export function escapeLike(input: string): string {
-  return input.replace(/[[%_]/g, (ch) => `[${ch}]`);
+  return input.replaceAll(/[[%_]/g, (ch) => `[${ch}]`);
 }
 
 /** Active employee whose CurrentEmail or AD login matches the session email, or null.

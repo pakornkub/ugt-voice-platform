@@ -196,7 +196,7 @@ export function mapDepartmentConfig(
     category: row.category as GrievanceCategory,
     departmentName: row.departmentName,
     departmentCode: row.departmentCode,
-    leadOfficer: lead as GatekeeperOfficer,
+    leadOfficer: lead,
     officers,
     autoAssignMode: row.autoAssignMode as DepartmentGatekeeperConfig['autoAssignMode'],
     escalationEmail: row.escalationEmail ?? undefined,

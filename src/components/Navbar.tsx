@@ -143,7 +143,7 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
     if (onSearchTrackingCode) onSearchTrackingCode(code);
   };
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
+  const handleSearchSubmit = (e: React.SubmitEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
       handleSearchCode(searchQuery.trim());

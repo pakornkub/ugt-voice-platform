@@ -261,7 +261,7 @@ interface ExecutiveFormPanelProps {
   readonly form: ExecForm;
   readonly setForm: React.Dispatch<React.SetStateAction<ExecForm>>;
   readonly isEditing: boolean;
-  readonly onSubmit: (e: React.FormEvent) => void;
+  readonly onSubmit: (e: React.SubmitEvent) => void;
   readonly onCancel: () => void;
 }
 
@@ -773,7 +773,6 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
   }
   const [selectedRoleForDetail, setSelectedRoleForDetail] = useState<UserRole>('employee');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [, setIsSaved] = useState(true);
 
   // Executive Management Direct In-Box State
   const [executives, setExecutives] = useState<ExecutiveMember[]>(() => initialExecutives);
@@ -834,7 +833,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
         return false;
       });
 
-  const handleSaveExecSubmit = async (e: React.FormEvent) => {
+  const handleSaveExecSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
     if (!execForm.name.trim() || !execForm.email.trim()) {
       showToast('⚠️ กรุณากรอกชื่อ-นามสกุล และอีเมลของผู้บริหาร');
@@ -897,8 +896,6 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
     const previous = permissions;
     // Optimistic: the matrix reflects the click at once; the server answer (or a revert) follows.
     setPermissions(updated);
-    setIsSaved(false);
-    setTimeout(() => setIsSaved(true), 800);
     if (toastMsg) {
       showToast(toastMsg);
     }

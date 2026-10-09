@@ -382,7 +382,7 @@ export async function updateTicketWorkflow(
   return redactTicketForViewer(viewer, mapTicket(updated));
 }
 
-const STAFF_ROLES: UserRole[] = ['gatekeeper', 'executive', 'admin'];
+const STAFF_ROLES: ReadonlySet<UserRole> = new Set(['gatekeeper', 'executive', 'admin']);
 
 type ChatTicket = Pick<
   ComplaintTicket,
@@ -430,7 +430,7 @@ export async function sendAnonymousChatMessage(
   if (!row) return null;
   const current = mapTicket(row);
 
-  const isStaff = STAFF_ROLES.includes(senderRole);
+  const isStaff = STAFF_ROLES.has(senderRole);
   const text = messageText.trim();
   const finalSenderName = defaultChatSenderName(current, senderRole);
 

@@ -106,7 +106,7 @@ export default function Shell({
 
   const handleTicketUpdated = (updatedTicket: ComplaintTicket) => {
     refreshData();
-    if (selectedTicketForTracking && selectedTicketForTracking.id === updatedTicket.id) {
+    if (selectedTicketForTracking?.id === updatedTicket.id) {
       setSelectedTicketForTracking(updatedTicket);
     }
     showNotification(`อัปเดตสถานะคำร้อง ${updatedTicket.trackingCode} เรียบร้อยแล้ว`);
@@ -388,19 +388,7 @@ export default function Shell({
                       }`}
                     >
                       <div className="mt-0.5">
-                        {item.type === 'direct_ceo_alert' ? (
-                          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-100 text-purple-700">
-                            <Crown className="h-3.5 w-3.5" />
-                          </div>
-                        ) : item.type === 'satisfaction_pending' ? (
-                          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                          </div>
-                        ) : (
-                          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-100 text-blue-700">
-                            <Clock className="h-3.5 w-3.5" />
-                          </div>
-                        )}
+                        <NotificationIcon type={item.type} />
                       </div>
                       <div className="flex-1">
                         <div className="mb-1 flex items-center justify-between">
@@ -477,4 +465,26 @@ export default function Shell({
       </div>
     </ShellContext.Provider>
   );
+}
+
+const NOTIFICATION_ICONS: Partial<
+  Record<NotificationItem['type'], { box: string; icon: React.ReactNode }>
+> = {
+  direct_ceo_alert: {
+    box: 'bg-purple-100 text-purple-700',
+    icon: <Crown className="h-3.5 w-3.5" />,
+  },
+  satisfaction_pending: {
+    box: 'bg-emerald-100 text-emerald-700',
+    icon: <CheckCircle2 className="h-3.5 w-3.5" />,
+  },
+};
+const DEFAULT_NOTIFICATION_ICON = {
+  box: 'bg-blue-100 text-blue-700',
+  icon: <Clock className="h-3.5 w-3.5" />,
+};
+
+function NotificationIcon({ type }: Readonly<{ type: NotificationItem['type'] }>) {
+  const { box, icon } = NOTIFICATION_ICONS[type] ?? DEFAULT_NOTIFICATION_ICON;
+  return <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${box}`}>{icon}</div>;
 }

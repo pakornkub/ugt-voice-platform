@@ -18,11 +18,11 @@
 
 /* Horizontal tab strips scroll by swipe/trackpad without a visible scrollbar. Upstream's
    components use this class but never defined it, so the bar showed (fixed 2026-10-09). */
-@utility no-scrollbar {
+.no-scrollbar {
   scrollbar-width: none;
-  &::-webkit-scrollbar {
-    display: none;
-  }
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 /* Small badges/pills (10–11px text, rounded) never break mid-label or get squeezed by their row —

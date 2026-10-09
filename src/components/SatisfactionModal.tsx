@@ -45,7 +45,7 @@ export const SatisfactionModal: React.FC<Readonly<SatisfactionModalProps>> = ({
 
   if (!ticket) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.SubmitEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
     setIsSubmitting(true);

@@ -748,7 +748,7 @@ const TriageModal: React.FC<Readonly<TriageModalProps>> = ({ ticket, onClose, on
   const [isSaving, setIsSaving] = useState(false);
   const setField: SetTriageField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = (e: React.SubmitEvent) => {
     e.preventDefault();
     if (isSaving) return;
     const isResolved = form.targetStatus === 'resolved';

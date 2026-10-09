@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
 // ugt-nextjs-auth-setup (2026-09-02): session + first-admin gate for every
 // route under this shell. Real access control replaces the old free
 // role-switcher dropdown — see docs/project-context/decisions.md.
-export default async function ShellLayout({ children }: { children: React.ReactNode }) {
+export default async function ShellLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect('/login');
 

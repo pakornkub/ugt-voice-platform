@@ -40,7 +40,8 @@ export async function POST(request: Request) {
 
   const form = await request.formData();
   const file = form.get('file');
-  const ticketId = String(form.get('ticketId') ?? '');
+  const ticketIdRaw = form.get('ticketId');
+  const ticketId = typeof ticketIdRaw === 'string' ? ticketIdRaw : '';
   const timelineLogIdRaw = form.get('timelineLogId');
   const timelineLogId =
     typeof timelineLogIdRaw === 'string' && timelineLogIdRaw ? timelineLogIdRaw : null;

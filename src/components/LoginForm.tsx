@@ -34,14 +34,15 @@ export function LoginForm({
   const [isLoading, setIsLoading] = useState(false);
   const returnTo = sanitizeFrom(from);
 
+  const errorBanner = ssoError
+    ? {
+        tone: 'danger' as const,
+        text: SSO_ERROR_MESSAGES[ssoError] ?? `เข้าสู่ระบบไม่สำเร็จ (${ssoError})`,
+      }
+    : null;
   const banner = sessionExpired
     ? { tone: 'warning' as const, text: 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง' }
-    : ssoError
-      ? {
-          tone: 'danger' as const,
-          text: SSO_ERROR_MESSAGES[ssoError] ?? `เข้าสู่ระบบไม่สำเร็จ (${ssoError})`,
-        }
-      : null;
+    : errorBanner;
 
   async function handleSsoLogin() {
     setIsLoading(true);

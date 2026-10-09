@@ -359,7 +359,7 @@ const ChatPanel: React.FC<
     chatMessage: string;
     isSending: boolean;
     onChatMessageChange: (value: string) => void;
-    onSubmit: (e: React.FormEvent) => void;
+    onSubmit: (e: React.SubmitEvent) => void;
   }>
 > = ({ ticket, currentRole, chatMessage, isSending, onChatMessageChange, onSubmit }) => {
   const { tr } = useTr();
@@ -1099,7 +1099,7 @@ const AuditTrailSection: React.FC<
     inquiryText: string;
     isSubmittingNote: boolean;
     onInquiryChange: (value: string) => void;
-    onSubmitInquiry: (e: React.FormEvent) => void;
+    onSubmitInquiry: (e: React.SubmitEvent) => void;
   }>
 > = ({
   ticket,
@@ -1199,7 +1199,7 @@ export const TrackingTimelineModal: React.FC<Readonly<TrackingTimelineModalProps
     return <RestrictedAccessScreen ticket={ticket} onClose={onClose} />;
   }
 
-  const handleSendInquiry = (e: React.FormEvent) => {
+  const handleSendInquiry = (e: React.SubmitEvent) => {
     e.preventDefault();
     if (!inquiryText.trim()) return;
 
@@ -1223,7 +1223,7 @@ export const TrackingTimelineModal: React.FC<Readonly<TrackingTimelineModalProps
       .finally(() => setIsSubmittingNote(false));
   };
 
-  const handleSendChatMessage = (e: React.FormEvent) => {
+  const handleSendChatMessage = (e: React.SubmitEvent) => {
     e.preventDefault();
     if (!chatMessage.trim()) return;
 

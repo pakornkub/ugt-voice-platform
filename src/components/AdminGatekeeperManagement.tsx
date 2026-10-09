@@ -275,7 +275,7 @@ function useGatekeeperPanel(
     setNewOfficerPicked(false);
   };
 
-  const handleAddOfficerSubmit = async (e: React.FormEvent) => {
+  const handleAddOfficerSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
     if (!newOfficerName.trim() || !newOfficerEmail.trim()) {
       showToast('⚠️ กรุณากรอกชื่อและอีเมลของเจ้าหน้าที่');
@@ -409,7 +409,7 @@ function useExecutivePanel(
     };
   };
 
-  const handleSaveExecutive = async (e: React.FormEvent) => {
+  const handleSaveExecutive = async (e: React.SubmitEvent) => {
     e.preventDefault();
     if (!execName.trim() || !execEmail.trim() || !execPosition.trim()) {
       showToast('⚠️ กรุณากรอกชื่อ-นามสกุล, ตำแหน่ง และอีเมลของผู้บริหาร');
@@ -600,7 +600,7 @@ function useHrAdminPanel(
     receiveSystemAlerts: adminReceiveAlerts,
   });
 
-  const handleSaveHrAdmin = async (e: React.FormEvent) => {
+  const handleSaveHrAdmin = async (e: React.SubmitEvent) => {
     e.preventDefault();
     if (!adminName.trim() || !adminEmail.trim() || !adminPosition.trim()) {
       showToast('⚠️ กรุณากรอกชื่อ-นามสกุล, ตำแหน่ง และอีเมลของ HR Admin');
@@ -1306,9 +1306,9 @@ const ExecutiveCard: React.FC<ExecutiveCardProps> = ({
                 คณะกรรมการกำกับดูแล:
               </span>
               <div className="flex flex-wrap gap-1">
-                {exec.assignedCommittees.map((comm, idx) => (
+                {exec.assignedCommittees.map((comm) => (
                   <span
-                    key={idx}
+                    key={comm}
                     className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700"
                   >
                     {comm}

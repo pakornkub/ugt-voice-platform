@@ -388,7 +388,7 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.SubmitEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
     if (!title.trim() || !description.trim()) {
