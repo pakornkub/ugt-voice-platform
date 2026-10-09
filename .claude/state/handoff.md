@@ -4,9 +4,9 @@ Last updated: 2026-10-09
 
 ## In progress
 
-- **localStorage → DB rewiring, 6 slices** (1 tickets+notifications · 2 config tables + server
-  permissions · 3 email settings + SMTP · 4 HR-view directory · 5 attachments · 6 SQL-studio
-  presets). Slice 1 done on branch `claude/rewire-1-tickets-33274d` — awaiting coordinator merge.
+- **localStorage → DB rewiring, slice 1 done** (tickets + notifications + `ShellContext`) on branch
+  `claude/rewire-1-tickets-33274d` — awaiting coordinator merge. Role/scope sit behind one helper
+  (`resolveViewer`, `lib/ticket-access.ts`) so slice 2 swaps in the roster-based role. Next: see below.
 
 ## Next
 
@@ -15,20 +15,29 @@ Last updated: 2026-10-09
 - **Prod deploy** = push `main` to `origin` (Jenkins `ugt-voice-platform` polls `main`) — owner's
   call (auto mode blocks Claude from deploying prod). `origin/main` is `9713263` (no SSO issuer
   fix yet); prod Keycloak client `ugt-voice-platform` must exist; app login must not be `sa`.
-- **Rewiring slices 2–6** — pattern in decisions.md 2026-10-09 "slice 1" (layout loads →
-  `ShellContext` → Server Action → `router.refresh()`; ticket scope in `lib/ticket-scope.ts`):
-  - Slice 2, most urgent — **interim gap**: the RBAC / gatekeeper-officer / executive / HR-admin
-    editors still save to localStorage, but menus, inbox scope and triage officer lists now come
-    from the DB seed, so those edits do nothing until slice 2. Guard every write in
-    `lib/actions/{role-access,gatekeeper,executives,hr-admins}.ts`; add `reset*ToDefault`;
-    `get/setActiveGatekeeperDepartment` → React state; `getUserPermissions()` → `RoleAccessConfigs`.
-  - Slice 3: email settings → `AppSettings`; real mail from `lib/actions/tickets.ts` (sends none
-    today); replaces the client-side `logTicket*Email` simulation.
-  - Slice 4: `lib/directory.ts` on `vwHR_SC_Employee` replaces `src/services/employeeDirectory.ts`.
-  - Slice 5: real uploads — simulated attachments are **not persisted** since slice 1; make
-    `lib/attachment-access.ts` reuse `ticketScopeWhere` (it has its own older rules).
-  - Slice 6: SQL Query Studio → preset reports before wiring it to SQL Server.
-  - Notification `IsRead` is one shared flag per row — per-user read table if it matters.
+- **Rewiring slices after slice 1** (`src/services/api.ts` → `lib/actions/*`, UX stays upstream's):
+  - **Slice 2 — rosters, role and config tables** (decisions 2026-10-09 "App role comes from the
+    people rosters", `d6c9ac5`): `lib/directory.ts` on `vwHR_SC_Employee` (replaces mock
+    `src/services/employeeDirectory.ts`); HR-view picker in the 4 roster forms; role resolved per
+    page load (HrAdmin > Executive > GK officer > employee); GK scope = officer categories ∩
+    `assignedDepartments`; `/admin/users` read-only; `/admin/setup` seeds `HrAdminMembers`;
+    self/last-admin guards; gatekeeper/executive/HR-admin/RBAC edits + `reset*ToDefault` as
+    Server Actions; `getUserPermissions()` reads `RoleAccessConfigs` from the DB.
+  - **Slice 3 — email**: `AdminEmailNotificationSettings` → `AppSettings` + real SMTP
+    (`lib/email.ts`) + dispatch log.
+  - **Slice 4 — attachments**: `FileUpload` in the submit form and timeline.
+  - **Slice 5 — SQL Query Studio** → preset reports before wiring to SQL Server.
+  - Stay per-device: recent searches, language preference, `get/setActiveGatekeeperDepartment`
+    (→ plain React state).
+  - Left open by slice 1 (pattern: decisions.md 2026-10-09 "slice 1" — layout → `ShellContext` →
+    Server Action → `router.refresh()`):
+    - **Interim gap until slice 2**: RBAC / GK-officer / executive / HR-admin editors still save to
+      localStorage, but menus, inbox scope and triage officer lists read the DB — edits do nothing.
+      Their write actions in `lib/actions/{role-access,gatekeeper,executives,hr-admins}.ts` are unguarded.
+    - `lib/actions/tickets.ts` sends **no** mail (slice 3 replaces client `logTicket*Email`).
+    - Simulated attachments are not persisted; slice 4: `lib/attachment-access.ts` should reuse
+      `ticketScopeWhere`.
+    - Notification `IsRead` is one shared flag per row — per-user read table if it matters.
 - OWASP UNSTABLE: 5 high left, all `eslint-config-next` dev-tool chain (`braces` has no fix yet).
 - `/ugt-contribute`: org `ugt-nextjs-auth-setup` schema lacks `Account.Issuer` (Better Auth 1.7);
   `ugt-nextjs-upload-setup` `verify.mjs` requires ClamAV although scan is opt-in.
