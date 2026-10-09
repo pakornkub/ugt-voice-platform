@@ -1,5 +1,5 @@
 // lib/get-user-permissions.ts — ugt-nextjs-auth-setup, 2026-09-02.
-import { env } from '@/lib/env';
+import { isDevEnvironment } from '@/lib/environment';
 import { prisma } from '@/lib/prisma';
 import { PERMISSIONS } from '@/lib/permissions';
 import { resolveViewer } from '@/lib/ticket-access';
@@ -27,7 +27,6 @@ const TAB_GUARDED = new Set<string>([...TAB_KEYS.map(([, key]) => key), PERMISSI
 // Mail dev mode redirects every workflow mail to the person who triggered it — only on the dev
 // environment (basePath '/ugt-voice-platform-dev'; local dev uses it too), never in production, where an HR
 // admin resolving a ticket must still mail the submitter (decisions.md 2026-10-09).
-const isDevEnvironment = () => (env.NEXT_PUBLIC_BASE_PATH ?? '').endsWith('-dev');
 
 /**
  * Everyone may upload/download attachments (per-ticket scope is still enforced by

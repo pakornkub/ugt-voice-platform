@@ -4,6 +4,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { LoginForm } from '@/components/LoginForm';
+import { LoginHero } from './LoginHero';
 
 export default async function LoginPage({
   searchParams,
@@ -17,12 +18,16 @@ export default async function LoginPage({
   const sp = await searchParams;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4 font-sans antialiased">
-      <LoginForm
-        sessionExpired={sp.reason === 'session_expired'}
-        ssoError={sp.error}
-        from={sp.from}
-      />
+    // Two columns from lg (owner request 2026-10-09): hero image + pitch left, sign-in card right.
+    <div className="grid min-h-screen bg-slate-50 font-sans antialiased lg:grid-cols-2">
+      <LoginHero />
+      <main className="flex items-center justify-center p-4 sm:p-8">
+        <LoginForm
+          sessionExpired={sp.reason === 'session_expired'}
+          ssoError={sp.error}
+          from={sp.from}
+        />
+      </main>
     </div>
   );
 }
