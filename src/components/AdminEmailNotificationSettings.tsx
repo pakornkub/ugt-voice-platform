@@ -735,7 +735,7 @@ const EmailSettingsPanel: React.FC<PanelProps> = ({ initialSettings, initialLogs
         'คุณต้องการคืนค่าเทมเพลตและค่าคอนฟิกการแจ้งเตือน Email ทั้งหมดกลับสู่ค่ามาตรฐานใช่หรือไม่?'
       ),
       confirmLabel: tr('Reset to Default', 'รีเซ็ตเป็นค่าเริ่มต้น'),
-      onConfirm: () => run(resetEmailNotificationSettings, applySaved),
+      onConfirm: () => void run(resetEmailNotificationSettings, applySaved),
     });
   };
 
@@ -774,7 +774,7 @@ const EmailSettingsPanel: React.FC<PanelProps> = ({ initialSettings, initialLogs
       ),
       confirmLabel: tr('Clear Logs', 'ล้างประวัติ'),
       isDestructive: true,
-      onConfirm: () => run(clearEmailDispatchLogs, () => setLogs([])),
+      onConfirm: () => void run(clearEmailDispatchLogs, () => setLogs([])),
     });
   };
 

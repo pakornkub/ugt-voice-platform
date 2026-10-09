@@ -805,15 +805,11 @@ const TriageModal: React.FC<Readonly<TriageModalProps>> = ({ ticket, onClose, on
 
         <form onSubmit={handleSave} className="space-y-4 p-6">
           {/* Status Selector */}
-          <div>
-            <span id="triage-status-label" className="mb-1 block text-xs font-bold text-slate-700">
+          <fieldset className="m-0 min-w-0 border-0 p-0">
+            <legend className="mb-1 block p-0 text-xs font-bold text-slate-700">
               ปรับเปลี่ยนสถานะการดำเนินงาน (Workflow Status):
-            </span>
-            <div
-              role="group"
-              aria-labelledby="triage-status-label"
-              className="grid grid-cols-2 gap-2 sm:grid-cols-4"
-            >
+            </legend>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {WORKFLOW_STATUS_OPTIONS.map((s) => (
                 <button
                   key={s.key}
@@ -830,7 +826,7 @@ const TriageModal: React.FC<Readonly<TriageModalProps>> = ({ ticket, onClose, on
                 </button>
               ))}
             </div>
-          </div>
+          </fieldset>
 
           <UrgencyRiskFields form={form} setField={setField} />
           <AssigneeFields ticket={ticket} form={form} setField={setField} />

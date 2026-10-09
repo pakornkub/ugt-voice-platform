@@ -53,9 +53,8 @@ const categoryPareto: Runner = async (where) => {
   }
   const entries = [...perCategory.values()];
   const grand = entries.reduce((sum, e) => sum + e.total, 0);
-  return entries
-    .sort(byCountThenName)
-    .map((e) => [e.name, e.total, `${round((e.total * 100) / grand, 1)}%`, e.resolved]);
+  entries.sort(byCountThenName);
+  return entries.map((e) => [e.name, e.total, `${round((e.total * 100) / grand, 1)}%`, e.resolved]);
 };
 
 const inProgressTickets: Runner = async (where) => {
@@ -126,7 +125,7 @@ const rootCauseBreakdown: Runner = async (where) => {
   }
   return [...perCause.values()]
     .sort(byCountThenName)
-    .map((e) => [e.name, e.total, [...e.categories].sort().join(', ')]);
+    .map((e) => [e.name, e.total, [...e.categories].sort((a, b) => a.localeCompare(b)).join(', ')]);
 };
 
 const directToExecutive: Runner = async (where) => {
