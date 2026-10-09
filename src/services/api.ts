@@ -277,6 +277,25 @@ export const APP_TABS: TabDefinition[] = [
     iconName: 'SlidersHorizontal',
     defaultRoles: ['admin'],
   },
+  {
+    id: 'admin_users',
+    nameTh: 'จัดการผู้ใช้ (SSO)',
+    nameEn: 'User Management (SSO)',
+    descriptionTh:
+      'กำหนดบทบาทให้ผู้ใช้ที่เข้าสู่ระบบผ่าน SSO (พนักงาน / Gatekeeper / ผู้บริหาร / Admin)',
+    category: 'administration',
+    iconName: 'UserCog',
+    defaultRoles: ['admin'],
+  },
+  {
+    id: 'admin_audit_logs',
+    nameTh: 'บันทึกการใช้งานระบบ',
+    nameEn: 'System Audit Logs',
+    descriptionTh: 'ประวัติการเข้าสู่ระบบและการเปลี่ยนแปลงสิทธิ์ของผู้ใช้ทั้งหมด',
+    category: 'administration',
+    iconName: 'ScrollText',
+    defaultRoles: ['admin'],
+  },
 ];
 
 export const INITIAL_ROLE_PERMISSIONS: Record<UserRole, RolePermissionConfig> = {
@@ -347,6 +366,8 @@ export const INITIAL_ROLE_PERMISSIONS: Record<UserRole, RolePermissionConfig> = 
       'clustering',
       'admin_gatekeeper',
       'rbac_management',
+      'admin_users',
+      'admin_audit_logs',
     ],
     canViewAllDepartments: true,
     assignedDepartments: [],
@@ -358,6 +379,23 @@ export const INITIAL_ROLE_PERMISSIONS: Record<UserRole, RolePermissionConfig> = 
     canManageRolePermissions: true,
   },
 };
+
+// 2026-10-09: the SSO admin pages joined APP_TABS. Configs saved before that never listed them,
+// so grant them to admin once (an admin may still untick them later in the RBAC matrix).
+const SSO_ADMIN_TABS_MIGRATED_KEY = 'enterprise_grievance_sso_admin_tabs_v1';
+function withSsoAdminTabs(
+  config: Record<UserRole, RolePermissionConfig>
+): Record<UserRole, RolePermissionConfig> {
+  if (safeStorage.getItem(SSO_ADMIN_TABS_MIGRATED_KEY)) return config;
+  const adminTabs = config.admin.allowedTabs;
+  const missing = (['admin_users', 'admin_audit_logs'] as const).filter(
+    (t) => !adminTabs.includes(t)
+  );
+  const next = { ...config, admin: { ...config.admin, allowedTabs: [...adminTabs, ...missing] } };
+  safeStorage.setItem(STORAGE_KEY_RBAC, JSON.stringify(next));
+  safeStorage.setItem(SSO_ADMIN_TABS_MIGRATED_KEY, '1');
+  return next;
+}
 
 export function getStoredRolePermissions(): Record<UserRole, RolePermissionConfig> {
   try {
@@ -372,7 +410,7 @@ export function getStoredRolePermissions(): Record<UserRole, RolePermissionConfi
           ...(parsed[roleKey] || {}),
         };
       });
-      return merged;
+      return withSsoAdminTabs(merged);
     }
   } catch (e) {
     console.error('Failed to load RBAC permissions from localStorage', e);

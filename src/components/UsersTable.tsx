@@ -5,18 +5,15 @@
 // (see AdminGatekeeperManagement.tsx, GatekeeperInbox.tsx) — no DataTable kit.
 import { useTransition } from 'react';
 import { Crown, Shield, SlidersHorizontal, UserCheck } from 'lucide-react';
-import { assignUserAppRoleAction, assignUserRoleAction } from '@/lib/actions/admin-users';
+import { assignUserAppRoleAction } from '@/lib/actions/admin-users';
 import type { UserRole } from '@/types';
 
-type RoleOption = { id: string; name: string };
 type UserRow = {
   id: string;
   name: string;
   email: string;
   authType: string;
   appRole: string | null;
-  roleId: string | null;
-  roleName: string | null;
 };
 
 const APP_ROLE_LABELS: Record<UserRole, { label: string; icon: React.ReactNode }> = {
@@ -30,12 +27,10 @@ const NO_ROLE = '__none__';
 
 export function UsersTable({
   users,
-  roles,
   currentUserId,
   canUpdate,
 }: Readonly<{
   users: UserRow[];
-  roles: RoleOption[];
   currentUserId: string;
   canUpdate: boolean;
 }>) {
@@ -51,13 +46,6 @@ export function UsersTable({
     });
   }
 
-  function handleRbacRoleChange(userId: string, value: string) {
-    startTransition(async () => {
-      const result = await assignUserRoleAction(userId, value === NO_ROLE ? null : value);
-      if (!result.success) alert(`เปลี่ยนสิทธิ์ผู้ดูแลระบบไม่สำเร็จ: ${result.code}`);
-    });
-  }
-
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
       <div className="overflow-x-auto">
@@ -66,8 +54,7 @@ export function UsersTable({
             <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold tracking-wider text-slate-500 uppercase">
               <th className="px-4 py-3">ชื่อ - อีเมล</th>
               <th className="px-3 py-3">วิธีเข้าสู่ระบบ</th>
-              <th className="px-3 py-3">บทบาทการใช้งาน (แท็บที่มองเห็น)</th>
-              <th className="px-3 py-3">สิทธิ์ผู้ดูแลระบบ (Admin section)</th>
+              <th className="px-3 py-3">บทบาท (แท็บที่เห็นตั้งค่าในหน้า RBAC)</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -94,7 +81,8 @@ export function UsersTable({
                   <td className="px-3 py-3">
                     <select
                       value={u.appRole ?? NO_ROLE}
-                      disabled={!canUpdate || isPending}
+                      disabled={!canUpdate || isPending || isSelf}
+                      title={isSelf ? 'ไม่สามารถเปลี่ยนบทบาทของตัวเองได้' : undefined}
                       onChange={(e) => handleAppRoleChange(u.id, e.target.value)}
                       className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:opacity-60"
                     >
@@ -106,28 +94,12 @@ export function UsersTable({
                       ))}
                     </select>
                   </td>
-                  <td className="px-3 py-3">
-                    <select
-                      value={u.roleId ?? NO_ROLE}
-                      disabled={!canUpdate || isPending || isSelf}
-                      title={isSelf ? 'ไม่สามารถเปลี่ยนสิทธิ์ผู้ดูแลระบบของตัวเองได้' : undefined}
-                      onChange={(e) => handleRbacRoleChange(u.id, e.target.value)}
-                      className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:opacity-60"
-                    >
-                      <option value={NO_ROLE}>— ไม่มีสิทธิ์ผู้ดูแลระบบ —</option>
-                      {roles.map((role) => (
-                        <option key={role.id} value={role.id}>
-                          {role.name}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
                 </tr>
               );
             })}
             {users.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-10 text-center text-slate-400">
+                <td colSpan={3} className="px-4 py-10 text-center text-slate-400">
                   ยังไม่มีผู้ใช้ในระบบ
                 </td>
               </tr>

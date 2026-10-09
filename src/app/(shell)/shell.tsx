@@ -37,13 +37,7 @@ import {
   Smartphone,
   X,
 } from 'lucide-react';
-import {
-  PATH_TO_TAB,
-  RBAC_PERMISSION_TABS,
-  ShellContext,
-  ShellIdentity,
-  TAB_TO_PATH,
-} from '../shell-context';
+import { PATH_TO_TAB, ShellContext, ShellIdentity, TAB_TO_PATH } from '../shell-context';
 import { clickableProps } from '@/components/clickableProps';
 
 export default function Shell({
@@ -105,15 +99,11 @@ export default function Shell({
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  // Safe navigation with RBAC permission enforcement (upstream App.tsx
-  // handleNavigateTab). The four admin_* tabs added by auth/mail setup are
-  // governed by RBAC permission keys (checked in Navbar), not allowedTabs, so
-  // they bypass the allowedTabs matrix here.
+  // Safe navigation with RBAC permission enforcement (upstream App.tsx handleNavigateTab) —
+  // every tab, incl. the SSO admin pages, is governed by allowedTabs.
   const navigateTab = (tab: string) => {
     const currentConfig = rolePermissions[currentRole];
-    const isAllowed =
-      RBAC_PERMISSION_TABS.includes(tab as AppTabId) ||
-      currentConfig?.allowedTabs?.includes(tab as AppTabId);
+    const isAllowed = currentConfig?.allowedTabs?.includes(tab as AppTabId);
 
     // If the target tab is not permitted for the active role, do NOT elevate
     if (!isAllowed) {

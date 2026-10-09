@@ -627,3 +627,17 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   (upstream clipped to one viewport — a bug, not a design). Dependency hardening: `nodemailer`
   9 → 10 (`lib/email.ts` type import), npm `overrides` `deepmerge-ts` ^8 / `mysql2` ^3.24.5;
   remaining npm-audit highs are only `eslint-config-next`'s dev-tool chain (`braces` has no fix).
+- 2026-10-09 **One permission system: the upstream RBAC page** (owner decision) — supersedes the
+  2026-09-02 "two RBAC systems kept deliberately separate" entries. `admin_users` and
+  `admin_audit_logs` are now ordinary `APP_TABS` rows in the upstream `RoleAccessConfigs.allowedTabs`
+  matrix (`src/services/api.ts`; admin gets them by default, one-time localStorage migration
+  `withSsoAdminTabs`). Retired: `/admin/roles` (`RolesManager`, `lib/actions/admin-roles.ts`) —
+  duplicated the RBAC page — and `/admin/mail-templates` (`MailTemplatesManager`,
+  `lib/actions/admin-mail-templates.ts`) — duplicated the upstream email-notification sub-tab.
+  Server-side checks keep calling `getUserPermissions()`, which now derives keys from
+  `user.appRole` (`permissionsForAppRole`: admin = all, other roles = `files:create`/`files:read`,
+  none = []); `/admin/users` sets only the app role and refuses changing your own. The
+  `Role`/`Permission` tables stay only for the `/admin/setup` bootstrap (`isAdminInitialized`).
+  Interim limit: the RBAC matrix (still localStorage) drives menus; server guards follow the app
+  role until the DB rewiring lets them read `RoleAccessConfigs` · rejected: keeping both systems
+  (two places to grant access, duplicate screens).

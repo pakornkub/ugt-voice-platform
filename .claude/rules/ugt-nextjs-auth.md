@@ -10,12 +10,10 @@ paths:
   - 'lib/actions/auth.ts'
   - 'lib/actions/admin-setup.ts'
   - 'lib/actions/admin-users.ts'
-  - 'lib/actions/admin-roles.ts'
   - 'src/proxy.ts'
   - 'src/app/login/**'
   - 'src/app/admin/setup/**'
   - 'src/app/(shell)/admin/users/**'
-  - 'src/app/(shell)/admin/roles/**'
   - 'src/app/(shell)/admin/audit-logs/**'
   - 'src/app/(shell)/layout.tsx'
 ---
@@ -32,19 +30,18 @@ paths:
 
 # Auth / RBAC rules (loads when touching auth, session, or admin-section files)
 
-## Two RBAC systems — do not conflate them
+## One permission system — the upstream RBAC page (2026-10-09)
 
-This project has **two separate role systems**, on purpose (see
-`docs/project-context/decisions.md`, 2026-09-02):
+Supersedes the old "two RBAC systems" rule (`docs/project-context/decisions.md`, 2026-10-09):
 
-| System                                       | Roles                                                                            | Governs                                                                 | Assigned via                       |
-| -------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ---------------------------------- |
-| App tab-visibility (pre-existing, unchanged) | `employee` / `gatekeeper` / `executive` / `admin` (`UserRole` in `src/types.ts`) | which of the app's own tabs a user sees (`RoleAccessConfigs`, `Navbar`) | `/admin/users` sets `user.appRole` |
-| RBAC (this chunk)                            | `Role` / `Permission` / `RolePermission` (Prisma models)                         | `/admin/users`, `/admin/roles`, `/admin/audit-logs` only                | `/admin/roles`                     |
-
-A user with no `appRole` assigned sees a "รอผู้ดูแลระบบกำหนดสิทธิ์การใช้งาน"
-holding page instead of the app (`src/app/(shell)/layout.tsx`) — that gate has
-nothing to do with RBAC permissions, only `appRole`.
+- The only role a user has is `user.appRole` (employee / gatekeeper / executive / admin), set on
+  `/admin/users` (`assignUserAppRoleAction`; you cannot change your own).
+- Which tabs a role sees — including `admin_users` and `admin_audit_logs` — comes from the
+  upstream RBAC matrix (`RoleAccessConfigs.allowedTabs`, page `/admin/rbac`). Never gate a tab on
+  `identity.permissions` in Navbar.
+- Server guards call `getUserPermissions()`, which derives keys from `appRole`
+  (`permissionsForAppRole` in `lib/get-user-permissions.ts`). Don't add new `Role`/`Permission`
+  UI — those tables exist only for the `/admin/setup` bootstrap.
 
 ## SSO only — no LDAP, no local password
 

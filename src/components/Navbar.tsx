@@ -181,14 +181,11 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
     },
   };
 
-  // ugt-nextjs-auth-setup / mail-setup (2026-09-02): visibility of these 4
-  // comes from the RBAC permission system, not RoleAccessConfigs.allowedTabs
-  // like the tabs above — see docs/project-context/decisions.md.
-  const canSeeUsers = identity.permissions.includes('users:read');
-  const canSeeRoles = identity.permissions.includes('roles:read');
-  const canSeeAuditLogs = identity.permissions.includes('audit-logs:read');
-  const canSeeMailTemplates = identity.permissions.includes('mail-templates:manage');
-  const hasAdminSection = canSeeUsers || canSeeRoles || canSeeAuditLogs || canSeeMailTemplates;
+  // SSO admin pages — governed by RoleAccessConfigs.allowedTabs (the upstream RBAC matrix) like
+  // every other tab (2026-10-09, docs/project-context/decisions.md).
+  const canSeeUsers = allowedTabs.includes('admin_users');
+  const canSeeAuditLogs = allowedTabs.includes('admin_audit_logs');
+  const hasAdminSection = canSeeUsers || canSeeAuditLogs;
 
   // Tabs governed by RoleAccessConfigs.allowedTabs (upstream matrix), in display order.
   const mainTabs: {
@@ -260,25 +257,11 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
       label: lang === 'en' ? 'Users' : 'จัดการผู้ใช้',
     },
     {
-      id: 'admin_roles',
-      domId: 'nav-tab-admin-roles',
-      visible: canSeeRoles,
-      icon: <ShieldCheck className="h-3.5 w-3.5" />,
-      label: lang === 'en' ? 'Roles & Permissions' : 'บทบาทและสิทธิ์',
-    },
-    {
       id: 'admin_audit_logs',
       domId: 'nav-tab-admin-audit-logs',
       visible: canSeeAuditLogs,
       icon: <ScrollText className="h-3.5 w-3.5" />,
       label: lang === 'en' ? 'Audit Logs' : 'บันทึกการใช้งาน',
-    },
-    {
-      id: 'admin_mail_templates',
-      domId: 'nav-tab-admin-mail-templates',
-      visible: canSeeMailTemplates,
-      icon: <Mail className="h-3.5 w-3.5" />,
-      label: lang === 'en' ? 'Email Templates' : 'เทมเพลตอีเมล',
     },
   ];
 
@@ -549,8 +532,7 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
                 />
               ))}
 
-            {/* ugt-nextjs-auth-setup (2026-09-02): admin section — visibility
-                from RBAC permissions (identity.permissions), not allowedTabs */}
+            {/* SSO admin section — visibility from allowedTabs (upstream RBAC matrix) */}
             {hasAdminSection && (
               <span className="mx-1 hidden self-center text-slate-200 sm:inline" aria-hidden>
                 |

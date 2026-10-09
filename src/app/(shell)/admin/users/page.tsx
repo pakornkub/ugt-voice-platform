@@ -18,38 +18,28 @@ export default async function AdminUsersPage() {
   if (!perms.includes(PERMISSIONS.USERS_READ)) redirect('/');
   const canUpdate = perms.includes(PERMISSIONS.USERS_UPDATE);
 
-  const [users, roles] = await Promise.all([
-    prisma.user.findMany({
-      orderBy: { name: 'asc' },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        authType: true,
-        appRole: true,
-        roleId: true,
-        userRole: { select: { name: true } },
-      },
-    }),
-    prisma.role.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } }),
-  ]);
+  const users = await prisma.user.findMany({
+    orderBy: { name: 'asc' },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      authType: true,
+      appRole: true,
+    },
+  });
 
   return (
     <div className="mx-auto max-w-7xl space-y-4 px-4 py-6">
       <div>
         <h1 className="text-lg font-bold text-slate-900">จัดการผู้ใช้ (Users)</h1>
         <p className="mt-0.5 text-xs text-slate-500">
-          รายชื่อผู้ใช้ที่เคยเข้าสู่ระบบผ่าน SSO —
-          กำหนดบทบาทการใช้งานและสิทธิ์ผู้ดูแลระบบได้จากหน้านี้ (ไม่มีหน้าสมัครสมาชิก —
+          รายชื่อผู้ใช้ที่เคยเข้าสู่ระบบผ่าน SSO — กำหนดบทบาท (พนักงาน / Gatekeeper / ผู้บริหาร /
+          Admin) ได้จากหน้านี้ ส่วนแท็บที่แต่ละบทบาทเห็นตั้งค่าในหน้า RBAC (ไม่มีหน้าสมัครสมาชิก —
           บัญชีจะปรากฏเองเมื่อเข้าสู่ระบบครั้งแรก)
         </p>
       </div>
-      <UsersTable
-        users={users.map((u) => ({ ...u, roleName: u.userRole?.name ?? null }))}
-        roles={roles}
-        currentUserId={session.user.id}
-        canUpdate={canUpdate}
-      />
+      <UsersTable users={users} currentUserId={session.user.id} canUpdate={canUpdate} />
     </div>
   );
 }

@@ -18,21 +18,9 @@ export const TAB_TO_PATH: Record<AppTabId, string> = {
   clustering: '/clustering',
   admin_gatekeeper: '/admin/gatekeepers',
   rbac_management: '/admin/rbac',
-  // ugt-nextjs-auth-setup (2026-09-02)
   admin_users: '/admin/users',
-  admin_roles: '/admin/roles',
   admin_audit_logs: '/admin/audit-logs',
-  // ugt-nextjs-mail-setup (2026-09-02)
-  admin_mail_templates: '/admin/mail-templates',
 };
-
-/** Tabs governed by RBAC permission keys (Navbar checks them), not by RolePermissionConfig.allowedTabs. */
-export const RBAC_PERMISSION_TABS: AppTabId[] = [
-  'admin_users',
-  'admin_roles',
-  'admin_audit_logs',
-  'admin_mail_templates',
-];
 
 export const PATH_TO_TAB: Record<string, AppTabId> = Object.fromEntries(
   Object.entries(TAB_TO_PATH).map(([tab, path]) => [path, tab as AppTabId])

@@ -429,9 +429,7 @@ export const LanguageProvider: React.FC<Readonly<{ children: ReactNode }>> = ({ 
         workflow: { th: 'คู่มือ & ผังขั้นตอน (SOP)', en: 'Manual & Workflow (SOP)' },
         // Tabs added by our SSO/RBAC setup (not in upstream)
         admin_users: { th: 'จัดการผู้ใช้', en: 'User Management' },
-        admin_roles: { th: 'บทบาทและสิทธิ์', en: 'Roles & Permissions' },
         admin_audit_logs: { th: 'บันทึกการใช้งาน', en: 'Audit Logs' },
-        admin_mail_templates: { th: 'เทมเพลตอีเมล', en: 'Email Templates' },
       };
       return map[tabId] ? map[tabId][lang] : tabId;
     };

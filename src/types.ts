@@ -20,17 +20,10 @@ export type AppTabId =
   | 'clustering'
   | 'admin_gatekeeper'
   | 'rbac_management'
-  // Added by ugt-nextjs-auth-setup (2026-09-02) — NOT governed by
-  // RoleAccessConfigs.allowedTabs like the tabs above. Visibility comes from
-  // the new RBAC permission system (users:read/roles:read/audit-logs:read)
-  // instead, checked directly in Navbar. See docs/project-context/decisions.md.
+  // SSO admin pages (2026-10-09: governed by RoleAccessConfigs.allowedTabs like every tab above —
+  // the separate Role/Permission UI was retired, see docs/project-context/decisions.md)
   | 'admin_users'
-  | 'admin_roles'
-  | 'admin_audit_logs'
-  // Added by ugt-nextjs-mail-setup (2026-09-02) — same pattern as the 3
-  // tabs above: governed by RBAC permission (mail-templates:manage), not
-  // RoleAccessConfigs.allowedTabs.
-  | 'admin_mail_templates';
+  | 'admin_audit_logs';
 
 export interface TabDefinition {
   id: AppTabId;
