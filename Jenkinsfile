@@ -252,10 +252,16 @@ pipeline {
                         //      Extract DATABASE_URL directly — tr -d '"\r' strips
                         //      surrounding quotes AND Windows CRLF that docker
                         //      --env-file does not remove.
+                        //      set +x: Jenkins runs sh with -x, which would print the
+                        //      connection string (password included) into the build log.
+                        //      `-e DATABASE_URL` without a value makes docker read it from the
+                        //      environment, so it is not in the docker argv either.
                         sh """
-                          DB_URL=\$(grep "^DATABASE_URL=" .env | cut -d= -f2- | tr -d '"\r')
+                          set +x
+                          DATABASE_URL=\$(grep "^DATABASE_URL=" .env | cut -d= -f2- | tr -d '"\r')
+                          export DATABASE_URL
                           docker run --rm \\
-                            -e DATABASE_URL="\$DB_URL" \\
+                            -e DATABASE_URL \\
                             -e SKIP_ENV_VALIDATION=1 \\
                             --entrypoint npx \\
                             ${migImage} \\

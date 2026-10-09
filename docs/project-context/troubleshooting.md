@@ -104,3 +104,11 @@ sqlserver`** → `migration_lock.toml` was hand-written during the offline migra
 - **`npm ci` fails with `EPERM … lightningcss.win32-x64-msvc.node` and leaves `node_modules` half
   deleted** → a running `next dev` (preview server) holds the native module open → stop the dev
   server, rerun `npm ci`, then `prisma generate` (2026-10-09)
+- **Jenkins build log shows the full `DATABASE_URL` (DB password) in the Deploy stage** → Jenkins
+  runs `sh` with `-x`, so the migrate step's `DB_URL=$(grep …)` assignment and `docker run -e
+DATABASE_URL="$DB_URL"` were echoed → `set +x` at the top of that `sh` block, export
+  `DATABASE_URL` and pass `-e DATABASE_URL` without a value. Rotate the DB password if old logs
+  exist (2026-10-09)
+- **Deploy fails: `container name "/ugt-voice-platform-dev" is already in use`** → two pipeline runs
+  of the same job overlapped and both ran `docker compose up` → `disableConcurrentBuilds()` in the
+  Jenkinsfile `options {}` (2026-10-09)
