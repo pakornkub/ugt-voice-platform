@@ -246,6 +246,8 @@ const ROLE_ACCESS_CONFIGS: Array<{
       'clustering',
       'admin_gatekeeper',
       'rbac_management',
+      'admin_users',
+      'admin_audit_logs',
     ],
     canViewAllDepartments: true,
     assignedDepartments: [],

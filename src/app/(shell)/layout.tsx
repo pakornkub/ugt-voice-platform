@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
-import { isAdminInitialized, permissionsForAppRole } from '@/lib/get-user-permissions';
+import { isAdminInitialized, permissionsFor } from '@/lib/get-user-permissions';
 import { ssoLogoutAction } from '@/lib/actions/auth';
 import { getRoleAccessConfigs } from '@/lib/actions/role-access';
 import { getDepartmentGatekeeperConfigs } from '@/lib/actions/gatekeeper';
@@ -28,7 +28,7 @@ export default async function ShellLayout({ children }: { children: React.ReactN
   // Role + ticket scope come from resolveViewer only (slice 2 swaps it to the people rosters).
   // The user row is read once, inside resolveViewer; permission keys follow its role.
   const viewer = await resolveViewer(session);
-  const permissions = permissionsForAppRole(viewer?.role ?? null);
+  const permissions = viewer ? permissionsFor(viewer.role, viewer.config?.allowedTabs ?? []) : [];
   const appRole = viewer?.role ?? null;
 
   // Not yet assigned an app-level role by an admin (SSO rows appear on first

@@ -9,6 +9,7 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { syncPermissionsIfNeeded } from '@/lib/permissions-sync';
 import { isAdminInitialized } from '@/lib/get-user-permissions';
+import { findEmployeeByLogin } from '@/lib/directory';
 
 type PermissionIdRow = { id: string };
 
@@ -16,11 +17,10 @@ type PermissionIdRow = { id: string };
  * Initialise the admin system:
  * 1. Seed all permission rows
  * 2. Create the "Administrator" RBAC role with every permission
- * 3. Assign the current user to that role, AND set their app-level role
- *    (this app's own employee/gatekeeper/executive/admin used to gate the
- *    main tabs — see docs/project-context/decisions.md) to 'admin', so the
- *    very first person to log in lands in a fully-working app immediately
- *    instead of a second manual step
+ * 3. Assign the current user to that role, and add them to the HR-admin roster
+ *    (HrAdminMembers, Super Admin) — since 2026-10-09 the app role comes from the
+ *    rosters (decisions.md), so this is what makes the first person an admin.
+ *    Name/position/department come from the HR view when it has them.
  *
  * Idempotent: returns an error if a system role already exists.
  */
@@ -54,10 +54,31 @@ export async function initializeAdminAction(): Promise<{
     },
   });
 
-  await prisma.user.update({
-    where: { id: session.user.id },
-    data: { roleId: adminRole.id, appRole: 'admin' },
+  await prisma.user.update({ where: { id: session.user.id }, data: { roleId: adminRole.id } });
+
+  const email = session.user.email.trim().toLowerCase();
+  const alreadyListed = await prisma.hrAdminMember.count({
+    where: { email, isDeleted: false, isActive: true, status: 'active' },
   });
+  if (alreadyListed === 0) {
+    const employee = await findEmployeeByLogin(email).catch(() => null); // HR view is optional here
+    await prisma.hrAdminMember.create({
+      data: {
+        name: employee?.nameTh || session.user.name,
+        position: employee?.position ?? '',
+        department: employee?.department ?? '',
+        email,
+        roleLevel: 'super_admin',
+        canManageRbac: true,
+        canManageGatekeepers: true,
+        canManageExecutives: true,
+        receiveSystemAlerts: true,
+        status: 'active',
+        createdBy: session.user.id,
+        updatedBy: session.user.id,
+      },
+    });
+  }
 
   redirect('/admin/users');
 }

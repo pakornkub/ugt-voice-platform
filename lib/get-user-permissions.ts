@@ -1,27 +1,41 @@
 // lib/get-user-permissions.ts — ugt-nextjs-auth-setup, 2026-09-02.
 import { prisma } from '@/lib/prisma';
 import { PERMISSIONS } from '@/lib/permissions';
+import { resolveViewer } from '@/lib/ticket-access';
+import type { AppTabId, UserRole } from '@/types';
 
 /**
- * Permission keys for a user, derived from their app role (`user.appRole`, the upstream
- * employee / gatekeeper / executive / admin roles) — 2026-10-09: the separate Role/Permission
- * admin UI was retired in favour of the upstream RBAC page (decisions.md). Admin gets every key;
- * the other roles may upload/download attachments (per-ticket scope is still enforced by
- * canReadAttachment). No app role → no keys (deny by default).
- * ponytail: role → keys is fixed here; read RoleAccessConfigs from the DB once the
- * localStorage → Server Action rewiring lands, so the RBAC matrix also drives server checks.
+ * Permission keys for a user — one permission system (decisions.md 2026-10-09): the role comes
+ * from the people rosters and what it may open from the RBAC matrix in the DB, both via
+ * resolveViewer (lib/ticket-access.ts). See permissionsFor for the mapping. No user → no keys.
  */
 export async function getUserPermissions(userId: string): Promise<string[]> {
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { appRole: true } });
-  return permissionsForAppRole(user?.appRole ?? null);
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+  if (!user) return [];
+  const viewer = await resolveViewer({ user: { id: userId, email: user.email } });
+  return viewer ? permissionsFor(viewer.role, viewer.config?.allowedTabs ?? []) : [];
 }
 
-export function permissionsForAppRole(appRole: string | null): string[] {
-  if (appRole === 'admin') return Object.values(PERMISSIONS);
-  if (appRole === 'employee' || appRole === 'gatekeeper' || appRole === 'executive') {
-    return [PERMISSIONS.FILES_CREATE, PERMISSIONS.FILES_READ];
+/** Keys guarded by an RBAC tab — the matrix decides them, not the role. */
+const TAB_KEYS: ReadonlyArray<[AppTabId, string]> = [
+  ['admin_users', PERMISSIONS.USERS_READ],
+  ['admin_audit_logs', PERMISSIONS.AUDIT_LOGS_READ],
+];
+const TAB_GUARDED = new Set<string>([...TAB_KEYS.map(([, key]) => key), PERMISSIONS.USERS_UPDATE]);
+
+/**
+ * Everyone may upload/download attachments (per-ticket scope is still enforced by
+ * canReadAttachment); users / audit-log pages follow the RBAC tabs; admin also gets the remaining
+ * system keys (dev mode, setup roles). USERS_UPDATE is never granted — /admin/users is read-only
+ * since roles come from the rosters.
+ */
+export function permissionsFor(role: UserRole, allowedTabs: readonly AppTabId[]): string[] {
+  const keys = new Set<string>([PERMISSIONS.FILES_CREATE, PERMISSIONS.FILES_READ]);
+  for (const [tab, key] of TAB_KEYS) if (allowedTabs.includes(tab)) keys.add(key);
+  if (role === 'admin') {
+    for (const key of Object.values(PERMISSIONS)) if (!TAB_GUARDED.has(key)) keys.add(key);
   }
-  return [];
+  return [...keys];
 }
 
 // จำผลบวกไว้ระดับ process — ระบบที่ bootstrap แล้วไม่ย้อนกลับเป็น "ยังไม่ตั้ง"

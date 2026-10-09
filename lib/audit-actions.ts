@@ -18,7 +18,7 @@ export const AUDIT_ACTIONS = {
   LOGOUT: 'logout',
   LOGOUT_SSO: 'logout.sso',
 
-  // User management — written by lib/actions/admin-users.ts
+  // User management — written by the retired lib/actions/admin-users.ts (kept: old rows use them)
   USERS_ROLE_ASSIGN: 'users.role-assign',
   // App-level role (employee/gatekeeper/executive/admin — tab visibility),
   // distinct from the RBAC role above (admin-section permissions). See
@@ -46,6 +46,12 @@ export const AUDIT_ACTIONS = {
   TICKETS_SUBMIT: 'tickets.submit',
   TICKETS_UPDATE: 'tickets.update',
   TICKETS_EVALUATE: 'tickets.evaluate',
+
+  // Admin config — rosters (HR admins / executives / gatekeeper officers), RBAC matrix, resets;
+  // written by lib/actions/{hr-admins,executives,gatekeeper,role-access}.ts (rewiring slice 2)
+  ROSTERS_UPDATE: 'rosters.update',
+  RBAC_UPDATE: 'rbac.update',
+  CONFIG_RESET: 'config.reset',
 
   // EXTENSION POINT: project-domain actions here, same `<resource>.<verb>` shape
 } as const;

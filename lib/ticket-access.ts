@@ -7,6 +7,7 @@ import { headers } from 'next/headers';
 import type { Prisma } from '@prisma/client';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { gatekeeperScope, resolveRosterRole } from '@/lib/roster-role';
 import {
   gatekeeperDepartments,
   redactNotificationForViewer,
@@ -15,13 +16,7 @@ import {
   type TicketViewer,
 } from '@/lib/ticket-scope';
 import { mapNotification, mapRoleAccessConfig, mapTicket } from '@/lib/actions/mappers';
-import type { ComplaintTicket, NotificationItem, UserRole } from '@/types';
-
-const APP_ROLES: readonly string[] = ['employee', 'gatekeeper', 'executive', 'admin'];
-
-export function isAppRole(role: string | null | undefined): role is UserRole {
-  return !!role && APP_ROLES.includes(role);
-}
+import type { ComplaintTicket, NotificationItem } from '@/types';
 
 export const TICKET_INCLUDE = {
   timeline: { orderBy: { createdAt: 'asc' as const } },
@@ -32,36 +27,32 @@ export const TICKET_INCLUDE = {
 
 /**
  * THE place that decides a signed-in user's app role and ticket scope — the (shell) layout, every
- * ticket/notification read and every ticket Server Action go through it. Null = no app role yet.
+ * ticket/notification read and every ticket Server Action go through it. Null = no user row.
  *
- * Today: role = `user.appRole` (set on /admin/users), gatekeeper categories = the RBAC page's
- * role-level `assignedDepartments`.
- * TODO(slice 2, decisions.md 2026-10-09 "App role comes from the people rosters"): replace this
- * body only — match the session email (HR view CurrentEmail, fallback ADLoginName) against the
- * rosters: active HrAdminMembers → admin > active ExecutiveMembers → executive > GatekeeperOfficers
- * (any category) → gatekeeper > everyone else → employee; gatekeeperCategories = categories where
- * the person is an officer ∩ gatekeeperDepartments(config). Callers need no change.
+ * Role comes from the people rosters (decisions.md 2026-10-09, lib/roster-role.ts): HR admin >
+ * executive > gatekeeper officer > employee, matched on the session email (and its HR-view
+ * CurrentEmail) on every call, so a roster edit applies on the person's next navigation.
+ * Gatekeeper categories = where they are an officer ∩ the RBAC page's department ceiling.
  */
 export async function resolveViewer(session: {
   user: { id: string; email: string };
 }): Promise<TicketViewer | null> {
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { name: true, email: true, appRole: true, userRole: { select: { name: true } } },
+    select: { name: true, email: true, userRole: { select: { name: true } } },
   });
-  if (!user || !isAppRole(user.appRole)) return null;
-  const row = await prisma.roleAccessConfig.findFirst({
-    where: { role: user.appRole, isDeleted: false },
-  });
+  if (!user) return null;
+  const { role, officerCategories } = await resolveRosterRole(user.email);
+  const row = await prisma.roleAccessConfig.findFirst({ where: { role, isDeleted: false } });
   const config = row ? mapRoleAccessConfig(row) : undefined;
   return {
     userId: session.user.id,
     email: user.email,
     name: user.name,
     rbacRoleName: user.userRole?.name ?? null,
-    role: user.appRole,
+    role,
     config,
-    gatekeeperCategories: gatekeeperDepartments(config),
+    gatekeeperCategories: gatekeeperScope(officerCategories, gatekeeperDepartments(config)),
   };
 }
 

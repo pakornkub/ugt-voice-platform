@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
+  resolveRosterRole: vi.fn(),
   prisma: {
     user: { findUnique: vi.fn() },
     roleAccessConfig: { findFirst: vi.fn() },
@@ -13,6 +14,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock('next/headers', () => ({ headers: async () => new Headers() }));
 vi.mock('@/lib/auth', () => ({ auth: { api: { getSession: mocks.getSession } } }));
 vi.mock('@/lib/prisma', () => ({ prisma: mocks.prisma }));
+vi.mock('@/lib/roster-role', async (importActual) => ({
+  ...(await importActual<typeof import('./roster-role')>()),
+  resolveRosterRole: mocks.resolveRosterRole,
+}));
 
 const { getTicketViewer, listVisibleNotifications, listVisibleTickets, requireTicketViewer } =
   await import('./ticket-access');
@@ -40,27 +45,33 @@ const notif = (
   updatedAt: NOW,
 });
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.resolveRosterRole.mockResolvedValue({ role: 'employee', officerCategories: [] });
+});
 
 describe('getTicketViewer', () => {
-  it('is null without a session or without an app role', async () => {
+  it('is null without a session or without a user row', async () => {
     mocks.getSession.mockResolvedValueOnce(null);
     expect(await getTicketViewer()).toBeNull();
 
     mocks.getSession.mockResolvedValueOnce({ user: { id: 'u1' } });
-    mocks.prisma.user.findUnique.mockResolvedValueOnce({ email: 'a@ube.co.th', appRole: null });
+    mocks.prisma.user.findUnique.mockResolvedValueOnce(null);
     expect(await getTicketViewer()).toBeNull();
 
     mocks.getSession.mockResolvedValueOnce(null);
     await expect(requireTicketViewer()).rejects.toThrow('UNAUTHORIZED');
   });
 
-  it('carries the role and its RoleAccessConfigs row', async () => {
+  it('takes the role from the rosters, scoped to officer categories within the RBAC ceiling', async () => {
     mocks.getSession.mockResolvedValueOnce({ user: { id: 'u1' } });
+    mocks.resolveRosterRole.mockResolvedValueOnce({
+      role: 'gatekeeper',
+      officerCategories: ['Quality', 'HR'],
+    });
     mocks.prisma.user.findUnique.mockResolvedValueOnce({
       name: 'Gate Keeper',
       email: 'a@ube.co.th',
-      appRole: 'gatekeeper',
       userRole: { name: 'Administrator' },
     });
     mocks.prisma.roleAccessConfig.findFirst.mockResolvedValueOnce({
