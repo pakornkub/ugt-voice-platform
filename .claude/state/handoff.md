@@ -4,11 +4,10 @@ Last updated: 2026-10-09
 
 ## In progress
 
-- Nothing in progress. `main` = `develop` = prod (`2f1e450`, pushed 2026-10-09; Jenkins
-  `ugt-voice-platform` deploys it). Dev build #20 green, Quality Gate OK (`new_violations` 0).
-- Migrations applied on DEV, and run on prod by the deploy: `account_issuer`, `roster_roles_data`,
-  `email_dispatch_logs`, `drop_user_app_role`, `notification_reads`, `auto_assign_default_off`,
-  `auto_assign_default_lead` (all `20261009*`).
+- Nothing in progress. `main` = `develop` = prod (`4a1429e`); prod build #9 and dev #28 green,
+  Sonar 0 issues.
+- Latest migrations (DEV + prod): `20261009180000_reference_data` (RBAC rows + 6 category configs
+  for an unseeded DB), `20261009190000_ube_email_domain_and_placeholder_phones` (emails → @ube.com).
 
 ## Next
 
@@ -38,6 +37,12 @@ Last updated: 2026-10-09
 
 ## Done (newest first — older chunks condensed; full detail in git log + docs/project-context/)
 
+- 2026-10-09 **Owner fixes after prod go-live** (`a25daf0`…`4a1429e`): reference-data migration (admin
+  saw no tabs on unseeded prod); 2-column login with a Gemini hero + DEV bar/[DEV] title on dev
+  (platform PR #21); HR search box (name TH/EN, code, email, position, department, never silent);
+  anonymous chat in-app notifications + 30 s refresh + send-failure message; emails stored as
+  @ube.com (≡ @ube.co.th); running tracking numbers TK-YYYY-0001; phones typed by hand;
+  version-skew handling (`deploymentId` + kept submit draft).
 - 2026-10-09 **Prod deploy**: `main` pushed (`9713263..2f1e450`, 42 commits).
 - 2026-10-09 **Every screen bilingual TH/EN** (`87929b7`, Sonar fix `2f1e450`): admin pages,
   manual, inbox, report, export/SQL Studio, login/setup language switch; stored Thai server text
