@@ -744,3 +744,12 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   only when the basePath ends with `-dev` (`permissionsFor`) · **because** dev mode redirects every
   workflow mail to whoever triggered it, so in production an HR admin resolving a ticket would
   never mail the submitter · rejected: a dedicated tester role (no roster for it yet).
+- 2026-10-09 **Notification read state is per person** (`NotificationReads`, migration
+  `20261009150000_notification_reads`) — one row per (notification, user); `Notifications.IsRead`
+  is legacy (seed only) · **because** upstream's single shared flag let a gatekeeper's "mark all
+  read" clear the employee's badge · rejected: keeping the shared flag. `NotificationId` is a loose
+  `NVARCHAR(100)` reference without FK (notifications are never hard-deleted, and the unique index
+  must stay under SQL Server's 1700-byte key limit).
+- 2026-10-09 **`User.AppRole` dropped** (migration `20261009140000_drop_user_app_role`, runs after the
+  roster data migration that copied `AppRole=admin` users into `HrAdminMembers`) · **because** the
+  role comes from the rosters and an unread column invites someone to trust it again.

@@ -109,10 +109,20 @@ export async function listVisibleNotifications(
   visibleTicketIds: readonly string[]
 ): Promise<NotificationItem[]> {
   const visible = new Set(visibleTicketIds);
-  const rows = await prisma.notification.findMany({ orderBy: { createdAt: 'desc' } });
+  const [rows, reads] = await Promise.all([
+    prisma.notification.findMany({ orderBy: { createdAt: 'desc' } }),
+    prisma.notificationRead.findMany({
+      where: { userId: viewer.userId, isDeleted: false },
+      select: { notificationId: true },
+    }),
+  ]);
+  // Read state is per person (NotificationReads), not the legacy shared IsRead flag.
+  const readIds = new Set(reads.map((r) => r.notificationId));
   return rows
     .filter((n) => n.ticketId && visible.has(n.ticketId))
-    .map((n) => redactNotificationForViewer(viewer, mapNotification(n)));
+    .map((n) =>
+      redactNotificationForViewer(viewer, { ...mapNotification(n), read: readIds.has(n.id) })
+    );
 }
 
 export async function visibleTicketIds(viewer: TicketViewer): Promise<string[]> {

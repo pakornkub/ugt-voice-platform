@@ -8,6 +8,11 @@ const mocks = vi.hoisted(() => ({
     roleAccessConfig: { findFirst: vi.fn() },
     ticket: { findMany: vi.fn(), findFirst: vi.fn() },
     notification: { findMany: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    notificationRead: {
+      findMany: vi.fn().mockResolvedValue([]),
+      upsert: vi.fn(),
+      createMany: vi.fn().mockResolvedValue({ count: 0 }),
+    },
   },
 }));
 
@@ -159,6 +164,20 @@ describe('notifications follow ticket visibility', () => {
       notif('n4', 'mine', true, 'someone.else@ube.co.th'),
       notif('n5', 'mine', true, 'A@ube.co.th'),
     ]);
+    // this viewer has read n4 and n5
+    mocks.prisma.notificationRead.findMany.mockResolvedValue([
+      { notificationId: 'n4' },
+      { notificationId: 'n5' },
+    ]);
+  });
+
+  it('takes read state from the viewer’s own NotificationReads, not the shared flag', async () => {
+    mocks.prisma.notificationRead.findMany.mockResolvedValue([]);
+    const list = await listVisibleNotifications(employee, ['mine']);
+    expect(list.every((n) => !n.read)).toBe(true);
+    expect(mocks.prisma.notificationRead.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: 'u1', isDeleted: false } })
+    );
   });
 
   it('lists only notifications of visible tickets', async () => {
@@ -175,10 +194,12 @@ describe('notifications follow ticket visibility', () => {
   it('marks one visible notification and refuses others', async () => {
     const list = await markNotificationAsRead('n1');
     expect(list.find((n) => n.id === 'n1')?.read).toBe(true);
-    expect(mocks.prisma.notification.update).toHaveBeenCalledWith({
-      where: { id: 'n1' },
-      data: { isRead: true },
-    });
+    expect(mocks.prisma.notificationRead.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { notificationId_userId: { notificationId: 'n1', userId: 'u1' } },
+      })
+    );
+    expect(mocks.prisma.notification.update).not.toHaveBeenCalled();
 
     await expect(markNotificationAsRead('n2')).rejects.toThrow('FORBIDDEN');
   });
@@ -186,9 +207,8 @@ describe('notifications follow ticket visibility', () => {
   it('marks all of the caller’s unread notifications only', async () => {
     const list = await markAllNotificationsAsRead();
     expect(list.every((n) => n.read)).toBe(true);
-    expect(mocks.prisma.notification.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: ['n1'] } },
-      data: { isRead: true },
+    expect(mocks.prisma.notificationRead.createMany).toHaveBeenCalledWith({
+      data: [{ notificationId: 'n1', userId: 'u1', createdBy: 'u1' }],
     });
   });
 });

@@ -379,12 +379,34 @@ model notification {
 
   recipientRole  String? @map("RecipientRole") @db.NVarChar(20)
   recipientEmail String? @map("RecipientEmail") @db.NVarChar(200)
+  // Legacy shared flag (seed data only) — per-person read state lives in NotificationReads.
   isRead         Boolean @default(false) @map("IsRead")
 
   createdAt DateTime @default(now()) @map("CreatedAt")
   updatedAt DateTime @updatedAt @map("UpdatedAt")
 
   @@map("Notifications")
+}
+
+// Who has read which notification (2026-10-09) — upstream kept one shared flag, so a gatekeeper's
+// "mark all read" cleared the employee's badge too. One row per (notification, user).
+model notificationRead {
+  id             String @id @default(cuid()) @map("Id")
+  // Loose reference like Notifications.TicketId — notifications are never hard-deleted, and a
+  // narrow key keeps the unique index under SQL Server's 1700-byte limit.
+  notificationId String @map("NotificationId") @db.NVarChar(100)
+  userId         String @map("UserId") @db.NVarChar(100)
+
+  isActive  Boolean  @default(true) @map("IsActive")
+  isDeleted Boolean  @default(false) @map("IsDeleted")
+  createdBy String?  @map("CreatedBy")
+  createdAt DateTime @default(now()) @map("CreatedAt")
+  updatedBy String?  @map("UpdatedBy")
+  updatedAt DateTime @updatedAt @map("UpdatedAt")
+
+  @@unique([notificationId, userId])
+  @@index([userId])
+  @@map("NotificationReads")
 }
 
 // ─── Role access configuration ─────────────────────────────────────────────
@@ -465,14 +487,6 @@ model user {
   // — each user has at most one role; no role = zero permissions.
   roleId   String? @map("RoleId")
   userRole role?   @relation(fields: [roleId], references: [id])
-
-  // This app's OWN role (employee/gatekeeper/executive/admin — src/types.ts
-  // UserRole), separate from the RBAC role above: it drives which of the 6
-  // main tabs are visible via RoleAccessConfigs/Navbar, replacing the free
-  // role-switcher dropdown that used to let anyone pick any role client-side.
-  // Nullable = not yet assigned by an admin (mirrors roleId's "no access
-  // until assigned" pattern) — see docs/project-context/decisions.md.
-  appRole String? @map("AppRole") @db.NVarChar(20)
 
   // Directory username (Keycloak preferred_username) — identity anchor used
   // to link an SSO login back to the same row across sessions.
