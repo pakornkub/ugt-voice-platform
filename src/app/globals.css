@@ -15,3 +15,12 @@
     display: none !important;
   }
 }
+
+/* Horizontal tab strips scroll by swipe/trackpad without a visible scrollbar. Upstream's
+   components use this class but never defined it, so the bar showed (fixed 2026-10-09). */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

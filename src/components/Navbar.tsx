@@ -22,7 +22,6 @@ import {
   ShieldCheck,
   ScrollText,
   LogOut,
-  Mail,
 } from 'lucide-react';
 import { UserRole, NotificationItem, AppTabId, RolePermissionConfig } from '../types';
 import { INITIAL_ROLE_PERMISSIONS } from '../services/api';
@@ -267,8 +266,8 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 shadow-xs backdrop-blur">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between gap-4">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 2xl:max-w-screen-2xl">
+        <div className="flex h-16 items-center justify-between gap-2 sm:gap-4">
           {/* Logo & Brand */}
           <div
             className="flex shrink-0 cursor-pointer items-center gap-3"
@@ -280,22 +279,23 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-blue-700 text-white shadow-sm shadow-indigo-200">
               <Shield className="h-5 w-5" />
             </div>
-            <div>
+            {/* Phones show the logo only — the name would push the action buttons off-screen. */}
+            <div className="hidden sm:block">
               <div className="flex items-center gap-2">
-                <span className="text-base font-bold tracking-tight text-slate-900 sm:text-lg">
+                <span className="text-base font-bold tracking-tight whitespace-nowrap text-slate-900 sm:text-lg">
                   UGT VoicePlatform
                 </span>
-                <span className="hidden items-center rounded border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 sm:inline-flex">
+                <span className="hidden items-center rounded border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-indigo-700 xl:inline-flex">
                   Grievance & Whistleblower
                 </span>
               </div>
-              <p className="hidden text-xs text-slate-500 md:block">{t('brand.desc')}</p>
+              <p className="hidden text-xs text-slate-500 xl:block">{t('brand.desc')}</p>
             </div>
           </div>
 
           {/* Quick Tracking Search Bar with Recent Searches Trigger */}
           <div className="hidden items-center gap-1.5 lg:flex">
-            <form onSubmit={handleSearchSubmit} className="relative flex w-60 items-center xl:w-72">
+            <form onSubmit={handleSearchSubmit} className="relative flex w-44 items-center xl:w-56">
               <Search className="pointer-events-none absolute left-3 h-4 w-4 text-slate-400" />
               <input
                 type="text"
@@ -335,7 +335,7 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
           </div>
 
           {/* Right Action Tools */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
             {/* Mobile History / Tracking Search Button */}
             <button
               type="button"
@@ -357,17 +357,18 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
                 id="btn-quick-dashboard"
                 type="button"
                 onClick={() => handleTabSelect('executive')}
-                className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold shadow-xs transition ${
+                className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap shadow-xs transition 2xl:px-3 ${
                   activeTab === 'executive'
                     ? 'border-purple-700 bg-purple-700 text-white ring-2 ring-purple-400/40'
                     : 'border-purple-200 bg-white text-purple-900 hover:border-purple-300 hover:bg-purple-50'
                 }`}
                 title={t('nav.quick_dashboard')}
+                aria-label={t('nav.quick_dashboard')}
               >
                 <LayoutDashboard
                   className={`h-3.5 w-3.5 ${activeTab === 'executive' ? 'text-purple-200' : 'text-purple-600'}`}
                 />
-                <span>{t('nav.quick_dashboard')}</span>
+                <span className="hidden 2xl:inline">{t('nav.quick_dashboard')}</span>
               </button>
             )}
 
@@ -377,11 +378,12 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
                 id="btn-quick-export"
                 type="button"
                 onClick={onOpenExport}
-                className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-900 shadow-xs transition hover:border-emerald-300 hover:bg-emerald-50"
+                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap text-emerald-900 shadow-xs transition hover:border-emerald-300 hover:bg-emerald-50 2xl:px-3"
                 title={t('nav.quick_export')}
+                aria-label={t('nav.quick_export')}
               >
                 <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
-                <span>{t('nav.quick_export')}</span>
+                <span className="hidden 2xl:inline">{t('nav.quick_export')}</span>
               </button>
             )}
 
@@ -415,16 +417,19 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
                 id="btn-lang-toggle"
                 type="button"
                 onClick={toggleLang}
-                className="rounded-md p-1 text-slate-400 transition hover:bg-slate-200/60 hover:text-indigo-600"
+                className="flex items-center rounded-md p-1 text-slate-400 transition hover:bg-slate-200/60 hover:text-indigo-600"
                 title={lang === 'th' ? 'สลับภาษา TH/EN' : 'Toggle Language TH/EN'}
               >
                 <Globe className="h-3.5 w-3.5" />
+                <span className="ml-0.5 text-[10px] font-black text-indigo-700 sm:hidden">
+                  {lang.toUpperCase()}
+                </span>
               </button>
               <button
                 id="btn-lang-th"
                 type="button"
                 onClick={() => setLang('th')}
-                className={`rounded-md px-2 py-1 text-xs font-bold transition ${
+                className={`hidden rounded-md px-2 py-1 text-xs font-bold transition sm:inline ${
                   lang === 'th'
                     ? 'bg-white font-black text-indigo-700 shadow-xs ring-1 ring-slate-200/80'
                     : 'text-slate-500 hover:text-slate-900'
@@ -433,12 +438,14 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
               >
                 TH
               </button>
-              <span className="px-0.5 text-[11px] font-bold text-slate-300 select-none">/</span>
+              <span className="hidden px-0.5 text-[11px] font-bold text-slate-300 select-none sm:inline">
+                /
+              </span>
               <button
                 id="btn-lang-en"
                 type="button"
                 onClick={() => setLang('en')}
-                className={`rounded-md px-2 py-1 text-xs font-bold transition ${
+                className={`hidden rounded-md px-2 py-1 text-xs font-bold transition sm:inline ${
                   lang === 'en'
                     ? 'bg-white font-black text-indigo-700 shadow-xs ring-1 ring-slate-200/80'
                     : 'text-slate-500 hover:text-slate-900'
@@ -457,12 +464,13 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
                 id="btn-identity-menu"
                 type="button"
                 onClick={() => setIsIdentityMenuOpen(!isIdentityMenuOpen)}
-                className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${roleLabels[currentRole].color}`}
+                className={`flex shrink-0 items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-medium whitespace-nowrap transition sm:px-3 ${roleLabels[currentRole].color}`}
+                aria-label={roleLabels[currentRole].label.split('(')[0]}
               >
                 <div className="flex items-center gap-1.5">
                   {roleLabels[currentRole].icon}
                   {/* Same label as upstream's role button; name/email live in the menu below. */}
-                  <span className="font-semibold">
+                  <span className="hidden max-w-44 truncate font-semibold sm:inline">
                     {roleLabels[currentRole].label.split('(')[0]}
                   </span>
                 </div>
@@ -515,7 +523,7 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
 
         {/* Dynamic RBAC-Filtered Navigation Tabs */}
         {!isMobileSimulator && (
-          <nav className="no-scrollbar flex space-x-1 overflow-x-auto border-t border-slate-100 py-1.5 sm:space-x-2">
+          <nav className="no-scrollbar flex gap-1 overflow-x-auto border-t border-slate-100 py-1.5 sm:gap-2 lg:flex-wrap">
             {mainTabs
               .filter((tab) => allowedTabs.includes(tab.tab))
               .map((tab) => (

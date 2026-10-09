@@ -475,7 +475,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
       )}
 
       {/* Header Banner - Enterprise RBAC Control Center */}
-      <div className="flex flex-col justify-between gap-4 rounded-2xl border border-rose-900/30 bg-gradient-to-r from-slate-900 via-rose-950 to-slate-950 p-5 text-white shadow-md sm:p-6 md:flex-row md:items-center">
+      <div className="flex flex-col justify-between gap-4 rounded-2xl border border-rose-900/30 bg-gradient-to-r from-slate-900 via-rose-950 to-slate-950 p-5 text-white shadow-md sm:p-6 xl:flex-row xl:items-center">
         <div className="max-w-3xl space-y-1.5">
           <div className="flex flex-wrap items-center gap-2.5">
             <span className="rounded-xl border border-rose-400/30 bg-rose-500/20 p-2 text-rose-300 backdrop-blur-xs">
@@ -495,7 +495,7 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
           </p>
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-center gap-2.5 self-start md:self-center">
+        <div className="flex shrink-0 flex-wrap items-center gap-2.5 self-start xl:self-center">
           <a
             href="#executive-management-box"
             className="flex items-center gap-1.5 rounded-xl border border-purple-400/40 bg-gradient-to-r from-purple-600 to-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs transition hover:from-purple-500 hover:to-indigo-500"

@@ -216,7 +216,7 @@ const InboxBanner: React.FC<Readonly<InboxBannerProps>> = ({
   onToggleStatus,
   onToggleCeoDirect,
 }) => (
-  <div className="flex flex-col justify-between gap-4 rounded-2xl border border-slate-800 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-950 p-6 text-white shadow-sm md:flex-row md:items-center">
+  <div className="flex flex-col justify-between gap-4 rounded-2xl border border-slate-800 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-950 p-6 text-white shadow-sm lg:flex-row lg:items-center">
     <div>
       <div className="mb-1 flex flex-wrap items-center gap-2">
         <span className="rounded-lg bg-indigo-600 p-1.5 text-white">

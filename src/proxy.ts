@@ -96,12 +96,8 @@ export function proxy(request: NextRequest) {
     (p) => pathname === p || pathname.startsWith(p + '/')
   );
 
-  // Authenticated user visiting /login → redirect to the app.
-  if (isAuthOnlyPath && sessionCookie) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/';
-    return applySecurityHeaders(NextResponse.redirect(url), request, nonce);
-  }
+  // A cookie on /login is NOT bounced to the app here: presence ≠ a live session, and a stale
+  // cookie would loop (/ → layout → /login → here → /). The login page checks the real session.
 
   // Unauthenticated user visiting a protected page → redirect to /login.
   // API routes get 401 JSON instead of a redirect.
