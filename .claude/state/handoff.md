@@ -15,7 +15,7 @@ Last updated: 2026-10-09
   classifier also blocks Claude from starting SSO on prod): first login → `/admin/setup`, then
   roster pickers, RBAC, a test ticket. Prod mail goes to real people (no dev mode).
 - **Clean up QA data on DEV**: tickets TK-2026-5377 and TK-2026-1184 (+ attachment, email log rows).
-- **Platform PRs** pakornkub/ugt-claude-platform #16–#20 — merge one at a time in that order and
+- **Platform PRs** #21 (DEV bar) and #22 (version skew) both claim 4.76.0 — the second to merge renumbers to 4.77.0. Earlier: pakornkub/ugt-claude-platform #16–#20 — merge one at a time in that order and
   renumber the later versions (all bump from 4.73.0); `/plugin update` only after merge + tag.
 - **Gemini / PDPA**: complaint text (incl. anonymous) goes to Google Gemini when `GEMINI_API_KEY` is
   set — Compliance/DPO to confirm, or remove the key. `/api/ai/*` only checks cookie presence (no
