@@ -14,6 +14,35 @@
 -->
 <suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
 
+  <suppress>
+     <notes><![CDATA[
+        GHSA-vfj7-8cjw-p6xm (braces <= 3.0.3, stack exhaustion on deeply nested brace patterns).
+        Not applicable: braces arrives only via eslint-config-next → @next/eslint-plugin-next →
+        fast-glob → micromatch, i.e. the lint step on CI, which expands this repository's own glob
+        patterns. It is a devDependency, not in the standalone production image, and never sees
+        user input. No fixed braces release exists yet (3.0.3 is latest); npm audit's "fix" is a
+        downgrade of eslint-config-next to 14.x, which does not support Next 16.
+        Remove this suppression when braces > 3.0.3 ships.
+        Reviewed by: Claude (for pakornwo), 2026-10-09
+     ]]></notes>
+     <packageUrl regex="true">^pkg:npm/braces@3\.0\.3$</packageUrl>
+     <vulnerabilityName>GHSA-vfj7-8cjw-p6xm</vulnerabilityName>
+  </suppress>
+
+  <suppress>
+     <notes><![CDATA[
+        GHSA-hp3w-g68c-fv3c (sprintf-js <= 1.1.3, RangeError when an attacker controls the format
+        string's precision). Not applicable: sprintf-js arrives via @prisma/adapter-mssql → mssql →
+        tedious, and every tedious call site passes a literal format string written in the library
+        (e.g. 'Unrecognised data type 0x%02X', packet/login7 debug dumps) — no user-controlled
+        format string reaches sprintf. No fixed sprintf-js release exists (1.1.3 is latest).
+        Remove this suppression when sprintf-js > 1.1.3 ships or tedious drops it.
+        Reviewed by: Claude (for pakornwo), 2026-10-09
+     ]]></notes>
+     <packageUrl regex="true">^pkg:npm/sprintf-js@1\.1\.3$</packageUrl>
+     <vulnerabilityName>GHSA-hp3w-g68c-fv3c</vulnerabilityName>
+  </suppress>
+
   <!-- Example (keep commented until you have a real, reviewed case):
   <suppress>
      <notes><![CDATA[

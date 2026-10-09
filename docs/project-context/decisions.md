@@ -769,3 +769,11 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   `FileUpload.tsx` is replaced by `AttachmentPicker.tsx` · **because** the upload route needs an
   existing ticket and Server Actions cap bodies at 1 MB · rejected: uploading inside the submit
   Server Action, blocking the submit on an upload failure.
+- 2026-10-09 **OWASP: two reviewed suppressions** (`owasp-suppressions.xml`) — `braces@3.0.3`
+  (GHSA-vfj7-8cjw-p6xm, high) is only in the CI lint chain (eslint-config-next → fast-glob →
+  micromatch) and never sees user input; `sprintf-js@1.1.3` (GHSA-hp3w-g68c-fv3c, moderate) comes
+  via mssql → tedious, which only passes literal format strings. No fixed release of either exists;
+  suppressions pin the exact version + advisory so a new version is scanned again · **because** the
+  OWASP stage stayed UNSTABLE on non-exploitable findings, hiding real ones · rejected: downgrading
+  eslint-config-next to 14.x (npm audit's "fix", incompatible with Next 16), overrides to
+  non-existent fixed versions.
