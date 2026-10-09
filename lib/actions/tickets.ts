@@ -118,7 +118,14 @@ export async function getTicketByTrackingCode(
 
 type SubmitPayload = Omit<
   ComplaintTicket,
-  'id' | 'trackingCode' | 'createdAt' | 'updatedAt' | 'timeline' | 'status' | 'anonymousMessages'
+  | 'id'
+  | 'trackingCode'
+  | 'createdAt'
+  | 'updatedAt'
+  | 'timeline'
+  | 'status'
+  | 'anonymousMessages'
+  | 'attachments'
 >;
 
 function isUniqueViolation(error: unknown): boolean {
@@ -199,8 +206,8 @@ function submissionTimeline(payload: SubmitPayload, isAnonymous: boolean) {
 
 /**
  * The login email is always the signed-in user's — it is what "my tickets" and the anonymous
- * mapping key on. The submitter fields stay whatever the form sent (the employee-directory mock
- * until slice 4). Simulated attachments are not persisted (slice 5 wires real uploads).
+ * mapping key on. The submitter fields are the form's (prefilled from the HR view). Files are
+ * uploaded by the client to /api/files once the ticket exists (lib/upload-client.ts).
  */
 export async function submitTicket(payload: SubmitPayload): Promise<ComplaintTicket> {
   const viewer = await requireTicketViewer();

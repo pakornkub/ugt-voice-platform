@@ -761,3 +761,11 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   (submitter) — upstream's `#tracking=` hash was read by nothing · **because** the review found a
   client-chosen recipient, real mail from non-admin testers on dev, and withheld ticket text
   readable through the log.
+- 2026-10-09 **Real attachments (rewiring slice 4)** — the submit form keeps the chosen files in
+  the browser and uploads them to `/api/files` once `submitTicket` returns the id
+  (`lib/upload-client.ts`); a failed upload never loses the ticket (failure notice + retry on the
+  success screen); the tracking modal lists DB attachments as guarded download links with the
+  basePath; no attach button in the tracking modal (upstream has none); the skill's unused
+  `FileUpload.tsx` is replaced by `AttachmentPicker.tsx` · **because** the upload route needs an
+  existing ticket and Server Actions cap bodies at 1 MB · rejected: uploading inside the submit
+  Server Action, blocking the submit on an upload failure.

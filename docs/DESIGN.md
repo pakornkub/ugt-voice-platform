@@ -78,7 +78,7 @@ globals.css`'s `@theme inline` map `--font-sans` ให้ชี้ไปที�
   `src/components/Navbar.tsx`:
   - Sticky top header (โลโก้ + ชื่อแอป + search กล่องติดตาม + ปุ่ม quick action,
     ปุ่มประวัติการค้นหา, ปุ่มสลับภาษา TH/EN, notification bell และเมนูตัวตน SSO
-    พร้อมปุ่มออกจากระบบ — role มาจาก `user.appRole` ไม่มี role switcher แล้ว)
+    พร้อมปุ่มออกจากระบบ — role มาจากรายชื่อ (HR Admin / ผู้บริหาร / Gatekeeper) ไม่มี role switcher แล้ว)
   - แถบ tab นำทางใต้ header (scroll แนวนอน, ไม่ wrap — ตรงกับกฎ overflow
     ขององค์กร)
   - Mobile: bottom nav bar คงที่ (5 ปุ่มหลัก) แทน tab bar — ไม่ใช่รูปแบบ

@@ -24,7 +24,42 @@ async function auditLog(userId: string, action: AuditAction, detail: unknown) {
     .catch(() => {});
 }
 
+/** Multipart framing on top of the file itself — headroom for the early Content-Length check. */
+const MULTIPART_OVERHEAD = 1024 * 1024;
+
+/**
+ * A browser POST from another origin is refused. SameSite=Lax alone does not cover it: every app on
+ * *.ube.co.th is the same site, so script on a sibling app could upload with the victim's cookie.
+ */
+function isForeignOrigin(request: Request): boolean {
+  const origin = request.headers.get('origin');
+  if (!origin) return false; // same-origin fetches of older browsers / server-side callers
+  const allowed = [env.BETTER_AUTH_URL, env.APP_URL]
+    .filter((url): url is string => !!url)
+    .map((url) => new URL(url).origin);
+  return !allowed.includes(origin);
+}
+
+function tooLarge(maxBytes: number) {
+  // ไม่มี message ที่นี่ — client แปล code + maxMb เอง (ไม่มี i18n ในโปรเจคนี้
+  // — ดู docs/DESIGN.md §10 — ข้อความแปลตรงที่ lib/upload-client.ts)
+  return NextResponse.json(
+    {
+      success: false,
+      error: { code: 'FILE_TOO_LARGE', maxMb: Math.floor(maxBytes / 1024 / 1024) },
+    },
+    { status: 413 }
+  );
+}
+
 export async function POST(request: Request) {
+  if (isForeignOrigin(request)) {
+    return NextResponse.json(
+      { success: false, error: { code: 'FORBIDDEN_UPLOAD' } },
+      { status: 403 }
+    );
+  }
+
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session?.user) {
     return NextResponse.json({ success: false, error: { code: 'UNAUTHORIZED' } }, { status: 401 });
@@ -36,6 +71,12 @@ export async function POST(request: Request) {
       { success: false, error: { code: 'FORBIDDEN_UPLOAD' } },
       { status: 403 }
     );
+  }
+
+  // Reject an oversized body before buffering it (the per-file check below stays authoritative).
+  const maxBytes = Number(env.UPLOAD_MAX_BYTES);
+  if (Number(request.headers.get('content-length') ?? 0) > maxBytes + MULTIPART_OVERHEAD) {
+    return tooLarge(maxBytes);
   }
 
   const form = await request.formData();
@@ -71,18 +112,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const maxBytes = Number(env.UPLOAD_MAX_BYTES);
-  if (file.size > maxBytes) {
-    // ไม่มี message ที่นี่ — client แปล code + maxMb เอง (ไม่มี i18n ในโปรเจคนี้
-    // — ดู docs/DESIGN.md §10 — ข้อความไทยแปลตรงที่ FileUpload.tsx)
-    return NextResponse.json(
-      {
-        success: false,
-        error: { code: 'FILE_TOO_LARGE', maxMb: Math.floor(maxBytes / 1024 / 1024) },
-      },
-      { status: 413 }
-    );
-  }
+  if (file.size > maxBytes) return tooLarge(maxBytes);
 
   const bytes = Buffer.from(await file.arrayBuffer());
 

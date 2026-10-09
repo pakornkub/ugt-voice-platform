@@ -93,8 +93,8 @@ role + หมวดของ gatekeeper มาจาก `resolveViewer()` (`lib/
   เลือกแล้วล็อกอีเมล; พิมพ์เองได้สำหรับคนนอก HR (badge "ไม่อยู่ใน HR" — รับเมลได้ login SSO ไม่ได้);
   คนที่พ้นสภาพใน HR ขึ้น badge "พ้นสภาพใน HR" (`lib/directory.ts:hrStatusByEmails`); อีเมลเก็บตัวพิมพ์เล็กเสมอ
 - **ฟอร์มยื่นเรื่อง** เติมผู้ยื่นจากโปรไฟล์ HR ของผู้ login (`ShellIdentity.employee`) ไม่ใช่พนักงานตัวอย่าง
-- `User.AppRole` ไม่ถูกอ่านแล้ว (คงคอลัมน์ไว้; migration `20261009120000_roster_roles_data` คัดลอก admin เดิม
-  เข้า `HrAdminMembers`). ตาราง `Role`/`Permission` ใช้แค่ bootstrap `/admin/setup`
+- `User.AppRole` ถูกลบแล้ว (migration `20261009140000_drop_user_app_role` รันหลัง
+  `20261009120000_roster_roles_data` ที่คัดลอก admin เดิมเข้า `HrAdminMembers`). ตาราง `Role`/`Permission` ใช้แค่ bootstrap `/admin/setup`
 
 ## ไฟล์แนบ (Attachments, `ugt-nextjs-upload-setup`, 2026-09-02)
 

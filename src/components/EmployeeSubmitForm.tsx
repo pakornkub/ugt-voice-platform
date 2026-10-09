@@ -3,12 +3,10 @@
 import React, { useState } from 'react';
 import {
   Send,
-  Paperclip,
   ShieldAlert,
   CheckCircle2,
   Crown,
   UserCheck,
-  FileText,
   Lightbulb,
   Users,
   Scale,
@@ -39,7 +37,9 @@ import {
   AICategorySuggestionResult,
 } from '../services/api';
 import { submitTicket } from '@/lib/actions/tickets';
+import { uploadTicketFiles, type UploadFailure } from '@/lib/upload-client';
 import { useLanguage } from '../context/LanguageContext';
+import { AttachmentFailureNotice, AttachmentPicker, type PendingFile } from './AttachmentPicker';
 
 type RiskSeverity = ComplaintTicket['riskSeverity'];
 type PresetType = 'quality_issue' | 'compliance_alert' | 'welfare_idea' | 'fraud_alert';
@@ -235,6 +235,78 @@ const UrgencyLevelButton: React.FC<
   </button>
 );
 
+interface SubmitFormValues {
+  submissionType: SubmissionType;
+  category: GrievanceCategory;
+  urgency: UrgencyLevel;
+  riskSeverity: RiskSeverity;
+  title: string;
+  description: string;
+  locationOrUnit: string;
+  isDirectToExecutive: boolean;
+  identityChoice: 'identified' | 'anonymous';
+  submitterName: string;
+  submitterEmployeeId: string;
+  submitterDepartment: string;
+  submitterEmail: string;
+  submitterPhone: string;
+  /** Directory record the anonymous mapping keys on. */
+  selectedEmployee: EmployeeRecord;
+  /** Display name used for anonymous submissions (language-dependent). */
+  anonymousName: string;
+}
+
+/** The alert text for the first missing required field, or null when the form can be submitted. */
+function getSubmitValidationError(values: SubmitFormValues, lang: 'th' | 'en'): string | null {
+  if (!values.title.trim() || !values.description.trim()) {
+    return lang === 'en'
+      ? 'Please fill in both the subject and the detailed description.'
+      : 'กรุณากรอกหัวข้อเรื่องและรายละเอียดข้อร้องเรียน/ข้อเสนอแนะ';
+  }
+  const missingIdentity = !values.submitterName.trim() || !values.submitterEmployeeId.trim();
+  if (values.identityChoice === 'identified' && missingIdentity) {
+    return lang === 'en'
+      ? 'Please provide your name and employee ID.'
+      : 'กรุณาระบุชื่อ-นามสกุลและรหัสพนักงานผู้ยื่นเรื่อง';
+  }
+  return null;
+}
+
+/**
+ * submitTicket's payload. `attachments` is always empty: the real files are uploaded to /api/files
+ * once the ticket (and so its id) exists, never sent as metadata.
+ */
+function buildSubmitPayload(values: SubmitFormValues): Parameters<typeof submitTicket>[0] {
+  const isAnonymous = values.identityChoice === 'anonymous';
+  const { selectedEmployee } = values;
+  return {
+    type: values.submissionType,
+    category: values.category,
+    title: values.title,
+    description: values.description,
+    locationOrUnit: values.locationOrUnit,
+    isDirectToExecutive: values.isDirectToExecutive,
+    confidentiality: isAnonymous ? 'anonymous' : 'standard_named',
+    submitterName: isAnonymous ? values.anonymousName : values.submitterName.trim(),
+    submitterEmployeeId: isAnonymous
+      ? selectedEmployee.employeeId
+      : values.submitterEmployeeId.trim(),
+    submitterDepartment: isAnonymous
+      ? selectedEmployee.department
+      : values.submitterDepartment.trim(),
+    submitterEmail: isAnonymous
+      ? selectedEmployee.loginEmail
+      : values.submitterEmail.trim() || selectedEmployee.loginEmail,
+    loginEmail: selectedEmployee.loginEmail,
+    isAnonymousMapped: isAnonymous,
+    submitterPhone: isAnonymous ? undefined : values.submitterPhone.trim(),
+    gatekeeperDepartment: CATEGORY_DEFINITIONS[values.category].responsibleDept,
+    urgency: values.urgency,
+    riskSeverity: values.riskSeverity,
+    sentiment: values.submissionType === 'suggestion' ? 'Constructive' : 'Concerned',
+  };
+}
+
 interface EmployeeSubmitFormProps {
   onTicketCreated: (ticket: ComplaintTicket) => void;
   onOpenTracking: (trackingCode: string) => void;
@@ -282,10 +354,10 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
     setIdentityChoice(choice);
   };
 
-  // Attachments
-  const [attachments, setAttachments] = useState<
-    { id: string; name: string; size: string; type: string }[]
-  >([]);
+  // Attachments: the chosen files wait here until the ticket exists, then go to /api/files.
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
+  const [uploadFailures, setUploadFailures] = useState<UploadFailure[]>([]);
+  const [isRetryingUploads, setIsRetryingUploads] = useState(false);
 
   // Created result
   const [createdTicket, setCreatedTicket] = useState<ComplaintTicket | null>(null);
@@ -358,88 +430,53 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
     setIsDirectToExecutive(preset.isDirectToExecutive);
   };
 
-  const handleAddMockAttachment = () => {
-    const mockFiles = [
-      {
-        id: `att-${Date.now()}-1`,
-        name: 'evidence_screenshot_log.png',
-        size: '1.4 MB',
-        type: 'image/png',
-      },
-      {
-        id: `att-${Date.now()}-2`,
-        name: 'investigation_memo_doc.pdf',
-        size: '2.8 MB',
-        type: 'application/pdf',
-      },
-      {
-        id: `att-${Date.now()}-3`,
-        name: 'inspection_photo_现场.jpg',
-        size: '3.2 MB',
-        type: 'image/jpeg',
-      },
-    ];
-    const picked = mockFiles[Math.floor(Math.random() * mockFiles.length)];
-    setAttachments((prev) => [...prev, picked]);
+  const handleAddAttachments = (added: PendingFile[]) => {
+    setPendingFiles((prev) => [...prev, ...added]);
   };
 
   const handleRemoveAttachment = (id: string) => {
-    setAttachments((prev) => prev.filter((a) => a.id !== id));
+    setPendingFiles((prev) => prev.filter((a) => a.id !== id));
   };
 
   const handleSubmit = (e: React.SubmitEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
-    if (!title.trim() || !description.trim()) {
-      alert(
-        lang === 'en'
-          ? 'Please fill in both the subject and the detailed description.'
-          : 'กรุณากรอกหัวข้อเรื่องและรายละเอียดข้อร้องเรียน/ข้อเสนอแนะ'
-      );
-      return;
-    }
 
-    if (identityChoice === 'identified') {
-      if (!submitterName.trim() || !submitterEmployeeId.trim()) {
-        alert(
-          lang === 'en'
-            ? 'Please provide your name and employee ID.'
-            : 'กรุณาระบุชื่อ-นามสกุลและรหัสพนักงานผู้ยื่นเรื่อง'
-        );
-        return;
-      }
-    }
-
-    const deptInfo = CATEGORY_DEFINITIONS[category];
-    const isAnonymous = identityChoice === 'anonymous';
-
-    setIsSubmitting(true);
-    submitTicket({
-      type: submissionType,
+    const values: SubmitFormValues = {
+      submissionType,
       category,
+      urgency,
+      riskSeverity,
       title,
       description,
       locationOrUnit,
       isDirectToExecutive,
-      confidentiality: isAnonymous ? 'anonymous' : 'standard_named',
-      submitterName: isAnonymous
-        ? tr('Anonymous Submitter', 'ผู้ยื่นเรื่อง (ไม่ระบุตัวตน)')
-        : submitterName.trim(),
-      submitterEmployeeId: isAnonymous ? selectedEmployee.employeeId : submitterEmployeeId.trim(),
-      submitterDepartment: isAnonymous ? selectedEmployee.department : submitterDepartment.trim(),
-      submitterEmail: isAnonymous
-        ? selectedEmployee.loginEmail
-        : submitterEmail.trim() || selectedEmployee.loginEmail,
-      loginEmail: selectedEmployee.loginEmail,
-      isAnonymousMapped: isAnonymous,
-      submitterPhone: isAnonymous ? undefined : submitterPhone.trim(),
-      gatekeeperDepartment: deptInfo.responsibleDept,
-      urgency,
-      riskSeverity,
-      sentiment: submissionType === 'suggestion' ? 'Constructive' : 'Concerned',
-      attachments,
-    })
-      .then((newTicket) => {
+      identityChoice,
+      submitterName,
+      submitterEmployeeId,
+      submitterDepartment,
+      submitterEmail,
+      submitterPhone,
+      selectedEmployee,
+      anonymousName: tr('Anonymous Submitter', 'ผู้ยื่นเรื่อง (ไม่ระบุตัวตน)'),
+    };
+    const validationError = getSubmitValidationError(values, lang);
+    if (validationError) {
+      alert(validationError);
+      return;
+    }
+
+    setIsSubmitting(true);
+    submitTicket(buildSubmitPayload(values))
+      .then(async (newTicket) => {
+        // The ticket exists now, so the chosen files can be uploaded to it. A failed upload never
+        // undoes the ticket — it is reported on the success screen instead.
+        setUploadFailures(
+          await uploadTicketFiles(
+            newTicket.id,
+            pendingFiles.map((pending) => pending.file)
+          )
+        );
         setCreatedTicket(newTicket);
         onTicketCreated(newTicket);
       })
@@ -452,6 +489,17 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
         );
       })
       .finally(() => setIsSubmitting(false));
+  };
+
+  const handleRetryUploads = () => {
+    if (!createdTicket) return;
+    setIsRetryingUploads(true);
+    uploadTicketFiles(
+      createdTicket.id,
+      uploadFailures.map((failure) => failure.file)
+    )
+      .then(setUploadFailures)
+      .finally(() => setIsRetryingUploads(false));
   };
 
   const getCategoryIcon = (catKey: GrievanceCategory) => {
@@ -552,6 +600,14 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
             </div>
           </div>
 
+          {uploadFailures.length > 0 && (
+            <AttachmentFailureNotice
+              failures={uploadFailures}
+              isRetrying={isRetryingUploads}
+              onRetry={handleRetryUploads}
+            />
+          )}
+
           <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
             <button
               id="btn-view-timeline-now"
@@ -572,7 +628,8 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
                 setTitle('');
                 setDescription('');
                 setLocationOrUnit('');
-                setAttachments([]);
+                setPendingFiles([]);
+                setUploadFailures([]);
                 setIsDirectToExecutive(false);
               }}
               className="w-full rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 sm:w-auto"
@@ -1020,16 +1077,20 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
                   : 'border-slate-200 bg-slate-50/80 hover:bg-slate-100/60'
               }`}
             >
-              <label className="flex cursor-pointer items-start gap-2.5">
+              <div className="flex items-start gap-2.5">
                 <input
                   type="checkbox"
                   id="checkbox-direct-ceo"
+                  aria-describedby="checkbox-direct-ceo-hint"
                   checked={isDirectToExecutive}
                   onChange={(e) => setIsDirectToExecutive(e.target.checked)}
                   className="mt-0.5 h-4 w-4 cursor-pointer rounded border-slate-300 text-purple-600 focus:ring-purple-500"
                 />
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
+                  <label
+                    htmlFor="checkbox-direct-ceo"
+                    className="flex cursor-pointer flex-wrap items-center gap-1.5"
+                  >
                     <Crown className="h-3.5 w-3.5 shrink-0 text-purple-600" />
                     <span className="text-xs font-bold text-purple-950">
                       {lang === 'en'
@@ -1039,14 +1100,17 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
                     <span className="py-0.2 rounded bg-purple-100 px-1.5 text-[9px] font-bold text-purple-800">
                       PRIORITY
                     </span>
-                  </div>
-                  <p className="mt-0.5 text-[11px] leading-snug text-purple-900/80">
+                  </label>
+                  <p
+                    id="checkbox-direct-ceo-hint"
+                    className="mt-0.5 text-[11px] leading-snug text-purple-900/80"
+                  >
                     {lang === 'en'
                       ? 'Send instant priority notification straight to senior management desk, bypassing initial triage'
                       : 'ส่งการแจ้งเตือนด่วนไปยังโต๊ะทำงานของผู้บริหารระดับสูงโดยตรง ข้ามขั้นตอนปกติ'}
                   </p>
                 </div>
-              </label>
+              </div>
             </div>
 
             {/* Identity Notice */}
@@ -1392,62 +1456,12 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
             </div>
           )}
 
-          {/* Attachment Upload Simulation - Compact */}
-          <div>
-            <div className="mb-1 flex items-center justify-between">
-              <label className="block text-xs font-semibold text-slate-700">
-                {lang === 'en' ? 'Attach Evidence / Documents' : 'แนบไฟล์หลักฐาน / เอกสารประกอบ'}
-              </label>
-              <button
-                type="button"
-                onClick={handleAddMockAttachment}
-                className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800"
-              >
-                <Paperclip className="h-3 w-3" />
-                {lang === 'en' ? '+ Simulate mock file' : '+ จำลองแนบไฟล์ตัวอย่าง'}
-              </button>
-            </div>
-
-            {attachments.length === 0 ? (
-              <button
-                type="button"
-                onClick={handleAddMockAttachment}
-                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-slate-200 p-2.5 text-center text-xs text-slate-500 transition hover:border-indigo-400 hover:bg-slate-50/50"
-              >
-                <Paperclip className="h-4 w-4 text-slate-400" />
-                <span>
-                  {lang === 'en'
-                    ? 'Click to attach evidence (PNG, JPG, PDF, DOCX up to 25 MB)'
-                    : 'คลิกเพื่อแนบไฟล์หลักฐาน (PNG, JPG, PDF, DOCX ขนาดไม่เกิน 25 MB)'}
-                </span>
-              </button>
-            ) : (
-              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                {attachments.map((att) => (
-                  <div
-                    key={att.id}
-                    className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs"
-                  >
-                    <div className="flex items-center gap-2 truncate">
-                      <FileText className="h-3.5 w-3.5 shrink-0 text-indigo-600" />
-                      <span className="truncate text-[11px] font-medium text-slate-800">
-                        {att.name}
-                      </span>
-                      <span className="text-[10px] text-slate-400">({att.size})</span>
-                    </div>
-                    <button
-                      type="button"
-                      aria-label={tr('Remove file', 'ลบไฟล์')}
-                      onClick={() => handleRemoveAttachment(att.id)}
-                      className="p-1 text-slate-400 hover:text-rose-600"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <AttachmentPicker
+            files={pendingFiles}
+            disabled={isSubmitting}
+            onAdd={handleAddAttachments}
+            onRemove={handleRemoveAttachment}
+          />
         </div>
 
         {/* Submit Action Bar */}

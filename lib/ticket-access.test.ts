@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
       upsert: vi.fn(),
       createMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
+    $transaction: vi.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
   },
 }));
 
@@ -154,7 +155,7 @@ describe('listVisibleTickets', () => {
 describe('notifications follow ticket visibility', () => {
   beforeEach(() => {
     mocks.getSession.mockResolvedValue({ user: { id: 'u1' } });
-    mocks.prisma.user.findUnique.mockResolvedValue({ email: 'a@ube.co.th', appRole: 'employee' });
+    mocks.prisma.user.findUnique.mockResolvedValue({ email: 'a@ube.co.th' });
     mocks.prisma.roleAccessConfig.findFirst.mockResolvedValue(null);
     mocks.prisma.ticket.findMany.mockResolvedValue([{ id: 'mine' }]);
     mocks.prisma.notification.findMany.mockResolvedValue([
@@ -207,8 +208,17 @@ describe('notifications follow ticket visibility', () => {
   it('marks all of the caller’s unread notifications only', async () => {
     const list = await markAllNotificationsAsRead();
     expect(list.every((n) => n.read)).toBe(true);
-    expect(mocks.prisma.notificationRead.createMany).toHaveBeenCalledWith({
-      data: [{ notificationId: 'n1', userId: 'u1', createdBy: 'u1' }],
-    });
+    expect(mocks.prisma.notificationRead.upsert).toHaveBeenCalledTimes(1);
+    expect(mocks.prisma.notificationRead.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { notificationId_userId: { notificationId: 'n1', userId: 'u1' } },
+        update: expect.objectContaining({ isDeleted: false }),
+      })
+    );
+  });
+
+  it('reports a failed mark-all instead of pretending it worked', async () => {
+    mocks.prisma.$transaction.mockRejectedValueOnce(new Error('db down'));
+    await expect(markAllNotificationsAsRead()).rejects.toThrow('db down');
   });
 });

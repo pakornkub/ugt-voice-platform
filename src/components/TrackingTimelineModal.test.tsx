@@ -8,6 +8,7 @@ import { sendAnonymousChatMessage, updateTicketWorkflow } from '@/lib/actions/ti
 import { renderWithShell } from '@/test/shell';
 import type { ComplaintTicket, UserRole } from '../types';
 
+vi.mock('@/lib/env', () => ({ env: { NEXT_PUBLIC_BASE_PATH: '/ugt-voice-platform' } }));
 vi.mock('@/lib/actions/tickets', () => ({
   sendAnonymousChatMessage: vi.fn(),
   updateTicketWorkflow: vi.fn(),
@@ -195,6 +196,35 @@ describe('TrackingTimelineModal', () => {
     it('shows the named submitter for a standard ticket', () => {
       renderModal({ ...open, confidentiality: 'standard_named' }, 'employee');
       expect(screen.getByText('Standard Named')).toBeInTheDocument();
+    });
+  });
+
+  describe('attachments', () => {
+    const attached: ComplaintTicket = {
+      ...directCeoTicket,
+      attachments: [
+        { id: 'att-1', name: 'หลักฐาน.pdf', size: '1.4 MB', type: 'application/pdf' },
+        { id: 'att-2', name: 'photo.png', size: '2.0 KB', type: 'image/png' },
+      ],
+    };
+
+    it('lists the real attachments as links to the guarded download route under the basePath', () => {
+      renderModal(attached);
+
+      const first = screen.getByRole('link', { name: /หลักฐาน.pdf/ });
+      expect(first).toHaveAttribute('href', '/ugt-voice-platform/api/files/att-1');
+      expect(first).toHaveAttribute('download');
+      expect(first).toHaveTextContent('(1.4 MB)');
+      expect(screen.getByRole('link', { name: /photo.png/ })).toHaveAttribute(
+        'href',
+        '/ugt-voice-platform/api/files/att-2'
+      );
+    });
+
+    it('shows no attachment section for a ticket without files', () => {
+      renderModal({ ...directCeoTicket, attachments: [] });
+      expect(screen.queryByText('เอกสารแนบประกอบ:')).toBeNull();
+      expect(screen.queryByRole('link', { name: /.pdf/ })).toBeNull();
     });
   });
 });

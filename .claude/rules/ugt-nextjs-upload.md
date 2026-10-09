@@ -3,21 +3,22 @@ paths:
   - 'lib/storage.ts'
   - 'lib/attachment-access.ts'
   - 'src/app/api/files/**/*.ts'
-  - 'src/components/FileUpload.tsx'
+  - 'lib/upload-client.ts'
+  - 'src/components/AttachmentPicker.tsx'
 ---
 
 # Uploading and serving files in this project
 
 Installed by `ugt-nextjs-upload-setup` (2026-09-02). Routes live under
-`src/app/api/files/` (not root `app/`) and the widget at
-`src/components/FileUpload.tsx` (PascalCase, not `components/file-upload.tsx`)
+`src/app/api/files/` (not root `app/`); the skill's `file-upload.tsx` widget was replaced on
+2026-10-09 (rewiring slice 4) by `src/components/AttachmentPicker.tsx` + `lib/upload-client.ts`
 — this project's Phase A migration put every route/component under `src/`, and
 `lib/*` stays at the repo root per the database chunk's own convention (see
 `docs/project-context/decisions.md`).
 
 **No next-intl / org UI kit in this project** (standing design decision, see
 `docs/DESIGN.md` §10 and `.claude/rules/ugt-nextjs-design.md`) —
-`FileUpload.tsx` is hand-built Tailwind with hardcoded Thai error copy, not
+`AttachmentPicker.tsx` is hand-built Tailwind with hardcoded Thai error copy, not
 the skill's `useTranslations('upload')` + `components/ui/button` /
 `ui/icon-action` asset. Don't reintroduce those imports here.
 
@@ -45,8 +46,8 @@ await prisma.attachment.create({ data: {/* … */} });
 await auditLog(userId, AUDIT_ACTIONS.FILES_UPLOAD, {/* … */});
 ```
 
-**ยังไม่ได้ต่อกับหน้าจริง**: `EmployeeSubmitForm.tsx`/`TrackingTimelineModal.tsx`
-ยังใช้ตัวจำลองแนบไฟล์เดิม (`Math.random()`) ผ่าน `src/services/api.ts`
-(localStorage) — `FileUpload.tsx`/`/api/files` พร้อมใช้งานจริงแล้ว
-แต่รอการสลับ call site จาก localStorage ไปที่ Prisma Server Actions
-เหมือนกับทุก chunk ก่อนหน้า (ดู `docs/project-context/decisions.md`).
+**ต่อกับหน้าจริงแล้ว (2026-10-09, rewiring slice 4)**: ฟอร์มยื่นเรื่องเก็บไฟล์ที่เลือกไว้ฝั่ง browser
+แล้วอัปโหลดผ่าน `lib/upload-client.ts:uploadTicketFiles` หลัง `submitTicket` คืน id (route ต้องมี
+ticket อยู่ก่อน) — อัปโหลดไม่สำเร็จไม่ทำให้เรื่องหาย แสดงรายการที่พลาด + ปุ่มลองใหม่; หน้าติดตาม
+แสดงไฟล์จาก DB เป็นลิงก์ `attachmentDownloadUrl(id)` (มี basePath) ไปยัง route ที่ guard ไว้.
+ไม่มีปุ่มแนบไฟล์ในหน้าติดตาม (upstream ไม่มี).

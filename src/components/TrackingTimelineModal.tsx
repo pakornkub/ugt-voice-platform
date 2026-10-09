@@ -32,6 +32,7 @@ import {
   getRiskSeverityColor,
 } from '../services/api';
 import { sendAnonymousChatMessage, updateTicketWorkflow } from '@/lib/actions/tickets';
+import { attachmentDownloadUrl } from '@/lib/upload-client';
 import { useShell } from '../app/shell-context';
 import { useLanguage } from '../context/LanguageContext';
 import { InvestigationReportModal } from './InvestigationReportModal';
@@ -709,13 +710,16 @@ const TicketDetailsCard: React.FC<Readonly<{ ticket: ComplaintTicket }>> = ({ ti
           </span>
           <div className="flex flex-wrap gap-2">
             {ticket.attachments.map((att) => (
-              <div
+              <a
                 key={att.id}
-                className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-700"
+                href={attachmentDownloadUrl(att.id)}
+                download={att.name}
+                className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-700 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
               >
                 <Paperclip className="h-3 w-3 text-slate-500" />
                 <span>{att.name}</span>
-              </div>
+                <span className="text-[10px] font-normal text-slate-400">({att.size})</span>
+              </a>
             ))}
           </div>
         </div>

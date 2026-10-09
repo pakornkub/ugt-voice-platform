@@ -110,9 +110,9 @@
   - `lib/permissions.ts`/`lib/get-user-permissions.ts`/`lib/permissions-sync.ts` — permission
     keys for server guards, derived from the roster role + RBAC tabs (`permissionsFor`, one
     permission system since 2026-10-09; `Role`/`Permission` tables only back `/admin/setup`).
-  - `lib/actions/admin-setup.ts`/`admin-roles.ts`/`admin-users.ts` — first-admin bootstrap, role
-    CRUD, `assignUserRoleAction` (RBAC role) + `assignUserAppRoleAction` (this app's own
-    `UserRole`).
+  - `lib/actions/admin-setup.ts` — first-admin bootstrap (also adds the person to
+    `HrAdminMembers`). `admin-roles.ts` / `admin-users.ts` were retired on 2026-10-09 (roles come
+    from the rosters; `/admin/users` is read-only).
   - `lib/audit-actions.ts` — `ActivityLogs.action` constants: `login.success`/`logout`/
     `logout.sso`/`users.role-assign`/`users.app-role-assign`/`roles.create/update/delete`.
   - `src/proxy.ts` — route guard (Next.js 16 proxy, was `src/middleware.ts` until 2026-10-08), cookie-presence
@@ -125,12 +125,12 @@
     `(shell)` group so they get the same `Navbar`/tab chrome as every other route (no separate
     admin sidebar was built — see `docs/project-context/decisions.md`).
   - `src/app/(shell)/layout.tsx` — now the real session guard for every route under the shell:
-    no session → `/login`; no bootstrap admin yet → `/admin/setup`; no `appRole` assigned yet →
-    a "รอผู้ดูแลระบบกำหนดสิทธิ์การใช้งาน" waiting screen (not the shell).
+    no session → `/login`; no bootstrap admin yet → `/admin/setup`; no user row →
+    a "ไม่พบบัญชีผู้ใช้งานในระบบ" screen (everyone with a session has a roster role or `employee`).
   - `prisma/schema.prisma` — `user`/`session`/`account`/`verification`/`role`/`permission`/
     `rolePermission`/`rateLimit`/`activityLog` models (8 singular + `ActivityLogs`, per the org's
-    documented naming exception), `user.appRole` (this app's own `UserRole`, separate from
-    `roleId`/RBAC — see ⚠ deviation). No directory-enrichment columns (`empCode`/`department`/…
+    documented naming exception), (`User.AppRole` was dropped 2026-10-09 — the app role comes from the people rosters, see
+    `lib/roster-role.ts`). No directory-enrichment columns (`empCode`/`department`/…
     — not installed this chunk, see decisions.md).
   - `prisma/migrations/20260902010000_auth_rbac/` — generated **offline** (schema-to-schema
     diff, no live SQL Server — same method as the initial migration); apply via `prisma migrate
@@ -183,7 +183,7 @@ resolve --applied` once real DB values land, see `docs/admin-handoff.md`.
   - `src/app/api/files/route.ts` (upload) / `src/app/api/files/[id]/route.ts` (download)
     — Route Handlers (not Server Actions — `bodySizeLimit` caps those at 1 MB), guard
     order session → permission → scan/scope → action → audit log.
-  - `src/components/FileUpload.tsx` — hand-built Tailwind attachment widget (no
+  - `src/components/AttachmentPicker.tsx` — hand-built Tailwind attachment widget (no
     next-intl/org UI kit — see ⚠ deviation below), posts to `/api/files`, downloads via
     plain `<a href="/api/files/<id>">`.
   - `prisma/schema.prisma` — new `attachment` model (`@@map("Attachments")`), replacing
@@ -256,7 +256,7 @@ up` testing.
   recorded via `addRecentSearch()`, ExportAnalytics modal opens for `admin` only.
 
 - **Shell data (DB rewiring slice 1, 2026-10-09)**: `src/app/(shell)/layout.tsx` (server) →
-  session + `user.appRole` → `RoleAccessConfigs`/`DepartmentGatekeeperConfigs` + the user's visible
+  session → roster role (`resolveViewer`) → `RoleAccessConfigs`/`DepartmentGatekeeperConfigs` + the user's visible
   tickets (`listVisibleTickets`) + their notifications → `<Shell data>` → `ShellContext`
   (`tickets`, `notifications`, `rolePermissions`, `gatekeeperConfigs`) → pages/components
   (`useShell()`). Writes: component → Server Action (`lib/actions/tickets.ts|notifications.ts`,
@@ -281,7 +281,7 @@ up` testing.
   hooks were removed in slice 1 (decisions.md 2026-10-09); upstream's simulated dispatch log runs
   client-side after the action. Slice 3 sends real mail from `lib/actions/tickets.ts` via
   `sendTemplatedMail()` (`lib/email.ts`) per the upstream settings model in `AppSettings`.
-- File attachment (added 2026-09-02, `ugt-nextjs-upload-setup`): `FileUpload.tsx` →
+- File attachment (added 2026-09-02, `ugt-nextjs-upload-setup`): `AttachmentPicker.tsx` →
   `POST /api/files` (session → permission `files:create` → ticket/timeline-log exist →
   `writeStoredFile()` on the volume → `Attachments` row → audit log) →
   download via `GET /api/files/<id>` (session → permission `files:read` →
@@ -300,7 +300,7 @@ up` testing.
 | `HrAdminMembers`                                       | HR admin directory — `admin_gatekeeper` tab                                                          |
 | `Notifications`                                        | in-app notification drawer                                                                           |
 | `RoleAccessConfigs`                                    | `RoleBasedAccessManagement` (`rbac_management` tab)                                                  |
-| `Attachments`                                          | ticket + timeline-note file uploads — `FileUpload.tsx`, `/api/files*`                                |
+| `Attachments`                                          | ticket + timeline-note file uploads — `AttachmentPicker.tsx`, `/api/files*`                          |
 
 Live แล้ว (slice 1, 2026-10-09): `Tickets`/`TicketTimelineLogs`/`TicketEvaluations`/
 `TicketAnonymousMessages`/`Notifications` + อ่าน `RoleAccessConfigs`/`DepartmentGatekeeperConfigs`/
@@ -332,7 +332,7 @@ Live แล้ว (slice 1, 2026-10-09): `Tickets`/`TicketTimelineLogs`/`TicketE
 - ⚠ deviation (**retired 2026-09-02**, `ugt-nextjs-auth-setup`): `Navbar`'s free role-switcher
   dropdown (any user could pick any of the 4 roles client-side, no auth) is gone —
   `src/app/(shell)/shell.tsx`'s `currentRole` now comes from the authenticated session's
-  `user.appRole` (set only by an admin via `/admin/users` → `assignUserAppRoleAction`), fetched
+  server-resolved role (since 2026-10-09 from the people rosters via `resolveViewer`), fetched
   server-side in `src/app/(shell)/layout.tsx`. `RoleBasedAccessManagement.tsx`'s "ทดสอบมุมมอง"
   preview-switch buttons and `WorkflowDiagram.tsx`'s step-click role-switch were removed for the
   same reason (they called the same retired `handleRoleChange`).
@@ -348,7 +348,8 @@ Live แล้ว (slice 1, 2026-10-09): `Tickets`/`TicketTimelineLogs`/`TicketE
   app's own `UserRole` tab-visibility system (`RoleAccessConfigs`/`allowedTabs`, gates the 6
   original feature tabs) are **two separate, independently-assigned systems** — a user's RBAC
   role and their `appRole` are unrelated and set independently from `/admin/users`. See
-  `docs/project-context/decisions.md` for why they were not merged.
+  `docs/project-context/decisions.md` for why they were not merged. **Superseded 2026-10-09**: one
+  permission system (RBAC matrix) + roles from the rosters.
 - ⚠ deviation (2026-09-02, `ugt-nextjs-auth-setup`): no central-employee-directory enrichment
   (`lib/directory.ts`/`lib/scope.ts`/`lib/approval-chain.ts` from the skill were not installed) —
   this project has no linked-server employee view to read from yet; SSO gives only name/email/
@@ -356,7 +357,7 @@ Live แล้ว (slice 1, 2026-10-09): `Tickets`/`TicketTimelineLogs`/`TicketE
 - ⚠ deviation (updated 2026-09-02, `ugt-nextjs-upload-setup`): การแนบไฟล์ใน
   `EmployeeSubmitForm.tsx`/`TrackingTimelineModal.tsx` ยังเป็นการจำลอง (`Math.random()`
   สร้าง object ไฟล์ปลอม) ผ่าน `src/services/api.ts` (localStorage) เหมือนเดิม — แม้ตอนนี้
-  จะมี upload/storage/download จริงพร้อมใช้แล้ว (`FileUpload.tsx`, `/api/files*`,
+  จะมี upload/storage/download จริงพร้อมใช้แล้ว (`AttachmentPicker.tsx`, `/api/files*`,
   `lib/storage.ts`) ก็ตาม เหตุผลเดียวกับ deviation แรกด้านบน: ยังไม่มี
   component ไหนเรียก Prisma Server Actions จริง จึงไม่มี `ticketId` จริงให้แนบไฟล์ด้วย —
   ดู decisions.md.
@@ -368,7 +369,7 @@ Live แล้ว (slice 1, 2026-10-09): `Tickets`/`TicketTimelineLogs`/`TicketE
   still fail closed with `SCANNER_UNAVAILABLE`/`/api/health`'s `scanAvailable: false`
   whenever this stack isn't actually running under Docker (e.g. local `next dev`),
   which remains correct fail-closed behavior, not a bug.
-- ⚠ deviation (2026-09-02, `ugt-nextjs-upload-setup`): `FileUpload.tsx` เป็น hand-built
+- ⚠ deviation (2026-09-02, `ugt-nextjs-upload-setup`): `AttachmentPicker.tsx` เป็น hand-built
   Tailwind, ไม่มี i18n catalog (`messages/upload.{th,en}.ts` ของ skill ไม่ได้ติดตั้ง) —
   เหตุผลเดียวกับหน้า auth-setup/mail-setup ทั้งหมด (มติต้นโปรเจค "คงดีไซน์เดิม/hand-built
   ทุกหน้า" — ดู decisions.md) `node <upload-setup skill>/scripts/verify.mjs` จึงแดง

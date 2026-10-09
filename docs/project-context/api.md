@@ -17,54 +17,25 @@
 ไล่โมเดล `gemini-3.8-flash` → `gemini-flash-latest` → `gemini-3.1-flash-lite` เมื่อเจอ 503/429
 (high demand / resource exhausted) error อื่นโยนต่อทันที
 
-## Server Actions — Auth/RBAC (`lib/actions/`)
+## Server Actions (`lib/actions/`, `'use server'`) — as of 2026-10-09
 
-<!-- เพิ่มโดย ugt-nextjs-auth-setup, 2026-09-02 — root-level lib/ (เหมือน database
-     chunk) ไม่ใช่ src/lib/. SSO only ในโปรเจคนี้ — ไม่มี ldapLoginAction/localLoginAction -->
+ทุกตัวตาม pattern org: session → permission → action → audit log (non-blocking). Error ที่โยนจาก
+Server Action ถูก Next.js ซ่อนข้อความบน production — UI จึง pre-check กรณีที่ต้องโชว์ข้อความเฉพาะ
+หรือ action คืน result union แทนการ throw (`reports.ts`).
 
-| Module                       | ฟังก์ชันหลัก                                                                          | เรียกจาก                                                                        |
-| ---------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `lib/actions/auth.ts`        | `ssoLogoutAction`                                                                     | `Navbar`'s identity menu, `src/app/(shell)/layout.tsx`'s "รอกำหนดสิทธิ์" screen |
-| `lib/actions/admin-setup.ts` | `initializeAdminAction` (first-admin bootstrap)                                       | `AdminSetupForm` (`/admin/setup`)                                               |
-| `lib/actions/admin-roles.ts` | `createRoleAction`/`updateRoleAction`/`deleteRoleAction`                              | `RolesManager` (`/admin/roles`)                                                 |
-| `lib/actions/admin-users.ts` | `assignUserRoleAction` (RBAC role) / `assignUserAppRoleAction` (app's own `UserRole`) | `UsersTable` (`/admin/users`)                                                   |
+| Module                          | ฟังก์ชันหลัก                                                                                                                                   | Guard                                     | เรียกจาก                                   |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------------------ |
+| `lib/actions/auth.ts`           | `ssoLogoutAction`                                                                                                                              | session                                   | Navbar identity menu, `(shell)/layout.tsx` |
+| `lib/actions/admin-setup.ts`    | `initializeAdminAction` (first admin → `HrAdminMembers`)                                                                                       | session + not yet initialised             | `AdminSetupForm` (`/admin/setup`)          |
+| `lib/actions/tickets.ts`        | `getTickets`, `getTicketByTrackingCode`, `submitTicket`, `updateTicketWorkflow`, `sendAnonymousChatMessage`, `submitEvaluation`                | `requireTicketViewer` + ticket scope      | submit form, inbox, tracking modal, CSAT   |
+| `lib/actions/notifications.ts`  | `getNotifications`, `markNotificationAsRead`, `markAllNotificationsAsRead` (per person, `NotificationReads`)                                   | viewer + visible tickets only             | shell notification drawer                  |
+| `lib/actions/hr-admins.ts`      | `getHrAdmins`, `add/update/deleteHrAdminMember`, `resetHrAdminsToDefault` (self / last-admin guards)                                           | `requireTab(ROSTER_TABS)`                 | Gatekeeper-management page                 |
+| `lib/actions/executives.ts`     | `getExecutives`, `add/update/deleteExecutiveMember`, `resetExecutivesToDefault`                                                                | `requireTab(ROSTER_TABS)`                 | Gatekeeper-management + RBAC pages         |
+| `lib/actions/gatekeeper.ts`     | `getDepartmentGatekeeperConfigs` (any viewer), `updateDepartmentGatekeeperConfig` (officer list diff), `resetGatekeeperConfigsToDefault`       | `requireTab(ROSTER_TABS)` for writes      | Gatekeeper-management page, shell layout   |
+| `lib/actions/role-access.ts`    | `getRoleAccessConfigs` (any viewer), `updateRoleAccessConfig`, `saveRoleAccessConfigs`, `resetRolePermissionsToDefault` (admin lock-out guard) | `requireTab(RBAC_TABS)` for writes        | RBAC page, shell layout                    |
+| `lib/actions/directory.ts`      | `searchHrEmployees` (roster pickers), `getDirectoryPage` (RBAC employee table)                                                                 | `requireTab(ROSTER_TABS)` / `(RBAC_TABS)` | `HrNameField`, RBAC page                   |
+| `lib/actions/email-settings.ts` | `get/save/resetEmailNotificationSettings`, `getEmailDispatchLogs` / `clearEmailDispatchLogs` (HR admins only), `sendTestEmailNotification`     | `requireTab(ROSTER_TABS)`                 | `AdminEmailNotificationSettings`           |
+| `lib/actions/reports.ts`        | `runReport(reportId)` → `{ ok, columns, rows }` / `{ ok: false, error }`                                                                       | viewer + admin role                       | `ExportAnalyticsModal` (SQL Query Studio)  |
 
-ทุกฟังก์ชันตาม pattern org: session → permission (`lib/permissions.ts`'s `PERMISSIONS`) → action →
-audit log (`lib/audit-actions.ts`) — ดู `.claude/rules/ugt-nextjs-auth.md`
-
-## Server Actions — Mail (`lib/actions/`)
-
-<!-- เพิ่มโดย ugt-nextjs-mail-setup, 2026-09-02 — root-level lib/ (เหมือน auth chunk) -->
-
-| Module                                | ฟังก์ชันหลัก                                                                   | เรียกจาก                                         |
-| ------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------ |
-| `lib/actions/admin-mail-templates.ts` | `saveMailTemplateAction`/`resetMailTemplateAction`/`previewMailTemplateAction` | `MailTemplatesManager` (`/admin/mail-templates`) |
-
-ตาม pattern org เดียวกัน: session → permission (`mail-templates:manage`) → action → audit log
-— ดู `.claude/rules/ugt-nextjs-mail.md`
-
-ไม่ใช่ URL endpoint แต่ยังเป็น "การส่งอีเมลจริง" ที่ต้องรู้: `sendTemplatedMail()`
-(`lib/email.ts`) — ไม่มี Server Action ไหนเรียกตอนนี้ (hook เดิมใน `tickets.ts` ถูกถอดใน slice 1,
-2026-10-09); slice 3 จะเรียกจาก `lib/actions/tickets.ts` ตามโมเดลตั้งค่า upstream
-
-## Server Actions (Prisma) — `lib/actions/`
-
-<!-- เพิ่มโดย ugt-nextjs-database-setup, 2026-09-02 — ไม่ใช่ URL endpoint (เรียกจาก
-     Server Component/Client Component โดยตรงผ่าน 'use server'), ยังไม่มี component ไหนเรียกจริง
-     (ดู handoff.md → Open Questions) — ทุกฟังก์ชัน mirror signature ของ src/services/api.ts เดิม
-     path แก้เป็น root-level lib/actions/ เมื่อ 2026-09-02 (ugt-nextjs-mail-setup) — ไม่มี
-     src/lib/ ในโปรเจคนี้เลย (ดู decisions.md's database-chunk entry); ไฟล์เหล่านี้เองยังมี
-     คอมเมนต์หัวไฟล์เดิมที่อ้าง src/lib/actions/ ผิดอยู่ — ไม่กระทบการทำงาน ไม่ได้แก้ในรอบนี้ -->
-
-| Module                         | ฟังก์ชันหลัก                                                                                                                                                                                                                                                                              | แทนที่ (src/services/api.ts)                                    |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `lib/actions/tickets.ts`       | **live (slice 1, 2026-10-09)** — `getTickets`, `getTicketByTrackingCode`, `submitTicket`, `updateTicketWorkflow`, `sendAnonymousChatMessage`, `submitEvaluation`; each: session → scope/permission (`lib/ticket-scope.ts`) → zod enum check → Prisma → `ActivityLogs`; no email (slice 3) | ticket localStorage functions (removed)                         |
-| `lib/actions/notifications.ts` | **live (slice 1)** — `getNotifications`, `markNotificationAsRead`, `markAllNotificationsAsRead` (only notifications of tickets the caller may see)                                                                                                                                        | notification localStorage functions (removed)                   |
-| `lib/actions/gatekeeper.ts`    | `getDepartmentGatekeeperConfigs`, `updateDepartmentGatekeeperConfig`, `addGatekeeperOfficer`, `updateGatekeeperOfficer`, `deleteGatekeeperOfficer`                                                                                                                                        | `getStoredGatekeeperConfigs`/`updateDepartmentGatekeeperConfig` |
-| `lib/actions/executives.ts`    | `getExecutives`, `addExecutiveMember`, `updateExecutiveMember`, `deleteExecutiveMember`                                                                                                                                                                                                   | เดียวกัน                                                        |
-| `lib/actions/hr-admins.ts`     | `getHrAdmins`, `addHrAdminMember`, `updateHrAdminMember`, `deleteHrAdminMember`                                                                                                                                                                                                           | เดียวกัน                                                        |
-| `lib/actions/role-access.ts`   | `getRoleAccessConfigs`, `updateRoleAccessConfig`                                                                                                                                                                                                                                          | `getStoredRolePermissions`/`saveStoredRolePermissions`          |
-
-Guards: `tickets.ts`/`notifications.ts` ครบ (slice 1). `gatekeeper.ts`/`role-access.ts` ใช้แค่อ่านจาก
-`src/app/(shell)/layout.tsx`; ฟังก์ชันแก้ไขทั้งหมดใน `gatekeeper.ts`/`executives.ts`/`hr-admins.ts`/`role-access.ts`
-ยังไม่มี guard และยังไม่มีใครเรียก — slice 2 ต้องใส่ session → permission → audit ก่อนต่อ UI
+อีเมลจริง: `lib/email-notifications.ts` (เรียกจาก `submitTicket` / `updateTicketWorkflow` หลัง commit)
+→ `lib/email.ts` `sendRenderedMail` — ดู `.claude/rules/ugt-voice-platform-email-notifications.md`.

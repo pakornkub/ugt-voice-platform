@@ -2,6 +2,7 @@
 // Every Server Action in this folder returns shapes from src/types.ts (not
 // raw Prisma rows), so a future call-site swap from src/services/api.ts to
 // these actions is a drop-in change wherever the signatures line up.
+import { attachmentDownloadUrl } from '@/lib/upload-client';
 import type {
   attachment as AttachmentRow,
   departmentGatekeeperConfig as DeptConfigRow,
@@ -15,6 +16,7 @@ import type {
   ticketEvaluation as EvaluationRow,
   ticketTimelineLog as TimelineRow,
 } from '@prisma/client';
+import { formatFileSize } from '@/lib/format-file-size';
 import type {
   AnonymousChatMessage,
   Attachment,
@@ -68,31 +70,17 @@ export function mapTimeline(row: TimelineRow): TimelineLog {
   };
 }
 
-/** Human-readable size, matching the shape `Attachment.size` has always had
- *  (e.g. "1.4 MB") — no central lib/format.ts in this project, see
- *  docs/DESIGN.md §5. */
-function formatAttachmentSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  const units = ['KB', 'MB', 'GB'];
-  let value = bytes / 1024;
-  let unitIdx = 0;
-  while (value >= 1024 && unitIdx < units.length - 1) {
-    value /= 1024;
-    unitIdx += 1;
-  }
-  return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[unitIdx]}`;
-}
-
 /** Real Attachments row (ugt-nextjs-upload-setup, 2026-09-02) → the domain
  *  `Attachment` shape src/types.ts has always declared — `url` points at the
- *  guarded download route, never the raw storage path. */
+ *  guarded download route, never the raw storage path. Only these fields cross to the client:
+ *  `storageKey` / `checksum` / `scanStatus` stay on the server. */
 export function mapAttachment(row: AttachmentRow): Attachment {
   return {
     id: row.id,
     name: row.fileName,
-    size: formatAttachmentSize(row.fileSize),
+    size: formatFileSize(row.fileSize),
     type: row.contentType,
-    url: `/api/files/${row.id}`,
+    url: attachmentDownloadUrl(row.id), // guarded route, with the basePath
   };
 }
 

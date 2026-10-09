@@ -29,32 +29,33 @@ export async function getNotifications(): Promise<NotificationItem[]> {
 export async function markNotificationAsRead(id: string): Promise<NotificationItem[]> {
   const { viewer, items } = await visibleNotifications();
   if (!items.some((n) => n.id === id)) throw new Error('FORBIDDEN');
-  await prisma.notificationRead.upsert({
-    where: { notificationId_userId: { notificationId: id, userId: viewer.userId } },
-    create: { notificationId: id, userId: viewer.userId, createdBy: viewer.userId },
-    update: {},
-  });
+  await markReadUpsert(id, viewer.userId);
   return items.map((n) => (n.id === id ? { ...n, read: true } : n));
 }
 
-// SQL Server caps a statement at 2100 parameters — Prisma sends ~7 columns per row, so 200 rows.
+// Rows per transaction — keeps one round trip from growing without bound.
 const CHUNK = 200;
+
+/** Idempotent per (notification, user); revives a row that was ever soft-deleted. */
+function markReadUpsert(notificationId: string, userId: string) {
+  return prisma.notificationRead.upsert({
+    where: { notificationId_userId: { notificationId, userId } },
+    create: { notificationId, userId, createdBy: userId },
+    update: { isDeleted: false, isActive: true, updatedBy: userId },
+  });
+}
 
 export async function markAllNotificationsAsRead(): Promise<NotificationItem[]> {
   const { viewer, items } = await visibleNotifications();
   const unread = items.filter((n) => !n.read).map((n) => n.id);
+  // One upsert per row in a transaction: a row another tab just created is a no-op instead of
+  // rolling back the whole batch (SQL Server has no skipDuplicates); real failures surface.
   for (let i = 0; i < unread.length; i += CHUNK) {
-    // ponytail: a concurrent mark-read can make one chunk hit the unique key — the rows exist then,
-    // so the error is ignored; per-row upserts if that ever hides real failures.
-    await prisma.notificationRead
-      .createMany({
-        data: unread.slice(i, i + CHUNK).map((notificationId) => ({
-          notificationId,
-          userId: viewer.userId,
-          createdBy: viewer.userId,
-        })),
-      })
-      .catch(() => {});
+    await prisma.$transaction(
+      unread
+        .slice(i, i + CHUNK)
+        .map((notificationId) => markReadUpsert(notificationId, viewer.userId))
+    );
   }
   return items.map((n) => ({ ...n, read: true }));
 }
