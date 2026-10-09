@@ -1034,7 +1034,10 @@ const GatekeepersTab: React.FC<GatekeepersTabProps> = ({ panel, tickets, hrStatu
           {/* Auto-Assign Settings Form */}
           <div className="pt-1">
             <div>
-              <label className="mb-1.5 block flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+              <label
+                htmlFor="select-auto-assign-mode"
+                className="mb-1.5 block flex items-center gap-1.5 text-xs font-semibold text-slate-700"
+              >
                 <Zap className="h-3.5 w-3.5 text-amber-600" />
                 <span>รูปแบบการจ่ายงานอัตโนมัติ (Auto-Assign Mode)</span>
               </label>
@@ -1092,7 +1095,10 @@ const GatekeepersTab: React.FC<GatekeepersTabProps> = ({ panel, tickets, hrStatu
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                  <label
+                    htmlFor="input-new-officer-name"
+                    className="mb-1 block text-[11px] font-semibold text-slate-700"
+                  >
                     ชื่อ - นามสกุล *
                   </label>
                   <HrNameField
@@ -1107,7 +1113,10 @@ const GatekeepersTab: React.FC<GatekeepersTabProps> = ({ panel, tickets, hrStatu
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                  <label
+                    htmlFor="input-new-officer-email"
+                    className="mb-1 block text-[11px] font-semibold text-slate-700"
+                  >
                     อีเมลทางการองค์กร *
                   </label>
                   <input
@@ -1122,7 +1131,10 @@ const GatekeepersTab: React.FC<GatekeepersTabProps> = ({ panel, tickets, hrStatu
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                  <label
+                    htmlFor="input-new-officer-role"
+                    className="mb-1 block text-[11px] font-semibold text-slate-700"
+                  >
                     ตำแหน่งงาน / ความเชี่ยวชาญ
                   </label>
                   <input
@@ -1135,7 +1147,10 @@ const GatekeepersTab: React.FC<GatekeepersTabProps> = ({ panel, tickets, hrStatu
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                  <label
+                    htmlFor="input-new-officer-phone"
+                    className="mb-1 block text-[11px] font-semibold text-slate-700"
+                  >
                     เบอร์โทรศัพท์ติดต่อภายใน
                   </label>
                   <input
@@ -1473,7 +1488,10 @@ const ExecutivesTab: React.FC<ExecutivesTabProps> = ({ panel, executives, hrStat
           <form onSubmit={handleSaveExecutive} className="space-y-4">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
               <div>
-                <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                <label
+                  htmlFor="exec-name"
+                  className="mb-1 block text-[11px] font-semibold text-slate-700"
+                >
                   ชื่อ - นามสกุล *
                 </label>
                 <HrNameField
@@ -1489,7 +1507,10 @@ const ExecutivesTab: React.FC<ExecutivesTabProps> = ({ panel, executives, hrStat
               </div>
 
               <div>
-                <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                <label
+                  htmlFor="exec-position"
+                  className="mb-1 block text-[11px] font-semibold text-slate-700"
+                >
                   ตำแหน่งทางการบริหาร *
                 </label>
                 <input
@@ -1504,7 +1525,10 @@ const ExecutivesTab: React.FC<ExecutivesTabProps> = ({ panel, executives, hrStat
               </div>
 
               <div>
-                <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                <label
+                  htmlFor="exec-department"
+                  className="mb-1 block text-[11px] font-semibold text-slate-700"
+                >
                   สายงาน / สังกัด
                 </label>
                 <input
@@ -1518,7 +1542,10 @@ const ExecutivesTab: React.FC<ExecutivesTabProps> = ({ panel, executives, hrStat
               </div>
 
               <div>
-                <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                <label
+                  htmlFor="exec-email"
+                  className="mb-1 block text-[11px] font-semibold text-slate-700"
+                >
                   อีเมลผู้บริหาร *
                 </label>
                 <input
@@ -1534,7 +1561,10 @@ const ExecutivesTab: React.FC<ExecutivesTabProps> = ({ panel, executives, hrStat
               </div>
 
               <div>
-                <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                <label
+                  htmlFor="exec-phone"
+                  className="mb-1 block text-[11px] font-semibold text-slate-700"
+                >
                   เบอร์ติดต่อด่วน
                 </label>
                 <input
@@ -1548,7 +1578,10 @@ const ExecutivesTab: React.FC<ExecutivesTabProps> = ({ panel, executives, hrStat
               </div>
 
               <div>
-                <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                <label
+                  htmlFor="exec-role-type"
+                  className="mb-1 block text-[11px] font-semibold text-slate-700"
+                >
                   ประเภทบทบาท (Role Classification)
                 </label>
                 <select
@@ -1574,7 +1607,10 @@ const ExecutivesTab: React.FC<ExecutivesTabProps> = ({ panel, executives, hrStat
             </div>
 
             <div>
-              <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+              <label
+                htmlFor="exec-committees"
+                className="mb-1 block text-[11px] font-semibold text-slate-700"
+              >
                 คณะกรรมการที่สังกัด (คั่นด้วยจุลภาค ,)
               </label>
               <input
@@ -1589,7 +1625,11 @@ const ExecutivesTab: React.FC<ExecutivesTabProps> = ({ panel, executives, hrStat
 
             {/* Privileges Switches */}
             <div className="grid grid-cols-1 gap-3 rounded-xl border border-purple-100 bg-white p-3 sm:grid-cols-3">
-              <label className="flex cursor-pointer items-center gap-2">
+              <label
+                htmlFor="exec-check-whistleblower"
+                aria-labelledby="exec-check-whistleblower-title exec-check-whistleblower-desc"
+                className="flex cursor-pointer items-center gap-2"
+              >
                 <input
                   type="checkbox"
                   id="exec-check-whistleblower"
@@ -1598,16 +1638,23 @@ const ExecutivesTab: React.FC<ExecutivesTabProps> = ({ panel, executives, hrStat
                   className="h-4 w-4 rounded text-purple-600 focus:ring-purple-500"
                 />
                 <div>
-                  <span className="block text-xs font-semibold text-slate-900">
+                  <span
+                    id="exec-check-whistleblower-title"
+                    className="block text-xs font-semibold text-slate-900"
+                  >
                     รับเคสสายตรง Whistleblower
                   </span>
-                  <span className="text-[10px] text-slate-500">
+                  <span id="exec-check-whistleblower-desc" className="text-[10px] text-slate-500">
                     เปิดสิทธิ์รับเคส Direct CEO/EVP
                   </span>
                 </div>
               </label>
 
-              <label className="flex cursor-pointer items-center gap-2">
+              <label
+                htmlFor="exec-check-confidential"
+                aria-labelledby="exec-check-confidential-title exec-check-confidential-desc"
+                className="flex cursor-pointer items-center gap-2"
+              >
                 <input
                   type="checkbox"
                   id="exec-check-confidential"
@@ -1616,16 +1663,23 @@ const ExecutivesTab: React.FC<ExecutivesTabProps> = ({ panel, executives, hrStat
                   className="h-4 w-4 rounded text-purple-600 focus:ring-purple-500"
                 />
                 <div>
-                  <span className="block text-xs font-semibold text-slate-900">
+                  <span
+                    id="exec-check-confidential-title"
+                    className="block text-xs font-semibold text-slate-900"
+                  >
                     สิทธิ์ดูชื่อเคสลับเฉพาะ
                   </span>
-                  <span className="text-[10px] text-slate-500">
+                  <span id="exec-check-confidential-desc" className="text-[10px] text-slate-500">
                     ปลดล็อคข้อมูลตัวตนกรณีมีเหตุจำเป็น
                   </span>
                 </div>
               </label>
 
-              <label className="flex cursor-pointer items-center gap-2">
+              <label
+                htmlFor="exec-check-alerts"
+                aria-labelledby="exec-check-alerts-title exec-check-alerts-desc"
+                className="flex cursor-pointer items-center gap-2"
+              >
                 <input
                   type="checkbox"
                   id="exec-check-alerts"
@@ -1634,10 +1688,15 @@ const ExecutivesTab: React.FC<ExecutivesTabProps> = ({ panel, executives, hrStat
                   className="h-4 w-4 rounded text-purple-600 focus:ring-purple-500"
                 />
                 <div>
-                  <span className="block text-xs font-semibold text-slate-900">
+                  <span
+                    id="exec-check-alerts-title"
+                    className="block text-xs font-semibold text-slate-900"
+                  >
                     รับแจ้งเตือนความเสี่ยงสูง
                   </span>
-                  <span className="text-[10px] text-slate-500">ส่ง Alert ทางอีเมลทันที</span>
+                  <span id="exec-check-alerts-desc" className="text-[10px] text-slate-500">
+                    ส่ง Alert ทางอีเมลทันที
+                  </span>
                 </div>
               </label>
             </div>
@@ -1935,7 +1994,10 @@ const HrAdminsTab: React.FC<HrAdminsTabProps> = ({ panel, hrAdmins, hrStatus }) 
           <form onSubmit={handleSaveHrAdmin} className="space-y-4">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
               <div>
-                <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                <label
+                  htmlFor="admin-name"
+                  className="mb-1 block text-[11px] font-semibold text-slate-700"
+                >
                   ชื่อ - นามสกุล *
                 </label>
                 <HrNameField
@@ -1951,7 +2013,10 @@ const HrAdminsTab: React.FC<HrAdminsTabProps> = ({ panel, hrAdmins, hrStatus }) 
               </div>
 
               <div>
-                <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                <label
+                  htmlFor="admin-position"
+                  className="mb-1 block text-[11px] font-semibold text-slate-700"
+                >
                   ตำแหน่งงาน *
                 </label>
                 <input
@@ -1966,7 +2031,10 @@ const HrAdminsTab: React.FC<HrAdminsTabProps> = ({ panel, hrAdmins, hrStatus }) 
               </div>
 
               <div>
-                <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                <label
+                  htmlFor="admin-department"
+                  className="mb-1 block text-[11px] font-semibold text-slate-700"
+                >
                   ฝ่าย / แผนก
                 </label>
                 <input
@@ -1980,7 +2048,10 @@ const HrAdminsTab: React.FC<HrAdminsTabProps> = ({ panel, hrAdmins, hrStatus }) 
               </div>
 
               <div>
-                <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                <label
+                  htmlFor="admin-email"
+                  className="mb-1 block text-[11px] font-semibold text-slate-700"
+                >
                   อีเมลทางการ *
                 </label>
                 <input
@@ -1996,7 +2067,10 @@ const HrAdminsTab: React.FC<HrAdminsTabProps> = ({ panel, hrAdmins, hrStatus }) 
               </div>
 
               <div>
-                <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                <label
+                  htmlFor="admin-phone"
+                  className="mb-1 block text-[11px] font-semibold text-slate-700"
+                >
                   เบอร์ติดต่อภายใน
                 </label>
                 <input
@@ -2010,7 +2084,10 @@ const HrAdminsTab: React.FC<HrAdminsTabProps> = ({ panel, hrAdmins, hrStatus }) 
               </div>
 
               <div>
-                <label className="mb-1 block text-[11px] font-semibold text-slate-700">
+                <label
+                  htmlFor="admin-role-level"
+                  className="mb-1 block text-[11px] font-semibold text-slate-700"
+                >
                   ระดับสิทธิ์ดูแลระบบ (Role Level)
                 </label>
                 <select
@@ -2028,7 +2105,11 @@ const HrAdminsTab: React.FC<HrAdminsTabProps> = ({ panel, hrAdmins, hrStatus }) 
 
             {/* Privileges Switches */}
             <div className="grid grid-cols-1 gap-3 rounded-xl border border-rose-100 bg-white p-3 sm:grid-cols-3">
-              <label className="flex cursor-pointer items-center gap-2">
+              <label
+                htmlFor="admin-check-rbac"
+                aria-labelledby="admin-check-rbac-title admin-check-rbac-desc"
+                className="flex cursor-pointer items-center gap-2"
+              >
                 <input
                   type="checkbox"
                   id="admin-check-rbac"
@@ -2037,16 +2118,23 @@ const HrAdminsTab: React.FC<HrAdminsTabProps> = ({ panel, hrAdmins, hrStatus }) 
                   className="h-4 w-4 rounded text-rose-600 focus:ring-rose-500"
                 />
                 <div>
-                  <span className="block text-xs font-semibold text-slate-900">
+                  <span
+                    id="admin-check-rbac-title"
+                    className="block text-xs font-semibold text-slate-900"
+                  >
                     สิทธิ์ปรับแก้ RBAC Matrix
                   </span>
-                  <span className="text-[10px] text-slate-500">
+                  <span id="admin-check-rbac-desc" className="text-[10px] text-slate-500">
                     กำหนดแท็บและสิทธิ์ของแต่ละบทบาท
                   </span>
                 </div>
               </label>
 
-              <label className="flex cursor-pointer items-center gap-2">
+              <label
+                htmlFor="admin-check-gatekeeper"
+                aria-labelledby="admin-check-gatekeeper-title admin-check-gatekeeper-desc"
+                className="flex cursor-pointer items-center gap-2"
+              >
                 <input
                   type="checkbox"
                   id="admin-check-gatekeeper"
@@ -2055,14 +2143,23 @@ const HrAdminsTab: React.FC<HrAdminsTabProps> = ({ panel, hrAdmins, hrStatus }) 
                   className="h-4 w-4 rounded text-rose-600 focus:ring-rose-500"
                 />
                 <div>
-                  <span className="block text-xs font-semibold text-slate-900">
+                  <span
+                    id="admin-check-gatekeeper-title"
+                    className="block text-xs font-semibold text-slate-900"
+                  >
                     สิทธิ์แต่งตั้ง Gatekeeper
                   </span>
-                  <span className="text-[10px] text-slate-500">กำหนด Lead ประจำ 6 ฝ่าย</span>
+                  <span id="admin-check-gatekeeper-desc" className="text-[10px] text-slate-500">
+                    กำหนด Lead ประจำ 6 ฝ่าย
+                  </span>
                 </div>
               </label>
 
-              <label className="flex cursor-pointer items-center gap-2">
+              <label
+                htmlFor="admin-check-execs"
+                aria-labelledby="admin-check-execs-title admin-check-execs-desc"
+                className="flex cursor-pointer items-center gap-2"
+              >
                 <input
                   type="checkbox"
                   id="admin-check-execs"
@@ -2071,10 +2168,15 @@ const HrAdminsTab: React.FC<HrAdminsTabProps> = ({ panel, hrAdmins, hrStatus }) 
                   className="h-4 w-4 rounded text-rose-600 focus:ring-rose-500"
                 />
                 <div>
-                  <span className="block text-xs font-semibold text-slate-900">
+                  <span
+                    id="admin-check-execs-title"
+                    className="block text-xs font-semibold text-slate-900"
+                  >
                     สิทธิ์จัดการรายชื่อผู้บริหาร
                   </span>
-                  <span className="text-[10px] text-slate-500">Maintain Executive Directory</span>
+                  <span id="admin-check-execs-desc" className="text-[10px] text-slate-500">
+                    Maintain Executive Directory
+                  </span>
                 </div>
               </label>
             </div>

@@ -71,10 +71,14 @@ export function AuditLogsTable({
       {/* Filters */}
       <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-xs">
         <div className="min-w-[180px] flex-1">
-          <label className="mb-1 block text-[11px] font-bold text-slate-600">
+          <label
+            htmlFor="audit-filter-q"
+            className="mb-1 block text-[11px] font-bold text-slate-600"
+          >
             ค้นหาชื่อ/อีเมลผู้ใช้
           </label>
           <input
+            id="audit-filter-q"
             type="text"
             defaultValue={filters.q}
             onKeyDown={(e) => {
@@ -86,8 +90,14 @@ export function AuditLogsTable({
           />
         </div>
         <div>
-          <label className="mb-1 block text-[11px] font-bold text-slate-600">จากวันที่</label>
+          <label
+            htmlFor="audit-filter-from"
+            className="mb-1 block text-[11px] font-bold text-slate-600"
+          >
+            จากวันที่
+          </label>
           <input
+            id="audit-filter-from"
             type="date"
             value={filters.from}
             onChange={(e) => applyFilters({ from: e.target.value })}
@@ -95,8 +105,14 @@ export function AuditLogsTable({
           />
         </div>
         <div>
-          <label className="mb-1 block text-[11px] font-bold text-slate-600">ถึงวันที่</label>
+          <label
+            htmlFor="audit-filter-to"
+            className="mb-1 block text-[11px] font-bold text-slate-600"
+          >
+            ถึงวันที่
+          </label>
           <input
+            id="audit-filter-to"
             type="date"
             value={filters.to}
             onChange={(e) => applyFilters({ to: e.target.value })}
@@ -104,8 +120,14 @@ export function AuditLogsTable({
           />
         </div>
         <div>
-          <label className="mb-1 block text-[11px] font-bold text-slate-600">Action</label>
+          <label
+            htmlFor="audit-filter-action"
+            className="mb-1 block text-[11px] font-bold text-slate-600"
+          >
+            Action
+          </label>
           <select
+            id="audit-filter-action"
             value={filters.action || ALL_ACTIONS}
             onChange={(e) =>
               applyFilters({ action: e.target.value === ALL_ACTIONS ? '' : e.target.value })
@@ -212,18 +234,22 @@ export function AuditLogsTable({
 
       {/* Detail dialog */}
       {openDetail !== null && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/60 p-3 backdrop-blur-xs sm:p-6"
-          role="presentation"
-          onClick={() => setOpenDetail(null)}
-        >
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/60 p-3 backdrop-blur-xs sm:p-6">
+          {/* Decorative click-away layer behind the dialog */}
           <div
-            className="animate-in fade-in zoom-in-95 flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
-            role="presentation"
-            onClick={(e) => e.stopPropagation()}
+            aria-hidden="true"
+            className="absolute inset-0"
+            onClick={() => setOpenDetail(null)}
+          />
+          <dialog
+            open
+            aria-labelledby="audit-detail-title"
+            className="animate-in fade-in zoom-in-95 relative flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
           >
             <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 p-4">
-              <h2 className="text-sm font-bold text-slate-900">รายละเอียด</h2>
+              <h2 id="audit-detail-title" className="text-sm font-bold text-slate-900">
+                รายละเอียด
+              </h2>
               <button
                 type="button"
                 onClick={() => setOpenDetail(null)}
@@ -235,7 +261,7 @@ export function AuditLogsTable({
             <pre className="max-h-96 overflow-auto p-4 font-mono text-[11px] break-all whitespace-pre-wrap text-slate-700">
               {prettyDetail(openDetail)}
             </pre>
-          </div>
+          </dialog>
         </div>
       )}
     </div>

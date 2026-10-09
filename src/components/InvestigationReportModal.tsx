@@ -255,7 +255,7 @@ export const InvestigationReportModal: React.FC<Readonly<InvestigationReportModa
   });
 
   const handlePrint = () => {
-    window.print();
+    globalThis.print();
   };
 
   const handleCopySummary = () => {

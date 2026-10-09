@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useOptimistic, useState, useTransition } from 'react';
+import { useCallback, useEffect, useMemo, useOptimistic, useState, useTransition } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Navbar } from '@/components/Navbar';
 import { TrackingTimelineModal } from '@/components/TrackingTimelineModal';
@@ -66,87 +66,115 @@ export default function Shell({
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const refreshRecentSearchesCount = () => {
+  const refreshRecentSearchesCount = useCallback(() => {
     setRecentSearchesCount(getRecentSearches().length);
-  };
+  }, []);
 
-  const refreshData = () => router.refresh();
+  const refreshData = useCallback(() => router.refresh(), [router]);
 
   // Recent searches stay per-device (localStorage) — read after mount so SSR and hydration match.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshRecentSearchesCount();
-  }, []);
+  }, [refreshRecentSearchesCount]);
 
-  const showNotification = (msg: string) => {
+  const showNotification = useCallback((msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 4000);
-  };
+  }, []);
 
   // Safe navigation with RBAC permission enforcement (upstream App.tsx handleNavigateTab) —
   // every tab, incl. the SSO admin pages, is governed by allowedTabs.
-  const navigateTab = (tab: string) => {
-    const currentConfig = rolePermissions[currentRole];
-    const isAllowed = currentConfig?.allowedTabs?.includes(tab as AppTabId);
+  const navigateTab = useCallback(
+    (tab: string) => {
+      const currentConfig = rolePermissions[currentRole];
+      const isAllowed = currentConfig?.allowedTabs?.includes(tab as AppTabId);
 
-    // If the target tab is not permitted for the active role, do NOT elevate
-    if (!isAllowed) {
+      // If the target tab is not permitted for the active role, do NOT elevate
+      if (!isAllowed) {
+        showNotification(
+          `⚠️ บัญชีในบทบาท "${currentConfig?.roleTitleTh || currentRole}" ไม่มีสิทธิ์เข้าถึงหน้านี้ตามเมทริกซ์สิทธิ์`
+        );
+        return;
+      }
+      router.push(TAB_TO_PATH[tab as keyof typeof TAB_TO_PATH] || '/submit');
+    },
+    [rolePermissions, currentRole, router, showNotification]
+  );
+
+  const handleTicketCreated = useCallback(
+    (newTicket: ComplaintTicket) => {
+      refreshData();
       showNotification(
-        `⚠️ บัญชีในบทบาท "${currentConfig?.roleTitleTh || currentRole}" ไม่มีสิทธิ์เข้าถึงหน้านี้ตามเมทริกซ์สิทธิ์`
+        `บันทึกคำร้อง ${newTicket.trackingCode} เข้าระบบและส่งไปยัง Gatekeeper แล้ว`
       );
-      return;
-    }
-    router.push(TAB_TO_PATH[tab as keyof typeof TAB_TO_PATH] || '/submit');
-  };
+    },
+    [refreshData, showNotification]
+  );
 
-  const handleTicketCreated = (newTicket: ComplaintTicket) => {
-    refreshData();
-    showNotification(`บันทึกคำร้อง ${newTicket.trackingCode} เข้าระบบและส่งไปยัง Gatekeeper แล้ว`);
-  };
+  const handleTicketUpdated = useCallback(
+    (updatedTicket: ComplaintTicket) => {
+      refreshData();
+      setSelectedTicketForTracking((current) =>
+        current?.id === updatedTicket.id ? updatedTicket : current
+      );
+      showNotification(`อัปเดตสถานะคำร้อง ${updatedTicket.trackingCode} เรียบร้อยแล้ว`);
+    },
+    [refreshData, showNotification]
+  );
 
-  const handleTicketUpdated = (updatedTicket: ComplaintTicket) => {
-    refreshData();
-    if (selectedTicketForTracking?.id === updatedTicket.id) {
-      setSelectedTicketForTracking(updatedTicket);
-    }
-    showNotification(`อัปเดตสถานะคำร้อง ${updatedTicket.trackingCode} เรียบร้อยแล้ว`);
-  };
+  const showTrackingResult = useCallback(
+    (code: string, found: ComplaintTicket | null) => {
+      // Automatically log this search into recent searches
+      addRecentSearch(code, found);
+      refreshRecentSearchesCount();
 
-  const showTrackingResult = (code: string, found: ComplaintTicket | null) => {
-    // Automatically log this search into recent searches
-    addRecentSearch(code, found);
-    refreshRecentSearchesCount();
-
-    if (found) {
-      setSelectedTicketForTracking(found);
-    } else {
-      showNotification(`ไม่พบรหัสติดตาม "${code}" ในระบบ (บันทึกลงประวัติค้นหาแล้ว)`);
-      setIsRecentSearchesOpen(true);
-    }
-  };
+      if (found) {
+        setSelectedTicketForTracking(found);
+      } else {
+        showNotification(`ไม่พบรหัสติดตาม "${code}" ในระบบ (บันทึกลงประวัติค้นหาแล้ว)`);
+        setIsRecentSearchesOpen(true);
+      }
+    },
+    [refreshRecentSearchesCount, showNotification]
+  );
 
   // Looked up on the server: fresher than the loaded list, and an out-of-scope code answers
   // "not found" exactly like an unknown one.
-  const openTrackingByCode = (code: string) => {
-    getTicketByTrackingCode(code)
-      .catch(() => null)
-      .then((found) => showTrackingResult(code, found));
-  };
+  const openTrackingByCode = useCallback(
+    (code: string) => {
+      getTicketByTrackingCode(code)
+        .catch(() => null)
+        .then((found) => showTrackingResult(code, found));
+    },
+    [showTrackingResult]
+  );
 
-  const openTracking = (ticket: ComplaintTicket) => setSelectedTicketForTracking(ticket);
-  const openSatisfaction = (ticket: ComplaintTicket) => setSelectedTicketForSatisfaction(ticket);
+  const openTracking = useCallback(
+    (ticket: ComplaintTicket) => setSelectedTicketForTracking(ticket),
+    []
+  );
+  const openSatisfaction = useCallback(
+    (ticket: ComplaintTicket) => setSelectedTicketForSatisfaction(ticket),
+    []
+  );
 
-  const markRead = (action: NotificationReadAction) =>
-    startTransition(async () => {
-      markReadOptimistic(action);
-      try {
-        await (action === 'all' ? markAllNotificationsAsRead() : markNotificationAsRead(action.id));
-        router.refresh();
-      } catch {
-        // The optimistic mark reverts when the transition ends; tell the user why.
-        showNotification('ไม่สามารถอัปเดตสถานะการแจ้งเตือนได้ กรุณาลองใหม่อีกครั้ง');
-      }
-    });
+  const markRead = useCallback(
+    (action: NotificationReadAction) =>
+      startTransition(async () => {
+        markReadOptimistic(action);
+        try {
+          await (action === 'all'
+            ? markAllNotificationsAsRead()
+            : markNotificationAsRead(action.id));
+          router.refresh();
+        } catch {
+          // The optimistic mark reverts when the transition ends; tell the user why.
+          showNotification('ไม่สามารถอัปเดตสถานะการแจ้งเตือนได้ กรุณาลองใหม่อีกครั้ง');
+        }
+      }),
+    [markReadOptimistic, router, showNotification]
+  );
 
   const handleNotificationClick = (item: NotificationItem) => {
     markRead({ id: item.id });
@@ -156,10 +184,15 @@ export default function Shell({
 
   const handleMarkAllRead = () => markRead('all');
 
-  const openRecentSearches = () => {
+  const openRecentSearches = useCallback(() => {
     refreshRecentSearchesCount();
     setIsRecentSearchesOpen(true);
-  };
+  }, [refreshRecentSearchesCount]);
+
+  const closeRecentSearches = useCallback(() => {
+    setIsRecentSearchesOpen(false);
+    refreshRecentSearchesCount();
+  }, [refreshRecentSearchesCount]);
 
   const currentRoleConfig = rolePermissions[currentRole] || rolePermissions.employee;
   const allowedTabs: AppTabId[] = currentRoleConfig?.allowedTabs || [
@@ -169,41 +202,66 @@ export default function Shell({
   ];
   const canViewDirectCeo = currentRoleConfig?.canViewDirectCeoTickets ?? false;
 
-  const visibleNotifications = (notifications || []).filter((n) => {
-    if (n.type === 'direct_ceo_alert' || n.recipientRole === 'executive') {
-      return canViewDirectCeo;
-    }
-    return true;
-  });
+  const visibleNotifications = useMemo(
+    () =>
+      (notifications || []).filter((n) => {
+        if (n.type === 'direct_ceo_alert' || n.recipientRole === 'executive') {
+          return canViewDirectCeo;
+        }
+        return true;
+      }),
+    [notifications, canViewDirectCeo]
+  );
+
+  const contextValue = useMemo(
+    () => ({
+      currentRole,
+      identity,
+      tickets,
+      notifications: visibleNotifications,
+      rolePermissions,
+      gatekeeperConfigs,
+      gatekeeperCategories,
+      recentSearchesCount,
+      isRecentSearchesOpen,
+      openRecentSearches,
+      closeRecentSearches,
+      isMobileSimulator,
+      activeTab,
+      refreshData,
+      navigateTab,
+      handleTicketCreated,
+      handleTicketUpdated,
+      openTrackingByCode,
+      openTracking,
+      openSatisfaction,
+    }),
+    [
+      currentRole,
+      identity,
+      tickets,
+      visibleNotifications,
+      rolePermissions,
+      gatekeeperConfigs,
+      gatekeeperCategories,
+      recentSearchesCount,
+      isRecentSearchesOpen,
+      openRecentSearches,
+      closeRecentSearches,
+      isMobileSimulator,
+      activeTab,
+      refreshData,
+      navigateTab,
+      handleTicketCreated,
+      handleTicketUpdated,
+      openTrackingByCode,
+      openTracking,
+      openSatisfaction,
+    ]
+  );
 
   return (
-    <ShellContext.Provider
-      value={{
-        currentRole,
-        identity,
-        tickets,
-        notifications: visibleNotifications,
-        rolePermissions,
-        gatekeeperConfigs,
-        gatekeeperCategories,
-        recentSearchesCount,
-        isRecentSearchesOpen,
-        openRecentSearches,
-        closeRecentSearches: () => {
-          setIsRecentSearchesOpen(false);
-          refreshRecentSearchesCount();
-        },
-        isMobileSimulator,
-        activeTab,
-        refreshData,
-        navigateTab,
-        handleTicketCreated,
-        handleTicketUpdated,
-        openTrackingByCode,
-        openTracking,
-        openSatisfaction,
-      }}
-    >
+    <ShellContext.Provider value={contextValue}>
       <div className="flex min-h-screen flex-col bg-slate-50 font-sans text-slate-900 antialiased selection:bg-indigo-500 selection:text-white">
         {/* Top Navigation */}
         <Navbar
@@ -455,10 +513,7 @@ export default function Shell({
         <RecentSearchesPanel
           isOpen={isRecentSearchesOpen}
           tickets={tickets}
-          onClose={() => {
-            setIsRecentSearchesOpen(false);
-            refreshRecentSearchesCount();
-          }}
+          onClose={closeRecentSearches}
           onSelectTicket={setSelectedTicketForTracking}
           onSearchAgain={openTrackingByCode}
         />

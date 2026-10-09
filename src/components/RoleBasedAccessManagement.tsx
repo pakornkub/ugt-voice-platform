@@ -307,7 +307,10 @@ const ExecutiveFormPanel: React.FC<ExecutiveFormPanelProps> = ({
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <div>
-          <label className="mb-1 block text-[11px] font-bold text-slate-700">
+          <label
+            htmlFor="exec-form-name"
+            className="mb-1 block text-[11px] font-bold text-slate-700"
+          >
             ชื่อ - นามสกุล <span className="text-rose-500">*</span>
           </label>
           <HrNameField
@@ -323,10 +326,14 @@ const ExecutiveFormPanel: React.FC<ExecutiveFormPanelProps> = ({
         </div>
 
         <div>
-          <label className="mb-1 block text-[11px] font-bold text-slate-700">
+          <label
+            htmlFor="exec-form-position"
+            className="mb-1 block text-[11px] font-bold text-slate-700"
+          >
             ตำแหน่งบริหาร <span className="text-rose-500">*</span>
           </label>
           <input
+            id="exec-form-position"
             type="text"
             required
             placeholder="เช่น Chief Executive Officer (CEO)"
@@ -337,10 +344,14 @@ const ExecutiveFormPanel: React.FC<ExecutiveFormPanelProps> = ({
         </div>
 
         <div>
-          <label className="mb-1 block text-[11px] font-bold text-slate-700">
+          <label
+            htmlFor="exec-form-role-type"
+            className="mb-1 block text-[11px] font-bold text-slate-700"
+          >
             ประเภทบทบาท (Role Level)
           </label>
           <select
+            id="exec-form-role-type"
             value={form.roleType}
             onChange={(e) => setField('roleType', e.target.value as ExecutiveMember['roleType'])}
             className={EXEC_INPUT_CLASS}
@@ -354,10 +365,14 @@ const ExecutiveFormPanel: React.FC<ExecutiveFormPanelProps> = ({
         </div>
 
         <div>
-          <label className="mb-1 block text-[11px] font-bold text-slate-700">
+          <label
+            htmlFor="exec-form-department"
+            className="mb-1 block text-[11px] font-bold text-slate-700"
+          >
             สังกัด / ฝ่ายงาน
           </label>
           <input
+            id="exec-form-department"
             type="text"
             placeholder="เช่น สำนักประธานเจ้าหน้าที่บริหาร"
             value={form.department}
@@ -367,10 +382,14 @@ const ExecutiveFormPanel: React.FC<ExecutiveFormPanelProps> = ({
         </div>
 
         <div>
-          <label className="mb-1 block text-[11px] font-bold text-slate-700">
+          <label
+            htmlFor="exec-form-email"
+            className="mb-1 block text-[11px] font-bold text-slate-700"
+          >
             อีเมลองค์กร <span className="text-rose-500">*</span>
           </label>
           <input
+            id="exec-form-email"
             type="email"
             required
             placeholder="executive@enterprise.co.th"
@@ -382,10 +401,14 @@ const ExecutiveFormPanel: React.FC<ExecutiveFormPanelProps> = ({
         </div>
 
         <div>
-          <label className="mb-1 block text-[11px] font-bold text-slate-700">
+          <label
+            htmlFor="exec-form-phone"
+            className="mb-1 block text-[11px] font-bold text-slate-700"
+          >
             เบอร์โทรศัพท์ติดต่อภายใน
           </label>
           <input
+            id="exec-form-phone"
             type="text"
             placeholder="เช่น 02-998-1001 หรือต่อ 101"
             value={form.phone}

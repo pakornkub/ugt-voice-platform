@@ -1,7 +1,7 @@
 // ponytail: Next.js server-renders 'use client' components once before hydration,
 // so every localStorage call in this client-only data layer needs an SSR guard.
 // No-ops on the server; identical to `localStorage` in the browser.
-const isBrowser = typeof globalThis.window !== 'undefined';
+const isBrowser = globalThis.window !== undefined;
 
 export const safeStorage = {
   getItem(key: string): string | null {

@@ -14,13 +14,171 @@ import {
 import confetti from 'canvas-confetti';
 import { ComplaintTicket } from '../types';
 import { submitEvaluation } from '@/lib/actions/tickets';
-import { useLanguage } from '../context/LanguageContext';
+import { useLanguage, type Language } from '../context/LanguageContext';
 
 interface SatisfactionModalProps {
   ticket: ComplaintTicket | null;
   onClose: () => void;
   onEvaluationCompleted: (updatedTicket: ComplaintTicket) => void;
 }
+
+/** [English, Thai] caption shown under the stars for each overall score. */
+const SCORE_CAPTIONS: Record<number, readonly [string, string]> = {
+  5: ['🌟 Very Satisfied (5/5)', '🌟 ยอดเยี่ยมมาก (5/5)'],
+  4: ['👍 Satisfied (4/5)', '👍 พึงพอใจดี (4/5)'],
+  3: ['👌 Neutral (3/5)', '👌 ปานกลาง (3/5)'],
+  2: ['👎 Unsatisfied (2/5)', '👎 ควรปรับปรุง (2/5)'],
+  1: ['⚠️ Very Unsatisfied (1/5)', '⚠️ ไม่พึงพอใจอย่างยิ่ง (1/5)'],
+};
+
+const STAR_VALUES = [1, 2, 3, 4, 5];
+
+const TOGGLE_BASE =
+  'flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold shadow-2xs transition';
+const TOGGLE_IDLE = 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100';
+const TOGGLE_YES_ACTIVE =
+  'border border-emerald-600 bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-300';
+const TOGGLE_NO_ACTIVE =
+  'border border-rose-600 bg-rose-600 text-white shadow-xs ring-2 ring-rose-300';
+
+function pick(lang: Language, en: string, th: string): string {
+  return lang === 'en' ? en : th;
+}
+
+const StarRating: React.FC<
+  Readonly<{ score: number; onChange: (score: number) => void; lang: Language }>
+> = ({ score, onChange, lang }) => {
+  const [captionEn, captionTh] = SCORE_CAPTIONS[score];
+  return (
+    <>
+      <div className="flex items-center justify-center gap-2">
+        {STAR_VALUES.map((star) => (
+          <button
+            key={star}
+            id={`btn-csat-star-${star}`}
+            type="button"
+            onClick={() => onChange(star)}
+            className="cursor-pointer p-1.5 transition duration-150 hover:scale-125"
+            title={`${star} / 5`}
+          >
+            <Star
+              className={`h-8 w-8 ${
+                star <= score ? 'fill-amber-400 text-amber-400 drop-shadow-xs' : 'text-slate-300'
+              }`}
+            />
+          </button>
+        ))}
+      </div>
+      <p className="mt-2.5 text-xs font-bold text-amber-800">{pick(lang, captionEn, captionTh)}</p>
+    </>
+  );
+};
+
+const ResolvedToggle: React.FC<
+  Readonly<{ resolved: boolean; onChange: (resolved: boolean) => void; lang: Language }>
+> = ({ resolved, onChange, lang }) => (
+  <div className="grid grid-cols-2 gap-3">
+    <button
+      type="button"
+      id="btn-resolved-yes"
+      onClick={() => onChange(true)}
+      className={`${TOGGLE_BASE} ${resolved ? TOGGLE_YES_ACTIVE : TOGGLE_IDLE}`}
+    >
+      <Check className="h-4 w-4" />
+      <span>{pick(lang, 'Yes', 'ใช่')}</span>
+    </button>
+
+    <button
+      type="button"
+      id="btn-resolved-no"
+      onClick={() => onChange(false)}
+      className={`${TOGGLE_BASE} ${resolved ? TOGGLE_IDLE : TOGGLE_NO_ACTIVE}`}
+    >
+      <X className="h-4 w-4" />
+      <span>{pick(lang, 'No', 'ไม่ใช่')}</span>
+    </button>
+  </div>
+);
+
+const CommentField: React.FC<
+  Readonly<{
+    id: string;
+    icon: React.ReactNode;
+    label: string;
+    placeholder: string;
+    value: string;
+    onChange: (value: string) => void;
+  }>
+> = ({ id, icon, label, placeholder, value, onChange }) => (
+  <div className="space-y-1.5">
+    <label
+      htmlFor={id}
+      className="block flex items-center gap-1.5 text-xs font-bold text-slate-800"
+    >
+      {icon}
+      <span>{label}</span>
+    </label>
+    <textarea
+      id={id}
+      rows={2}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs transition focus:ring-2 focus:ring-amber-500 focus:outline-none"
+    />
+  </div>
+);
+
+const SuccessPanel: React.FC<Readonly<{ lang: Language }>> = ({ lang }) => (
+  <div className="space-y-3 p-8 text-center">
+    <div className="mx-auto flex h-16 w-16 animate-bounce items-center justify-center rounded-full bg-emerald-100 text-emerald-600 shadow-xs">
+      <CheckCircle2 className="h-8 w-8" />
+    </div>
+    <h4 className="text-xl font-bold text-slate-900">
+      {pick(lang, 'Thank you for your valuable feedback!', 'ขอบคุณสำหรับทุกข้อเสนอแนะ!')}
+    </h4>
+    <p className="mx-auto max-w-sm text-xs text-slate-600">
+      {pick(
+        lang,
+        'Your rating has been saved and the ticket is now officially closed. Insights will be used for continuous organizational improvement.',
+        'ระบบได้บันทึกคะแนนความพึงพอใจและปิดเคสเรียบร้อยแล้ว ข้อมูลจะถูกนำไปวิเคราะห์เพื่อพัฒนาคุณภาพองค์กรอย่างต่อเนื่อง'
+      )}
+    </p>
+  </div>
+);
+
+const ModalHeader: React.FC<
+  Readonly<{ ticket: ComplaintTicket; onClose: () => void; lang: Language }>
+> = ({ ticket, onClose, lang }) => (
+  <div className="flex items-center justify-between bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-4 text-white">
+    <div className="flex items-center gap-2.5">
+      <div className="rounded-xl bg-white/20 p-2 backdrop-blur-xs">
+        <Star className="h-5 w-5 fill-white" />
+      </div>
+      <div>
+        <h3 className="text-base font-bold">
+          {pick(
+            lang,
+            'Customer Satisfaction Survey (CSAT)',
+            'แบบประเมินความพึงพอใจการให้บริการ (CSAT)'
+          )}
+        </h3>
+        <p className="text-xs text-amber-100">
+          {pick(lang, 'Tracking Code: ', 'รหัสคำร้อง: ')}
+          {ticket.trackingCode} ({ticket.title.substring(0, 30)}...)
+        </p>
+      </div>
+    </div>
+    <button
+      type="button"
+      id="btn-close-csat-modal"
+      onClick={onClose}
+      className="cursor-pointer rounded-lg p-1 text-white transition hover:bg-white/20"
+    >
+      <X className="h-5 w-5" />
+    </button>
+  </div>
+);
 
 export const SatisfactionModal: React.FC<Readonly<SatisfactionModalProps>> = ({
   ticket,
@@ -31,14 +189,18 @@ export const SatisfactionModal: React.FC<Readonly<SatisfactionModalProps>> = ({
   const [overallScore, setOverallScore] = useState<number>(5);
   const [isResolvedPermanently, setIsResolvedPermanently] = useState<boolean>(true);
   const [feedbackComment, setFeedbackComment] = useState<string>(
-    lang === 'en'
-      ? 'The assigned officer handled and resolved this issue promptly and professionally.'
-      : 'เจ้าหน้าที่ประสานงานแก้ไขปัญหาได้รวดเร็วและเป็นมืออาชีพมากครับ'
+    pick(
+      lang,
+      'The assigned officer handled and resolved this issue promptly and professionally.',
+      'เจ้าหน้าที่ประสานงานแก้ไขปัญหาได้รวดเร็วและเป็นมืออาชีพมากครับ'
+    )
   );
   const [improvementSuggestions, setImprovementSuggestions] = useState<string>(
-    lang === 'en'
-      ? 'Would love to receive simultaneous SMS or direct chat updates in addition to email.'
-      : 'อยากให้มีระบบอัปเดตแจ้งเตือนผ่าน SMS หรือ LINE Notify ควบคู่กันไปด้วยครับ'
+    pick(
+      lang,
+      'Would love to receive simultaneous SMS or direct chat updates in addition to email.',
+      'อยากให้มีระบบอัปเดตแจ้งเตือนผ่าน SMS หรือ LINE Notify ควบคู่กันไปด้วยครับ'
+    )
   );
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
@@ -89,50 +251,10 @@ export const SatisfactionModal: React.FC<Readonly<SatisfactionModalProps>> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/60 p-4 backdrop-blur-xs">
       <div className="animate-in fade-in zoom-in-95 w-full max-w-xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-4 text-white">
-          <div className="flex items-center gap-2.5">
-            <div className="rounded-xl bg-white/20 p-2 backdrop-blur-xs">
-              <Star className="h-5 w-5 fill-white" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold">
-                {lang === 'en'
-                  ? 'Customer Satisfaction Survey (CSAT)'
-                  : 'แบบประเมินความพึงพอใจการให้บริการ (CSAT)'}
-              </h3>
-              <p className="text-xs text-amber-100">
-                {lang === 'en' ? 'Tracking Code: ' : 'รหัสคำร้อง: '}
-                {ticket.trackingCode} ({ticket.title.substring(0, 30)}...)
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            id="btn-close-csat-modal"
-            onClick={onClose}
-            className="cursor-pointer rounded-lg p-1 text-white transition hover:bg-white/20"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+        <ModalHeader ticket={ticket} onClose={onClose} lang={lang} />
 
         {isSuccess ? (
-          <div className="space-y-3 p-8 text-center">
-            <div className="mx-auto flex h-16 w-16 animate-bounce items-center justify-center rounded-full bg-emerald-100 text-emerald-600 shadow-xs">
-              <CheckCircle2 className="h-8 w-8" />
-            </div>
-            <h4 className="text-xl font-bold text-slate-900">
-              {lang === 'en'
-                ? 'Thank you for your valuable feedback!'
-                : 'ขอบคุณสำหรับทุกข้อเสนอแนะ!'}
-            </h4>
-            <p className="mx-auto max-w-sm text-xs text-slate-600">
-              {lang === 'en'
-                ? 'Your rating has been saved and the ticket is now officially closed. Insights will be used for continuous organizational improvement.'
-                : 'ระบบได้บันทึกคะแนนความพึงพอใจและปิดเคสเรียบร้อยแล้ว ข้อมูลจะถูกนำไปวิเคราะห์เพื่อพัฒนาคุณภาพองค์กรอย่างต่อเนื่อง'}
-            </p>
-          </div>
+          <SuccessPanel lang={lang} />
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5 p-6">
             {/* Overall Satisfaction Rating - Single Rating Metric */}
@@ -140,129 +262,63 @@ export const SatisfactionModal: React.FC<Readonly<SatisfactionModalProps>> = ({
               <div className="mb-1.5 flex items-center justify-center gap-1.5">
                 <Sparkles className="h-4 w-4 animate-pulse text-amber-500" />
                 <label className="block text-xs font-bold tracking-wider text-amber-950 uppercase">
-                  {lang === 'en' ? 'Overall Satisfaction' : 'ความพึงพอใจภาพรวมทั้งหมด'}
+                  {pick(lang, 'Overall Satisfaction', 'ความพึงพอใจภาพรวมทั้งหมด')}
                 </label>
               </div>
               <p className="mb-2.5 text-[11px] text-amber-900/70">
-                {lang === 'en'
-                  ? 'Please rate your overall experience with the resolution process'
-                  : 'กรุณาให้คะแนนความพึงพอใจในภาพรวมต่อกระบวนการรับเรื่องและผลการแก้ไขปัญหา'}
+                {pick(
+                  lang,
+                  'Please rate your overall experience with the resolution process',
+                  'กรุณาให้คะแนนความพึงพอใจในภาพรวมต่อกระบวนการรับเรื่องและผลการแก้ไขปัญหา'
+                )}
               </p>
-
-              <div className="flex items-center justify-center gap-2">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    id={`btn-csat-star-${star}`}
-                    type="button"
-                    onClick={() => setOverallScore(star)}
-                    className="cursor-pointer p-1.5 transition duration-150 hover:scale-125"
-                    title={`${star} / 5`}
-                  >
-                    <Star
-                      className={`h-8 w-8 ${
-                        star <= overallScore
-                          ? 'fill-amber-400 text-amber-400 drop-shadow-xs'
-                          : 'text-slate-300'
-                      }`}
-                    />
-                  </button>
-                ))}
-              </div>
-              <p className="mt-2.5 text-xs font-bold text-amber-800">
-                {overallScore === 5 &&
-                  (lang === 'en' ? '🌟 Very Satisfied (5/5)' : '🌟 ยอดเยี่ยมมาก (5/5)')}
-                {overallScore === 4 &&
-                  (lang === 'en' ? '👍 Satisfied (4/5)' : '👍 พึงพอใจดี (4/5)')}
-                {overallScore === 3 && (lang === 'en' ? '👌 Neutral (3/5)' : '👌 ปานกลาง (3/5)')}
-                {overallScore === 2 &&
-                  (lang === 'en' ? '👎 Unsatisfied (2/5)' : '👎 ควรปรับปรุง (2/5)')}
-                {overallScore === 1 &&
-                  (lang === 'en' ? '⚠️ Very Unsatisfied (1/5)' : '⚠️ ไม่พึงพอใจอย่างยิ่ง (1/5)')}
-              </p>
+              <StarRating score={overallScore} onChange={setOverallScore} lang={lang} />
             </div>
 
             {/* Question 1: ปัญหาได้รับการแก้ไข ใช่หรือไม่ (คำตอบมีแค่คำว่า ใช่ และ ไม่ใช่) */}
             <div className="space-y-2.5 rounded-xl border border-slate-200 bg-slate-50/80 p-3.5">
               <label className="block text-xs font-bold text-slate-800">
-                {lang === 'en' ? '1. Was the issue resolved?' : '1. ปัญหาได้รับการแก้ไข ใช่หรือไม่'}{' '}
+                {pick(lang, '1. Was the issue resolved?', '1. ปัญหาได้รับการแก้ไข ใช่หรือไม่')}{' '}
                 <span className="text-rose-500">*</span>
               </label>
-
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  id="btn-resolved-yes"
-                  onClick={() => setIsResolvedPermanently(true)}
-                  className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold shadow-2xs transition ${
-                    isResolvedPermanently
-                      ? 'border border-emerald-600 bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-300'
-                      : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  <Check className="h-4 w-4" />
-                  <span>{lang === 'en' ? 'Yes' : 'ใช่'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  id="btn-resolved-no"
-                  onClick={() => setIsResolvedPermanently(false)}
-                  className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold shadow-2xs transition ${
-                    isResolvedPermanently
-                      ? 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
-                      : 'border border-rose-600 bg-rose-600 text-white shadow-xs ring-2 ring-rose-300'
-                  }`}
-                >
-                  <X className="h-4 w-4" />
-                  <span>{lang === 'en' ? 'No' : 'ไม่ใช่'}</span>
-                </button>
-              </div>
+              <ResolvedToggle
+                resolved={isResolvedPermanently}
+                onChange={setIsResolvedPermanently}
+                lang={lang}
+              />
             </div>
 
             {/* Question 2: ความคิดเห็นเพิ่มเติม */}
-            <div className="space-y-1.5">
-              <label className="block flex items-center gap-1.5 text-xs font-bold text-slate-800">
-                <MessageSquare className="h-3.5 w-3.5 text-indigo-600" />
-                <span>{lang === 'en' ? '2. Additional Comments' : '2. ความคิดเห็นเพิ่มเติม'}</span>
-              </label>
-              <textarea
-                id="input-csat-comment"
-                rows={2}
-                value={feedbackComment}
-                onChange={(e) => setFeedbackComment(e.target.value)}
-                placeholder={
-                  lang === 'en'
-                    ? 'Share your impressions, officer courtesy, or suggestions for service...'
-                    : 'ระบุความประทับใจ การให้บริการของเจ้าหน้าที่ หรือความคิดเห็นเพิ่มเติม...'
-                }
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs transition focus:ring-2 focus:ring-amber-500 focus:outline-none"
-              />
-            </div>
+            <CommentField
+              id="input-csat-comment"
+              icon={<MessageSquare className="h-3.5 w-3.5 text-indigo-600" />}
+              label={pick(lang, '2. Additional Comments', '2. ความคิดเห็นเพิ่มเติม')}
+              placeholder={pick(
+                lang,
+                'Share your impressions, officer courtesy, or suggestions for service...',
+                'ระบุความประทับใจ การให้บริการของเจ้าหน้าที่ หรือความคิดเห็นเพิ่มเติม...'
+              )}
+              value={feedbackComment}
+              onChange={setFeedbackComment}
+            />
 
             {/* Question 3: ข้อเสนอแนะเพื่อการพัฒนาองค์กรอย่างต่อเนื่อง */}
-            <div className="space-y-1.5">
-              <label className="block flex items-center gap-1.5 text-xs font-bold text-slate-800">
-                <Lightbulb className="h-3.5 w-3.5 text-amber-600" />
-                <span>
-                  {lang === 'en'
-                    ? '3. Continuous Improvement Suggestions'
-                    : '3. ข้อเสนอแนะเพื่อการพัฒนาองค์กรอย่างต่อเนื่อง'}
-                </span>
-              </label>
-              <textarea
-                id="input-csat-improvement"
-                rows={2}
-                value={improvementSuggestions}
-                onChange={(e) => setImprovementSuggestions(e.target.value)}
-                placeholder={
-                  lang === 'en'
-                    ? 'Any ideas to prevent recurrence or improve future organizational workflows?...'
-                    : 'ระบุข้อเสนอแนะเพื่อปรับปรุงกระบวนการทำงานและป้องกันปัญหาไม่ให้เกิดขึ้นซ้ำในอนาคต...'
-                }
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs transition focus:ring-2 focus:ring-amber-500 focus:outline-none"
-              />
-            </div>
+            <CommentField
+              id="input-csat-improvement"
+              icon={<Lightbulb className="h-3.5 w-3.5 text-amber-600" />}
+              label={pick(
+                lang,
+                '3. Continuous Improvement Suggestions',
+                '3. ข้อเสนอแนะเพื่อการพัฒนาองค์กรอย่างต่อเนื่อง'
+              )}
+              placeholder={pick(
+                lang,
+                'Any ideas to prevent recurrence or improve future organizational workflows?...',
+                'ระบุข้อเสนอแนะเพื่อปรับปรุงกระบวนการทำงานและป้องกันปัญหาไม่ให้เกิดขึ้นซ้ำในอนาคต...'
+              )}
+              value={improvementSuggestions}
+              onChange={setImprovementSuggestions}
+            />
 
             {/* Submit buttons */}
             <div className="flex items-center justify-end gap-3 pt-2">
@@ -272,7 +328,7 @@ export const SatisfactionModal: React.FC<Readonly<SatisfactionModalProps>> = ({
                 onClick={onClose}
                 className="cursor-pointer rounded-xl bg-slate-100 px-4 py-2.5 text-xs font-medium text-slate-700 transition hover:bg-slate-200"
               >
-                {lang === 'en' ? 'Cancel' : 'ยกเลิก'}
+                {pick(lang, 'Cancel', 'ยกเลิก')}
               </button>
               <button
                 type="submit"
@@ -282,9 +338,11 @@ export const SatisfactionModal: React.FC<Readonly<SatisfactionModalProps>> = ({
               >
                 <Send className="h-3.5 w-3.5" />
                 <span>
-                  {lang === 'en'
-                    ? 'Submit CSAT & Close Case'
-                    : 'ส่งแบบประเมินและปิดเรื่อง (Submit CSAT)'}
+                  {pick(
+                    lang,
+                    'Submit CSAT & Close Case',
+                    'ส่งแบบประเมินและปิดเรื่อง (Submit CSAT)'
+                  )}
                 </span>
               </button>
             </div>

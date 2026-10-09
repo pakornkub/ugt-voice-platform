@@ -245,8 +245,8 @@ const RecentSearchesPanelContent: React.FC<Readonly<Omit<RecentSearchesPanelProp
         onClose();
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    globalThis.addEventListener('keydown', handleKeyDown);
+    return () => globalThis.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
   const handleClearAll = () => {
@@ -254,7 +254,7 @@ const RecentSearchesPanelContent: React.FC<Readonly<Omit<RecentSearchesPanelProp
       'Are you sure you want to clear all tracking search history?',
       'คุณต้องการล้างประวัติการค้นหารหัสติดตามทั้งหมดใช่หรือไม่?'
     );
-    if (window.confirm(confirmMsg)) {
+    if (globalThis.confirm(confirmMsg)) {
       clearRecentSearches();
       setSearches([]);
     }
