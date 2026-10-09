@@ -48,6 +48,8 @@ export interface ShellData {
   notifications: NotificationItem[];
   rolePermissions: Record<UserRole, RolePermissionConfig>;
   gatekeeperConfigs: Record<GrievanceCategory, DepartmentGatekeeperConfig>;
+  /** Categories this user may triage as a gatekeeper — server-resolved (resolveViewer). */
+  gatekeeperCategories: GrievanceCategory[];
 }
 
 export interface ShellContextValue {
@@ -58,6 +60,7 @@ export interface ShellContextValue {
   notifications: NotificationItem[];
   rolePermissions: Record<UserRole, RolePermissionConfig>;
   gatekeeperConfigs: Record<GrievanceCategory, DepartmentGatekeeperConfig>;
+  gatekeeperCategories: GrievanceCategory[];
   recentSearchesCount: number;
   isRecentSearchesOpen: boolean;
   openRecentSearches: () => void;

@@ -10,12 +10,16 @@ import {
 import { INITIAL_ROLE_PERMISSIONS } from '@/services/api';
 import type { RolePermissionConfig, UserRole } from '@/types';
 
-const viewer = (role: UserRole, patch: Partial<RolePermissionConfig> = {}): TicketViewer => ({
-  userId: 'u1',
-  email: 'me@ube.co.th',
-  role,
-  config: { ...INITIAL_ROLE_PERMISSIONS[role], ...patch },
-});
+const viewer = (role: UserRole, patch: Partial<RolePermissionConfig> = {}): TicketViewer => {
+  const config = { ...INITIAL_ROLE_PERMISSIONS[role], ...patch };
+  return {
+    userId: 'u1',
+    email: 'me@ube.co.th',
+    role,
+    config,
+    gatekeeperCategories: gatekeeperDepartments(config),
+  };
+};
 
 const OWN = {
   OR: [{ loginEmail: 'me@ube.co.th' }, { loginEmail: null, submitterEmail: 'me@ube.co.th' }],

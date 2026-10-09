@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { GatekeeperInbox } from './GatekeeperInbox';
 import { INITIAL_COMPLAINTS, INITIAL_GATEKEEPER_CONFIGS } from '../mockData';
 import { updateTicketWorkflow } from '@/lib/actions/tickets';
-import { renderWithShell, withRoleConfig } from '@/test/shell';
+import { renderWithShell } from '@/test/shell';
 import type { ComplaintTicket, GrievanceCategory } from '../types';
 
 // Server Action stand-in: applies the updates like the DB row would.
@@ -23,8 +23,9 @@ const visibleCount = () => {
 const rowFor = (ticket: ComplaintTicket) =>
   screen.getByRole('button', { name: new RegExp(ticket.trackingCode) });
 
+// Server-resolved gatekeeper scope (resolveViewer → ShellContext.gatekeeperCategories).
 const gatekeeperDepartments = (departments: GrievanceCategory[]) => ({
-  rolePermissions: withRoleConfig('gatekeeper', { assignedDepartments: departments }),
+  gatekeeperCategories: departments,
 });
 
 const renderInbox = (

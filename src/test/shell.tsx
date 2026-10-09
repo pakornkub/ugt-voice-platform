@@ -5,6 +5,7 @@ import { vi } from 'vitest';
 import { ShellContext, type ShellContextValue } from '@/app/shell-context';
 import { INITIAL_COMPLAINTS, INITIAL_GATEKEEPER_CONFIGS } from '@/mockData';
 import { INITIAL_ROLE_PERMISSIONS } from '@/services/api';
+import { gatekeeperDepartments } from '@/lib/ticket-scope';
 import type { RolePermissionConfig, UserRole } from '@/types';
 
 export function makeShell(overrides: Partial<ShellContextValue> = {}): ShellContextValue {
@@ -21,6 +22,7 @@ export function makeShell(overrides: Partial<ShellContextValue> = {}): ShellCont
     notifications: [],
     rolePermissions: INITIAL_ROLE_PERMISSIONS,
     gatekeeperConfigs: INITIAL_GATEKEEPER_CONFIGS,
+    gatekeeperCategories: gatekeeperDepartments(INITIAL_ROLE_PERMISSIONS.gatekeeper),
     recentSearchesCount: 0,
     isRecentSearchesOpen: false,
     openRecentSearches: vi.fn(),

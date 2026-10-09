@@ -49,7 +49,7 @@ export default function Shell({
   // an admin from /admin/users; see docs/project-context/decisions.md.
   const currentRole = identity.appRole;
   // Server data (src/app/(shell)/layout.tsx); router.refresh() after a mutation brings the new state.
-  const { tickets, rolePermissions, gatekeeperConfigs } = data;
+  const { tickets, rolePermissions, gatekeeperConfigs, gatekeeperCategories } = data;
   const [, startTransition] = useTransition();
   // Read marks show instantly (upstream was synchronous) while the Server Action + refresh run.
   const [notifications, markReadOptimistic] = useOptimistic(data.notifications, markReadLocally);
@@ -180,6 +180,7 @@ export default function Shell({
         notifications: visibleNotifications,
         rolePermissions,
         gatekeeperConfigs,
+        gatekeeperCategories,
         recentSearchesCount,
         isRecentSearchesOpen,
         openRecentSearches,

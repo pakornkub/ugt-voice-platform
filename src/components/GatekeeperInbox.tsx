@@ -910,12 +910,12 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
   onSelectTicket,
   onTicketUpdated,
 }) => {
-  const { rolePermissions } = useShell();
+  const { rolePermissions, gatekeeperCategories } = useShell();
   const currentRoleConfig = rolePermissions[currentRole] || rolePermissions.gatekeeper;
   const isStrictGatekeeper = currentRole === 'gatekeeper';
   const canViewDirectCeo = currentRoleConfig?.canViewDirectCeoTickets ?? false;
-  const configuredDepts = isStrictGatekeeper ? currentRoleConfig?.assignedDepartments : undefined;
-  const assignedDepts: GrievanceCategory[] = configuredDepts?.length ? configuredDepts : ['HR'];
+  // Server-resolved (resolveViewer): today the RBAC page's assignedDepartments, empty → ['HR'].
+  const assignedDepts: GrievanceCategory[] = gatekeeperCategories;
 
   let defaultDept = 'ALL';
   if (isStrictGatekeeper && assignedDepts.length === 1) defaultDept = assignedDepts[0];

@@ -7,15 +7,12 @@ import { getUserPermissions, isAdminInitialized } from '@/lib/get-user-permissio
 import { ssoLogoutAction } from '@/lib/actions/auth';
 import { getRoleAccessConfigs } from '@/lib/actions/role-access';
 import { getDepartmentGatekeeperConfigs } from '@/lib/actions/gatekeeper';
-import { listVisibleNotifications, listVisibleTickets } from '@/lib/ticket-access';
-import type { UserRole } from '@/types';
+import { listVisibleNotifications, listVisibleTickets, resolveViewer } from '@/lib/ticket-access';
 import Shell from './shell';
 
 // Session-dependent data on every request (and some admin screens still read localStorage
 // during render until the rewiring finishes) — never prerender.
 export const dynamic = 'force-dynamic';
-
-const APP_ROLES: UserRole[] = ['employee', 'gatekeeper', 'executive', 'admin'];
 
 // ugt-nextjs-auth-setup (2026-09-02): session + first-admin gate for every
 // route under this shell. Real access control replaces the old free
@@ -29,24 +26,22 @@ export default async function ShellLayout({ children }: { children: React.ReactN
   // to go (see ugt-nextjs-auth-setup skill §5.5).
   if (!(await isAdminInitialized())) redirect('/admin/setup');
 
-  const [user, permissions] = await Promise.all([
+  // Role + ticket scope come from resolveViewer only (slice 2 swaps it to the people rosters).
+  const [user, permissions, viewer] = await Promise.all([
     prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { name: true, email: true, appRole: true, userRole: { select: { name: true } } },
+      select: { name: true, email: true, userRole: { select: { name: true } } },
     }),
     getUserPermissions(session.user.id),
+    resolveViewer(session),
   ]);
-
-  const appRole =
-    user?.appRole && APP_ROLES.includes(user.appRole as UserRole)
-      ? (user.appRole as UserRole)
-      : null;
+  const appRole = viewer?.role ?? null;
 
   // Not yet assigned an app-level role by an admin (SSO rows appear on first
   // login with no role — nothing to show until someone from /admin/users
   // assigns one). Renders outside <Shell> on purpose: allowedTabs has no
   // meaning for a null role, so there is nothing safe to show in Navbar/tabs.
-  if (!appRole) {
+  if (!viewer || !appRole) {
     const canManageUsers = permissions.includes('users:update');
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-50 px-4 text-center font-sans text-slate-900 antialiased">
@@ -88,17 +83,13 @@ export default async function ShellLayout({ children }: { children: React.ReactN
     getRoleAccessConfigs(),
     getDepartmentGatekeeperConfigs(),
   ]);
-  const tickets = await listVisibleTickets({
-    userId: session.user.id,
-    email: user?.email ?? session.user.email,
-    role: appRole,
-    config: rolePermissions[appRole],
-  });
+  const tickets = await listVisibleTickets(viewer);
   const notifications = await listVisibleNotifications(tickets.map((t) => t.id));
+  const { gatekeeperCategories } = viewer;
 
   return (
     <Shell
-      data={{ tickets, notifications, rolePermissions, gatekeeperConfigs }}
+      data={{ tickets, notifications, rolePermissions, gatekeeperConfigs, gatekeeperCategories }}
       identity={{
         name: user?.name ?? session.user.name,
         email: user?.email ?? session.user.email,

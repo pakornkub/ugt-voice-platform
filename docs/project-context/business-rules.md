@@ -21,12 +21,15 @@
 
 กติกาอยู่ที่ `lib/ticket-scope.ts` (pure, เทสต์ `lib/ticket-scope.test.ts`) — ใช้ทั้ง list ใน
 `src/app/(shell)/layout.tsx`, การค้นด้วยรหัสติดตาม และทุก Server Action ใน `lib/actions/tickets.ts`;
-role = `user.appRole`, flag มาจากแถว `RoleAccessConfigs` ของ role นั้น (ไม่มีแถว = เห็นแค่ของตัวเอง)
+role + หมวดของ gatekeeper มาจาก `resolveViewer()` (`lib/ticket-access.ts`) ที่เดียว — ตอนนี้ role =
+`user.appRole`, slice 2 เปลี่ยนเป็น roster (decisions 2026-10-09); flag มาจากแถว `RoleAccessConfigs`
+ของ role นั้น (ไม่มีแถว = เห็นแค่ของตัวเอง)
 
 - **ทุก role** เห็นคำร้องที่ตัวเองยื่น: `loginEmail` = อีเมล session (`submitTicket` ตั้งเองเสมอ
   ไม่เชื่อค่าจากฟอร์ม) หรือ `submitterEmail` บนแถวเก่าที่ไม่มี `loginEmail`
 - **employee**: เฉพาะของตัวเอง
-- **gatekeeper**: `assignedDepartments` (ว่าง → `['HR']` เหมือน GatekeeperInbox), เรื่องส่งตรง CEO
+- **gatekeeper**: `gatekeeperCategories` ของ viewer — ตอนนี้ = `assignedDepartments` ระดับ role (ว่าง →
+  `['HR']` เหมือน GatekeeperInbox; inbox ฝั่ง client ใช้ชุดเดียวกันผ่าน `ShellContext`), เรื่องส่งตรง CEO
   เฉพาะเมื่อมี `canViewDirectCeoTickets` — `canViewAllDepartments` ไม่มีผล (เหมือน UI upstream)
 - **executive / admin**: ทุกหน่วยงาน, เรื่องส่งตรง CEO ตาม `canViewDirectCeoTickets`
 - **notification**: เห็นเมื่อเห็นคำร้องของมัน (`TicketId`) + ฝั่ง client ยังซ่อน CEO alert จาก role ที่

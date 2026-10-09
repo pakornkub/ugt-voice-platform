@@ -7,7 +7,7 @@ import { headers } from 'next/headers';
 import type { Prisma } from '@prisma/client';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { ticketScopeWhere, type TicketViewer } from '@/lib/ticket-scope';
+import { gatekeeperDepartments, ticketScopeWhere, type TicketViewer } from '@/lib/ticket-scope';
 import { mapNotification, mapRoleAccessConfig, mapTicket } from '@/lib/actions/mappers';
 import type { ComplaintTicket, NotificationItem, UserRole } from '@/types';
 
@@ -24,24 +24,43 @@ export const TICKET_INCLUDE = {
   anonymousMessages: { where: { isDeleted: false }, orderBy: { createdAt: 'asc' as const } },
 } as const;
 
-/** The signed-in user as a ticket viewer, or null (no session / no app role yet). */
-export async function getTicketViewer(): Promise<TicketViewer | null> {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) return null;
+/**
+ * THE place that decides a signed-in user's app role and ticket scope — the (shell) layout, every
+ * ticket/notification read and every ticket Server Action go through it. Null = no app role yet.
+ *
+ * Today: role = `user.appRole` (set on /admin/users), gatekeeper categories = the RBAC page's
+ * role-level `assignedDepartments`.
+ * TODO(slice 2, decisions.md 2026-10-09 "App role comes from the people rosters"): replace this
+ * body only — match the session email (HR view CurrentEmail, fallback ADLoginName) against the
+ * rosters: active HrAdminMembers → admin > active ExecutiveMembers → executive > GatekeeperOfficers
+ * (any category) → gatekeeper > everyone else → employee; gatekeeperCategories = categories where
+ * the person is an officer ∩ gatekeeperDepartments(config). Callers need no change.
+ */
+export async function resolveViewer(session: {
+  user: { id: string; email: string };
+}): Promise<TicketViewer | null> {
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: { email: true, appRole: true },
   });
   if (!user || !isAppRole(user.appRole)) return null;
-  const config = await prisma.roleAccessConfig.findFirst({
+  const row = await prisma.roleAccessConfig.findFirst({
     where: { role: user.appRole, isDeleted: false },
   });
+  const config = row ? mapRoleAccessConfig(row) : undefined;
   return {
     userId: session.user.id,
     email: user.email,
     role: user.appRole,
-    config: config ? mapRoleAccessConfig(config) : undefined,
+    config,
+    gatekeeperCategories: gatekeeperDepartments(config),
   };
+}
+
+/** The current request's viewer (session from the request headers), or null. */
+export async function getTicketViewer(): Promise<TicketViewer | null> {
+  const session = await auth.api.getSession({ headers: await headers() });
+  return session ? resolveViewer(session) : null;
 }
 
 export async function requireTicketViewer(): Promise<TicketViewer> {

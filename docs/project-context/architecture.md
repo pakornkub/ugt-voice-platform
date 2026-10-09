@@ -39,9 +39,12 @@
   wrappers, and the localStorage data that has **not** moved to the DB yet: RBAC/gatekeeper/
   executive/HR-admin editors (slice 2), email settings + simulated dispatch log (slice 3),
   recent searches (per-device by design). Tickets + notifications left it on 2026-10-09 (slice 1).
-- `lib/ticket-scope.ts` (pure rules) + `lib/ticket-access.ts` (server-only: session → viewer,
-  scoped ticket/notification reads) — who sees / may change which ticket; used by the shell layout
-  and `lib/actions/tickets.ts|notifications.ts`. See business-rules.md.
+- `lib/ticket-scope.ts` (pure rules) + `lib/ticket-access.ts` (server-only: scoped
+  ticket/notification reads) — who sees / may change which ticket; used by the shell layout and
+  `lib/actions/tickets.ts|notifications.ts`. See business-rules.md. **`resolveViewer(session)`**
+  (`lib/ticket-access.ts`) is the single place that turns a session into role + RBAC config +
+  gatekeeper categories (the layout's `appRole` comes from it too) — slice 2 swaps its body for
+  the roster-based role (decisions.md 2026-10-09 "App role comes from the people rosters").
 - `src/services/sqliteDb.ts` — sql.js (SQLite-in-browser via WASM, binary fetched from a
   CDN) shadow copy of the tickets/officers/executives/notifications data, used only by
   `ExportAnalyticsModal`'s "SQL Query Studio" — not the source of truth.
@@ -293,7 +296,7 @@ up` testing.
 
 Live แล้ว (slice 1, 2026-10-09): `Tickets`/`TicketTimelineLogs`/`TicketEvaluations`/
 `TicketAnonymousMessages`/`Notifications` + อ่าน `RoleAccessConfigs`/`DepartmentGatekeeperConfigs`/
-`GatekeeperOfficers` · ยังไม่ live: การแก้ config/ผู้บริหาร/HR admin (slice 2), `Attachments` (slice 5)
+`GatekeeperOfficers` · ยังไม่ live: การแก้ config/ผู้บริหาร/HR admin (slice 2), `Attachments` (slice 4)
 
 ## ⚠ Deviations (2026-09-02, ทั้งหมดเป็นผลจากการ migrate Phase A ที่จงใจคงพฤติกรรมเดิมไว้ก่อน
 
@@ -301,7 +304,7 @@ Live แล้ว (slice 1, 2026-10-09): `Tickets`/`TicketTimelineLogs`/`TicketE
 
 - ⚠ deviation (**partly retired 2026-10-09** — tickets + notifications are live in SQL Server,
   slice 1; config editing/email/directory/attachments/SQL studio still localStorage until slices
-  2–6) (2026-09-02): มี schema/migration/seed/Server Actions (Prisma + SQL Server)
+  2–5) (2026-09-02): มี schema/migration/seed/Server Actions (Prisma + SQL Server)
   พร้อมแล้ว (`prisma/`, `lib/prisma.ts`, `src/lib/actions/`) แต่**ยังไม่ใช่ live persistence
   layer** — ทุก component ยังอ่าน/เขียน `localStorage` ผ่าน `src/services/api.ts` เหมือนเดิม —
   เหตุผล: (1) ยังไม่มี SQL Server จริงให้เชื่อมต่อ (รอ Admin/DBA ตาม

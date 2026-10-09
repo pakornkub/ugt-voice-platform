@@ -69,6 +69,7 @@ describe('getTicketViewer', () => {
       email: 'a@ube.co.th',
       role: 'gatekeeper',
       config: { allowedTabs: ['gatekeeper'], assignedDepartments: ['Quality'] },
+      gatekeeperCategories: ['Quality'],
     });
   });
 });

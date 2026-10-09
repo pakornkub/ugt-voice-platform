@@ -46,6 +46,7 @@ const renderShell = () =>
           notifications: [notification],
           rolePermissions: INITIAL_ROLE_PERMISSIONS,
           gatekeeperConfigs: INITIAL_GATEKEEPER_CONFIGS,
+          gatekeeperCategories: [],
         }}
       >
         <p>page</p>

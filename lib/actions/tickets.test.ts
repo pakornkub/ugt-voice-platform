@@ -38,6 +38,7 @@ const viewer = (role: UserRole): TicketViewer => ({
   email: `${role}@ube.co.th`,
   role,
   config: INITIAL_ROLE_PERMISSIONS[role],
+  gatekeeperCategories: ['HR'],
 });
 
 const NOW = new Date('2026-10-09T00:00:00Z');
