@@ -1,15 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, render } from '@testing-library/react';
+import { act, render, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SatisfactionModal } from './SatisfactionModal';
 import { LanguageProvider } from '../context/LanguageContext';
 import { INITIAL_COMPLAINTS } from '../mockData';
+import { submitEvaluation } from '@/lib/actions/tickets';
 import type { ComplaintTicket } from '../types';
 
 vi.mock('canvas-confetti', () => ({ default: vi.fn() }));
-vi.mock('../services/sqliteDb', () => ({
-  syncAllTicketsToSqlite: vi.fn().mockResolvedValue(undefined),
-}));
+vi.mock('@/lib/actions/tickets', () => ({ submitEvaluation: vi.fn() }));
 
 const ticket = INITIAL_COMPLAINTS.find((t) => t.status === 'resolved') as ComplaintTicket;
 const byId = (id: string) => document.getElementById(id) as HTMLElement;
@@ -28,6 +27,11 @@ describe('SatisfactionModal', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(submitEvaluation).mockImplementation(async (ticketId, evaluation) => ({
+      ...ticket,
+      status: 'closed',
+      evaluation: { ...evaluation, id: 'eval-1', ticketId, evaluatedAt: '2026-10-09T00:00:00Z' },
+    }));
   });
   afterEach(() => vi.useRealTimers());
 
@@ -57,6 +61,7 @@ describe('SatisfactionModal', () => {
     await user.click(byId('btn-csat-star-4'));
     await user.click(byId('btn-resolved-no'));
     await user.click(byId('btn-submit-csat'));
+    await waitFor(() => expect(submitEvaluation).toHaveBeenCalledTimes(1));
 
     // the completion callback fires after the 1.8s success animation
     expect(props.onEvaluationCompleted).not.toHaveBeenCalled();

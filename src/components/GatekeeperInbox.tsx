@@ -14,17 +14,24 @@ import {
   Lock,
   MessageSquare,
 } from 'lucide-react';
-import { ComplaintTicket, GrievanceCategory, TicketStatus, UserRole, UrgencyLevel } from '../types';
+import {
+  ComplaintTicket,
+  DepartmentGatekeeperConfig,
+  GrievanceCategory,
+  TicketStatus,
+  UserRole,
+  UrgencyLevel,
+} from '../types';
 import { CATEGORY_DEFINITIONS } from '../mockData';
 import {
   getStatusBadgeText,
   getStatusColor,
   getUrgencyBadgeText,
   getUrgencyColor,
-  updateTicketWorkflow,
-  getStoredGatekeeperConfigs,
-  getStoredRolePermissions,
+  logTicketResolvedEmail,
 } from '../services/api';
+import { updateTicketWorkflow } from '@/lib/actions/tickets';
+import { useShell } from '../app/shell-context';
 import { clickableProps } from './clickableProps';
 
 interface GatekeeperInboxProps {
@@ -511,8 +518,10 @@ const NEXT_TRIAGE_STATUS: Partial<Record<TicketStatus, TicketStatus>> = {
   gatekeeper_triaged: 'in_progress',
 };
 
-const buildTriageForm = (ticket: ComplaintTicket): TriageForm => {
-  const deptConfig = getStoredGatekeeperConfigs()[ticket.category];
+const buildTriageForm = (
+  ticket: ComplaintTicket,
+  deptConfig: DepartmentGatekeeperConfig | undefined
+): TriageForm => {
   const defaultOfficer = deptConfig?.leadOfficer || deptConfig?.officers?.[0];
   return {
     officerName: ticket.assignedOfficerName || defaultOfficer?.name || 'เจ้าหน้าที่ผู้รับผิดชอบ',
@@ -618,7 +627,7 @@ interface AssigneeFieldsProps {
 
 const AssigneeFields: React.FC<Readonly<AssigneeFieldsProps>> = ({ ticket, form, setField }) => {
   /* Fast selector from the configured department officers */
-  const officers = getStoredGatekeeperConfigs()[ticket.category]?.officers || [];
+  const officers = useShell().gatekeeperConfigs[ticket.category]?.officers || [];
   return (
     <div className="space-y-2 text-xs">
       {officers.length > 0 && (
@@ -732,13 +741,18 @@ interface TriageModalProps {
 }
 
 const TriageModal: React.FC<Readonly<TriageModalProps>> = ({ ticket, onClose, onSaved }) => {
-  const [form, setForm] = useState<TriageForm>(() => buildTriageForm(ticket));
+  const { gatekeeperConfigs } = useShell();
+  const [form, setForm] = useState<TriageForm>(() =>
+    buildTriageForm(ticket, gatekeeperConfigs[ticket.category])
+  );
+  const [isSaving, setIsSaving] = useState(false);
   const setField: SetTriageField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSaving) return;
     const isResolved = form.targetStatus === 'resolved';
-    const updated = updateTicketWorkflow(ticket.id, {
+    const updates = {
       status: form.targetStatus,
       urgency: form.urgency,
       riskSeverity: form.riskSeverity,
@@ -754,9 +768,20 @@ const TriageModal: React.FC<Readonly<TriageModalProps>> = ({ ticket, onClose, on
       preventiveActionPlan: form.preventivePlan,
       actorName: 'Gatekeeper Supervisor',
       actorRole: 'Gatekeeper Lead',
-    });
+    };
 
-    if (updated) onSaved(updated);
+    setIsSaving(true);
+    updateTicketWorkflow(ticket.id, updates)
+      .then((updated) => {
+        if (!updated) return;
+        logTicketResolvedEmail(updated, updates);
+        onSaved(updated);
+      })
+      .catch((error) => {
+        console.error('updateTicketWorkflow failed', error);
+        alert('บันทึกการอัปเดตไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+      })
+      .finally(() => setIsSaving(false));
   };
 
   return (
@@ -885,7 +910,7 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
   onSelectTicket,
   onTicketUpdated,
 }) => {
-  const rolePermissions = getStoredRolePermissions();
+  const { rolePermissions } = useShell();
   const currentRoleConfig = rolePermissions[currentRole] || rolePermissions.gatekeeper;
   const isStrictGatekeeper = currentRole === 'gatekeeper';
   const canViewDirectCeo = currentRoleConfig?.canViewDirectCeoTickets ?? false;

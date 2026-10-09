@@ -9,6 +9,7 @@ import { addRecentSearch, getRecentSearches } from '../services/api';
 function renderPanel(isOpen: boolean) {
   const props = {
     isOpen,
+    tickets: INITIAL_COMPLAINTS,
     onClose: vi.fn(),
     onSelectTicket: vi.fn(),
     onSearchAgain: vi.fn(),

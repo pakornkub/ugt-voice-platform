@@ -5,13 +5,14 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { getUserPermissions, isAdminInitialized } from '@/lib/get-user-permissions';
 import { ssoLogoutAction } from '@/lib/actions/auth';
+import { getRoleAccessConfigs } from '@/lib/actions/role-access';
+import { getDepartmentGatekeeperConfigs } from '@/lib/actions/gatekeeper';
+import { listVisibleNotifications, listVisibleTickets } from '@/lib/ticket-access';
 import type { UserRole } from '@/types';
 import Shell from './shell';
 
-// ponytail: every page under this shell reads localStorage synchronously during
-// render (unchanged from the original app), so none of them can be statically
-// prerendered — force client-only rendering here instead of touching every
-// component's data access.
+// Session-dependent data on every request (and some admin screens still read localStorage
+// during render until the rewiring finishes) — never prerender.
 export const dynamic = 'force-dynamic';
 
 const APP_ROLES: UserRole[] = ['employee', 'gatekeeper', 'executive', 'admin'];
@@ -81,8 +82,23 @@ export default async function ShellLayout({ children }: { children: React.ReactN
     );
   }
 
+  // Everything the shell's pages read, scoped to this user on the server (lib/ticket-scope.ts).
+  // Mutations call Server Actions and then router.refresh(), which re-runs this.
+  const [rolePermissions, gatekeeperConfigs] = await Promise.all([
+    getRoleAccessConfigs(),
+    getDepartmentGatekeeperConfigs(),
+  ]);
+  const tickets = await listVisibleTickets({
+    userId: session.user.id,
+    email: user?.email ?? session.user.email,
+    role: appRole,
+    config: rolePermissions[appRole],
+  });
+  const notifications = await listVisibleNotifications(tickets.map((t) => t.id));
+
   return (
     <Shell
+      data={{ tickets, notifications, rolePermissions, gatekeeperConfigs }}
       identity={{
         name: user?.name ?? session.user.name,
         email: user?.email ?? session.user.email,

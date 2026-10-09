@@ -25,7 +25,7 @@ import {
   Mail,
 } from 'lucide-react';
 import { UserRole, NotificationItem, AppTabId, RolePermissionConfig } from '../types';
-import { getStoredRolePermissions } from '../services/api';
+import { INITIAL_ROLE_PERMISSIONS } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 import type { ShellIdentity } from '../app/shell-context';
 import { ssoLogoutAction } from '@/lib/actions/auth';
@@ -123,7 +123,7 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
   const [isIdentityMenuOpen, setIsIdentityMenuOpen] = useState(false);
   const unreadCount = (notifications || []).filter((n) => !n.read).length;
 
-  const rolePermissions = propRolePermissions || getStoredRolePermissions();
+  const rolePermissions = propRolePermissions || INITIAL_ROLE_PERMISSIONS;
   const currentRoleConfig = rolePermissions[currentRole] || rolePermissions.employee;
   const allowedTabs: AppTabId[] = currentRoleConfig?.allowedTabs || [
     'submit',

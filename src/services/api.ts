@@ -4,9 +4,7 @@ import {
   ExecutiveMember,
   HrAdminMember,
   GrievanceCategory,
-  NotificationItem,
   RolePermissionConfig,
-  SatisfactionEvaluation,
   TabDefinition,
   TicketStatus,
   UserRole,
@@ -14,15 +12,8 @@ import {
   EmailNotificationSettings,
   EmailDispatchLog,
   RecentSearchItem,
-  AnonymousChatMessage,
 } from '../types';
-import {
-  INITIAL_COMPLAINTS,
-  INITIAL_NOTIFICATIONS,
-  CATEGORY_DEFINITIONS,
-  INITIAL_GATEKEEPER_CONFIGS,
-} from '../mockData';
-import { syncAllTicketsToSqlite } from './sqliteDb';
+import { CATEGORY_DEFINITIONS, INITIAL_GATEKEEPER_CONFIGS } from '../mockData';
 import { analyzeWithClientHeuristics } from './categoryHeuristics';
 import { safeStorage } from './safeStorage';
 import { env } from '@/lib/env';
@@ -57,8 +48,6 @@ export {
   EMPLOYEE_DATABASE,
 };
 
-const STORAGE_KEY_TICKETS = 'enterprise_grievance_tickets_v5';
-const STORAGE_KEY_NOTIFS = 'enterprise_grievance_notifs_v3';
 const STORAGE_KEY_GATEKEEPERS = 'enterprise_grievance_gatekeepers_v3';
 const STORAGE_KEY_RBAC = 'enterprise_grievance_rbac_permissions_v3';
 const STORAGE_KEY_ACTIVE_GK_DEPT = 'enterprise_grievance_active_gk_dept_v1';
@@ -669,92 +658,6 @@ export function resetHrAdminsToDefault(): HrAdminMember[] {
   return INITIAL_HR_ADMINS;
 }
 
-export function getStoredTickets(): ComplaintTicket[] {
-  try {
-    const data = safeStorage.getItem(STORAGE_KEY_TICKETS);
-    if (data) {
-      const tickets: ComplaintTicket[] = JSON.parse(data);
-      // Migrate legacy Environment category tickets if present
-      let migrated = false;
-      const sanitized = tickets.map((t) => {
-        if ((t.category as string) === 'Environment') {
-          migrated = true;
-          return {
-            ...t,
-            category: 'Compliance' as GrievanceCategory,
-            gatekeeperDepartment: 'Governance, Risk & Compliance Division',
-          };
-        }
-        return t;
-      });
-      if (migrated) {
-        safeStorage.setItem(STORAGE_KEY_TICKETS, JSON.stringify(sanitized));
-      }
-      return sanitized;
-    }
-  } catch (e) {
-    console.error('Failed to load tickets from localStorage', e);
-  }
-  safeStorage.setItem(STORAGE_KEY_TICKETS, JSON.stringify(INITIAL_COMPLAINTS));
-  return INITIAL_COMPLAINTS;
-}
-
-export const getTickets = getStoredTickets;
-
-export function getTicketByTrackingCode(trackingCode: string): ComplaintTicket | undefined {
-  const tickets = getStoredTickets();
-  return tickets.find((t) => t.trackingCode.toLowerCase() === trackingCode.trim().toLowerCase());
-}
-
-export function saveStoredTickets(tickets: ComplaintTicket[]) {
-  try {
-    safeStorage.setItem(STORAGE_KEY_TICKETS, JSON.stringify(tickets));
-    // Asynchronously synchronize SQLite relational database in browser
-    syncAllTicketsToSqlite(tickets).catch((err) => {
-      console.warn('SQLite sync warning:', err);
-    });
-  } catch (e) {
-    console.error('Failed to save tickets', e);
-  }
-}
-
-export function getStoredNotifications(): NotificationItem[] {
-  try {
-    const data = safeStorage.getItem(STORAGE_KEY_NOTIFS);
-    if (data) {
-      return JSON.parse(data);
-    }
-  } catch (e) {
-    console.error('Failed to load notifications from localStorage', e);
-  }
-  safeStorage.setItem(STORAGE_KEY_NOTIFS, JSON.stringify(INITIAL_NOTIFICATIONS));
-  return INITIAL_NOTIFICATIONS;
-}
-
-export function saveStoredNotifications(notifs: NotificationItem[]) {
-  try {
-    safeStorage.setItem(STORAGE_KEY_NOTIFS, JSON.stringify(notifs));
-  } catch (e) {
-    console.error('Failed to save notifications', e);
-  }
-}
-
-export const getNotifications = getStoredNotifications;
-
-export function markNotificationAsRead(id: string): NotificationItem[] {
-  const notifs = getStoredNotifications();
-  const updated = notifs.map((n) => (n.id === id ? { ...n, read: true } : n));
-  saveStoredNotifications(updated);
-  return updated;
-}
-
-export function markAllNotificationsAsRead(): NotificationItem[] {
-  const notifs = getStoredNotifications();
-  const updated = notifs.map((n) => ({ ...n, read: true }));
-  saveStoredNotifications(updated);
-  return updated;
-}
-
 // AI Smart Triage Assistant API Call
 export interface AICategorySuggestionResult {
   suggestedCategory: GrievanceCategory;
@@ -872,361 +775,32 @@ export async function getClusterInsightsWithAI(tickets: ComplaintTicket[]) {
   }
 }
 
-// Create new ticket with auto-generated tracking code & notifications
-export function submitTicket(
-  payload: Omit<
-    ComplaintTicket,
-    'id' | 'trackingCode' | 'createdAt' | 'updatedAt' | 'timeline' | 'status'
-  >
-): ComplaintTicket {
-  const tickets = getStoredTickets();
-  const notifs = getStoredNotifications();
-  const year = new Date().getFullYear();
-  const randomCode = Math.floor(1000 + Math.random() * 9000);
-  const trackingCode = `TK-${year}-${randomCode}`;
-  const now = new Date().toISOString();
-
-  // Perform backend mapping from employee database
-  const mapped = mapLoginEmailForTicket({
-    submitterEmail: payload.submitterEmail,
-    submitterEmployeeId: payload.submitterEmployeeId,
-    loginEmail: payload.loginEmail,
-    submitterName: payload.submitterName,
-  });
-
-  const isAnonymous = payload.confidentiality === 'anonymous';
-  const finalLoginEmail = payload.loginEmail || mapped.loginEmail;
-
-  const newTicket: ComplaintTicket = {
-    ...payload,
-    id: `tk-${Date.now()}`,
-    trackingCode,
-    status: 'submitted',
-    loginEmail: finalLoginEmail,
-    isAnonymousMapped: isAnonymous ? true : payload.isAnonymousMapped,
-    submitterEmail: payload.submitterEmail || finalLoginEmail,
-    createdAt: now,
-    updatedAt: now,
-    anonymousMessages: [],
-    timeline: [
-      {
-        id: `tl-${Date.now()}`,
-        timestamp: now,
-        actor: isAnonymous
-          ? 'พนักงานผู้ยื่นเรื่อง (ไม่ระบุตัวตน)'
-          : payload.submitterName || 'พนักงานผู้ยื่นเรื่อง',
-        actorRole: 'Employee',
-        action: payload.isDirectToExecutive
-          ? 'ยื่นเรื่องส่งตรงถึงผู้บริหารระดับสูง (CEO/EVP Whistleblower Channel)'
-          : 'ยื่นเรื่องเข้าระบบสำเร็จ',
-        status: 'submitted',
-        notes: isAnonymous
-          ? 'ยื่นเรื่องแบบไม่ระบุตัวตน (ระบบเชื่อมโยงอีเมลล็อกอินหลังบ้านจากฐานข้อมูลพนักงานเรียบร้อยแล้ว)'
-          : payload.isDirectToExecutive
-            ? 'ติดแท็กสำคัญพิเศษ: ส่งตรงถึงโต๊ะทำงานผู้บริหารระดับสูง'
-            : 'ระบบได้รับเรื่องและเข้าสู่คิวคัดกรองของ Gatekeeper',
-      },
-    ],
-  };
-
-  const updatedTickets = [newTicket, ...tickets];
-  saveStoredTickets(updatedTickets);
-
-  // Send notifications
-  const newNotifs: NotificationItem[] = [
-    {
-      id: `notif-${Date.now()}-1`,
-      ticketId: newTicket.id,
-      trackingCode: newTicket.trackingCode,
-      title: `ยื่นเรื่องสำเร็จ: ${newTicket.title.substring(0, 40)}...`,
-      message: `รหัสติดตามของคุณคือ ${newTicket.trackingCode} หน่วยงาน ${newTicket.gatekeeperDepartment} ได้รับเรื่องเข้าสู่ระบบเรียบร้อยแล้ว`,
-      timestamp: now,
-      read: false,
-      type: 'new_ticket',
-      recipientRole: 'employee',
-      recipientEmail: newTicket.submitterEmail,
-    },
-  ];
-
-  if (newTicket.isDirectToExecutive) {
-    newNotifs.push({
-      id: `notif-${Date.now()}-2`,
-      ticketId: newTicket.id,
-      trackingCode: newTicket.trackingCode,
-      title: `[CEO/EVP Alert] ข้อร้องเรียนสำคัญส่งตรงถึงผู้บริหาร`,
-      message: `เรื่อง: ${newTicket.title} (หมวดหมู่: ${newTicket.category}, ความเร่งด่วน: ${newTicket.urgency})`,
-      timestamp: now,
-      read: false,
-      type: 'direct_ceo_alert',
-      recipientRole: 'executive',
-    });
-  }
-
-  const updatedNotifs = [...newNotifs, ...notifs];
-  saveStoredNotifications(updatedNotifs);
-
-  // Automated Email Notification to Gatekeeper (if enabled)
+// Upstream's simulated email dispatch log (localStorage) — the ticket itself now lives in the DB
+// (lib/actions/tickets.ts), so the components call these after the Server Action returns.
+// Slice 3 of the rewiring moves delivery server-side (AppSettings + SMTP).
+export function logTicketSubmittedEmail(ticket: ComplaintTicket) {
   try {
-    dispatchEmailOnTicketSubmitted(newTicket);
+    dispatchEmailOnTicketSubmitted(ticket);
   } catch (emailErr) {
     console.warn('Auto email dispatch error on ticket submit:', emailErr);
   }
-
-  return newTicket;
 }
 
-// Update ticket status / Gatekeeper workflow
-export function updateTicketWorkflow(
-  ticketId: string,
-  updates: {
-    status?: TicketStatus;
-    assignedOfficerName?: string;
-    assignedOfficerEmail?: string;
-    gatekeeperDepartment?: string;
-    resolutionSummary?: string;
-    actionNote?: string;
-    actorName: string;
-    actorRole: string;
-    attachmentName?: string;
-    urgency?: UrgencyLevel;
-    riskSeverity?: ComplaintTicket['riskSeverity'];
-    rootCauseCategory?: ComplaintTicket['rootCauseCategory'];
-    preventiveActionPlan?: string;
-    clusterGroup?: string;
-  }
-): ComplaintTicket | null {
-  const tickets = getStoredTickets();
-  const notifs = getStoredNotifications();
-  const index = tickets.findIndex((t) => t.id === ticketId);
-  if (index === -1) return null;
-
-  const current = tickets[index];
-  const now = new Date().toISOString();
-  const newStatus = updates.status || current.status;
-
-  const newLog = {
-    id: `tl-${Date.now()}`,
-    timestamp: now,
-    actor: updates.actorName,
-    actorRole: updates.actorRole,
-    action: getActionLabelForStatus(newStatus, updates.actionNote),
-    status: newStatus,
-    notes: updates.actionNote,
-    attachmentName: updates.attachmentName,
-  };
-
-  const updatedTicket: ComplaintTicket = {
-    ...current,
-    ...updates,
-    status: newStatus,
-    updatedAt: now,
-    resolvedAt: newStatus === 'resolved' ? now : current.resolvedAt,
-    closedAt: newStatus === 'closed' ? now : current.closedAt,
-    timeline: [...current.timeline, newLog],
-  };
-
-  tickets[index] = updatedTicket;
-  saveStoredTickets(tickets);
-
-  // Trigger automated notification for employee
-  let notifType: NotificationItem['type'] = 'status_update';
-  let notifTitle = `อัปเดตความคืบหน้า (${updatedTicket.trackingCode})`;
-  let notifMsg = `เรื่องของคุณมีการเปลี่ยนสถานะเป็น "${getStatusBadgeText(newStatus)}" โดย ${updates.actorName}`;
-
-  if (newStatus === 'resolved') {
-    notifType = 'satisfaction_pending';
-    notifTitle = `แก้ไขเสร็จสิ้น: รหัส ${updatedTicket.trackingCode}`;
-    notifMsg = `หน่วยงานได้ดำเนินการแก้ไขปัญหาเรียบร้อยแล้ว กรุณาให้คะแนนประเมินความพึงพอใจเพื่อพัฒนาองค์กร`;
-  }
-
-  const notification: NotificationItem = {
-    id: `notif-${Date.now()}`,
-    ticketId: updatedTicket.id,
-    trackingCode: updatedTicket.trackingCode,
-    title: notifTitle,
-    message: notifMsg,
-    timestamp: now,
-    read: false,
-    type: notifType,
-    recipientRole: 'employee',
-    recipientEmail: updatedTicket.submitterEmail,
-  };
-
-  saveStoredNotifications([notification, ...notifs]);
-
-  // Automated Email Notification to Employee on Resolved (if enabled)
-  if (newStatus === 'resolved') {
-    try {
-      dispatchEmailOnTicketResolved(
-        updatedTicket,
-        updates.resolutionSummary ||
-          updates.actionNote ||
-          'ดำเนินการตรวจสอบและแก้ไขปัญหาเรียบร้อยตามมาตรฐานการปฏิบัติงาน',
-        updates.actorName || 'เจ้าหน้าที่ Gatekeeper'
-      );
-    } catch (emailErr) {
-      console.warn('Auto email dispatch error on ticket resolve:', emailErr);
-    }
-  }
-
-  return updatedTicket;
-}
-
-// Send anonymous 2-way chat message (Complainant <-> Gatekeeper/Executive)
-export function sendAnonymousChatMessage(
-  ticketId: string,
-  messageText: string,
-  senderRole: UserRole,
-  senderDisplayName?: string
-): ComplaintTicket | null {
-  const tickets = getStoredTickets();
-  const index = tickets.findIndex((t) => t.id === ticketId);
-  if (index === -1) return null;
-
-  const current = tickets[index];
-  const now = new Date().toISOString();
-  const isStaff =
-    senderRole === 'gatekeeper' || senderRole === 'executive' || senderRole === 'admin';
-
-  let defaultName = '';
-  if (senderRole === 'employee') {
-    defaultName =
-      current.confidentiality === 'anonymous' ||
-      current.confidentiality === 'confidential_restricted'
-        ? 'ผู้ยื่นเรื่อง (ไม่เปิดเผยตัวตน / Anonymous)'
-        : current.submitterName || 'ผู้ยื่นเรื่อง (Employee)';
-  } else if (senderRole === 'gatekeeper') {
-    defaultName = current.assignedOfficerName
-      ? `Gatekeeper (${current.assignedOfficerName})`
-      : `Gatekeeper ประจำฝ่าย ${current.gatekeeperDepartment || current.category}`;
-  } else if (senderRole === 'executive') {
-    defaultName = 'คณะกรรมการตรวจสอบ / ผู้บริหารระดับสูง (Audit Committee)';
-  } else {
-    defaultName = 'เจ้าหน้าที่ผู้ดูแลระบบ (System Admin)';
-  }
-
-  const finalSenderName = senderDisplayName || defaultName;
-
-  const newChatMsg: AnonymousChatMessage = {
-    id: `chat-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-    ticketId,
-    senderRole,
-    senderDisplayName: finalSenderName,
-    message: messageText.trim(),
-    timestamp: now,
-    isStaff,
-    isReadByEmployee: !isStaff,
-    isReadByStaff: isStaff,
-  };
-
-  const timelineEntry = {
-    id: `tl-chat-${Date.now()}`,
-    timestamp: now,
-    actor: finalSenderName,
-    actorRole:
-      senderRole === 'employee'
-        ? 'Employee'
-        : senderRole === 'executive'
-          ? 'Executive'
-          : 'Gatekeeper',
-    action: isStaff
-      ? 'เจ้าหน้าที่ส่งข้อความสอบถาม/ชี้แจงผ่านช่องทางนิรนาม'
-      : 'ผู้ยื่นเรื่องตอบกลับผ่านช่องทางสื่อสารนิรนาม',
-    status: current.status,
-    notes: `[Anonymous Q&A] ${messageText.length > 80 ? messageText.substring(0, 80) + '...' : messageText}`,
-  };
-
-  const existingMsgs = current.anonymousMessages || [];
-  const updatedTicket: ComplaintTicket = {
-    ...current,
-    updatedAt: now,
-    anonymousMessages: [...existingMsgs, newChatMsg],
-    timeline: [...current.timeline, timelineEntry],
-  };
-
-  tickets[index] = updatedTicket;
-  saveStoredTickets(tickets);
-
-  // Trigger Notification for the counterpart
-  const notifs = getStoredNotifications();
-  const notifItem: NotificationItem = {
-    id: `notif-chat-${Date.now()}`,
-    ticketId: current.id,
-    trackingCode: current.trackingCode,
-    title: isStaff
-      ? `[ข้อความใหม่จากเจ้าหน้าที่] ${current.trackingCode}`
-      : `[ข้อความใหม่จากผู้ร้องเรียน] ${current.trackingCode}`,
-    message: `${finalSenderName}: ${messageText.substring(0, 75)}${messageText.length > 75 ? '...' : ''}`,
-    timestamp: now,
-    read: false,
-    type: 'status_update',
-    recipientRole: isStaff ? 'employee' : 'gatekeeper',
-    recipientEmail: isStaff ? current.submitterEmail : undefined,
-  };
-  saveStoredNotifications([notifItem, ...notifs]);
-
-  return updatedTicket;
-}
-
-// Submit CSAT Satisfaction Evaluation
-export function submitEvaluation(
-  ticketId: string,
-  evaluationData: Omit<SatisfactionEvaluation, 'id' | 'ticketId' | 'evaluatedAt'>
-): ComplaintTicket | null {
-  const tickets = getStoredTickets();
-  const index = tickets.findIndex((t) => t.id === ticketId);
-  if (index === -1) return null;
-
-  const current = tickets[index];
-  const now = new Date().toISOString();
-  const evalObj: SatisfactionEvaluation = {
-    ...evaluationData,
-    id: `eval-${Date.now()}`,
-    ticketId,
-    evaluatedAt: now,
-  };
-
-  const newLog = {
-    id: `tl-${Date.now()}`,
-    timestamp: now,
-    actor:
-      current.confidentiality === 'anonymous'
-        ? 'พนักงานผู้แจ้ง'
-        : current.submitterName || 'พนักงาน',
-    actorRole: 'Employee',
-    action: `ประเมินความพึงพอใจ ${evaluationData.overallScore} ดาว และปิดเรื่อง (Closed)`,
-    status: 'closed' as TicketStatus,
-    notes: evaluationData.feedbackComment || 'ส่งผลประเมินความพึงพอใจเสร็จสิ้น',
-  };
-
-  const updatedTicket: ComplaintTicket = {
-    ...current,
-    status: 'closed',
-    evaluation: evalObj,
-    closedAt: now,
-    updatedAt: now,
-    timeline: [...current.timeline, newLog],
-  };
-
-  tickets[index] = updatedTicket;
-  saveStoredTickets(tickets);
-  return updatedTicket;
-}
-
-function getActionLabelForStatus(status: TicketStatus, note?: string) {
-  switch (status) {
-    case 'submitted':
-      return 'ยื่นเรื่องเข้าระบบ';
-    case 'gatekeeper_triaged':
-      return 'Gatekeeper รับเรื่องและคัดกรองผู้รับผิดชอบ';
-    case 'in_progress':
-      return 'อยู่ระหว่างลงพื้นที่และดำเนินการแก้ไข';
-    case 'resolved':
-      return 'ดำเนินการแก้ไขแล้วเสร็จ พร้อมส่งมอบงาน';
-    case 'closed':
-      return 'ปิดเรื่องและประเมินผลความพึงพอใจ';
-    default:
-      return note || 'อัปเดตข้อมูล';
+export function logTicketResolvedEmail(
+  ticket: ComplaintTicket,
+  updates: { resolutionSummary?: string; actionNote?: string; actorName?: string }
+) {
+  if (ticket.status !== 'resolved') return;
+  try {
+    dispatchEmailOnTicketResolved(
+      ticket,
+      updates.resolutionSummary ||
+        updates.actionNote ||
+        'ดำเนินการตรวจสอบและแก้ไขปัญหาเรียบร้อยตามมาตรฐานการปฏิบัติงาน',
+      updates.actorName || 'เจ้าหน้าที่ Gatekeeper'
+    );
+  } catch (emailErr) {
+    console.warn('Auto email dispatch error on ticket resolve:', emailErr);
   }
 }
 

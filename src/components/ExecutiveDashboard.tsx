@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { ComplaintTicket, GrievanceCategory, TicketStatus } from '../types';
 import { CATEGORY_DEFINITIONS } from '../mockData';
-import { getStoredRolePermissions } from '../services/api';
+import { useShell } from '../app/shell-context';
 import { mapLoginEmailForTicket } from '../services/employeeDirectory';
 import { Language, useLanguage } from '../context/LanguageContext';
 import { clickableProps } from './clickableProps';
@@ -1334,7 +1334,7 @@ const CsatReviews: React.FC<Readonly<CsatReviewsProps>> = ({ tickets, avgCsat })
 
 const SubmitterLine: React.FC<Readonly<{ ticket: ComplaintTicket }>> = ({ ticket: t }) => {
   const { lang } = useLanguage();
-  const executive = getStoredRolePermissions().executive;
+  const executive = useShell().rolePermissions.executive;
   const hasConfidential = executive?.canViewConfidentialIdentities ?? true;
   const canViewAnonEmail = executive?.canViewAnonymousSubmitterEmail ?? true;
 

@@ -1,30 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useOptimistic, useState, useTransition } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Navbar } from '@/components/Navbar';
 import { TrackingTimelineModal } from '@/components/TrackingTimelineModal';
 import { SatisfactionModal } from '@/components/SatisfactionModal';
 import { RecentSearchesPanel } from '@/components/RecentSearchesPanel';
 import { ExportAnalyticsModal } from '@/components/ExportAnalyticsModal';
-import {
-  AppTabId,
-  ComplaintTicket,
-  NotificationItem,
-  RolePermissionConfig,
-  UserRole,
-} from '@/types';
-import {
-  INITIAL_ROLE_PERMISSIONS,
-  getTickets,
-  getTicketByTrackingCode,
-  getNotifications,
-  markNotificationAsRead,
-  markAllNotificationsAsRead,
-  getStoredRolePermissions,
-  addRecentSearch,
-  getRecentSearches,
-} from '@/services/api';
+import { AppTabId, ComplaintTicket, NotificationItem } from '@/types';
+import { addRecentSearch, getRecentSearches } from '@/services/api';
+import { getTicketByTrackingCode } from '@/lib/actions/tickets';
+import { markAllNotificationsAsRead, markNotificationAsRead } from '@/lib/actions/notifications';
 import {
   FileText,
   ListChecks,
@@ -37,16 +23,23 @@ import {
   Smartphone,
   X,
 } from 'lucide-react';
-import { PATH_TO_TAB, ShellContext, ShellIdentity, TAB_TO_PATH } from '../shell-context';
+import { PATH_TO_TAB, ShellContext, ShellData, ShellIdentity, TAB_TO_PATH } from '../shell-context';
 import { clickableProps } from '@/components/clickableProps';
+
+type NotificationReadAction = { id: string } | 'all';
+
+const markReadLocally = (list: NotificationItem[], action: NotificationReadAction) =>
+  list.map((n) => (action === 'all' || n.id === action.id ? { ...n, read: true } : n));
 
 export default function Shell({
   identity,
+  data,
   children,
-}: {
+}: Readonly<{
   identity: ShellIdentity;
+  data: ShellData;
   children: React.ReactNode;
-}) {
+}>) {
   const router = useRouter();
   const pathname = usePathname();
   const activeTab = PATH_TO_TAB[pathname] || 'submit';
@@ -55,8 +48,11 @@ export default function Shell({
   // 2026-09-02) — no more free client-side role-switcher state. Assigned by
   // an admin from /admin/users; see docs/project-context/decisions.md.
   const currentRole = identity.appRole;
-  const [tickets, setTickets] = useState<ComplaintTicket[]>([]);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  // Server data (src/app/(shell)/layout.tsx); router.refresh() after a mutation brings the new state.
+  const { tickets, rolePermissions, gatekeeperConfigs } = data;
+  const [, startTransition] = useTransition();
+  // Read marks show instantly (upstream was synchronous) while the Server Action + refresh run.
+  const [notifications, markReadOptimistic] = useOptimistic(data.notifications, markReadLocally);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isMobileSimulator, setIsMobileSimulator] = useState(false);
 
@@ -68,29 +64,17 @@ export default function Shell({
   const [isRecentSearchesOpen, setIsRecentSearchesOpen] = useState(false);
   const [recentSearchesCount, setRecentSearchesCount] = useState(0);
 
-  // Seeded with the defaults (not getStoredRolePermissions()) so SSR and
-  // hydration markup match; refreshData() swaps in the stored matrix after mount.
-  const [rolePermissions, setRolePermissions] =
-    useState<Record<UserRole, RolePermissionConfig>>(INITIAL_ROLE_PERMISSIONS);
-
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const refreshRecentSearchesCount = () => {
     setRecentSearchesCount(getRecentSearches().length);
   };
 
-  const refreshData = () => {
-    setTickets(getTickets() || []);
-    setNotifications(getNotifications() || []);
-    setRolePermissions(getStoredRolePermissions());
-  };
+  const refreshData = () => router.refresh();
 
-  // localStorage is client-only: reading it after mount (not in useState)
-  // keeps SSR and hydration markup identical. Goes away with the
-  // localStorage → Server Action rewiring (.claude/state/handoff.md → Next).
+  // Recent searches stay per-device (localStorage) — read after mount so SSR and hydration match.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    refreshData();
     refreshRecentSearchesCount();
   }, []);
 
@@ -128,9 +112,7 @@ export default function Shell({
     showNotification(`อัปเดตสถานะคำร้อง ${updatedTicket.trackingCode} เรียบร้อยแล้ว`);
   };
 
-  const openTrackingByCode = (code: string) => {
-    const found = getTicketByTrackingCode(code);
-
+  const showTrackingResult = (code: string, found: ComplaintTicket | null) => {
     // Automatically log this search into recent searches
     addRecentSearch(code, found);
     refreshRecentSearchesCount();
@@ -143,19 +125,31 @@ export default function Shell({
     }
   };
 
+  // Looked up on the server: fresher than the loaded list, and an out-of-scope code answers
+  // "not found" exactly like an unknown one.
+  const openTrackingByCode = (code: string) => {
+    getTicketByTrackingCode(code)
+      .catch(() => null)
+      .then((found) => showTrackingResult(code, found));
+  };
+
   const openTracking = (ticket: ComplaintTicket) => setSelectedTicketForTracking(ticket);
   const openSatisfaction = (ticket: ComplaintTicket) => setSelectedTicketForSatisfaction(ticket);
 
+  const markRead = (action: NotificationReadAction) =>
+    startTransition(async () => {
+      markReadOptimistic(action);
+      await (action === 'all' ? markAllNotificationsAsRead() : markNotificationAsRead(action.id));
+      router.refresh();
+    });
+
   const handleNotificationClick = (item: NotificationItem) => {
-    const updated = markNotificationAsRead(item.id);
-    setNotifications(updated);
+    markRead({ id: item.id });
     setIsNotificationsOpen(false);
     openTrackingByCode(item.trackingCode);
   };
 
-  const handleMarkAllRead = () => {
-    setNotifications(markAllNotificationsAsRead());
-  };
+  const handleMarkAllRead = () => markRead('all');
 
   const openRecentSearches = () => {
     refreshRecentSearchesCount();
@@ -185,6 +179,7 @@ export default function Shell({
         tickets,
         notifications: visibleNotifications,
         rolePermissions,
+        gatekeeperConfigs,
         recentSearchesCount,
         isRecentSearchesOpen,
         openRecentSearches,
@@ -465,6 +460,7 @@ export default function Shell({
         {/* Recent tracking-code searches slide-over */}
         <RecentSearchesPanel
           isOpen={isRecentSearchesOpen}
+          tickets={tickets}
           onClose={() => {
             setIsRecentSearchesOpen(false);
             refreshRecentSearchesCount();

@@ -3,11 +3,11 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { EmployeeSubmitForm } from './EmployeeSubmitForm';
 import { LanguageProvider } from '../context/LanguageContext';
+import { submitTicket } from '@/lib/actions/tickets';
+import type { ComplaintTicket } from '../types';
 
-// saveStoredTickets mirrors into sql.js, which would fetch its WASM from a CDN
-vi.mock('../services/sqliteDb', () => ({
-  syncAllTicketsToSqlite: vi.fn().mockResolvedValue(undefined),
-}));
+// Server Action stand-in: echoes the payload back as the saved ticket.
+vi.mock('@/lib/actions/tickets', () => ({ submitTicket: vi.fn() }));
 vi.mock('../services/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../services/api')>()),
   suggestCategoryWithAI: vi.fn().mockResolvedValue({
@@ -45,6 +45,19 @@ function renderForm() {
 describe('EmployeeSubmitForm', () => {
   beforeEach(() => {
     localStorage.clear();
+    vi.mocked(submitTicket).mockImplementation(
+      async (payload) =>
+        ({
+          ...payload,
+          id: 'tk-new',
+          trackingCode: 'TK-2026-1234',
+          status: 'submitted',
+          timeline: [],
+          anonymousMessages: [],
+          createdAt: '2026-10-09T00:00:00.000Z',
+          updatedAt: '2026-10-09T00:00:00.000Z',
+        }) as ComplaintTicket
+    );
   });
 
   it('renders in Thai by default', () => {
@@ -90,7 +103,7 @@ describe('EmployeeSubmitForm', () => {
     await fill(user, 'input-ticket-description', 'รายละเอียดข้อเท็จจริงสำหรับการทดสอบระบบ');
     await user.click(byId('btn-submit-ticket-final'));
 
-    expect(onTicketCreated).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(onTicketCreated).toHaveBeenCalledTimes(1));
     const created = onTicketCreated.mock.calls[0][0];
     expect(created.confidentiality).toBe('standard_named');
     expect(created.urgency).toBe('Medium');
@@ -110,9 +123,28 @@ describe('EmployeeSubmitForm', () => {
     await fill(user, 'input-ticket-description', 'รายละเอียดลับ');
     await user.click(byId('btn-submit-ticket-final'));
 
+    await waitFor(() => expect(onTicketCreated).toHaveBeenCalledTimes(1));
     const created = onTicketCreated.mock.calls[0][0];
     expect(created.confidentiality).toBe('anonymous');
     expect(created.urgency).toBe('Critical');
+  });
+
+  it('tells the user and stays on the form when saving fails', async () => {
+    const user = userEvent.setup();
+    vi.mocked(submitTicket).mockRejectedValueOnce(new Error('UNAUTHORIZED'));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
+    const { onTicketCreated } = renderForm();
+
+    await fill(user, 'input-ticket-title', 'ปัญหาทดสอบ');
+    await fill(user, 'input-ticket-description', 'รายละเอียด');
+    await user.click(byId('btn-submit-ticket-final'));
+
+    await waitFor(() =>
+      expect(alertSpy).toHaveBeenCalledWith('ไม่สามารถบันทึกคำร้องได้ กรุณาลองใหม่อีกครั้ง')
+    );
+    expect(onTicketCreated).not.toHaveBeenCalled();
+    alertSpy.mockRestore();
   });
 
   it('asks for content first when the AI category helper runs on an empty form', async () => {

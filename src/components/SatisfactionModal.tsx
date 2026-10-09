@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { ComplaintTicket } from '../types';
-import { submitEvaluation } from '../services/api';
+import { submitEvaluation } from '@/lib/actions/tickets';
 import { useLanguage } from '../context/LanguageContext';
 
 interface SatisfactionModalProps {
@@ -47,9 +47,10 @@ export const SatisfactionModal: React.FC<Readonly<SatisfactionModalProps>> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setIsSubmitting(true);
 
-    const updated = submitEvaluation(ticket.id, {
+    submitEvaluation(ticket.id, {
       overallScore,
       speedRating: overallScore,
       resolutionQualityRating: overallScore,
@@ -58,27 +59,31 @@ export const SatisfactionModal: React.FC<Readonly<SatisfactionModalProps>> = ({
       isResolvedPermanently,
       feedbackComment,
       improvementSuggestions,
-    });
+    })
+      .then((updated) => {
+        if (updated) showSuccess(updated);
+      })
+      .catch((error) => console.error('submitEvaluation failed', error))
+      .finally(() => setIsSubmitting(false));
+  };
 
-    if (updated) {
-      // Trigger confetti celebration
-      try {
-        confetti({
-          particleCount: 80,
-          spread: 70,
-          origin: { y: 0.6 },
-        });
-      } catch (err) {
-        console.warn('Confetti error', err);
-      }
-
-      setIsSuccess(true);
-      setTimeout(() => {
-        onEvaluationCompleted(updated);
-        onClose();
-      }, 1800);
+  const showSuccess = (updated: ComplaintTicket) => {
+    // Trigger confetti celebration
+    try {
+      confetti({
+        particleCount: 80,
+        spread: 70,
+        origin: { y: 0.6 },
+      });
+    } catch (err) {
+      console.warn('Confetti error', err);
     }
-    setIsSubmitting(false);
+
+    setIsSuccess(true);
+    setTimeout(() => {
+      onEvaluationCompleted(updated);
+      onClose();
+    }, 1800);
   };
 
   return (

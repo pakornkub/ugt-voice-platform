@@ -3,17 +3,13 @@
 import React, { useState, useEffect } from 'react';
 import { History, Search, X, Trash2, Copy, Check, Clock, ArrowRight, Sparkles } from 'lucide-react';
 import { RecentSearchItem, ComplaintTicket, TicketStatus } from '../types';
-import {
-  getRecentSearches,
-  removeRecentSearch,
-  clearRecentSearches,
-  getTicketByTrackingCode,
-  getTickets,
-} from '../services/api';
+import { getRecentSearches, removeRecentSearch, clearRecentSearches } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 
 interface RecentSearchesPanelProps {
   isOpen: boolean;
+  /** Tickets the signed-in user may see (ShellContext) — recent-search lookups and samples. */
+  tickets: ComplaintTicket[];
   onClose: () => void;
   onSelectTicket: (ticket: ComplaintTicket) => void;
   onSearchAgain: (code: string) => void;
@@ -231,6 +227,7 @@ const EmptyHistory: React.FC<
 // Mounted only while open so the list is read from localStorage once per open
 // (useState initializer) instead of an effect that sets state on every open.
 const RecentSearchesPanelContent: React.FC<Readonly<Omit<RecentSearchesPanelProps, 'isOpen'>>> = ({
+  tickets,
   onClose,
   onSelectTicket,
   onSearchAgain,
@@ -279,7 +276,8 @@ const RecentSearchesPanelContent: React.FC<Readonly<Omit<RecentSearchesPanelProp
 
   const handleItemClick = (item: RecentSearchItem) => {
     const targetCode = item.trackingCode || item.query;
-    const ticket = getTicketByTrackingCode(targetCode);
+    const code = targetCode.trim().toLowerCase();
+    const ticket = tickets.find((t) => t.trackingCode.toLowerCase() === code);
     if (ticket) {
       onSelectTicket(ticket);
     } else {
@@ -294,7 +292,7 @@ const RecentSearchesPanelContent: React.FC<Readonly<Omit<RecentSearchesPanelProp
   };
 
   // Sample tickets for quick testing if history is empty
-  const activeTickets = getTickets().slice(0, 4);
+  const activeTickets = tickets.slice(0, 4);
 
   const filteredSearches = searches.filter((item) => {
     if (!filterQuery.trim()) return true;

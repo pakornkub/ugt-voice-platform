@@ -34,11 +34,12 @@ import {
 } from '../types';
 import { CATEGORY_DEFINITIONS } from '../mockData';
 import {
-  submitTicket,
   getUrgencyBadgeText,
   suggestCategoryWithAI,
   AICategorySuggestionResult,
+  logTicketSubmittedEmail,
 } from '../services/api';
+import { submitTicket } from '@/lib/actions/tickets';
 import { EMPLOYEE_DATABASE, getCurrentLoginEmployee } from '../services/employeeDirectory';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -293,6 +294,8 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
 
   // Created result
   const [createdTicket, setCreatedTicket] = useState<ComplaintTicket | null>(null);
+  // Guards double-submit while the Server Action runs (upstream saved synchronously).
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // AI Smart Category Assistant State (Section 5)
   const [isAnalyzingCategoryAI, setIsAnalyzingCategoryAI] = useState(false);
@@ -391,6 +394,7 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     if (!title.trim() || !description.trim()) {
       alert(
         lang === 'en'
@@ -414,7 +418,8 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
     const deptInfo = CATEGORY_DEFINITIONS[category];
     const isAnonymous = identityChoice === 'anonymous';
 
-    const newTicket = submitTicket({
+    setIsSubmitting(true);
+    submitTicket({
       type: submissionType,
       category,
       title,
@@ -438,10 +443,21 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
       riskSeverity,
       sentiment: submissionType === 'suggestion' ? 'Constructive' : 'Concerned',
       attachments,
-    });
-
-    setCreatedTicket(newTicket);
-    onTicketCreated(newTicket);
+    })
+      .then((newTicket) => {
+        logTicketSubmittedEmail(newTicket);
+        setCreatedTicket(newTicket);
+        onTicketCreated(newTicket);
+      })
+      .catch((error) => {
+        console.error('submitTicket failed', error);
+        alert(
+          lang === 'en'
+            ? 'Could not submit your ticket. Please try again.'
+            : 'ไม่สามารถบันทึกคำร้องได้ กรุณาลองใหม่อีกครั้ง'
+        );
+      })
+      .finally(() => setIsSubmitting(false));
   };
 
   const getCategoryIcon = (catKey: GrievanceCategory) => {

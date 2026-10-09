@@ -1,19 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { GatekeeperInbox } from './GatekeeperInbox';
-import { INITIAL_COMPLAINTS } from '../mockData';
-import {
-  getStoredGatekeeperConfigs,
-  getStoredRolePermissions,
-  saveStoredRolePermissions,
-} from '../services/api';
+import { INITIAL_COMPLAINTS, INITIAL_GATEKEEPER_CONFIGS } from '../mockData';
+import { updateTicketWorkflow } from '@/lib/actions/tickets';
+import { renderWithShell, withRoleConfig } from '@/test/shell';
 import type { ComplaintTicket, GrievanceCategory } from '../types';
 
-// updateTicketWorkflow mirrors tickets into sql.js, which loads WASM from a CDN.
-vi.mock('../services/sqliteDb', () => ({
-  syncAllTicketsToSqlite: vi.fn().mockResolvedValue(undefined),
-}));
+// Server Action stand-in: applies the updates like the DB row would.
+vi.mock('@/lib/actions/tickets', () => ({ updateTicketWorkflow: vi.fn() }));
 
 const directCeoTicket = INITIAL_COMPLAINTS.find((t) => t.isDirectToExecutive)!;
 const normalTicket = INITIAL_COMPLAINTS.find(
@@ -28,20 +23,20 @@ const visibleCount = () => {
 const rowFor = (ticket: ComplaintTicket) =>
   screen.getByRole('button', { name: new RegExp(ticket.trackingCode) });
 
-const setGatekeeperDepartments = (departments: GrievanceCategory[]) => {
-  const permissions = getStoredRolePermissions();
-  saveStoredRolePermissions({
-    ...permissions,
-    gatekeeper: { ...permissions.gatekeeper, assignedDepartments: departments },
-  });
-};
+const gatekeeperDepartments = (departments: GrievanceCategory[]) => ({
+  rolePermissions: withRoleConfig('gatekeeper', { assignedDepartments: departments }),
+});
 
 const renderInbox = (
   props: Partial<React.ComponentProps<typeof GatekeeperInbox>> = {},
-  tickets: ComplaintTicket[] = INITIAL_COMPLAINTS
+  tickets: ComplaintTicket[] = INITIAL_COMPLAINTS,
+  shell = {}
 ) => {
   const handlers = { onSelectTicket: vi.fn(), onTicketUpdated: vi.fn() };
-  const view = render(<GatekeeperInbox tickets={tickets} {...handlers} {...props} />);
+  const view = renderWithShell(
+    <GatekeeperInbox tickets={tickets} {...handlers} {...props} />,
+    shell
+  );
   return { ...handlers, ...view };
 };
 
@@ -49,7 +44,13 @@ describe('GatekeeperInbox', () => {
   // jsdom renders the full inbox; allow for slow CI workers.
   vi.setConfig({ testTimeout: 30000 });
 
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    vi.mocked(updateTicketWorkflow).mockImplementation(async (id, updates) => {
+      const ticket = INITIAL_COMPLAINTS.find((t) => t.id === id)!;
+      return { ...ticket, ...updates, status: updates.status ?? ticket.status };
+    });
+  });
 
   describe('direct-to-CEO isolation', () => {
     it('hides direct-to-CEO tickets from a gatekeeper and shows the isolated badge', () => {
@@ -83,8 +84,11 @@ describe('GatekeeperInbox', () => {
   describe('department scope', () => {
     it('falls back to the default department when the selected one leaves the assigned scope', async () => {
       const user = userEvent.setup({ delay: null });
-      setGatekeeperDepartments(['HR', 'Quality']);
-      const { rerender, onSelectTicket, onTicketUpdated } = renderInbox();
+      const { rerenderWithShell, onSelectTicket, onTicketUpdated } = renderInbox(
+        {},
+        INITIAL_COMPLAINTS,
+        gatekeeperDepartments(['HR', 'Quality'])
+      );
 
       await user.click(screen.getByRole('button', { name: /^Quality - / }));
       const qualityCount = INITIAL_COMPLAINTS.filter(
@@ -93,13 +97,13 @@ describe('GatekeeperInbox', () => {
       expect(visibleCount()).toBe(qualityCount);
 
       // Admin narrows the gatekeeper's scope to HR only while Quality is selected.
-      setGatekeeperDepartments(['HR']);
-      rerender(
+      rerenderWithShell(
         <GatekeeperInbox
           tickets={INITIAL_COMPLAINTS}
           onSelectTicket={onSelectTicket}
           onTicketUpdated={onTicketUpdated}
-        />
+        />,
+        gatekeeperDepartments(['HR'])
       );
 
       const hrCount = INITIAL_COMPLAINTS.filter(
@@ -111,8 +115,7 @@ describe('GatekeeperInbox', () => {
     });
 
     it('limits a gatekeeper to the assigned departments only', () => {
-      setGatekeeperDepartments(['Quality']);
-      renderInbox();
+      renderInbox({}, INITIAL_COMPLAINTS, gatekeeperDepartments(['Quality']));
 
       expect(visibleCount()).toBe(
         INITIAL_COMPLAINTS.filter((t) => t.category === 'Quality' && !t.isDirectToExecutive).length
@@ -235,7 +238,11 @@ describe('GatekeeperInbox', () => {
       await user.selectOptions(screen.getByLabelText(/Risk Severity/), 'Severe');
       await user.click(screen.getByRole('button', { name: /บันทึกการอัปเดต/ }));
 
-      expect(onTicketUpdated).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(onTicketUpdated).toHaveBeenCalledTimes(1));
+      expect(updateTicketWorkflow).toHaveBeenCalledWith(
+        normalTicket.id,
+        expect.objectContaining({ urgency: 'Critical', actorName: 'Gatekeeper Supervisor' })
+      );
       expect(onTicketUpdated.mock.calls[0][0]).toMatchObject({
         id: normalTicket.id,
         urgency: 'Critical',
@@ -259,6 +266,7 @@ describe('GatekeeperInbox', () => {
       await user.type(screen.getByLabelText(/Preventive Action Plan/), 'อบรมเพิ่มเติม');
       await user.click(screen.getByRole('button', { name: /บันทึกการอัปเดต/ }));
 
+      await waitFor(() => expect(onTicketUpdated).toHaveBeenCalledTimes(1));
       expect(onTicketUpdated.mock.calls[0][0]).toMatchObject({
         status: 'resolved',
         resolutionSummary: 'ซ่อมแซมเสร็จสิ้น',
@@ -272,7 +280,7 @@ describe('GatekeeperInbox', () => {
       renderInbox();
       await openTriage(user);
 
-      const officers = getStoredGatekeeperConfigs()[normalTicket.category].officers;
+      const officers = INITIAL_GATEKEEPER_CONFIGS[normalTicket.category].officers;
       const picked = officers[officers.length - 1];
       await user.click(screen.getByRole('button', { name: new RegExp(picked.name) }));
 

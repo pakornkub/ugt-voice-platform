@@ -4,6 +4,8 @@ import { createContext, useContext } from 'react';
 import {
   AppTabId,
   ComplaintTicket,
+  DepartmentGatekeeperConfig,
+  GrievanceCategory,
   NotificationItem,
   RolePermissionConfig,
   UserRole,
@@ -38,6 +40,16 @@ export interface ShellIdentity {
   permissions: string[];
 }
 
+/** Data the (shell) layout loads from the DB for the signed-in user (localStorage → DB rewiring, 2026-10-09). */
+export interface ShellData {
+  /** Only the tickets this user may see (lib/ticket-scope.ts). */
+  tickets: ComplaintTicket[];
+  /** Notifications of those tickets, unfiltered by canViewDirectCeoTickets. */
+  notifications: NotificationItem[];
+  rolePermissions: Record<UserRole, RolePermissionConfig>;
+  gatekeeperConfigs: Record<GrievanceCategory, DepartmentGatekeeperConfig>;
+}
+
 export interface ShellContextValue {
   currentRole: UserRole;
   identity: ShellIdentity;
@@ -45,12 +57,14 @@ export interface ShellContextValue {
   /** Already filtered by canViewDirectCeoTickets. */
   notifications: NotificationItem[];
   rolePermissions: Record<UserRole, RolePermissionConfig>;
+  gatekeeperConfigs: Record<GrievanceCategory, DepartmentGatekeeperConfig>;
   recentSearchesCount: number;
   isRecentSearchesOpen: boolean;
   openRecentSearches: () => void;
   closeRecentSearches: () => void;
   isMobileSimulator: boolean;
   activeTab: string;
+  /** Re-runs the server layout (router.refresh) so every page sees the latest DB state. */
   refreshData: () => void;
   navigateTab: (tab: string) => void;
   handleTicketCreated: (ticket: ComplaintTicket) => void;
