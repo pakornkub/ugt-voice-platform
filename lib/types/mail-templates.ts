@@ -221,7 +221,7 @@ function bannerHtml(banner: MailBannerSpec): string {
 
 function ctaHtml(cta: MailCtaSpec): string {
   return (
-    `<div style="margin-top:8px"><a href="{{${cta.urlToken}}}" target="_blank" ` +
+    `<div style="margin-top:8px"><a href="{{${cta.urlToken}}}" target="_blank" rel="noopener noreferrer" ` +
     `style="display:inline-block;background:${HEADER_COLOR};color:#fff;text-decoration:none;padding:9px 18px;border-radius:6px;font-size:13px;font-weight:600">` +
     `${cta.label}</a></div>`
   );

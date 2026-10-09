@@ -201,7 +201,7 @@ describe('rendering helpers', () => {
     expect(html).not.toContain('<script>');
     expect(html).toContain('&lt;script&gt;');
     expect(html).toContain('<br>line2 &amp; ');
-    expect(html).toContain(`<a href="${url}" target="_blank">${url}</a>`);
+    expect(html).toContain(`<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`);
   });
 
   it('renders without a link when no URL is given', () => {

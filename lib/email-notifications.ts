@@ -147,10 +147,11 @@ export function mailActorFor(viewer: Pick<TicketViewer, 'email' | 'role' | 'conf
   return { email: viewer.email, hasDevMode: keys.includes(PERMISSIONS.DEV_MODE) };
 }
 
-/** Absolute link for the mail — mail is opened outside the app, so a relative URL is useless. */
-/** Where the mail's link lands: the gatekeeper inbox for staff, the tracking page for submitters. */
+/** Absolute link for the mail (opened outside the app): the gatekeeper inbox for staff, the
+ * tracking page for submitters. */
 export function trackingUrlFor(page: '/gatekeeper' | '/my-tickets'): string {
-  const origin = (env.APP_URL || env.BETTER_AUTH_URL || '').replace(/\/+$/, '');
+  const base = env.APP_URL || env.BETTER_AUTH_URL;
+  const origin = base ? new URL(base).origin : ''; // drops any trailing slash, no regex needed
   return `${origin}${env.NEXT_PUBLIC_BASE_PATH}${page}`;
 }
 
@@ -159,7 +160,10 @@ export function renderBodyHtml(text: string, trackingUrl?: string): string {
   let html = escapeHtml(text.replaceAll('\r\n', '\n')).replaceAll('\n', '<br>');
   if (trackingUrl) {
     const url = escapeHtml(trackingUrl);
-    html = html.replaceAll(url, `<a href="${url}" target="_blank">${url}</a>`);
+    html = html.replaceAll(
+      url,
+      `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`
+    );
   }
   return `<div style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6;color:#374151">${html}</div>`;
 }
