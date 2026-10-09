@@ -80,7 +80,7 @@ export async function findEmployeeByCode(code: string): Promise<EmployeeRecord |
   return rows[0] ? toEmployeeRecord(rows[0]) : null;
 }
 
-/** Active employees matching name (TH/EN), code, email or department — for the roster pickers. */
+/** Active employees matching name (TH/EN), code, email / AD login, position or department — roster pickers. */
 export async function searchDirectory(query: string): Promise<EmployeeRecord[]> {
   const q = query.trim();
   if (q.length < 2) return [];
@@ -89,7 +89,8 @@ export async function searchDirectory(query: string): Promise<EmployeeRecord[]> 
     SELECT TOP (${SEARCH_LIMIT}) ${COLUMNS} FROM ${HR_VIEW}
     WHERE workstatus = 'Active'
       AND (FullNameThai LIKE ${pattern} OR FullNameEng LIKE ${pattern} OR EmpCode LIKE ${pattern}
-        OR CurrentEmail LIKE ${pattern} OR ADLoginName LIKE ${pattern} OR OrgNameThai LIKE ${pattern})
+        OR CurrentEmail LIKE ${pattern} OR ADLoginName LIKE ${pattern} OR PostNameEng LIKE ${pattern}
+        OR OrgNameThai LIKE ${pattern})
     ORDER BY FullNameEng`;
   return rows.map(toEmployeeRecord);
 }
@@ -140,7 +141,7 @@ export async function listDirectoryPage(
   const pattern = `%${escapeLike(q)}%`;
   const filter = q
     ? Prisma.sql`AND (FullNameThai LIKE ${pattern} OR FullNameEng LIKE ${pattern} OR EmpCode LIKE ${pattern}
-        OR CurrentEmail LIKE ${pattern} OR OrgNameThai LIKE ${pattern})`
+        OR CurrentEmail LIKE ${pattern} OR PostNameEng LIKE ${pattern} OR OrgNameThai LIKE ${pattern})`
     : Prisma.empty;
   const offset = Math.max(0, Math.floor(page)) * PAGE_SIZE;
   const [rows, count] = await Promise.all([

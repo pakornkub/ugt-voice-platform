@@ -400,7 +400,6 @@ const ExecutiveFormPanel: React.FC<ExecutiveFormPanelProps> = ({
           <HrNameField
             id="exec-form-name"
             required
-            placeholder={tr('e.g. Mr. Prasert Akradechanon', 'เช่น คุณประเสริฐ อัครเดชานนท์')}
             value={form.name}
             onChange={(value) => setForm((prev) => ({ ...prev, name: value, picked: false }))}
             onPick={pickEmployee}

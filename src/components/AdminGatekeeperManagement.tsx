@@ -1268,7 +1268,6 @@ const GatekeepersTab: React.FC<GatekeepersTabProps> = ({ panel, tickets, hrStatu
                   </label>
                   <HrNameField
                     id="input-new-officer-name"
-                    placeholder={tr('e.g. Kittisak Chaichana', 'เช่น คุณกิตติศักดิ์ ชัยชนะ')}
                     value={newOfficerName}
                     onChange={handleOfficerNameChange}
                     onPick={handlePickOfficer}
@@ -1676,7 +1675,6 @@ const ExecutivesTab: React.FC<ExecutivesTabProps> = ({ panel, executives, hrStat
                 </label>
                 <HrNameField
                   id="exec-name"
-                  placeholder={tr('e.g. Prasert Akkaradechanon', 'เช่น คุณประเสริฐ อัครเดชานนท์')}
                   value={execName}
                   onChange={handleExecNameChange}
                   onPick={handlePickExec}
@@ -2223,7 +2221,6 @@ const HrAdminsTab: React.FC<HrAdminsTabProps> = ({ panel, hrAdmins, hrStatus }) 
                 </label>
                 <HrNameField
                   id="admin-name"
-                  placeholder={tr('e.g. Chidchanok Wongprasert', 'เช่น คุณชิดชนก วงศ์ประเสริฐ')}
                   value={adminName}
                   onChange={handleAdminNameChange}
                   onPick={handlePickAdmin}

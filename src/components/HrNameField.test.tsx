@@ -57,5 +57,22 @@ describe('HrNameField', () => {
     await waitFor(() => expect(search).toHaveBeenCalledWith('outsider'));
     expect(screen.queryByRole('list')).toBeNull();
     expect(input).toHaveValue('outsider');
+    // A failed lookup says so instead of looking like "no HR search at all".
+    expect(await screen.findByRole('status')).toHaveTextContent('ค้นหาข้อมูล HR ไม่สำเร็จ');
+  });
+
+  it('reads as an HR search and says when nobody matches', async () => {
+    const search = vi.fn().mockResolvedValue([]);
+    render(
+      <LanguageProvider>
+        <Harness search={search} onPick={vi.fn()} />
+      </LanguageProvider>
+    );
+    const input = screen.getByRole('textbox');
+    expect(input).toHaveAttribute('placeholder', expect.stringContaining('ตำแหน่ง หรือหน่วยงาน'));
+    expect(screen.getByRole('status')).toHaveTextContent('พิมพ์อย่างน้อย 2 ตัวอักษร');
+    fireEvent.change(input, { target: { value: 'ไม่มีคนนี้' } });
+    expect(screen.getByRole('status')).toHaveTextContent('กำลังค้นหา');
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('ไม่พบในข้อมูล HR'));
   });
 });

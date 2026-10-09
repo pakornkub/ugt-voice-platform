@@ -70,6 +70,19 @@ describe('directory', () => {
     queryRaw.mockResolvedValue([row]);
     await expect(searchDirectory('ปก%')).resolves.toHaveLength(1);
     expect(boundValues()).toContain('%ปก[%]%');
+    // Owner request 2026-10-09: name TH/EN, code, email, AD login, position, department.
+    const sql = (queryRaw.mock.calls[0][0] as string[]).join('?');
+    for (const column of [
+      'FullNameThai',
+      'FullNameEng',
+      'EmpCode',
+      'CurrentEmail',
+      'ADLoginName',
+      'PostNameEng',
+      'OrgNameThai',
+    ]) {
+      expect(sql).toContain(`${column} LIKE`);
+    }
   });
 
   it('maps HR status per email, preferring an active row, and skips the query for no emails', async () => {

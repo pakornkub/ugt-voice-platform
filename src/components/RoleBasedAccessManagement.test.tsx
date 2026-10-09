@@ -288,7 +288,9 @@ describe('RoleBasedAccessManagement', () => {
       renderPage();
       await openAddForm(user);
 
-      const nameInput = screen.getByPlaceholderText('เช่น คุณประเสริฐ อัครเดชานนท์');
+      const nameInput = screen.getByPlaceholderText(
+        'พิมพ์ค้นหาจากข้อมูล HR: ชื่อไทย/อังกฤษ รหัสพนักงาน อีเมล ตำแหน่ง หรือหน่วยงาน'
+      );
       await user.type(nameInput, 'สมชาย');
       await user.click(
         await screen.findByRole('button', { name: /Somchai Jaidee/ }, { timeout: 5000 })
@@ -317,7 +319,9 @@ describe('RoleBasedAccessManagement', () => {
       await openAddForm(user);
 
       await user.type(
-        screen.getByPlaceholderText('เช่น คุณประเสริฐ อัครเดชานนท์'),
+        screen.getByPlaceholderText(
+          'พิมพ์ค้นหาจากข้อมูล HR: ชื่อไทย/อังกฤษ รหัสพนักงาน อีเมล ตำแหน่ง หรือหน่วยงาน'
+        ),
         'คุณใหม่ ล่าสุด'
       );
       await user.type(screen.getByPlaceholderText('เช่น Chief Executive Officer (CEO)'), 'CFO');
@@ -340,7 +344,12 @@ describe('RoleBasedAccessManagement', () => {
       renderPage();
       await openAddForm(user);
 
-      await user.type(screen.getByPlaceholderText('เช่น คุณประเสริฐ อัครเดชานนท์'), 'คุณใหม่');
+      await user.type(
+        screen.getByPlaceholderText(
+          'พิมพ์ค้นหาจากข้อมูล HR: ชื่อไทย/อังกฤษ รหัสพนักงาน อีเมล ตำแหน่ง หรือหน่วยงาน'
+        ),
+        'คุณใหม่'
+      );
       await user.type(screen.getByPlaceholderText('เช่น Chief Executive Officer (CEO)'), 'CFO');
       await user.type(screen.getByPlaceholderText('executive@enterprise.co.th'), 'new@ube.co.th');
       await user.click(document.getElementById('btn-save-exec-in-box') as HTMLElement);
@@ -536,7 +545,12 @@ describe('RoleBasedAccessManagement', () => {
 
       await user.click(document.getElementById('btn-toggle-add-exec-form') as HTMLElement);
       expect(screen.getByText('Add a new senior executive')).toBeInTheDocument();
-      await user.type(screen.getByPlaceholderText('e.g. Mr. Prasert Akradechanon'), 'Mr. New');
+      await user.type(
+        screen.getByPlaceholderText(
+          'Search the HR directory: Thai/English name, employee code, email, position or department'
+        ),
+        'Mr. New'
+      );
       await user.type(screen.getByPlaceholderText('e.g. Chief Executive Officer (CEO)'), 'CFO');
       await user.type(screen.getByPlaceholderText('executive@enterprise.co.th'), 'new@ube.co.th');
       await user.click(document.getElementById('btn-save-exec-in-box') as HTMLElement);

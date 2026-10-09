@@ -513,7 +513,10 @@ describe('AdminGatekeeperManagement', () => {
       await user.click(byId('btn-add-executive-toggle'));
       expect(screen.getByText('Register New Senior Executive')).toBeInTheDocument();
       expect(screen.getByText('Receive Whistleblower direct cases')).toBeInTheDocument();
-      expect(byId('exec-name')).toHaveAttribute('placeholder', 'e.g. Prasert Akkaradechanon');
+      expect(byId('exec-name')).toHaveAttribute(
+        'placeholder',
+        'Search the HR directory: Thai/English name, employee code, email, position or department'
+      );
       expect(screen.getByRole('option', { name: 'Board Member' })).toBeInTheDocument();
       expect(screen.queryByText('ลงทะเบียนผู้บริหารระดับสูงท่านใหม่')).toBeNull();
 
