@@ -50,19 +50,15 @@ interface HrNameFieldProps {
 function StatusLine({ status, lang }: Readonly<{ status: Status; lang: 'th' | 'en' }>) {
   if (status === 'searching') {
     return (
-      <p role="status" className="mt-1 flex items-center gap-1 text-[11px] text-slate-500">
+      <output className="mt-1 flex items-center gap-1 text-[11px] text-slate-500">
         <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
         {COPY.searching[lang]}
-      </p>
+      </output>
     );
   }
   const tone = status === 'failed' ? 'text-amber-700' : 'text-slate-500';
   const text = status === 'idle' ? COPY.hint[lang] : COPY[status][lang];
-  return (
-    <p role="status" className={`mt-1 text-[11px] ${tone}`}>
-      {text}
-    </p>
-  );
+  return <output className={`mt-1 block text-[11px] ${tone}`}>{text}</output>;
 }
 
 export default function HrNameField({

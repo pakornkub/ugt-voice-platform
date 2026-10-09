@@ -7,9 +7,8 @@ import { useTr } from '@/context/useTr';
 export function DevEnvironmentBar() {
   const { tr } = useTr();
   return (
-    <div
+    <output
       id="dev-environment-bar"
-      role="status"
       className="flex items-center justify-center gap-2 bg-amber-400 px-4 py-1.5 text-center text-xs font-semibold text-amber-950"
     >
       <FlaskConical className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -19,6 +18,6 @@ export function DevEnvironmentBar() {
           'สภาพแวดล้อมทดสอบ (DEV) — ข้อมูลในระบบนี้ไม่ใช่ข้อมูลจริง และอีเมลทุกฉบับจะส่งกลับหาผู้ทดสอบ'
         )}
       </span>
-    </div>
+    </output>
   );
 }
