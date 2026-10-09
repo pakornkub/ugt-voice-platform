@@ -204,3 +204,21 @@ describe('getStatusBadgeText', () => {
     expect(getStatusBadgeText('in_progress')).toContain('กำลังแก้ไข');
   });
 });
+
+describe('recent searches', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('removes only the chosen item even when two are added in the same millisecond', async () => {
+    const { addRecentSearch, removeRecentSearch, getRecentSearches } = await import('./api');
+    vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    addRecentSearch('TK-AAA-1111', undefined);
+    addRecentSearch('TK-BBB-2222', undefined);
+    vi.restoreAllMocks();
+
+    const [first, second] = getRecentSearches();
+    expect(first.id).not.toBe(second.id);
+    removeRecentSearch(getRecentSearches().find((s) => s.query === 'TK-AAA-1111')!.id);
+    expect(getRecentSearches().map((s) => s.query)).toEqual(['TK-BBB-2222']);
+  });
+});

@@ -41,6 +41,11 @@ import {
 // plain fetch('/api/...') and hand-built URLs don't get it added automatically.
 const BASE_PATH = env.NEXT_PUBLIC_BASE_PATH;
 
+// Collision-free local id. Upstream used `${Date.now()}-${random 0-999}`, which repeats when two
+// items are created in the same millisecond — removing one recent search then removed both.
+const uniqueId = (prefix: string): string =>
+  `${prefix}-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+
 export {
   mapLoginEmailForTicket,
   getAllEmployees,
@@ -1501,7 +1506,7 @@ export function dispatchEmailOnTicketSubmitted(ticket: ComplaintTicket): EmailDi
   const body = interpolateEmailTemplate(settings.onTicketSubmitted.body, vars);
 
   const log: EmailDispatchLog = {
-    id: `elog-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    id: uniqueId('elog'),
     timestamp: new Date().toISOString(),
     trigger: 'ticket_submitted',
     ticketId: ticket.id,
@@ -1554,7 +1559,7 @@ export function dispatchEmailOnTicketResolved(
   const body = interpolateEmailTemplate(settings.onTicketResolved.body, vars);
 
   const log: EmailDispatchLog = {
-    id: `elog-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    id: uniqueId('elog'),
     timestamp: new Date().toISOString(),
     trigger: 'ticket_resolved',
     ticketId: ticket.id,
@@ -1606,7 +1611,7 @@ export function sendTestEmailNotification(
   const body = interpolateEmailTemplate(template.body, testVars);
 
   const log: EmailDispatchLog = {
-    id: `elog-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    id: uniqueId('elog'),
     timestamp: new Date().toISOString(),
     trigger: 'test_dispatch',
     ticketId: 'TK-2026-TEST',
@@ -1661,7 +1666,7 @@ export function addRecentSearch(query: string, ticket?: ComplaintTicket | null):
   );
 
   const newItem: RecentSearchItem = {
-    id: `search-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    id: uniqueId('search'),
     query: trimmed,
     timestamp: new Date().toISOString(),
     ticketId: ticket?.id,

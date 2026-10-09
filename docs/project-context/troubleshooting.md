@@ -85,3 +85,8 @@ sqlserver`** → `migration_lock.toml` was hand-written during the offline migra
 - **Offline `prisma migrate diff … > migration.sql` contains `◇ injected env (N) from .env…` lines**
   → dotenv ≥ 17 logs to STDOUT from `prisma.config.ts` → `config({ quiet: true })` (kit 4.63
   fix), delete the stray lines (2026-10-09)
+- **Jenkins Unit Tests flake: `RecentSearchesPanel … removes a single history item` → expected [] to
+  equal ['TK-BBB-2222']** → real (upstream) bug: recent-search / email-log ids were
+  `${Date.now()}-${random 0-999}`, so two items created in the same millisecond could share an id
+  and removing one removed both → `uniqueId()` in `src/services/api.ts` (`crypto.randomUUID`) +
+  regression test in `src/services/api.test.ts` (2026-10-09)
