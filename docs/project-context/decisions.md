@@ -641,3 +641,29 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   Interim limit: the RBAC matrix (still localStorage) drives menus; server guards follow the app
   role until the DB rewiring lets them read `RoleAccessConfigs` · rejected: keeping both systems
   (two places to grant access, duplicate screens).
+- 2026-10-09 **App role comes from the people rosters, not a per-user dropdown** (owner
+  decision) — supersedes the `/admin/users` app-role dropdown part of the "One permission
+  system" entry above. Three layers: (1) _who_ = HR view `vwHR_SC_Employee` (read-only, search
+  only); (2) _role_ = the three rosters the upstream Gatekeeper-management page already has —
+  in `HrAdminMembers` (active) → `admin`, in `ExecutiveMembers` (active) → `executive`, in
+  `GatekeeperOfficers` of any category → `gatekeeper`, anyone else who can log in via SSO
+  → `employee` (incl. people not in the HR view, e.g. contractors); highest wins
+  (admin > executive > gatekeeper > employee); matched on the session email (view
+  `CurrentEmail`, fallback `ADLoginName`) and resolved on every page load, so a role can be
+  granted before the person's first login and takes effect on their next navigation;
+  (3) _what the role may do_ = the RBAC page matrix (`RoleAccessConfigs`), unchanged.
+  UX stays upstream's: the "name" field in the four roster forms (GK officer, executive —
+  both sub-tab and RBAC-page box — and HR admin) becomes an HR-view search that fills
+  name/email/position/department (email locked when picked); "กรอกเอง" stays for outsiders
+  (badge "ไม่อยู่ใน HR", mail only — no SSO); rows whose person is no longer Active in the
+  view get a warning badge. Gatekeeper category scope = categories where the person is an
+  officer ∩ the RBAC page's role-level `assignedDepartments` checkboxes (kept as a ceiling /
+  master switch; roster rows in a disabled category get a warning badge); the inbox chips
+  show only that set. `/admin/users` becomes read-only (role + source roster). `/admin/setup`
+  adds the first admin to `HrAdminMembers` (Super Admin, details from the HR view). Guards:
+  cannot remove/deactivate yourself or the last active HR admin. HR-admin `roleLevel` and
+  `canManage*` flags stay informational, as upstream (option ก) — revisit if admin duties must
+  be split. RBAC page's employee table reads the HR view (search + paging, still read-only).
+  Lands with the localStorage → Server Action rewiring (rosters must be read from the DB) ·
+  rejected: per-user role dropdown (only users who already logged in, and a second source of
+  truth beside the rosters); dropping the RBAC category checkboxes (diverges from upstream).
