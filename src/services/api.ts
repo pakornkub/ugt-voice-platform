@@ -43,8 +43,8 @@ const BASE_PATH = env.NEXT_PUBLIC_BASE_PATH;
 
 // Collision-free local id. Upstream used `${Date.now()}-${random 0-999}`, which repeats when two
 // items are created in the same millisecond — removing one recent search then removed both.
-const uniqueId = (prefix: string): string =>
-  `${prefix}-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+// crypto.randomUUID exists in every place this runs (HTTPS/localhost browsers, Node 22, jsdom).
+const uniqueId = (prefix: string): string => `${prefix}-${globalThis.crypto.randomUUID()}`;
 
 export {
   mapLoginEmailForTicket,
