@@ -159,7 +159,7 @@ type Template = readonly [segments: readonly string[], build: (...captured: stri
 
 const matchTemplate = (text: string, segments: readonly string[]): string[] | null => {
   const head = segments[0];
-  const tail = segments[segments.length - 1];
+  const tail = segments.at(-1) ?? '';
   const end = text.length - tail.length;
   if (end < head.length || !text.startsWith(head) || !text.endsWith(tail)) return null;
   const captured: string[] = [];

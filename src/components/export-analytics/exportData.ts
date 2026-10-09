@@ -122,10 +122,17 @@ const YES_NO_LABELS: Record<'yes' | 'no', Bilingual> = {
 
 const ANONYMOUS_SUBMITTER: Bilingual = { th: 'ปกปิด (Anonymous)', en: 'Anonymous' };
 
-/** Department names carry their Thai name in trailing parentheses; English output drops it. */
-const THAI_PARENTHESES = /\s*\([^)]*[\u0E00-\u0E7F][^)]*\)\s*$/;
-const departmentLabel = (name: string, lang: Language) =>
-  lang === 'en' ? name.replace(THAI_PARENTHESES, '') : name;
+const THAI_CHAR = /[\u0E00-\u0E7F]/;
+
+/** Department names carry their Thai name in trailing parentheses; English output drops it.
+ * Plain string search \u2014 no backtracking regex over free text (Sonar S5852). */
+const departmentLabel = (name: string, lang: Language) => {
+  const trimmed = name.trimEnd();
+  const open = trimmed.lastIndexOf('(');
+  if (lang !== 'en' || open < 0 || !trimmed.endsWith(')')) return name;
+  const inner = trimmed.slice(open + 1, -1);
+  return inner.includes(')') || !THAI_CHAR.test(inner) ? name : trimmed.slice(0, open).trimEnd();
+};
 
 const categoryLabel = (t: ComplaintTicket, lang: Language) => {
   const category = CATEGORY_DEFINITIONS[t.category];
