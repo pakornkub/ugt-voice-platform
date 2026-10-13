@@ -3,8 +3,25 @@
   "configurations": [
     {
       "name": "ugt-voice-platform-dev",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["--use-system-ca", "node_modules/next/dist/bin/next", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "ugt-voice-platform-dev-3002",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["next", "dev", "-p", "3002"],
+      "port": 3002
+    },
+    {
+      "name": "upstream-original",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "--prefix",
+        "C:/Users/pakornwo/AppData/Local/Temp/claude/D--Project-2026-ugt-voice-platform/ae36c2e6-0de2-458c-a2ee-c2f5bfb960c3/scratchpad/upstream",
+        "run",
+        "dev"
+      ],
       "port": 3000
     }
   ]

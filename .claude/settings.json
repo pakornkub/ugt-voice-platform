@@ -1,15 +1,4 @@
 {
-  "extraKnownMarketplaces": {
-    "ugt": {
-      "source": {
-        "source": "github",
-        "repo": "pakornkub/ugt-claude-platform"
-      }
-    }
-  },
-  "enabledPlugins": {
-    "ugt-nextjs-standard-mattpocock@ugt": true
-  },
   "permissions": {
     "deny": [
       "Read(.env.production)",
@@ -23,5 +12,14 @@
       "Bash(docker compose*)",
       "Bash(docker-compose*)"
     ]
+  },
+  "enabledPlugins": {},
+  "extraKnownMarketplaces": {
+    "ugt": {
+      "source": {
+        "source": "github",
+        "repo": "pakornkub/ugt-claude-platform"
+      }
+    }
   }
 }
