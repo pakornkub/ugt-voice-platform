@@ -1333,6 +1333,11 @@ const CsatReviews: React.FC<Readonly<CsatReviewsProps>> = ({ tickets, avgCsat })
 
 const SubmitterLine: React.FC<Readonly<{ ticket: ComplaintTicket }>> = ({ ticket: t }) => {
   const { lang } = useLanguage();
+  // Kept on the client on purpose: this line always follows the *executive* role's flags, whoever
+  // is viewing (an admin viewer is judged by the executive row, a missing row reads as granted),
+  // so it can differ from what the server redacted for the viewer's own role (the server never
+  // loads the executive row for another role). Screens must look exactly as before — don't
+  // "fix" this into the viewer's own flags without the owner's say.
   const executive = useShell().rolePermissions.executive;
   const hasConfidential = executive?.canViewConfidentialIdentities ?? true;
   const canViewAnonEmail = executive?.canViewAnonymousSubmitterEmail ?? true;

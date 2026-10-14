@@ -5,7 +5,7 @@ import { TrackingTimelineModal } from './TrackingTimelineModal';
 import { LanguageProvider } from '../context/LanguageContext';
 import { INITIAL_COMPLAINTS } from '../mockData';
 import { sendAnonymousChatMessage, updateTicketWorkflow } from '@/lib/actions/tickets';
-import { renderWithShell } from '@/test/shell';
+import { renderWithShell, ticketsAsSentTo } from '@/test/shell';
 import type { ComplaintTicket, UserRole } from '../types';
 
 vi.mock('@/lib/env', () => ({ env: { NEXT_PUBLIC_BASE_PATH: '/ugt-voice-platform' } }));
@@ -20,7 +20,7 @@ const resolvedTicket = INITIAL_COMPLAINTS.find((t) => t.status === 'resolved') a
 
 function renderModal(ticket = directCeoTicket, currentRole: UserRole = 'employee') {
   const props = {
-    ticket,
+    ticket: ticketsAsSentTo(currentRole, [ticket])[0],
     currentRole,
     onClose: vi.fn(),
     onOpenSatisfactionModal: vi.fn(),
@@ -185,7 +185,7 @@ describe('TrackingTimelineModal', () => {
 
     await user.click(byId('btn-open-csat-top'));
 
-    expect(props.onOpenSatisfactionModal).toHaveBeenCalledWith(resolvedTicket);
+    expect(props.onOpenSatisfactionModal).toHaveBeenCalledWith(props.ticket);
   });
 
   it('ticks all five progress steps once the ticket is closed', () => {

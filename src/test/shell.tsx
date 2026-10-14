@@ -5,8 +5,8 @@ import { vi } from 'vitest';
 import { ShellContext, type ShellContextValue } from '@/app/shell-context';
 import { INITIAL_COMPLAINTS, INITIAL_GATEKEEPER_CONFIGS } from '@/mockData';
 import { INITIAL_ROLE_PERMISSIONS } from '@/services/rosterDefaults';
-import { gatekeeperDepartments } from '@/lib/ticket-scope';
-import type { RolePermissionConfig, UserRole } from '@/types';
+import { gatekeeperDepartments, ticketViewFor } from '@/lib/ticket-scope';
+import type { ComplaintTicket, RolePermissionConfig, UserRole } from '@/types';
 
 export function makeShell(overrides: Partial<ShellContextValue> = {}): ShellContextValue {
   return {
@@ -50,6 +50,26 @@ export function withRoleConfig(
     ...INITIAL_ROLE_PERMISSIONS,
     [role]: { ...INITIAL_ROLE_PERMISSIONS[role], ...patch },
   };
+}
+
+/**
+ * Tickets as the server sends them to a role: each carries its `view` facts (what the (shell)
+ * layout attaches through presentTicketForViewer). Components render these, so a test that used
+ * to patch the RBAC matrix to force masking patches it here instead.
+ */
+export function ticketsAsSentTo<T extends ComplaintTicket>(
+  role: UserRole,
+  tickets: readonly T[],
+  shell: Partial<Pick<ShellContextValue, 'rolePermissions' | 'gatekeeperCategories'>> = {}
+): T[] {
+  const rolePermissions = shell.rolePermissions ?? INITIAL_ROLE_PERMISSIONS;
+  const viewer = {
+    role,
+    config: rolePermissions[role],
+    gatekeeperCategories:
+      shell.gatekeeperCategories ?? gatekeeperDepartments(rolePermissions.gatekeeper),
+  };
+  return tickets.map((ticket) => ({ ...ticket, view: ticketViewFor(viewer, ticket) }));
 }
 
 export function renderWithShell(

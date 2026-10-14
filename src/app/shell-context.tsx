@@ -47,7 +47,7 @@ export interface ShellIdentity {
 export interface ShellData {
   /** Only the tickets this user may see (lib/ticket-scope.ts). */
   tickets: ComplaintTicket[];
-  /** Notifications of those tickets, unfiltered by canViewDirectCeoTickets. */
+  /** Notifications of those tickets that are for this user (lib/ticket-scope.ts `isNotificationForViewer`). */
   notifications: NotificationItem[];
   rolePermissions: Record<UserRole, RolePermissionConfig>;
   gatekeeperConfigs: Record<GrievanceCategory, DepartmentGatekeeperConfig>;
@@ -59,7 +59,7 @@ export interface ShellContextValue {
   currentRole: UserRole;
   identity: ShellIdentity;
   tickets: ComplaintTicket[];
-  /** Already filtered by canViewDirectCeoTickets. */
+  /** The bell list: the server already decided who each row is for. */
   notifications: NotificationItem[];
   rolePermissions: Record<UserRole, RolePermissionConfig>;
   gatekeeperConfigs: Record<GrievanceCategory, DepartmentGatekeeperConfig>;

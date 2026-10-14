@@ -150,6 +150,25 @@ export interface ComplaintTicket {
   // Meta
   createdAt: string;
   updatedAt: string;
+
+  // What this viewer may do with the ticket — decided by the server (lib/ticket-scope.ts
+  // `ticketViewFor`); absent on fixtures and on tickets that never left the client.
+  view?: TicketView;
+}
+
+/**
+ * Presentation facts the server decides per viewer, so screens render them instead of
+ * re-deriving them from the RBAC matrix. Every fact reads as false when `view` is absent.
+ */
+export interface TicketView {
+  /** Inside the viewer's triage scope: the Gatekeeper inbox lists it (a ticket that is only the viewer's own submission is not). */
+  inTriageScope: boolean;
+  /** The tracking modal shows the Access-Restricted screen instead of the ticket. */
+  restricted: boolean;
+  /** The tracking modal unmasks a confidential submitter's identity card and timeline actors. */
+  identityShown: boolean;
+  /** The tracking modal unlocks the anonymous submitter's login-email card. */
+  anonymousEmailShown: boolean;
 }
 
 export interface AnonymousChatMessage {

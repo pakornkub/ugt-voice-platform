@@ -5,10 +5,12 @@ import {
   gatekeeperDepartments,
   isNotificationForViewer,
   isOwnTicket,
+  presentTicketForViewer,
   PROTECTED_ACTOR_NAME,
   redactNotificationForViewer,
   redactTicketForViewer,
   ticketScopeWhere,
+  ticketViewFor,
   touchesTriageFields,
   type TicketViewer,
 } from './ticket-scope';
@@ -237,5 +239,130 @@ describe('isNotificationForViewer', () => {
     expect(
       isNotificationForViewer(gatekeeper, { type: 'status_update', recipientRole: 'employee' })
     ).toBe(true);
+  });
+
+  // Role x notification type, with the seeded RBAC matrix: only executive and admin hold
+  // canViewDirectCeoTickets. The bell list is exactly these rows: the shell filters nothing.
+  describe('role x notification type (default RBAC matrix)', () => {
+    const rows = {
+      new_ticket: { type: 'new_ticket', recipientRole: 'employee', recipientEmail: 'me@ube.com' },
+      status_update: {
+        type: 'status_update',
+        recipientRole: 'employee',
+        recipientEmail: 'me@ube.com',
+      },
+      satisfaction_pending: {
+        type: 'satisfaction_pending',
+        recipientRole: 'employee',
+        recipientEmail: 'me@ube.com',
+      },
+      direct_ceo_alert: { type: 'direct_ceo_alert', recipientRole: 'executive' },
+      chat_message_to_staff: { type: 'chat_message', recipientRole: 'gatekeeper' },
+      evaluation_submitted: { type: 'evaluation_submitted', recipientRole: 'gatekeeper' },
+    } as const;
+
+    // Columns: employee, gatekeeper, executive, admin. (A staff reply to the submitter is
+    // addressed by email, covered above.)
+    const table: [keyof typeof rows, boolean, boolean, boolean, boolean][] = [
+      ['new_ticket', true, true, true, true],
+      ['status_update', true, true, true, true],
+      ['satisfaction_pending', true, true, true, true],
+      ['direct_ceo_alert', false, false, true, true],
+      ['chat_message_to_staff', false, true, true, true],
+      ['evaluation_submitted', false, true, true, true],
+    ];
+
+    it.each(table)('%s: employee %s, gatekeeper %s, executive %s, admin %s', (name, ...shown) => {
+      const roles: UserRole[] = ['employee', 'gatekeeper', 'executive', 'admin'];
+      expect(roles.map((role) => isNotificationForViewer(viewer(role), rows[name]))).toEqual(shown);
+    });
+  });
+
+  describe('the direct-to-CEO alert follows canViewDirectCeoTickets, not the role name', () => {
+    const alert = { type: 'direct_ceo_alert' as const, recipientRole: 'executive' as const };
+
+    it('reaches a gatekeeper or employee granted the flag, and never an executive denied it', () => {
+      expect(
+        isNotificationForViewer(viewer('gatekeeper', { canViewDirectCeoTickets: true }), alert)
+      ).toBe(true);
+      expect(
+        isNotificationForViewer(viewer('employee', { canViewDirectCeoTickets: true }), alert)
+      ).toBe(true);
+      expect(
+        isNotificationForViewer(viewer('executive', { canViewDirectCeoTickets: false }), alert)
+      ).toBe(false);
+    });
+
+    it('is withheld from a role without a RoleAccessConfigs row (deny by default)', () => {
+      expect(isNotificationForViewer({ ...viewer('executive'), config: undefined }, alert)).toBe(
+        false
+      );
+    });
+
+    it('also holds back any other row addressed to the executive audience', () => {
+      const toExecutive = { type: 'new_ticket' as const, recipientRole: 'executive' as const };
+      expect(isNotificationForViewer(viewer('gatekeeper'), toExecutive)).toBe(false);
+      expect(isNotificationForViewer(viewer('executive'), toExecutive)).toBe(true);
+    });
+  });
+});
+
+describe('ticketViewFor (what the screens render, decided by the server)', () => {
+  const ticket = (isDirectToExecutive: boolean, category: ComplaintTicket['category'] = 'HR') => ({
+    isDirectToExecutive,
+    category,
+  });
+
+  it('lists a ticket in the inbox unless direct-to-CEO isolation or the gatekeeper scope removes it', () => {
+    const gk = viewer('gatekeeper', { assignedDepartments: ['HR'] });
+    expect(ticketViewFor(gk, ticket(false, 'HR')).inTriageScope).toBe(true);
+    expect(ticketViewFor(gk, ticket(false, 'Quality')).inTriageScope).toBe(false);
+    expect(ticketViewFor(gk, ticket(true, 'HR')).inTriageScope).toBe(false);
+    const granted = viewer('gatekeeper', {
+      assignedDepartments: ['HR'],
+      canViewDirectCeoTickets: true,
+    });
+    expect(ticketViewFor(granted, ticket(true, 'HR')).inTriageScope).toBe(true);
+    // The category scope applies to gatekeepers only.
+    expect(ticketViewFor(viewer('executive'), ticket(false, 'Quality')).inTriageScope).toBe(true);
+    expect(ticketViewFor(viewer('executive'), ticket(true)).inTriageScope).toBe(true);
+    const deniedAdmin = viewer('admin', { canViewDirectCeoTickets: false });
+    expect(ticketViewFor(deniedAdmin, ticket(true)).inTriageScope).toBe(false);
+  });
+
+  it('restricts a direct-to-CEO ticket for a gatekeeper without the flag only', () => {
+    expect(ticketViewFor(viewer('gatekeeper'), ticket(true)).restricted).toBe(true);
+    expect(ticketViewFor(viewer('gatekeeper'), ticket(false)).restricted).toBe(false);
+    const granted = viewer('gatekeeper', { canViewDirectCeoTickets: true });
+    expect(ticketViewFor(granted, ticket(true)).restricted).toBe(false);
+    // Other roles are never shown the restricted screen, even without the flag.
+    expect(ticketViewFor(viewer('employee'), ticket(true)).restricted).toBe(false);
+    const deniedExecutive = viewer('executive', { canViewDirectCeoTickets: false });
+    expect(ticketViewFor(deniedExecutive, ticket(true)).restricted).toBe(false);
+  });
+
+  it('unmasks identities and the anonymous login email per the role flags', () => {
+    const roles: UserRole[] = ['employee', 'gatekeeper', 'executive', 'admin'];
+    const facts = roles.map((role) => {
+      const { identityShown, anonymousEmailShown } = ticketViewFor(viewer(role), ticket(false));
+      return [identityShown, anonymousEmailShown];
+    });
+    expect(facts).toEqual([
+      [false, false],
+      [false, false],
+      [false, true],
+      [true, true],
+    ]);
+    const noRow = { ...viewer('admin'), config: undefined };
+    expect(ticketViewFor(noRow, ticket(false))).toMatchObject({
+      identityShown: false,
+      anonymousEmailShown: false,
+    });
+  });
+
+  it('is attached to every ticket by presentTicketForViewer', () => {
+    const gk = viewer('gatekeeper');
+    const direct = { ...INITIAL_COMPLAINTS[0], isDirectToExecutive: true };
+    expect(presentTicketForViewer(gk, direct).view).toEqual(ticketViewFor(gk, direct));
   });
 });

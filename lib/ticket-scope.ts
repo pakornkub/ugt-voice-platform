@@ -18,6 +18,7 @@ import type {
   GrievanceCategory,
   NotificationItem,
   RolePermissionConfig,
+  TicketView,
   UserRole,
 } from '@/types';
 
@@ -154,14 +155,53 @@ export function redactTicketForViewer(
 }
 
 /**
- * An anonymous-chat notification goes to the other side only, never back to its sender
- * (2026-10-09): staff → the submitter (recipientEmail = the ticket's login email), submitter →
- * the staff who can see the ticket. Every other notification follows ticket visibility alone.
+ * What the screens show for a ticket the viewer already may see — the facts the client used to
+ * re-derive from the RBAC matrix (Gatekeeper inbox filter, tracking modal restricted screen and
+ * masking). They deliberately mirror those client checks, not ownership: a gatekeeper's own
+ * submission outside their scope is not in the inbox, and a submitter's own confidential ticket
+ * is masked in the modal unless their role may see identities (the data itself is unredacted).
+ */
+export function ticketViewFor(
+  viewer: Pick<TicketViewer, 'role' | 'config' | 'gatekeeperCategories'>,
+  ticket: Pick<ComplaintTicket, 'isDirectToExecutive' | 'category'>
+): TicketView {
+  const canViewDirectCeo = viewer.config?.canViewDirectCeoTickets ?? false;
+  const directBlocked = ticket.isDirectToExecutive && !canViewDirectCeo;
+  const inGatekeeperScope =
+    viewer.role !== 'gatekeeper' || viewer.gatekeeperCategories.includes(ticket.category);
+  return {
+    inTriageScope: !directBlocked && inGatekeeperScope,
+    restricted: directBlocked && viewer.role === 'gatekeeper',
+    identityShown: viewer.config?.canViewConfidentialIdentities ?? false,
+    anonymousEmailShown: viewer.config?.canViewAnonymousSubmitterEmail ?? false,
+  };
+}
+
+/** Everything a ticket carries to the browser: redacted for the viewer, plus its `view` facts. */
+export function presentTicketForViewer(
+  viewer: TicketViewer,
+  ticket: ComplaintTicket
+): ComplaintTicket {
+  return { ...redactTicketForViewer(viewer, ticket), view: ticketViewFor(viewer, ticket) };
+}
+
+/**
+ * Who a stored bell row is for — the one place; the browser filters nothing:
+ *   - the CEO alert (and any row addressed to the executive audience) only reaches a role granted
+ *     canViewDirectCeoTickets, so the submitter of a direct-to-CEO ticket never receives it;
+ *   - an anonymous-chat notification goes to the other side only, never back to its sender
+ *     (2026-10-09): staff → the submitter (recipientEmail = the ticket's login email), submitter →
+ *     the staff who can see the ticket;
+ *   - a CSAT rating is for staff, not for the submitter who gave it.
+ * Every other notification follows ticket visibility alone.
  */
 export function isNotificationForViewer(
-  viewer: Pick<TicketViewer, 'email' | 'role'>,
+  viewer: Pick<TicketViewer, 'email' | 'role' | 'config'>,
   notification: Pick<NotificationItem, 'type' | 'recipientRole' | 'recipientEmail'>
 ): boolean {
+  const toExecutiveAudience =
+    notification.type === 'direct_ceo_alert' || notification.recipientRole === 'executive';
+  if (toExecutiveAudience && !viewer.config?.canViewDirectCeoTickets) return false;
   // A CSAT rating is news for the staff handling the ticket, not for the submitter who gave it.
   if (notification.type === 'evaluation_submitted') return viewer.role !== 'employee';
   if (notification.type !== 'chat_message') return true;

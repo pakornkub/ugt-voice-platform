@@ -803,7 +803,7 @@ const AnonymousSubmitterCard: React.FC<
   Readonly<{ ticket: ComplaintTicket; roleConfig: RoleConfig; currentRole: UserRole }>
 > = ({ ticket, roleConfig, currentRole }) => {
   const { lang, tr } = useTr();
-  const canViewAnonymousEmail = roleConfig?.canViewAnonymousSubmitterEmail ?? false;
+  const canViewAnonymousEmail = ticket.view?.anonymousEmailShown ?? false;
   const roleShort = getRoleShortName(roleConfig, currentRole, lang);
   // The server leaves the email out when this role may not see it (redactTicketForViewer).
   const activeLoginEmail = ticket.loginEmail || ticket.submitterEmail || '—';
@@ -1022,7 +1022,7 @@ const NamedSubmitterCard: React.FC<Readonly<{ ticket: ComplaintTicket }>> = ({ t
 const SubmitterCard: React.FC<
   Readonly<{ ticket: ComplaintTicket; roleConfig: RoleConfig; currentRole: UserRole }>
 > = ({ ticket, roleConfig, currentRole }) => {
-  const hasConfidentialAccess = roleConfig?.canViewConfidentialIdentities ?? false;
+  const hasConfidentialAccess = ticket.view?.identityShown ?? false;
 
   if (ticket.confidentiality === 'anonymous') {
     return (
@@ -1042,13 +1042,14 @@ const SubmitterCard: React.FC<
 // ---------------------------------------------------------------------------------------------
 // Audit trail + follow-up form
 // ---------------------------------------------------------------------------------------------
-const TimelineRow: React.FC<
-  Readonly<{ log: TimelineLog; ticket: ComplaintTicket; hasConfidentialAccess: boolean }>
-> = ({ log, ticket, hasConfidentialAccess }) => {
+const TimelineRow: React.FC<Readonly<{ log: TimelineLog; ticket: ComplaintTicket }>> = ({
+  log,
+  ticket,
+}) => {
   const { lang, tr } = useTr();
   const hideActor =
     ticket.confidentiality === 'confidential_restricted' &&
-    !hasConfidentialAccess &&
+    !ticket.view?.identityShown &&
     (log.actorRole === 'Employee' || log.actor === ticket.submitterName);
   const actorName = hideActor
     ? tr('Whistleblower (Protected)', 'พนักงานผู้ร้องเรียน (ปกปิดตัวตน)')
@@ -1089,20 +1090,12 @@ const TimelineRow: React.FC<
 const AuditTrailSection: React.FC<
   Readonly<{
     ticket: ComplaintTicket;
-    hasConfidentialAccess: boolean;
     inquiryText: string;
     isSubmittingNote: boolean;
     onInquiryChange: (value: string) => void;
     onSubmitInquiry: (e: React.SubmitEvent) => void;
   }>
-> = ({
-  ticket,
-  hasConfidentialAccess,
-  inquiryText,
-  isSubmittingNote,
-  onInquiryChange,
-  onSubmitInquiry,
-}) => {
+> = ({ ticket, inquiryText, isSubmittingNote, onInquiryChange, onSubmitInquiry }) => {
   const { tr } = useTr();
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5">
@@ -1118,12 +1111,7 @@ const AuditTrailSection: React.FC<
 
       <div className="relative space-y-6 pl-6 before:absolute before:top-2 before:bottom-2 before:left-2 before:w-0.5 before:bg-slate-200">
         {ticket.timeline.map((log) => (
-          <TimelineRow
-            key={log.id}
-            log={log}
-            ticket={ticket}
-            hasConfidentialAccess={hasConfidentialAccess}
-          />
+          <TimelineRow key={log.id} log={log} ticket={ticket} />
         ))}
       </div>
 
@@ -1185,14 +1173,13 @@ export const TrackingTimelineModal: React.FC<Readonly<TrackingTimelineModalProps
 
   if (!ticket) return null;
 
-  // Strict RBAC security verification for Whistleblower / Direct to CEO complaints
-  const currentRoleConfig: RoleConfig = rolePermissions[currentRole] || rolePermissions.employee;
-  const canViewDirectCeo =
-    currentRole === 'employee' ? true : (currentRoleConfig?.canViewDirectCeoTickets ?? false);
-
-  if (ticket.isDirectToExecutive && currentRole === 'gatekeeper' && !canViewDirectCeo) {
+  // The server decides what this viewer sees of the ticket (lib/ticket-scope.ts `ticketViewFor`):
+  // the Access-Restricted screen for a gatekeeper without direct-to-CEO permission, and whether the
+  // submitter card / timeline actors are unmasked. The role row is only read for its display name.
+  if (ticket.view?.restricted) {
     return <RestrictedAccessScreen ticket={ticket} onClose={onClose} />;
   }
+  const currentRoleConfig: RoleConfig = rolePermissions[currentRole] || rolePermissions.employee;
 
   const handleSendInquiry = (e: React.SubmitEvent) => {
     e.preventDefault();
@@ -1296,7 +1283,6 @@ export const TrackingTimelineModal: React.FC<Readonly<TrackingTimelineModalProps
               {/* Timeline Audit Logs */}
               <AuditTrailSection
                 ticket={ticket}
-                hasConfidentialAccess={currentRoleConfig?.canViewConfidentialIdentities ?? false}
                 inquiryText={inquiryText}
                 isSubmittingNote={isSubmittingNote}
                 onInquiryChange={setInquiryText}

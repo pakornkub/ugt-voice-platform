@@ -12,8 +12,8 @@ import { gatekeeperScope, resolveRosterRole } from '@/lib/roster-role';
 import {
   gatekeeperDepartments,
   isNotificationForViewer,
+  presentTicketForViewer,
   redactNotificationForViewer,
-  redactTicketForViewer,
   ticketScopeWhere,
   type TicketViewer,
 } from '@/lib/ticket-scope';
@@ -71,8 +71,9 @@ export async function requireTicketViewer(): Promise<TicketViewer> {
   return viewer;
 }
 
-// Every ticket leaving the server is redacted for its viewer (redactTicketForViewer) — the RSC
-// payload / action result must not carry identities the UI would mask.
+// Every ticket leaving the server is redacted for its viewer and carries its `view` facts
+// (presentTicketForViewer) — the RSC payload / action result must not carry identities the UI would
+// mask.
 // ponytail: loads every visible ticket with its relations — fine at this app's volume; add paging
 // (and a lighter list shape) once ticket counts reach the thousands.
 export async function listVisibleTickets(viewer: TicketViewer): Promise<ComplaintTicket[]> {
@@ -81,7 +82,7 @@ export async function listVisibleTickets(viewer: TicketViewer): Promise<Complain
     include: TICKET_INCLUDE,
     orderBy: { createdAt: 'desc' },
   });
-  return rows.map((row) => redactTicketForViewer(viewer, mapTicket(row)));
+  return rows.map((row) => presentTicketForViewer(viewer, mapTicket(row)));
 }
 
 /** One ticket the viewer may see, or null — never reveals that an out-of-scope ticket exists. */
@@ -97,7 +98,7 @@ export async function findVisibleTicketWithRelations(
     where: { AND: [ticketScopeWhere(viewer), where] },
     include: TICKET_INCLUDE,
   });
-  return row ? redactTicketForViewer(viewer, mapTicket(row)) : null;
+  return row ? presentTicketForViewer(viewer, mapTicket(row)) : null;
 }
 
 /**

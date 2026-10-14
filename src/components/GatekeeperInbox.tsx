@@ -52,11 +52,6 @@ interface GatekeeperInboxProps {
 type RiskSeverity = ComplaintTicket['riskSeverity'];
 type RootCauseCategory = ComplaintTicket['rootCauseCategory'];
 
-const DIRECT_CEO_RESTRICTED_NOTICE: Record<Language, string> = {
-  th: 'สิทธิ์การเข้าถึงถูกจำกัด: ข้อร้องเรียนนี้ส่งตรงถึง CEO/EVP (Whistleblower Escalation) เฉพาะผู้บริหารระดับสูงหรือผู้ได้รับมอบหมายสิทธิ์เท่านั้น',
-  en: 'Access restricted: this grievance was sent directly to the CEO/EVP (Whistleblower Escalation) and is visible only to senior executives or those delegated access.',
-};
-
 /** Picks the Thai or English label of a `{ label, labelEn }` option. */
 const optionLabel = (option: { label: string; labelEn: string }, lang: Language) =>
   lang === 'en' ? option.labelEn : option.label;
@@ -1088,6 +1083,8 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
   const { rolePermissions, gatekeeperCategories } = useShell();
   const currentRoleConfig = rolePermissions[currentRole] || rolePermissions.gatekeeper;
   const isStrictGatekeeper = currentRole === 'gatekeeper';
+  // Chrome only (CEO-direct banner, counter and filter toggle): which tickets are listed is the
+  // server's `view.inTriageScope`, not this flag.
   const canViewDirectCeo = currentRoleConfig?.canViewDirectCeoTickets ?? false;
   // Server-resolved (resolveViewer): today the RBAC page's assignedDepartments, empty → ['HR'].
   const assignedDepts: GrievanceCategory[] = gatekeeperCategories;
@@ -1109,13 +1106,10 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
     !assignedDepts.includes(selectedDeptFilter as GrievanceCategory);
   const activeDeptFilter = selectionOutOfScope ? defaultDept : selectedDeptFilter;
 
-  // Scoped tickets based on Role, Assigned Departments, and Strict Whistleblower/Direct-to-CEO Security Privileges
-  const scopedTickets = tickets.filter((t) => {
-    // Direct-to-executive tickets stay isolated from roles without canViewDirectCeoTickets.
-    if (t.isDirectToExecutive && !canViewDirectCeo) return false;
-    // A gatekeeper only sees the departments assigned to them.
-    return !isStrictGatekeeper || assignedDepts.includes(t.category);
-  });
+  // The server decides which tickets belong in the inbox (lib/ticket-scope.ts `ticketViewFor`:
+  // role scope, assigned departments, direct-to-CEO isolation). A ticket that reaches this viewer
+  // only because they submitted it is not in their triage scope.
+  const scopedTickets = tickets.filter((t) => t.view?.inTriageScope);
 
   // Department-scoped tickets (dynamically changes when activeDeptFilter changes)
   const deptScopedTickets = scopedTickets.filter(
@@ -1163,10 +1157,6 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
 
   const openTriageModal = (ticket: ComplaintTicket, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (ticket.isDirectToExecutive && !canViewDirectCeo) {
-      globalThis.alert(DIRECT_CEO_RESTRICTED_NOTICE[lang]); // same blocking alert as upstream
-      return;
-    }
     setTriageTicket(ticket);
   };
 

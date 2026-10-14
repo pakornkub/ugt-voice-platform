@@ -257,18 +257,6 @@ export default function Shell({
     'my_tickets',
     'workflow',
   ];
-  const canViewDirectCeo = currentRoleConfig?.canViewDirectCeoTickets ?? false;
-
-  const visibleNotifications = useMemo(
-    () =>
-      (notifications || []).filter((n) => {
-        if (n.type === 'direct_ceo_alert' || n.recipientRole === 'executive') {
-          return canViewDirectCeo;
-        }
-        return true;
-      }),
-    [notifications, canViewDirectCeo]
-  );
 
   // The open modal follows the polled list, unless the copy it holds is newer (a just-sent
   // message arrives from the Server Action before the refresh does).
@@ -282,20 +270,20 @@ export default function Shell({
   const seenNotificationIds = useRef<Set<string> | null>(null);
   useEffect(() => {
     const seen = seenNotificationIds.current;
-    seenNotificationIds.current = new Set(visibleNotifications.map((n) => n.id));
+    seenNotificationIds.current = new Set(notifications.map((n) => n.id));
     if (!seen) return;
-    const arrived = visibleNotifications.find(
+    const arrived = notifications.find(
       (n) => n.type === 'chat_message' && !n.read && !seen.has(n.id)
     );
     if (arrived) showNotification(localizeServerText(arrived.title, lang));
-  }, [visibleNotifications, showNotification, lang]);
+  }, [notifications, showNotification, lang]);
 
   const contextValue = useMemo(
     () => ({
       currentRole,
       identity,
       tickets,
-      notifications: visibleNotifications,
+      notifications,
       rolePermissions,
       gatekeeperConfigs,
       gatekeeperCategories,
@@ -317,7 +305,7 @@ export default function Shell({
       currentRole,
       identity,
       tickets,
-      visibleNotifications,
+      notifications,
       rolePermissions,
       gatekeeperConfigs,
       gatekeeperCategories,
@@ -349,7 +337,7 @@ export default function Shell({
           onSelectTab={navigateTab}
           isMobileSimulator={isMobileSimulator}
           onToggleMobileSimulator={() => setIsMobileSimulator(!isMobileSimulator)}
-          notifications={visibleNotifications}
+          notifications={notifications}
           onSelectTrackingCode={openTrackingByCode}
           onSearchTrackingCode={openTrackingByCode}
           onOpenNotifications={() => setIsNotificationsOpen(true)}
@@ -486,7 +474,7 @@ export default function Shell({
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {visibleNotifications.some((n) => !n.read) && (
+                  {notifications.some((n) => !n.read) && (
                     <button
                       type="button"
                       onClick={handleMarkAllRead}
@@ -506,7 +494,7 @@ export default function Shell({
               </div>
 
               <div className="flex-1 space-y-3 overflow-y-auto p-4">
-                {visibleNotifications.length === 0 ? (
+                {notifications.length === 0 ? (
                   <div className="py-12 text-center text-slate-400">
                     <Bell className="mx-auto mb-2 h-10 w-10 opacity-30" />
                     <p className="text-xs">
@@ -514,7 +502,7 @@ export default function Shell({
                     </p>
                   </div>
                 ) : (
-                  visibleNotifications.map((item) => (
+                  notifications.map((item) => (
                     <div
                       key={item.id}
                       {...clickableProps(() => handleNotificationClick(item))}

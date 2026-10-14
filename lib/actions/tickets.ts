@@ -40,8 +40,8 @@ import {
   canTriage,
   isOwnTicket,
   ownTicketsWhere,
+  presentTicketForViewer,
   PROTECTED_ACTOR_NAME,
-  redactTicketForViewer,
   touchesTriageFields,
   type TicketViewer,
 } from '@/lib/ticket-scope';
@@ -254,7 +254,7 @@ export async function submitTicket(payload: SubmitPayload): Promise<ComplaintTic
   notifyTicketSubmitted(created, { actor: mailActorFor(viewer), userId: viewer.userId }).catch(
     () => {}
   );
-  return redactTicketForViewer(viewer, mapTicket(created));
+  return presentTicketForViewer(viewer, mapTicket(created));
 }
 
 interface WorkflowUpdates {
@@ -388,7 +388,7 @@ export async function updateTicketWorkflow(
       { actor: mailActorFor(viewer), userId: viewer.userId }
     ).catch(() => {});
   }
-  return redactTicketForViewer(viewer, mapTicket(updated));
+  return presentTicketForViewer(viewer, mapTicket(updated));
 }
 
 const STAFF_ROLES: ReadonlySet<UserRole> = new Set(['gatekeeper', 'executive', 'admin']);
@@ -486,7 +486,7 @@ export async function sendAnonymousChatMessage(
     senderRole,
   });
 
-  return redactTicketForViewer(viewer, mapTicket(updated));
+  return presentTicketForViewer(viewer, mapTicket(updated));
 }
 
 /**
@@ -555,5 +555,5 @@ export async function submitEvaluation(
     actor: mailActorFor(viewer),
     userId: viewer.userId,
   }).catch(() => {});
-  return redactTicketForViewer(viewer, mapTicket(updated));
+  return presentTicketForViewer(viewer, mapTicket(updated));
 }

@@ -5,7 +5,7 @@ import { GatekeeperInbox } from './GatekeeperInbox';
 import { LanguageProvider } from '../context/LanguageContext';
 import { CATEGORY_DEFINITIONS, INITIAL_COMPLAINTS, INITIAL_GATEKEEPER_CONFIGS } from '../mockData';
 import { updateTicketWorkflow } from '@/lib/actions/tickets';
-import { renderWithShell } from '@/test/shell';
+import { renderWithShell, ticketsAsSentTo } from '@/test/shell';
 import type { ComplaintTicket, GrievanceCategory } from '../types';
 
 // Server Action stand-in: applies the updates like the DB row would.
@@ -32,12 +32,14 @@ const gatekeeperDepartments = (departments: GrievanceCategory[]) => ({
 const renderInbox = (
   props: Partial<React.ComponentProps<typeof GatekeeperInbox>> = {},
   tickets: ComplaintTicket[] = INITIAL_COMPLAINTS,
-  shell = {}
+  shell: { gatekeeperCategories?: GrievanceCategory[] } = {}
 ) => {
   const handlers = { onSelectTicket: vi.fn(), onTicketUpdated: vi.fn() };
+  // The tickets the server would send this role (each carries its `view` facts).
+  const sent = ticketsAsSentTo(props.currentRole ?? 'gatekeeper', tickets, shell);
   const view = renderWithShell(
     <LanguageProvider>
-      <GatekeeperInbox tickets={tickets} {...handlers} {...props} />
+      <GatekeeperInbox tickets={sent} {...handlers} {...props} />
     </LanguageProvider>,
     shell
   );
@@ -104,7 +106,11 @@ describe('GatekeeperInbox', () => {
       rerenderWithShell(
         <LanguageProvider>
           <GatekeeperInbox
-            tickets={INITIAL_COMPLAINTS}
+            tickets={ticketsAsSentTo(
+              'gatekeeper',
+              INITIAL_COMPLAINTS,
+              gatekeeperDepartments(['HR'])
+            )}
             onSelectTicket={onSelectTicket}
             onTicketUpdated={onTicketUpdated}
           />
@@ -409,7 +415,7 @@ describe('GatekeeperInbox', () => {
 
       await user.click(document.getElementById(`btn-view-evaluation-${ratedTicket.id}`)!);
       expect(onSelectTicket).toHaveBeenCalledTimes(1);
-      expect(onSelectTicket).toHaveBeenCalledWith(ratedTicket);
+      expect(onSelectTicket).toHaveBeenCalledWith(ticketsAsSentTo('executive', [ratedTicket])[0]);
     });
 
     it('labels the button in Thai and in English', async () => {
