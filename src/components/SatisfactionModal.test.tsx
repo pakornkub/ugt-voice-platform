@@ -93,6 +93,7 @@ describe('SatisfactionModal', () => {
     expect(submitEvaluation).not.toHaveBeenCalled();
 
     await user.click(byId('btn-resolved-yes'));
+    expect(byId('csat-required-error')).toBeNull(); // the warning clears as soon as both are answered
     await user.click(byId('btn-submit-csat'));
     await waitFor(() => expect(submitEvaluation).toHaveBeenCalledTimes(1));
     expect(vi.mocked(submitEvaluation).mock.calls[0][1]).toMatchObject({

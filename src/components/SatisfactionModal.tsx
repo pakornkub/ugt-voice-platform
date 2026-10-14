@@ -318,7 +318,7 @@ export const SatisfactionModal: React.FC<Readonly<SatisfactionModalProps>> = ({
             />
 
             {/* Submit buttons */}
-            {showRequired && (
+            {showRequired && (overallScore === 0 || isResolvedPermanently === null) && (
               <p
                 id="csat-required-error"
                 role="alert"
