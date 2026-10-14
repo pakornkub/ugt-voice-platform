@@ -47,18 +47,18 @@ export function getStepState(
 
 // ── Predicates (the sets differ on purpose — pick the one the screen means) ──
 
-const PENDING_STATUSES: readonly string[] = ['submitted', 'gatekeeper_triaged'];
-const OPEN_STATUSES: readonly string[] = [...PENDING_STATUSES, 'in_progress'];
-const FINISHED_STATUSES: readonly string[] = ['resolved', 'closed'];
+const PENDING_STATUSES: ReadonlySet<string> = new Set(['submitted', 'gatekeeper_triaged']);
+const OPEN_STATUSES: ReadonlySet<string> = new Set([...PENDING_STATUSES, 'in_progress']);
+const FINISHED_STATUSES: ReadonlySet<string> = new Set(['resolved', 'closed']);
 
 /** Not yet being worked on: submitted or triaged. */
-export const isPendingStatus = (status: string) => PENDING_STATUSES.includes(status);
+export const isPendingStatus = (status: string) => PENDING_STATUSES.has(status);
 
 /** Still open: submitted, triaged or in progress (resolved and closed are done). */
-export const isOpenStatus = (status: string) => OPEN_STATUSES.includes(status);
+export const isOpenStatus = (status: string) => OPEN_STATUSES.has(status);
 
 /** Resolved OR closed — "finished" for dashboards, exports and reports. */
-export const isResolvedOrClosed = (status: string) => FINISHED_STATUSES.includes(status);
+export const isResolvedOrClosed = (status: string) => FINISHED_STATUSES.has(status);
 
 /** Statuses the inbox / reports count as "in progress": triaged and in progress together. */
 export const WORKING_STATUSES: readonly TicketStatus[] = ['in_progress', 'gatekeeper_triaged'];

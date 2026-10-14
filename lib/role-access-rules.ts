@@ -70,7 +70,7 @@ export function normalizeRoleScope<T extends Partial<ScopeFields>>(
 ): T {
   const next = data.assignedDepartments;
   if (role !== 'gatekeeper' || !next) return data;
-  if (stored && stored.length === next.length && stored.every((c, i) => c === next[i])) return data;
+  if (stored?.length === next.length && stored.every((c, i) => c === next[i])) return data;
   return { ...data, ...normalizeGatekeeperScope(next) };
 }
 
