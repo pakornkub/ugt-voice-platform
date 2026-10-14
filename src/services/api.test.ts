@@ -7,12 +7,12 @@ import {
   getClusterInsightsWithAI,
   getRecentSearches,
   getRiskSeverityBadgeText,
-  getStatusBadgeText,
   getUrgencyBadgeText,
   suggestCategoryWithAI,
   getStoredGatekeeperConfigs,
   removeRecentSearch,
 } from './api';
+import { getStatusBadgeText } from '@/lib/ticket-status';
 
 const GK_KEY = 'enterprise_grievance_gatekeepers_v3';
 

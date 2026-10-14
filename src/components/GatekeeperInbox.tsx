@@ -24,12 +24,16 @@ import {
   UrgencyLevel,
 } from '../types';
 import { CATEGORY_DEFINITIONS } from '../mockData';
+import { getUrgencyBadgeText, getUrgencyColor } from '../services/api';
 import {
   getStatusBadgeText,
   getStatusColor,
-  getUrgencyBadgeText,
-  getUrgencyColor,
-} from '../services/api';
+  INBOX_COUNTER_LABELS,
+  isOpenStatus,
+  isPendingStatus,
+  isWorkingStatus,
+  WORKFLOW_STATUS_LABELS,
+} from '@/lib/ticket-status';
 import { localizeServerText } from '../services/serverText';
 import { updateTicketWorkflow } from '@/lib/actions/tickets';
 import { useShell } from '../app/shell-context';
@@ -62,9 +66,8 @@ const categoryShortName = (category: GrievanceCategory, lang: Language) => {
   return (lang === 'en' ? info?.nameEn : info?.nameTh)?.split('(')[0];
 };
 
-const isPending = (t: ComplaintTicket) =>
-  t.status === 'submitted' || t.status === 'gatekeeper_triaged';
-const isOpenCase = (t: ComplaintTicket) => isPending(t) || t.status === 'in_progress';
+const isPending = (t: ComplaintTicket) => isPendingStatus(t.status);
+const isOpenCase = (t: ComplaintTicket) => isOpenStatus(t.status);
 
 /** Status-chip / counter filters; unknown keys fall back to an exact status match. */
 const STATUS_PREDICATES: Record<string, (t: ComplaintTicket) => boolean> = {
@@ -74,7 +77,7 @@ const STATUS_PREDICATES: Record<string, (t: ComplaintTicket) => boolean> = {
   closed: (t) => t.status === 'closed',
   submitted: (t) => t.status === 'submitted',
   gatekeeper_triaged: (t) => t.status === 'gatekeeper_triaged',
-  active_in_progress: (t) => t.status === 'in_progress' || t.status === 'gatekeeper_triaged',
+  active_in_progress: (t) => isWorkingStatus(t.status),
 };
 
 const matchesStatusFilter = (t: ComplaintTicket, filter: string) =>
@@ -168,8 +171,8 @@ const STATUS_COUNTERS = [
   {
     key: 'in_progress',
     id: 'counter-card-status-in-progress',
-    label: 'กำลังแก้ไข',
-    labelEn: 'In Progress',
+    label: INBOX_COUNTER_LABELS.in_progress.th,
+    labelEn: INBOX_COUNTER_LABELS.in_progress.en,
     icon: <Clock className="inline h-3 w-3 text-blue-300" />,
     activeClass: 'border-blue-400 bg-blue-500/30 shadow-md ring-2 ring-blue-400/50',
     labelClass: 'text-blue-200',
@@ -179,8 +182,8 @@ const STATUS_COUNTERS = [
   {
     key: 'resolved',
     id: 'counter-card-status-resolved',
-    label: 'แก้ไขเสร็จ',
-    labelEn: 'Resolved',
+    label: INBOX_COUNTER_LABELS.resolved.th,
+    labelEn: INBOX_COUNTER_LABELS.resolved.en,
     icon: <CheckCircle2 className="inline h-3 w-3 text-emerald-300" />,
     activeClass: 'border-emerald-400 bg-emerald-500/30 shadow-md ring-2 ring-emerald-400/50',
     labelClass: 'text-emerald-200',
@@ -190,8 +193,8 @@ const STATUS_COUNTERS = [
   {
     key: 'closed',
     id: 'counter-card-status-closed',
-    label: 'ปิดเรื่อง',
-    labelEn: 'Closed',
+    label: INBOX_COUNTER_LABELS.closed.th,
+    labelEn: INBOX_COUNTER_LABELS.closed.en,
     icon: <UserCheck className="inline h-3 w-3 text-teal-300" />,
     activeClass: 'border-teal-300 bg-teal-500/30 shadow-md ring-2 ring-teal-400/50',
     labelClass: 'text-teal-200',
@@ -648,12 +651,13 @@ const buildTriageForm = (
   };
 };
 
-const WORKFLOW_STATUS_OPTIONS: Array<{ key: TicketStatus; label: string; labelEn: string }> = [
-  { key: 'gatekeeper_triaged', label: 'รับเรื่อง (Triaged)', labelEn: 'Triaged' },
-  { key: 'in_progress', label: 'กำลังแก้ไข (In Progress)', labelEn: 'In Progress' },
-  { key: 'resolved', label: 'แก้ไขเสร็จ (Resolved)', labelEn: 'Resolved' },
-  { key: 'closed', label: 'ปิดเรื่อง (Closed)', labelEn: 'Closed' },
-];
+const WORKFLOW_STATUS_OPTIONS: Array<{ key: TicketStatus; label: string; labelEn: string }> = (
+  ['gatekeeper_triaged', 'in_progress', 'resolved', 'closed'] as const
+).map((key) => ({
+  key,
+  label: WORKFLOW_STATUS_LABELS[key].th,
+  labelEn: WORKFLOW_STATUS_LABELS[key].en,
+}));
 
 const URGENCY_OPTIONS: Array<{ value: UrgencyLevel; label: string; labelEn: string }> = [
   { value: 'Low', label: '🟢 ต่ำ / ทั่วไป (Low)', labelEn: '🟢 Low' },
@@ -1203,19 +1207,19 @@ export const GatekeeperInbox: React.FC<GatekeeperInboxProps> = ({
     },
     {
       key: 'in_progress',
-      label: tr('In Progress', 'กำลังแก้ไข'),
+      label: tr(INBOX_COUNTER_LABELS.in_progress.en, INBOX_COUNTER_LABELS.in_progress.th),
       count: counts.in_progress,
       badge: 'bg-blue-100 text-blue-800',
     },
     {
       key: 'resolved',
-      label: tr('Resolved', 'แก้ไขเสร็จ'),
+      label: tr(INBOX_COUNTER_LABELS.resolved.en, INBOX_COUNTER_LABELS.resolved.th),
       count: counts.resolved,
       badge: 'bg-emerald-100 text-emerald-800',
     },
     {
       key: 'closed',
-      label: tr('Closed', 'ปิดเรื่อง'),
+      label: tr(INBOX_COUNTER_LABELS.closed.en, INBOX_COUNTER_LABELS.closed.th),
       count: counts.closed,
       badge: 'bg-teal-100 text-teal-800',
     },

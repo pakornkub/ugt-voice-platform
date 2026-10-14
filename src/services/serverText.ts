@@ -7,16 +7,14 @@
 // lib/email-notifications.ts and the demo rows in src/mockData.ts (seeded by prisma/seed.ts).
 import type { Language } from '../context/LanguageContext';
 import { CATEGORY_DEFINITIONS } from '../mockData';
+import { serverStatusTextToEnglish } from '@/lib/ticket-status';
 
 /** Exact phrase → English. */
 export const EXACT: Record<string, string> = {
   // ── Timeline actions (actionLabelForStatus, submissionTimeline, chat, CSAT) ──
-  ยื่นเรื่องเข้าระบบ: 'Ticket submitted',
-  'Gatekeeper รับเรื่องและคัดกรองผู้รับผิดชอบ':
-    'Gatekeeper received the ticket and screened for the responsible owner',
-  อยู่ระหว่างลงพื้นที่และดำเนินการแก้ไข: 'On site and working on a fix',
-  'ดำเนินการแก้ไขแล้วเสร็จ พร้อมส่งมอบงาน': 'Fix completed and handed over',
-  ปิดเรื่องและประเมินผลความพึงพอใจ: 'Ticket closed and satisfaction evaluated',
+  // The five status-change actions and the status names inside messages come from the one status
+  // table (lib/ticket-status.ts: timelineAction / serverNotice), so they cannot drift from the server.
+  ...serverStatusTextToEnglish(),
   อัปเดตข้อมูล: 'Information updated',
   'ยื่นเรื่องส่งตรงถึงผู้บริหารระดับสูง (CEO/EVP Whistleblower Channel)':
     'Submitted directly to senior executives (CEO/EVP Whistleblower Channel)',
@@ -69,13 +67,6 @@ export const EXACT: Record<string, string> = {
   ผู้แจ้งเบาะแสไม่ประสงค์ออกนาม: 'Anonymous whistleblower',
   'ผู้ยื่นข้อเสนอแนะ (Employee)': 'Suggestion submitter',
   'ผู้ร้องเรียน (ไม่เปิดเผยตัวตน / Anonymous)': 'Complainant (Anonymous)',
-
-  // ── Status labels used inside messages (STATUS_BADGE_TEXT) ──
-  'ยื่นเรื่องแล้ว (Submitted)': 'Submitted',
-  'หน่วยงานรับเรื่อง (Triaged)': 'Triaged',
-  'กำลังแก้ไข (In Progress)': 'In Progress',
-  'แก้ไขเสร็จสิ้น (Resolved)': 'Resolved',
-  'ปิดเรื่องสมบูรณ์ (Closed)': 'Closed',
 
   // ── Email dispatch log (lib/email-notifications.ts) ──
   '(ไม่ได้ส่งอีเมลฉบับนี้ — ระบบไม่เก็บเนื้อหา)':

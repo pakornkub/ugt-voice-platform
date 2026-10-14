@@ -4,12 +4,8 @@ import React, { useState } from 'react';
 import { Search, Clock, Star, Crown, ArrowRight, Plus } from 'lucide-react';
 import { ComplaintTicket } from '../types';
 import { CATEGORY_DEFINITIONS } from '../mockData';
-import {
-  getStatusBadgeText,
-  getStatusColor,
-  getUrgencyBadgeText,
-  getUrgencyColor,
-} from '../services/api';
+import { getUrgencyBadgeText, getUrgencyColor } from '../services/api';
+import { getStatusBadgeText, getStatusColor, isResolvedOrClosed } from '@/lib/ticket-status';
 import { useLanguage } from '../context/LanguageContext';
 
 type StatusFilter = 'ALL' | 'ACTIVE' | 'RESOLVED' | 'CLOSED';
@@ -45,8 +41,7 @@ export const MyTicketsList: React.FC<Readonly<MyTicketsListProps>> = ({
   const safeTickets = tickets || [];
 
   const filteredTickets = safeTickets.filter((t) => {
-    if (statusFilter === 'ACTIVE' && (t.status === 'resolved' || t.status === 'closed'))
-      return false;
+    if (statusFilter === 'ACTIVE' && isResolvedOrClosed(t.status)) return false;
     if (statusFilter === 'RESOLVED' && t.status !== 'resolved') return false;
     if (statusFilter === 'CLOSED' && t.status !== 'closed') return false;
 

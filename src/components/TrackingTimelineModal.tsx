@@ -24,13 +24,18 @@ import {
 import { ComplaintTicket, RolePermissionConfig, TicketStatus, UserRole } from '../types';
 import { CATEGORY_DEFINITIONS } from '../mockData';
 import {
-  getStatusBadgeText,
-  getStatusColor,
   getUrgencyBadgeText,
   getUrgencyColor,
   getRiskSeverityBadgeText,
   getRiskSeverityColor,
 } from '../services/api';
+import {
+  getStatusBadgeText,
+  getStatusColor,
+  getStepState,
+  STATUS_LABELS,
+  STATUS_ORDER,
+} from '@/lib/ticket-status';
 import { sendAnonymousChatMessage, updateTicketWorkflow } from '@/lib/actions/tickets';
 import { attachmentDownloadUrl } from '@/lib/upload-client';
 import { useShell } from '../app/shell-context';
@@ -56,23 +61,6 @@ const isProtectedIdentity = (ticket: ComplaintTicket) =>
 
 const getRoleShortName = (roleConfig: RoleConfig, currentRole: UserRole, lang: Language) =>
   (lang === 'en' ? roleConfig?.roleTitleEn : roleConfig?.roleTitleTh?.split(' ')[0]) || currentRole;
-
-const getStepIndex = (status: TicketStatus) => {
-  switch (status) {
-    case 'submitted':
-      return 0;
-    case 'gatekeeper_triaged':
-      return 1;
-    case 'in_progress':
-      return 2;
-    case 'resolved':
-      return 3;
-    case 'closed':
-      return 4;
-    default:
-      return 0;
-  }
-};
 
 function getStepCircleClass(isPassed: boolean, isCurrent: boolean) {
   if (isPassed) return 'bg-emerald-600 text-white';
@@ -491,34 +479,10 @@ const ChatPanel: React.FC<
 // ---------------------------------------------------------------------------------------------
 const ProgressStepper: React.FC<Readonly<{ status: TicketStatus }>> = ({ status }) => {
   const { tr } = useTr();
-  const steps: { key: TicketStatus; label: string; sub: string }[] = [
-    {
-      key: 'submitted',
-      label: tr('Submitted', 'ยื่นเรื่องแล้ว'),
-      sub: tr('Submitted to queue', 'เข้าสู่ระบบแล้ว'),
-    },
-    {
-      key: 'gatekeeper_triaged',
-      label: tr('Triaged', 'รับเรื่องแล้ว'),
-      sub: tr('Gatekeeper assigned', 'ผู้รับผิดชอบคัดกรอง'),
-    },
-    {
-      key: 'in_progress',
-      label: tr('In Progress', 'กำลังดำเนินการแก้ไข'),
-      sub: tr('Action in progress', 'อยู่ระหว่างการแก้ไข'),
-    },
-    {
-      key: 'resolved',
-      label: tr('Resolved', 'แก้ไขแล้วเสร็จ'),
-      sub: tr('Resolution implemented', 'สรุปแนวทางแก้ไข'),
-    },
-    {
-      key: 'closed',
-      label: tr('Evaluated & Closed', 'ประเมินผลและปิดเรื่อง'),
-      sub: tr('Completed', 'ปิดเคสเรียบร้อย'),
-    },
-  ];
-  const currentStepIdx = getStepIndex(status);
+  const steps = STATUS_ORDER.map((key) => {
+    const { label, sub } = STATUS_LABELS[key].step;
+    return { key, label: tr(label.en, label.th), sub: tr(sub.en, sub.th) };
+  });
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
@@ -531,10 +495,7 @@ const ProgressStepper: React.FC<Readonly<{ status: TicketStatus }>> = ({ status 
 
       <div className="grid grid-cols-5 gap-1 sm:gap-2">
         {steps.map((step, idx) => {
-          // Closed is the last step and nothing follows it, so it shows done (✓) too.
-          const isDone = status === 'closed';
-          const isPassed = idx < currentStepIdx || isDone;
-          const isCurrent = idx === currentStepIdx && !isDone;
+          const { isPassed, isCurrent } = getStepState(status, idx);
           return (
             <div key={step.key} className="flex flex-col items-center text-center">
               <div

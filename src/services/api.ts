@@ -2,7 +2,6 @@ import {
   ComplaintTicket,
   DepartmentGatekeeperConfig,
   GrievanceCategory,
-  TicketStatus,
   UrgencyLevel,
   RecentSearchItem,
 } from '../types';
@@ -249,50 +248,6 @@ export async function getClusterInsightsWithAI(tickets: ComplaintTicket[], lang:
   } catch (err) {
     console.warn('AI Cluster Insights fallback', err);
     return CLUSTER_FALLBACK[lang];
-  }
-}
-
-export function getStatusBadgeText(status: TicketStatus, lang: Language) {
-  if (lang === 'en') {
-    switch (status) {
-      case 'submitted':
-        return 'Submitted';
-      case 'gatekeeper_triaged':
-        return 'Triaged';
-      case 'in_progress':
-        return 'In Progress';
-      case 'resolved':
-        return 'Resolved';
-      case 'closed':
-        return 'Closed';
-    }
-  }
-  switch (status) {
-    case 'submitted':
-      return 'ยื่นเรื่องแล้ว (Submitted)';
-    case 'gatekeeper_triaged':
-      return 'รับเรื่องแล้ว (Triaged)';
-    case 'in_progress':
-      return 'กำลังแก้ไข (In Progress)';
-    case 'resolved':
-      return 'แก้ไขเสร็จสิ้น (Resolved)';
-    case 'closed':
-      return 'ปิดเรื่องสมบูรณ์ (Closed)';
-  }
-}
-
-export function getStatusColor(status: TicketStatus) {
-  switch (status) {
-    case 'submitted':
-      return 'bg-blue-50 text-blue-700 border-blue-200';
-    case 'gatekeeper_triaged':
-      return 'bg-amber-50 text-amber-700 border-amber-200';
-    case 'in_progress':
-      return 'bg-indigo-50 text-indigo-700 border-indigo-200';
-    case 'resolved':
-      return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-    case 'closed':
-      return 'bg-slate-100 text-slate-700 border-slate-300';
   }
 }
 

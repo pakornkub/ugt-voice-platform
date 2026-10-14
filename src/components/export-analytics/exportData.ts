@@ -1,6 +1,7 @@
 import { CATEGORY_DEFINITIONS } from '../../mockData';
 import type { Language } from '../../context/LanguageContext';
-import type { ComplaintTicket, ConfidentialityLevel, TicketStatus } from '../../types';
+import type { ComplaintTicket, ConfidentialityLevel } from '../../types';
+import { findStatusLabels, isResolvedOrClosed, STATUS_LABELS } from '@/lib/ticket-status';
 import { formatValue } from './formatValue';
 import type { ExportFilters, ExportMetrics } from './types';
 
@@ -15,8 +16,6 @@ const TIME_RANGE_DAYS = new Map<string, number>([
   ['30d', 30],
   ['90d', 90],
 ]);
-
-const isResolvedStatus = (status: TicketStatus) => status === 'resolved' || status === 'closed';
 
 const hoursBetween = (fromIso: string, toIso: string) =>
   (new Date(toIso).getTime() - new Date(fromIso).getTime()) / MS_PER_HOUR;
@@ -71,7 +70,7 @@ export function computeMetrics(filtered: ComplaintTicket[]): ExportMetrics {
   if (total === 0) {
     return { total: 0, resolvedRate: 0, avgResolutionHours: 0, avgCsat: 0, directToCeoCount: 0 };
   }
-  const resolved = filtered.filter((t) => isResolvedStatus(t.status));
+  const resolved = filtered.filter((t) => isResolvedOrClosed(t.status));
   return {
     total,
     resolvedRate: Math.round((resolved.length / total) * 100),
@@ -95,14 +94,6 @@ const STANDARD_CONFIDENTIALITY: Bilingual = {
 const CONFIDENTIALITY_LABELS: Partial<Record<ConfidentialityLevel, Bilingual>> = {
   anonymous: { th: 'ไม่ระบุตัวตน (Anonymous)', en: 'Anonymous' },
   confidential_restricted: { th: 'ปิดเป็นความลับ (Confidential)', en: 'Confidential' },
-};
-
-const CLOSED_STATUS_LABEL: Bilingual = { th: 'ปิดเรื่อง', en: 'Closed' };
-const STATUS_LABELS: Partial<Record<TicketStatus, Bilingual>> = {
-  submitted: { th: 'ยื่นเรื่องใหม่', en: 'Newly submitted' },
-  gatekeeper_triaged: { th: 'รับเรื่องแล้ว', en: 'Triaged' },
-  in_progress: { th: 'กำลังแก้ไข', en: 'In progress' },
-  resolved: { th: 'แก้ไขเสร็จสิ้น', en: 'Resolved' },
 };
 
 const TICKET_TYPE_LABELS: Record<'complaint' | 'suggestion', Bilingual> = {
@@ -205,7 +196,7 @@ const caseFields = (t: ComplaintTicket, lang: Language) => ({
   riskSeverity: t.riskSeverity,
   sentiment: t.sentiment || 'Neutral',
   status: t.status,
-  statusLabelTh: pick(lang, STATUS_LABELS[t.status] ?? CLOSED_STATUS_LABEL),
+  statusLabelTh: pick(lang, findStatusLabels(t.status)?.export ?? STATUS_LABELS.closed.export),
   assignedOfficerName: t.assignedOfficerName || '-',
 });
 

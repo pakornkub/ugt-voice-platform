@@ -4,6 +4,7 @@ import { CATEGORY_DEFINITIONS } from '../../mockData';
 import { useTr } from '../../context/useTr';
 import type { Language } from '../../context/LanguageContext';
 import type { GrievanceCategory } from '../../types';
+import { STATUS_LABELS, STATUS_ORDER } from '@/lib/ticket-status';
 import type { ExportFilters } from './types';
 
 interface Option {
@@ -36,11 +37,7 @@ const buildCategoryOptions = (lang: Language): readonly Option[] => [
 
 const STATUS_OPTIONS: readonly BilingualOption[] = [
   { value: 'ALL', th: 'ทุกสถานะ (All Statuses)', en: 'All Statuses' },
-  { value: 'submitted', th: 'ยื่นเรื่องใหม่', en: 'Newly submitted' },
-  { value: 'gatekeeper_triaged', th: 'รับเรื่องแล้ว (Triaged)', en: 'Triaged' },
-  { value: 'in_progress', th: 'กำลังแก้ไข (In Progress)', en: 'In Progress' },
-  { value: 'resolved', th: 'แก้ไขเสร็จสิ้น (Resolved)', en: 'Resolved' },
-  { value: 'closed', th: 'ปิดเรื่องแล้ว (Closed)', en: 'Closed' },
+  ...STATUS_ORDER.map((status) => ({ value: status, ...STATUS_LABELS[status].filter })),
 ];
 
 const TIME_RANGE_OPTIONS: readonly BilingualOption[] = [

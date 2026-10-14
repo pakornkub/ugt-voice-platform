@@ -20,6 +20,7 @@ import {
   notifyTicketSubmitted,
 } from '@/lib/email-notifications';
 import { prisma } from '@/lib/prisma';
+import { statusLabel, timelineActionText } from '@/lib/ticket-status';
 import {
   findVisibleTicket,
   findVisibleTicketWithRelations,
@@ -49,29 +50,8 @@ import type {
 } from '@/types';
 
 function actionLabelForStatus(status: TicketStatus, note?: string): string {
-  switch (status) {
-    case 'submitted':
-      return 'ยื่นเรื่องเข้าระบบ';
-    case 'gatekeeper_triaged':
-      return 'Gatekeeper รับเรื่องและคัดกรองผู้รับผิดชอบ';
-    case 'in_progress':
-      return 'อยู่ระหว่างลงพื้นที่และดำเนินการแก้ไข';
-    case 'resolved':
-      return 'ดำเนินการแก้ไขแล้วเสร็จ พร้อมส่งมอบงาน';
-    case 'closed':
-      return 'ปิดเรื่องและประเมินผลความพึงพอใจ';
-    default:
-      return note || 'อัปเดตข้อมูล';
-  }
+  return timelineActionText(status, 'th') ?? (note || 'อัปเดตข้อมูล');
 }
-
-const STATUS_BADGE_TEXT: Record<TicketStatus, string> = {
-  submitted: 'ยื่นเรื่องแล้ว (Submitted)',
-  gatekeeper_triaged: 'หน่วยงานรับเรื่อง (Triaged)',
-  in_progress: 'กำลังแก้ไข (In Progress)',
-  resolved: 'แก้ไขเสร็จสิ้น (Resolved)',
-  closed: 'ปิดเรื่องสมบูรณ์ (Closed)',
-};
 
 // Server Actions are public endpoints — the enum-shaped columns are plain NVARCHAR, so check them
 // here (src/types.ts unions) before they reach the DB.
@@ -330,7 +310,7 @@ function statusNotification(trackingCode: string, status: TicketStatus, actorNam
   return {
     type: 'status_update' as NotificationItem['type'],
     title: `อัปเดตความคืบหน้า (${trackingCode})`,
-    message: `เรื่องของคุณมีการเปลี่ยนสถานะเป็น "${STATUS_BADGE_TEXT[status]}" โดย ${actorName}`,
+    message: `เรื่องของคุณมีการเปลี่ยนสถานะเป็น "${statusLabel(status, 'serverNotice', 'th')}" โดย ${actorName}`,
   };
 }
 

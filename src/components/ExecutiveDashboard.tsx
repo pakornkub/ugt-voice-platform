@@ -31,6 +31,7 @@ import { useShell } from '../app/shell-context';
 import { Language, useLanguage } from '../context/LanguageContext';
 import { localizeServerText } from '../services/serverText';
 import { clickableProps } from './clickableProps';
+import { isPendingStatus, isResolvedOrClosed, statusLabel } from '@/lib/ticket-status';
 
 interface ExecutiveDashboardProps {
   tickets: ComplaintTicket[];
@@ -122,23 +123,19 @@ const pick = <T,>(lang: Language, en: T, th: T): T => (lang === 'en' ? en : th);
 
 const starSlots = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
 
-const isResolved = (t: ComplaintTicket) => t.status === 'resolved' || t.status === 'closed';
-const isPending = (t: ComplaintTicket) =>
-  t.status === 'submitted' || t.status === 'gatekeeper_triaged';
+// Finished here means resolved OR closed (the inbox keeps them apart).
+const isResolved = (t: ComplaintTicket) => isResolvedOrClosed(t.status);
+const isPending = (t: ComplaintTicket) => isPendingStatus(t.status);
 const isUrgent = (t: ComplaintTicket) => t.urgency === 'Critical' || t.urgency === 'High';
 const percentOf = (count: number, total: number) =>
   total > 0 ? Math.round((count / total) * 100) : 0;
 
-const STATUS_BADGES: Record<TicketStatus, { cls: string; en: string; th: string }> = {
-  submitted: { cls: 'bg-amber-100 text-amber-800', en: 'Submitted', th: 'รับเรื่องใหม่' },
-  gatekeeper_triaged: {
-    cls: 'bg-amber-100 text-amber-800',
-    en: 'Triaged',
-    th: 'ส่งต่อหน่วยงาน',
-  },
-  in_progress: { cls: 'bg-blue-100 text-blue-800', en: 'In Progress', th: 'กำลังดำเนินการ' },
-  resolved: { cls: 'bg-emerald-100 text-emerald-800', en: 'Resolved', th: 'แก้ไขแล้ว' },
-  closed: { cls: 'bg-emerald-100 text-emerald-800', en: 'Closed', th: 'ปิดเคส' },
+const STATUS_BADGE_CLASS: Record<TicketStatus, string> = {
+  submitted: 'bg-amber-100 text-amber-800',
+  gatekeeper_triaged: 'bg-amber-100 text-amber-800',
+  in_progress: 'bg-blue-100 text-blue-800',
+  resolved: 'bg-emerald-100 text-emerald-800',
+  closed: 'bg-emerald-100 text-emerald-800',
 };
 
 const STATUS_FILTER_TABS: Array<{
@@ -1401,7 +1398,6 @@ interface ModalTicketRowProps {
 const ModalTicketRow: React.FC<Readonly<ModalTicketRowProps>> = ({ ticket: t, filter, onOpen }) => {
   const { lang } = useLanguage();
   const isComplaint = t.type === 'complaint';
-  const status = STATUS_BADGES[t.status];
   const showRootCause = !!(t.rootCauseSummary || t.rootCauseCategory || filter === 'root_cause');
 
   return (
@@ -1429,9 +1425,11 @@ const ModalTicketRow: React.FC<Readonly<ModalTicketRowProps>> = ({ ticket: t, fi
           </span>
 
           {/* Status Badge */}
-          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${status.cls}`}>
+          <span
+            className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${STATUS_BADGE_CLASS[t.status]}`}
+          >
             {pick(lang, 'Status: ', 'สถานะ: ')}
-            {pick(lang, status.en, status.th)}
+            {statusLabel(t.status, 'dashboard', lang)}
           </span>
 
           {/* Direct CEO Tag */}

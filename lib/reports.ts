@@ -14,10 +14,8 @@ import {
   type ReportId,
   type ReportResult,
 } from '@/lib/report-catalog';
+import { isResolvedOrClosed, WORKING_STATUSES } from '@/lib/ticket-status';
 import { ticketScopeWhere, type TicketViewer } from '@/lib/ticket-scope';
-
-const RESOLVED_STATUSES = new Set(['resolved', 'closed']);
-const IN_PROGRESS_STATUSES = ['in_progress', 'gatekeeper_triaged'];
 
 /** The export button is HR-admin only upstream (Navbar: currentRole === 'admin') — same here. */
 export function canRunReports(viewer: Pick<TicketViewer, 'role'>): boolean {
@@ -53,7 +51,7 @@ const categoryPareto: Runner = async (where) => {
       resolved: 0,
     };
     entry.total += group._count._all;
-    if (RESOLVED_STATUSES.has(group.status)) entry.resolved += group._count._all;
+    if (isResolvedOrClosed(group.status)) entry.resolved += group._count._all;
     perCategory.set(group.category, entry);
   }
   const entries = [...perCategory.values()];
@@ -64,7 +62,7 @@ const categoryPareto: Runner = async (where) => {
 
 const inProgressTickets: Runner = async (where) => {
   const rows = await prisma.ticket.findMany({
-    where: { AND: [where, { status: { in: IN_PROGRESS_STATUSES } }] },
+    where: { AND: [where, { status: { in: [...WORKING_STATUSES] } }] },
     orderBy: { createdAt: 'asc' },
     select: {
       trackingCode: true,
