@@ -853,3 +853,13 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   owner keeps it from falling between people · rejected: leaving the responsible officer empty until a
   GK picks one (cases risk sitting unclaimed; employees would see "no officer"), keeping the four modes.
   The `AutoAssignMode` column stays unread (no migration).
+- 2026-10-15 **Architecture refactor: one module per ticket concept** (owner: "แก้ทั้งหมด … ทำงานได้เหมือนเดิม")
+  — `lib/ticket-status.ts`, `lib/server-text.ts`, `lib/ticket-events.ts`, server-owned visibility in
+  `lib/ticket-scope.ts` (`isNotificationForViewer` for every notification type, `ticket.view`),
+  `lib/roster-rules.ts` / `lib/role-access-rules.ts`, and `src/services/api.ts` split up — **because**
+  every owner change on 2026-10-14 had to touch 4–5 files at once and status / stored-text copies had
+  already drifted · behaviour preserved: stored DB text byte-identical, same screens per role, known
+  quirks kept (dashboard SubmitterLine still judged by the executive row). **Deviates from "port
+  upstream line-for-line"** for `GatekeeperInbox.tsx`, `TrackingTimelineModal.tsx` and `shell.tsx`
+  (client visibility re-derivation removed) — future upstream ports of those files must be merged
+  by hand · rejected: keeping per-component copies for upstream parity.

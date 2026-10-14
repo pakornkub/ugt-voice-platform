@@ -7,6 +7,22 @@
 
 ## Module map
 
+- **Ticket domain modules (2026-10-15 architecture refactor — each concept lives in ONE place):**
+  - `lib/ticket-status.ts` — status order, tracker step rule (closed ticks all five), open/finished
+    predicates, every status label per context (badge / serverNotice / timelineAction / dashboard /
+    filter / export / step, TH+EN). React-free; used by screens and Server Actions.
+  - `lib/server-text.ts` — catalog of every Thai phrase the server STORES (`SERVER_TEXT` { th, en }
+    - `SERVER_TEMPLATES` builders); `src/services/serverText.ts` builds its EN map from it and
+      `lib/server-text.test.ts` fails when a stored phrase has no English.
+  - `lib/ticket-events.ts` — Notification rows per ticket event + `readCategoryRoster` (one roster
+    read for the assignee and the GK mail To line).
+  - `lib/ticket-scope.ts` — the server decides visibility: scope, redaction, bell audience for all
+    notification types (`isNotificationForViewer`), and `presentTicketForViewer` attaches
+    `ticket.view` (`inTriageScope`, `restricted`, `identityShown`, `anonymousEmailShown`) that the
+    inbox / tracking modal render from.
+  - `lib/roster-rules.ts` + `lib/role-access-rules.ts` — admin rules as pure functions shared by
+    the admin hooks and the Server Actions (same error codes).
+  - `src/services/aiClient.ts`, `badges.ts`, `recentSearches.ts` — the former `api.ts` grab-bag.
 - `src/app/(shell)/` — Next.js App Router routes (one per tab) + `layout.tsx`/`shell.tsx`
   (client Shell: Navbar, toast, notifications drawer, tracking/satisfaction/export modals,
   mobile bottom nav) shared across every route.

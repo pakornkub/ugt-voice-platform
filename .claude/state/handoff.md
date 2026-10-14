@@ -1,11 +1,12 @@
 # Handoff
 
-Last updated: 2026-10-14
+Last updated: 2026-10-15
 
 ## In progress
 
-- Nothing in progress. `main` = `develop` = `489161b` pushed to prod (build after #9) and dev #34
-  green, Sonar 0 new issues. No new migrations this chunk.
+- **Architecture refactor on DEV only** (`b630c24`…`d2559f7`, 6 commits + docs): status / server-text /
+  events / visibility / admin-rules modules, api.ts split. Prod still `489161b`. Next: DEV build green +
+  owner QA on DEV, then the owner decides the prod push. No migrations.
 
 ## Next
 
@@ -24,8 +25,6 @@ Last updated: 2026-10-14
 
 ## Open Questions
 
-- **Old prod tickets with random tracking codes** (created before running numbers): A leave ·
-  B renumber · C soft-delete test tickets — owner has not chosen.
 - **`DATABASE_URL` uses the `sa` login** (dev and prod) and its password was printed in Jenkins logs
   of dev builds ≤ #14 and prod build #2 (fixed since `36db572`) — DBA/owner: rotate it now and switch
   to an app login per `docs/admin-handoff.md` §1.1.
@@ -36,6 +35,14 @@ Last updated: 2026-10-14
 
 ## Done (newest first — older chunks condensed; full detail in git log + docs/project-context/)
 
+- 2026-10-15 **Architecture refactor** (owner: all 6 review items, behaviour unchanged): `lib/ticket-status.ts`,
+  `lib/server-text.ts`, `lib/ticket-events.ts`, server-owned visibility (`ticket.view`, bell audience in
+  `isNotificationForViewer`), `lib/roster-rules.ts` + `lib/role-access-rules.ts`, api.ts split. 1229 tests.
+  Upstream-parity deviation recorded in decisions.md.
+- 2026-10-14 **Prod test-data reset** (owner): all 7 prod tickets soft-deleted (`IsDeleted=1`,
+  code renamed `X-TK-…` so numbers free up; same `X-` prefix on their Notifications +
+  EmailDispatchLogs rows; `UpdatedBy='test-data-reset-2026-10-14'`), counter
+  `ticket.tracking-sequence.2026` → 0, so the next ticket is TK-2026-0001. Users/roles/RBAC untouched.
 - 2026-10-14 **Prod deploy** of the chunk below (`e0f9dbb..489161b`, 5 commits).
 - 2026-10-14 **One dispatch rule** (`489161b`): Auto-Assign Mode selector and modes removed
   (`lib/auto-assign.ts` → category Lead); new-ticket + rating mail → every active GK of the category
