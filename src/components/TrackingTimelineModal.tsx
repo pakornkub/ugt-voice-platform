@@ -719,7 +719,7 @@ const TicketDetailsCard: React.FC<Readonly<{ ticket: ComplaintTicket }>> = ({ ti
       {ticket.resolutionSummary && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3 text-xs">
           <span className="mb-1 block font-bold text-emerald-900">
-            {tr('Resolution Summary:', 'สรุปผลการแก้ไขปัญหา (Resolution Summary):')}
+            {tr('How the issue was resolved:', 'สรุปวิธีการแก้ไขปัญหา:')}
           </span>
           <p className="text-slate-700">{ticket.resolutionSummary}</p>
         </div>
@@ -1217,7 +1217,7 @@ export const TrackingTimelineModal: React.FC<Readonly<TrackingTimelineModalProps
   const [isSendingChat, setIsSendingChat] = useState(false);
   const [chatSendFailed, setChatSendFailed] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
-  const { rolePermissions } = useShell();
+  const { rolePermissions, gatekeeperConfigs } = useShell();
 
   if (!ticket) return null;
 
@@ -1344,7 +1344,11 @@ export const TrackingTimelineModal: React.FC<Readonly<TrackingTimelineModalProps
 
         {/* Official Investigation & CAPA Report Modal */}
         {showReportModal && (
-          <InvestigationReportModal ticket={ticket} onClose={() => setShowReportModal(false)} />
+          <InvestigationReportModal
+            ticket={ticket}
+            leadName={gatekeeperConfigs[ticket.category]?.leadOfficer?.name}
+            onClose={() => setShowReportModal(false)}
+          />
         )}
       </div>
     </div>

@@ -15,11 +15,11 @@ vi.mock('../services/serverText', () => ({
 const byId = (id: string) => document.getElementById(id) as HTMLElement;
 const baseTicket = INITIAL_COMPLAINTS.find((t) => !!t.evaluation) as ComplaintTicket;
 
-function renderReport(ticket: ComplaintTicket | null = baseTicket) {
+function renderReport(ticket: ComplaintTicket | null = baseTicket, leadName?: string) {
   const onClose = vi.fn();
   const view = render(
     <LanguageProvider>
-      <InvestigationReportModal ticket={ticket} onClose={onClose} />
+      <InvestigationReportModal ticket={ticket} onClose={onClose} leadName={leadName} />
     </LanguageProvider>
   );
   return { onClose, ...view };
@@ -28,6 +28,15 @@ function renderReport(ticket: ComplaintTicket | null = baseTicket) {
 describe('InvestigationReportModal', () => {
   beforeEach(() => localStorage.clear());
   afterEach(() => vi.restoreAllMocks());
+
+  it('signs as the category Lead from the roster, with no GRC chair block', () => {
+    renderReport(baseTicket, 'ชลธิชา เกียรติวรานนท์');
+    const report = byId('printable-investigation-report');
+    expect(report).toHaveTextContent('(ชลธิชา เกียรติวรานนท์)');
+    expect(report).toHaveTextContent('หัวหน้าฝ่าย Gatekeeper ประจำสายงาน');
+    expect(report).not.toHaveTextContent('ปิยะวัฒน์');
+    expect(report).not.toHaveTextContent('ธรรมาภิบาล (GRC)');
+  });
 
   it('renders nothing without a ticket', () => {
     const { container } = renderReport(null);
@@ -129,15 +138,13 @@ describe('InvestigationReportModal', () => {
       const report = byId('printable-investigation-report');
       // Only the fixed signatory names (people, not UI copy) and the mapper-wrapped rows stay Thai.
       const text = (report.textContent ?? '')
-        .replaceAll('ภานุมาศ สัจจาภิรมย์', '')
-        .replaceAll('ดร. ปิยะวัฒน์ วิเชียรเกื้อ', '')
         .replaceAll('มนตรี ธนบดีกุล', '')
         .replaceAll(/EN:\S+/g, '');
       expect(text).not.toMatch(THAI);
       expect(report).toHaveTextContent('Witness & Privacy Protection');
       expect(report).toHaveTextContent('Chronological Audit Trail');
       expect(report).toHaveTextContent('Print date:');
-      expect(report).toHaveTextContent('Chair, Audit & Governance Committee (GRC)');
+      expect(report).not.toHaveTextContent('Chair, Audit & Governance Committee (GRC)');
     });
 
     it('shows English status, urgency, risk and category in the case profile', async () => {

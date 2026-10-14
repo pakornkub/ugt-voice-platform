@@ -107,6 +107,17 @@ const ERROR_TOASTS: ReadonlyArray<readonly [string, (tr: Tr) => string]> = [
 
 const normEmail = (email: string) => normalizeEmail(email);
 
+/** Card badge per executive type; CEO/EVP are the ones copied on direct-to-executive mail. */
+const EXEC_ROLE_LABELS: Record<ExecutiveMember['roleType'], readonly [en: string, th: string]> = {
+  CEO: ['CEO', 'ประธานเจ้าหน้าที่บริหาร (CEO)'],
+  EVP: ['EVP', 'รองกรรมการผู้จัดการใหญ่ (EVP)'],
+  GRC_Chair: ['GRC Chair', 'ประธานกำกับดูแลบรรษัทภิบาล'],
+  Audit_Committee: ['Audit Committee', 'คณะกรรมการตรวจสอบ'],
+  Board_Member: ['Board Member', 'กรรมการบริษัท'],
+};
+const isDirectMailCc = (roleType: ExecutiveMember['roleType']) =>
+  roleType === 'CEO' || roleType === 'EVP';
+
 /**
  * Client-side mirror of the server's guards (production Next.js masks Server Action error
  * messages, so the server's codes would never reach the toast): returns the toast text when
@@ -1440,6 +1451,27 @@ const ExecutiveCard: React.FC<ExecutiveCardProps> = ({
                   {isActive ? 'Active' : 'Inactive'}
                 </span>
               </div>
+              <span
+                data-testid={`exec-role-${exec.id}`}
+                title={
+                  isDirectMailCc(exec.roleType)
+                    ? tr(
+                        'Copied on direct-to-CEO/EVP tickets',
+                        'ได้รับสำเนาอีเมลเรื่องส่งตรงผู้บริหาร'
+                      )
+                    : tr(
+                        'Not copied on direct-to-CEO/EVP tickets',
+                        'ไม่ได้รับสำเนาอีเมลเรื่องส่งตรงผู้บริหาร'
+                      )
+                }
+                className={`mt-1 inline-block rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
+                  isDirectMailCc(exec.roleType)
+                    ? 'bg-purple-100 text-purple-800'
+                    : 'bg-slate-100 text-slate-600'
+                }`}
+              >
+                {tr(...EXEC_ROLE_LABELS[exec.roleType])}
+              </span>
               <div className="mt-0.5 text-xs font-semibold text-purple-900">{exec.position}</div>
               <div className="text-[11px] text-slate-500">{exec.department}</div>
             </div>

@@ -13,6 +13,8 @@ import { useTr } from '../context/useTr';
 interface InvestigationReportModalProps {
   ticket: ComplaintTicket | null;
   onClose: () => void;
+  /** The category's Lead Gatekeeper from the roster (signs as head of the business line). */
+  leadName?: string;
 }
 
 type Evaluation = NonNullable<ComplaintTicket['evaluation']>;
@@ -686,7 +688,10 @@ const CapaSection: React.FC<Readonly<{ ticket: ComplaintTicket }>> = ({ ticket }
 };
 
 /** Section 8: Formal Signatures & Endorsements. */
-const SignaturesSection: React.FC<Readonly<{ ticket: ComplaintTicket }>> = ({ ticket }) => {
+const SignaturesSection: React.FC<Readonly<{ ticket: ComplaintTicket; leadName?: string }>> = ({
+  ticket,
+  leadName,
+}) => {
   const { tr, lang } = useTr();
   const officerName = localizeServerText(ticket.assignedOfficerName, lang);
   return (
@@ -698,7 +703,7 @@ const SignaturesSection: React.FC<Readonly<{ ticket: ComplaintTicket }>> = ({ ti
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 pt-4 text-center sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 pt-4 text-center sm:grid-cols-2">
         {/* Officer Signature */}
         <SignatureBlock
           signature={officerName || 'มนตรี ธนบดีกุล'}
@@ -709,21 +714,11 @@ const SignaturesSection: React.FC<Readonly<{ ticket: ComplaintTicket }>> = ({ ti
           role={tr('Fact-Finding Investigator', 'เจ้าหน้าที่ผู้สอบสวนข้อเท็จจริง')}
         />
 
-        {/* Gatekeeper Lead Signature */}
+        {/* Gatekeeper Lead Signature — the category Lead configured in the roster (owner 2026-10-14) */}
         <SignatureBlock
-          signature="ภานุมาศ สัจจาภิรมย์"
-          name="ภานุมาศ สัจจาภิรมย์"
+          signature={leadName ?? ''}
+          name={leadName ?? '..............................'}
           role={tr('Head of Gatekeeper, Business Line', 'หัวหน้าฝ่าย Gatekeeper ประจำสายงาน')}
-        />
-
-        {/* Executive / GRC Chair Signature */}
-        <SignatureBlock
-          signature="ดร. ปิยะวัฒน์ วิเชียรเกื้อ"
-          name="ดร. ปิยะวัฒน์ วิเชียรเกื้อ"
-          role={tr(
-            'Chair, Audit & Governance Committee (GRC)',
-            'ประธานคณะกรรมการตรวจสอบและธรรมาภิบาล (GRC)'
-          )}
         />
       </div>
 
@@ -742,6 +737,7 @@ const SignaturesSection: React.FC<Readonly<{ ticket: ComplaintTicket }>> = ({ ti
 export const InvestigationReportModal: React.FC<Readonly<InvestigationReportModalProps>> = ({
   ticket,
   onClose,
+  leadName,
 }) => {
   const { tr, lang } = useTr();
   const [copied, setCopied] = useState(false);
@@ -861,7 +857,7 @@ export const InvestigationReportModal: React.FC<Readonly<InvestigationReportModa
             <AuditTrailTable timeline={ticket.timeline} />
           </div>
 
-          <SignaturesSection ticket={ticket} />
+          <SignaturesSection ticket={ticket} leadName={leadName} />
         </div>
       </div>
     </div>,

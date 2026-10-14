@@ -339,6 +339,25 @@ describe('AdminGatekeeperManagement', () => {
     });
   });
 
+  it('labels every executive card with its type, CEO/EVP marked as copied on direct mail', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(byId('subtab-executives'));
+
+    expect(screen.getByTestId('exec-role-exec-1')).toHaveTextContent(
+      'ประธานเจ้าหน้าที่บริหาร (CEO)'
+    );
+    expect(screen.getByTestId('exec-role-exec-3')).toHaveTextContent('คณะกรรมการตรวจสอบ');
+    expect(screen.getByTestId('exec-role-exec-1')).toHaveAttribute(
+      'title',
+      'ได้รับสำเนาอีเมลเรื่องส่งตรงผู้บริหาร'
+    );
+    expect(screen.getByTestId('exec-role-exec-3')).toHaveAttribute(
+      'title',
+      'ไม่ได้รับสำเนาอีเมลเรื่องส่งตรงผู้บริหาร'
+    );
+  });
+
   it('fills the executive form from an HR suggestion and locks the email', async () => {
     const user = userEvent.setup();
     vi.mocked(searchHrEmployees).mockResolvedValue([hrEmployee]);

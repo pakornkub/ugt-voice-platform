@@ -967,7 +967,8 @@ const TriageModal: React.FC<Readonly<TriageModalProps>> = ({ ticket, onClose, on
 
         <form onSubmit={handleSave} className="space-y-4 p-6">
           {/* Status Selector */}
-          <fieldset className="m-0 min-w-0 border-0 p-0">
+          {/* no m-0 here: it would cancel the form's space-y gap below the status buttons */}
+          <fieldset className="min-w-0 border-0 p-0">
             <legend className="mb-1 block p-0 text-xs font-bold text-slate-700">
               {tr('Workflow Status:', 'ปรับเปลี่ยนสถานะการดำเนินงาน (Workflow Status):')}
             </legend>
@@ -1022,10 +1023,7 @@ const TriageModal: React.FC<Readonly<TriageModalProps>> = ({ ticket, onClose, on
           {form.targetStatus === 'resolved' && (
             <div className="space-y-1.5 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs">
               <label htmlFor="triage-resolution" className="block font-bold text-emerald-900">
-                {tr(
-                  'Resolution Statement:',
-                  'สรุปผลการแก้ไขปัญหาฉบับสมบูรณ์ (Resolution Statement):'
-                )}
+                {tr('Resolution Statement:', 'สรุปวิธีการแก้ไขปัญหา (Resolution Statement):')}
               </label>
               <textarea
                 id="triage-resolution"
