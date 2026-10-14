@@ -1,7 +1,7 @@
 import React from 'react';
 import { Loader2, Sparkles } from 'lucide-react';
 import type { GrievanceCategory } from '../../types';
-import type { AICategorySuggestionResult } from '../../services/api';
+import type { AICategorySuggestionResult } from '../../services/aiClient';
 import { AttachmentPicker, type PendingFile } from '../AttachmentPicker';
 import { AiHelperPill, AiNotice, AiRecommendation } from './AiPanels';
 import { useTr } from './useTr';

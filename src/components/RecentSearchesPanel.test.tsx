@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { RecentSearchesPanel } from './RecentSearchesPanel';
 import { LanguageProvider } from '../context/LanguageContext';
 import { INITIAL_COMPLAINTS } from '../mockData';
-import { addRecentSearch, getRecentSearches } from '../services/api';
+import { addRecentSearch, getRecentSearches } from '../services/recentSearches';
 
 function renderPanel(isOpen: boolean) {
   const props = {

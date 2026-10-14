@@ -27,7 +27,7 @@ vi.mock('@/lib/roster-role', async (importActual) => ({
 
 const { getTicketViewer, listVisibleNotifications, listVisibleTickets, requireTicketViewer } =
   await import('./ticket-access');
-const { INITIAL_ROLE_PERMISSIONS } = await import('@/services/api');
+const { INITIAL_ROLE_PERMISSIONS } = await import('@/services/rosterDefaults');
 const { markAllNotificationsAsRead, markNotificationAsRead } =
   await import('./actions/notifications');
 

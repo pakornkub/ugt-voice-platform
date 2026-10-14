@@ -3,7 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { History, Search, X, Trash2, Copy, Check, Clock, ArrowRight, Sparkles } from 'lucide-react';
 import { RecentSearchItem, ComplaintTicket, TicketStatus } from '../types';
-import { getRecentSearches, removeRecentSearch, clearRecentSearches } from '../services/api';
+import {
+  getRecentSearches,
+  removeRecentSearch,
+  clearRecentSearches,
+} from '../services/recentSearches';
 import { useLanguage } from '../context/LanguageContext';
 
 interface RecentSearchesPanelProps {

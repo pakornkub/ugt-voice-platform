@@ -2,7 +2,7 @@ import React from 'react';
 import { AlertTriangle, CheckCircle2, Sparkles, X } from 'lucide-react';
 import type { GrievanceCategory } from '../../types';
 import { CATEGORY_DEFINITIONS } from '../../mockData';
-import type { AICategorySuggestionResult } from '../../services/api';
+import type { AICategorySuggestionResult } from '../../services/aiClient';
 import { CategoryIcon } from './CategoryIcon';
 import { useTr } from './useTr';
 

@@ -28,7 +28,7 @@
 - `lib/roster-role.ts` (role from the rosters, `rosterRolesByEmail` for `/admin/users`) +
   `lib/tab-guard.ts` (`requireTab`, `writeAudit` for roster/RBAC actions) +
   `src/services/rosterDefaults.ts` (upstream demo rosters / `APP_TABS` / RBAC defaults, pure data
-  so `reset*ToDefault` actions can import it; `api.ts` re-exports it).
+  so `reset*ToDefault` actions can import it; components import it directly).
 - `src/services/categoryHeuristics.ts` — keyword → category rules: `analyzeWithHeuristics()`
   (server fallback of `/api/ai/suggest-category`, 7 rules) and `analyzeWithClientHeuristics()`
   (client catch-path of `suggestCategoryWithAI()`, the shared 5 rules) — the two lists upstream
@@ -41,10 +41,10 @@
   `executiveShared.tsx` (exec-status select/sync shared by RBAC + gatekeeper admin),
   `clickableProps.ts` (keyboard-operable clickable rows), `workflow-manual/*` (WorkflowDiagram's
   5 manual sections + data), `export-analytics/*` (ExportAnalyticsModal tabs + pure CSV/JSON).
-- `src/services/api.ts` — display helpers (badge text/colors, `APP_TABS`, `INITIAL_*`), AI fetch
-  wrappers, and the localStorage data that has **not** moved to the DB yet: email settings +
-  simulated dispatch log (slice 3), recent searches (per-device by design). Tickets +
-  notifications left it on 2026-10-09 (slice 1); rosters + RBAC matrix the same day (slice 2).
+- `src/services/` client modules (the old `api.ts` grab-bag was split, behaviour unchanged):
+  `badges.ts` (urgency / risk badge text + colors), `aiClient.ts` (AI fetch wrappers + client
+  fallback copy), `recentSearches.ts` (per-device localStorage by design), `rosterDefaults.ts`
+  (`APP_TABS`, `INITIAL_*`). Tickets, notifications, rosters + RBAC matrix are in the DB.
 - `lib/ticket-scope.ts` (pure rules) + `lib/ticket-access.ts` (server-only: scoped
   ticket/notification reads) — who sees / may change which ticket; used by the shell layout and
   `lib/actions/tickets.ts|notifications.ts`. See business-rules.md. **`resolveViewer(session)`**
@@ -274,10 +274,10 @@ up` testing.
   timeline + notifications in SQL Server) → client logs upstream's simulated email
   (`logTicketSubmittedEmail`) → `handleTicketCreated` → `router.refresh()`.
 - AI triage: EmployeeSubmitForm "วิเคราะห์ด้วย Gemini AI" → `analyzeGrievanceWithAI()` in
-  api.ts → `POST /api/ai/analyze-complaint` → `src/app/api/ai/analyze-complaint/route.ts` →
+  `src/services/aiClient.ts` → `POST /api/ai/analyze-complaint` → `src/app/api/ai/analyze-complaint/route.ts` →
   Gemini API (falls back to static heuristics when `GEMINI_API_KEY` is unset).
 - AI clustering: `ExecutiveDashboard` "สรุปเชิงกลยุทธ์ด้วย Gemini AI" →
-  `getClusterInsightsWithAI()` in api.ts → `POST /api/ai/cluster-insights` → same pattern.
+  `getClusterInsightsWithAI()` in `aiClient.ts` → `POST /api/ai/cluster-insights` → same pattern.
 - Login: `/login` (`LoginForm`) → `authClient.signIn.social({ provider: 'keycloak' })` → Keycloak
   → `/api/auth/callback/keycloak` → `lib/auth.ts`'s `databaseHooks.session.create.after` (writes
   `login.success`, syncs `authType`) → `src/app/(shell)/layout.tsx` session check on next

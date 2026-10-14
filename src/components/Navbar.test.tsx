@@ -7,9 +7,9 @@ import { LanguageProvider } from '../context/LanguageContext';
 // The Server Action pulls in Better Auth / Prisma, irrelevant to Navbar rendering.
 vi.mock('@/lib/actions/auth', () => ({ ssoLogoutAction: vi.fn() }));
 
-// Navbar reads role-tab permissions via services/api.ts's localStorage-backed
-// getStoredRolePermissions(), so this also proves jsdom + the safeStorage /
-// localStorage layer work under vitest without needing a browser.
+// Navbar reads role-tab permissions from rosterDefaults and the safeStorage /
+// localStorage layer, so this also proves jsdom + that layer work under vitest
+// without needing a browser.
 function renderNavbar(props: Partial<React.ComponentProps<typeof Navbar>> = {}) {
   return render(
     <LanguageProvider>

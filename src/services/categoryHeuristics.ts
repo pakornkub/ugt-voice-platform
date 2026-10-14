@@ -26,7 +26,7 @@ interface HeuristicRule {
 
 // Evaluated top-to-bottom, first match wins. Two lists because upstream keeps two:
 //  - server.ts (POST /api/ai/suggest-category fallback) = SERVER_ONLY_RULES + SHARED_RULES
-//  - src/services/api.ts catch-path (client fallback)    = SHARED_RULES only
+//  - src/services/aiClient.ts catch-path (client fallback) = SHARED_RULES only
 // i.e. 'พูดจาดูถูก' and 'ฮั้ว' are only recognised server-side; on the client they fall through
 // (the latter to the HR default), exactly like upstream.
 const SERVER_ONLY_RULES: HeuristicRule[] = [

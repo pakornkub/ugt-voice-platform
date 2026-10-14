@@ -16,7 +16,7 @@ import { SatisfactionModal } from '@/components/SatisfactionModal';
 import { RecentSearchesPanel } from '@/components/RecentSearchesPanel';
 import { ExportAnalyticsModal } from '@/components/ExportAnalyticsModal';
 import { AppTabId, ComplaintTicket, NotificationItem } from '@/types';
-import { addRecentSearch, getRecentSearches } from '@/services/api';
+import { addRecentSearch, getRecentSearches } from '@/services/recentSearches';
 import { getTicketByTrackingCode } from '@/lib/actions/tickets';
 import { markAllNotificationsAsRead, markNotificationAsRead } from '@/lib/actions/notifications';
 import {

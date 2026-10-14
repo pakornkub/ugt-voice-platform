@@ -28,7 +28,7 @@ import {
   getUrgencyColor,
   getRiskSeverityBadgeText,
   getRiskSeverityColor,
-} from '../services/api';
+} from '../services/badges';
 import {
   getStatusBadgeText,
   getStatusColor,

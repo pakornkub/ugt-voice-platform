@@ -11,8 +11,8 @@ import { UnrecognizedActionError } from 'next/dist/client/components/unrecognize
 // Server Action stand-in: echoes the payload back as the saved ticket.
 vi.mock('@/lib/actions/tickets', () => ({ submitTicket: vi.fn() }));
 vi.mock('@/lib/env', () => ({ env: { NEXT_PUBLIC_BASE_PATH: '/ugt-voice-platform' } }));
-vi.mock('../services/api', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../services/api')>()),
+vi.mock('../services/aiClient', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../services/aiClient')>()),
   suggestCategoryWithAI: vi.fn().mockResolvedValue({
     suggestedCategory: 'Fraud',
     secondaryCategory: 'Compliance',

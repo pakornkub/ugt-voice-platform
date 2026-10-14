@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Search, Clock, Star, Crown, ArrowRight, Plus } from 'lucide-react';
 import { ComplaintTicket } from '../types';
 import { CATEGORY_DEFINITIONS } from '../mockData';
-import { getUrgencyBadgeText, getUrgencyColor } from '../services/api';
+import { getUrgencyBadgeText, getUrgencyColor } from '../services/badges';
 import { getStatusBadgeText, getStatusColor, isResolvedOrClosed } from '@/lib/ticket-status';
 import { useLanguage } from '../context/LanguageContext';
 

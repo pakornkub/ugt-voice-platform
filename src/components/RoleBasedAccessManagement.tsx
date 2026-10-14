@@ -41,7 +41,7 @@ import {
   CategoryInfo,
   TabDefinition,
 } from '../types';
-import { APP_TABS, INITIAL_ROLE_PERMISSIONS } from '../services/api';
+import { APP_TABS, INITIAL_ROLE_PERMISSIONS } from '../services/rosterDefaults';
 import { CATEGORY_DEFINITIONS } from '../mockData';
 import { useShell } from '@/app/shell-context';
 import { saveRoleAccessConfigs, resetRolePermissionsToDefault } from '@/lib/actions/role-access';

@@ -24,7 +24,7 @@ import {
   LogOut,
 } from 'lucide-react';
 import { UserRole, NotificationItem, AppTabId, RolePermissionConfig } from '../types';
-import { INITIAL_ROLE_PERMISSIONS } from '../services/api';
+import { INITIAL_ROLE_PERMISSIONS } from '../services/rosterDefaults';
 import { useLanguage } from '../context/LanguageContext';
 import { useTr } from '../context/useTr';
 import type { ShellIdentity } from '../app/shell-context';

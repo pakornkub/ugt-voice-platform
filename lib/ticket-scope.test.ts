@@ -12,7 +12,7 @@ import {
   touchesTriageFields,
   type TicketViewer,
 } from './ticket-scope';
-import { INITIAL_ROLE_PERMISSIONS } from '@/services/api';
+import { INITIAL_ROLE_PERMISSIONS } from '@/services/rosterDefaults';
 import { INITIAL_COMPLAINTS } from '@/mockData';
 import type { ComplaintTicket, RolePermissionConfig, UserRole } from '@/types';
 

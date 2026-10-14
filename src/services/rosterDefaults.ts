@@ -1,6 +1,6 @@
 // src/services/rosterDefaults.ts — upstream's demo rosters, tab catalogue and RBAC matrix defaults.
 // Pure data (no browser storage) so Server Actions (reset*ToDefault) and the seed can import it;
-// src/services/api.ts re-exports it for the upstream components.
+// upstream components import it directly.
 import type {
   ExecutiveMember,
   HrAdminMember,

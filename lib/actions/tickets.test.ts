@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Prisma } from '@prisma/client';
-import { INITIAL_ROLE_PERMISSIONS } from '@/services/api';
+import { INITIAL_ROLE_PERMISSIONS } from '@/services/rosterDefaults';
 import type { TicketViewer } from '@/lib/ticket-scope';
 import type { UserRole } from '@/types';
 

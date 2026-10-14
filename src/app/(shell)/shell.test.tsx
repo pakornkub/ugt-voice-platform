@@ -5,7 +5,7 @@ import Shell from './shell';
 import { useShell } from '../shell-context';
 import { LanguageProvider } from '@/context/LanguageContext';
 import { INITIAL_COMPLAINTS, INITIAL_GATEKEEPER_CONFIGS } from '@/mockData';
-import { INITIAL_ROLE_PERMISSIONS } from '@/services/api';
+import { INITIAL_ROLE_PERMISSIONS } from '@/services/rosterDefaults';
 import { getTicketByTrackingCode } from '@/lib/actions/tickets';
 import { markAllNotificationsAsRead, markNotificationAsRead } from '@/lib/actions/notifications';
 import type { NotificationItem } from '@/types';

@@ -15,8 +15,10 @@ the "Thai only / no i18n catalog" line in `ugt-nextjs-design.md`:
   the preference lives in localStorage (`voiceplatform_lang_preference_v2`).
 - Do **not** add `next-intl` or a second translation substrate — the hand-rolled context is kept
   on purpose so upstream (`pisanu90853-cmd/UGTVoice-platform`) ports stay line-for-line.
-- Helpers that return display text take a `lang` argument (`getStatusBadgeText(status, lang)`,
-  `getUrgencyBadgeText(urgency, lang)`); don't hard-code Thai in new shared helpers.
+- Helpers that return display text take a `lang` argument (`getStatusBadgeText(status, lang)` in
+  `lib/ticket-status.ts`, `getUrgencyBadgeText(urgency, lang)` / `getRiskSeverityBadgeText` in
+  `src/services/badges.ts`, AI fallback copy in `src/services/aiClient.ts`); don't hard-code Thai
+  in new shared helpers.
 - Everything else in `ugt-nextjs-design.md` still applies (hand-built Tailwind, no shadcn kit).
 - **Every screen is bilingual** (owner, 2026-10-09) — new UI copy goes through
   `const { tr } = useTr()` (`src/context/useTr.ts`, `tr('English', 'ไทย')`); static tables carry

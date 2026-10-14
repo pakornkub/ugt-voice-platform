@@ -4,7 +4,7 @@ import { render, type RenderOptions } from '@testing-library/react';
 import { vi } from 'vitest';
 import { ShellContext, type ShellContextValue } from '@/app/shell-context';
 import { INITIAL_COMPLAINTS, INITIAL_GATEKEEPER_CONFIGS } from '@/mockData';
-import { INITIAL_ROLE_PERMISSIONS } from '@/services/api';
+import { INITIAL_ROLE_PERMISSIONS } from '@/services/rosterDefaults';
 import { gatekeeperDepartments } from '@/lib/ticket-scope';
 import type { RolePermissionConfig, UserRole } from '@/types';
 

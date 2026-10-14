@@ -2,7 +2,7 @@ import React from 'react';
 import { AlertTriangle, ArrowRight, CheckCircle2, Crown } from 'lucide-react';
 import type { ComplaintTicket } from '../../types';
 import { CATEGORY_DEFINITIONS } from '../../mockData';
-import { getUrgencyBadgeText } from '../../services/api';
+import { getUrgencyBadgeText } from '../../services/badges';
 import type { UploadFailure } from '@/lib/upload-client';
 import { AttachmentFailureNotice } from '../AttachmentPicker';
 import { useTr } from './useTr';

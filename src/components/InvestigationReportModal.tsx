@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { FileText, Printer, Copy, Check, X, Shield, CheckCircle2, Lock } from 'lucide-react';
 import { CategoryInfo, ComplaintTicket, ConfidentialityLevel } from '../types';
 import { CATEGORY_DEFINITIONS } from '../mockData';
-import { getUrgencyBadgeText, getRiskSeverityBadgeText } from '../services/api';
+import { getUrgencyBadgeText, getRiskSeverityBadgeText } from '../services/badges';
 import { getStatusBadgeText } from '@/lib/ticket-status';
 import { localizeServerText } from '../services/serverText';
 import type { Language } from '../context/LanguageContext';

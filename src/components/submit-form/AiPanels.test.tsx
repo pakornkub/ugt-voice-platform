@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { AiNotice, AiRecommendation } from './AiPanels';
 import { LanguageProvider } from '../../context/LanguageContext';
 import { CATEGORY_DEFINITIONS } from '../../mockData';
-import type { AICategorySuggestionResult } from '../../services/api';
+import type { AICategorySuggestionResult } from '../../services/aiClient';
 
 const THAI = /[฀-๿]/;
 

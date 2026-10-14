@@ -24,7 +24,7 @@ import {
   UrgencyLevel,
 } from '../types';
 import { CATEGORY_DEFINITIONS } from '../mockData';
-import { getUrgencyBadgeText, getUrgencyColor } from '../services/api';
+import { getUrgencyBadgeText, getUrgencyColor } from '../services/badges';
 import {
   getStatusBadgeText,
   getStatusColor,

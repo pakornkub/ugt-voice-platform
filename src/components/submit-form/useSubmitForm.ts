@@ -7,7 +7,7 @@ import type {
   SubmissionType,
   UrgencyLevel,
 } from '../../types';
-import { suggestCategoryWithAI, type AICategorySuggestionResult } from '../../services/api';
+import { suggestCategoryWithAI, type AICategorySuggestionResult } from '../../services/aiClient';
 import { submitTicket } from '@/lib/actions/tickets';
 import { uploadTicketFiles, type UploadFailure } from '@/lib/upload-client';
 import type { PendingFile } from '../AttachmentPicker';

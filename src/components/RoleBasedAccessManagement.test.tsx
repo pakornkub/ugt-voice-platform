@@ -3,7 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RoleBasedAccessManagement } from './RoleBasedAccessManagement';
 import { LanguageProvider } from '../context/LanguageContext';
-import { APP_TABS, INITIAL_ROLE_PERMISSIONS } from '../services/api';
+import { APP_TABS, INITIAL_ROLE_PERMISSIONS } from '../services/rosterDefaults';
 import { renderWithShell } from '@/test/shell';
 import { resetRolePermissionsToDefault, saveRoleAccessConfigs } from '@/lib/actions/role-access';
 import {
