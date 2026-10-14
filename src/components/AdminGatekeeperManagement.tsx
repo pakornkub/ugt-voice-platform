@@ -53,6 +53,16 @@ import {
 import { searchHrEmployees } from '@/lib/actions/directory';
 import { useShell } from '../app/shell-context';
 import { gatekeeperDepartments } from '@/lib/ticket-scope';
+import {
+  buildNewOfficer,
+  checkHrAdminRemoval,
+  countOtherActiveAdmins,
+  hrAdminChangeLosesAdmin,
+  removeOfficer,
+  withSingleLead,
+  type HrAdminRejection,
+  type OfficerRejection,
+} from '@/lib/roster-rules';
 import HrNameField from './HrNameField';
 import { normalizeEmail } from '@/lib/email-identity';
 import { AdminEmailNotificationSettings } from './AdminEmailNotificationSettings';
@@ -100,12 +110,24 @@ const lastAdminToast = (tr: Tr) =>
     '⚠️ At least 1 active HR Admin is required',
     '⚠️ ต้องมี HR Admin ที่ใช้งานอยู่อย่างน้อย 1 ท่าน'
   );
-const ERROR_TOASTS: ReadonlyArray<readonly [string, (tr: Tr) => string]> = [
-  ['CANNOT_REMOVE_SELF', selfToast],
-  ['LAST_ADMIN', lastAdminToast],
-];
-
-const normEmail = (email: string) => normalizeEmail(email);
+const lastOfficerToast = (tr: Tr) =>
+  tr(
+    '⚠️ Cannot remove: each department needs at least 1 active Gatekeeper officer',
+    '⚠️ ไม่สามารถลบได้: แต่ละฝ่ายต้องมีเจ้าหน้าที่ Gatekeeper ประจำการอย่างน้อย 1 ท่าน'
+  );
+const leadRemovalToast = (tr: Tr) =>
+  tr(
+    '⚠️ Cannot remove the Lead Gatekeeper: please click "Set as Lead" on another officer before removing',
+    '⚠️ ไม่สามารถลบ Lead Gatekeeper ได้: กรุณากด "ตั้งเป็น Lead" ให้เจ้าหน้าที่ท่านอื่นก่อนทำการลบ'
+  );
+/** One toast per rejection code of lib/roster-rules.ts — what the screen shows for a blocked click. */
+const REJECTION_TOASTS: Record<HrAdminRejection | OfficerRejection, (tr: Tr) => string> = {
+  CANNOT_REMOVE_SELF: selfToast,
+  LAST_ADMIN: lastAdminToast,
+  LAST_OFFICER: lastOfficerToast,
+  CANNOT_REMOVE_LEAD: leadRemovalToast,
+};
+const ERROR_TOASTS = Object.entries(REJECTION_TOASTS);
 
 /** Card badge per executive type; CEO/EVP are the ones copied on direct-to-executive mail. */
 const EXEC_ROLE_LABELS: Record<ExecutiveMember['roleType'], readonly [en: string, th: string]> = {
@@ -131,9 +153,12 @@ export function hrAdminRemovalBlock(
 ): string | null {
   const target = admins.find((a) => a.id === targetId);
   if (!target) return null;
-  if (normEmail(target.email) === normEmail(myEmail)) return selfToast(tr);
-  const othersActive = admins.some((a) => a.id !== targetId && a.status === 'active');
-  return othersActive ? null : lastAdminToast(tr);
+  const code = checkHrAdminRemoval({
+    targetEmail: target.email,
+    myEmails: [myEmail],
+    otherActiveAdmins: countOtherActiveAdmins(admins, targetId),
+  });
+  return code ? REJECTION_TOASTS[code](tr) : null;
 }
 
 /** Maps an error thrown by a Server Action to the toast text shown to the admin. */
@@ -271,12 +296,11 @@ function useGatekeeperPanel(
     run(() => updateDepartmentGatekeeperConfig(selectedCategory, updates), setConfigs, message);
 
   const handleSetLeadOfficer = (officer: GatekeeperOfficer) => {
-    const updatedOfficers = currentConfig.officers.map((o) => ({
-      ...o,
-      isLead: o.id === officer.id,
-    }));
     return saveConfig(
-      { leadOfficer: { ...officer, isLead: true }, officers: updatedOfficers },
+      {
+        leadOfficer: { ...officer, isLead: true },
+        officers: withSingleLead(currentConfig.officers, officer.id),
+      },
       tr(
         `"${officer.name}" is now the Lead Gatekeeper of this department`,
         `แต่งตั้งให้คุณ "${officer.name}" เป็น Lead Gatekeeper ของหน่วยงาน`
@@ -285,26 +309,13 @@ function useGatekeeperPanel(
   };
 
   const handleRemoveOfficer = (officerId: string) => {
-    if (currentConfig.officers.length <= 1) {
-      showToast(
-        tr(
-          '⚠️ Cannot remove: each department needs at least 1 active Gatekeeper officer',
-          '⚠️ ไม่สามารถลบได้: แต่ละฝ่ายต้องมีเจ้าหน้าที่ Gatekeeper ประจำการอย่างน้อย 1 ท่าน'
-        )
-      );
+    const removal = removeOfficer(currentConfig.officers, officerId);
+    if (!removal.ok) {
+      if (removal.code !== 'NOT_FOUND') showToast(REJECTION_TOASTS[removal.code](tr));
       return;
     }
     const target = currentConfig.officers.find((o) => o.id === officerId);
     if (!target) return;
-    if (target.isLead) {
-      showToast(
-        tr(
-          '⚠️ Cannot remove the Lead Gatekeeper: please click "Set as Lead" on another officer before removing',
-          '⚠️ ไม่สามารถลบ Lead Gatekeeper ได้: กรุณากด "ตั้งเป็น Lead" ให้เจ้าหน้าที่ท่านอื่นก่อนทำการลบ'
-        )
-      );
-      return;
-    }
 
     askConfirm({
       title: tr('Confirm Gatekeeper removal', 'ยืนยันการลบรายชื่อ Gatekeeper'),
@@ -316,7 +327,7 @@ function useGatekeeperPanel(
       isDestructive: true,
       onConfirm: () => {
         saveConfig(
-          { officers: currentConfig.officers.filter((o) => o.id !== officerId) },
+          { officers: removal.officers },
           tr(
             `Removed "${target.name}" from the Gatekeeper list`,
             `ลบคุณ "${target.name}" ออกจากรายชื่อ Gatekeeper เรียบร้อยแล้ว`
@@ -343,14 +354,12 @@ function useGatekeeperPanel(
       return;
     }
 
-    const newOfficer: GatekeeperOfficer = {
-      id: `usr-${selectedCategory.toLowerCase()}-${Date.now()}`,
-      name: newOfficerName.trim(),
-      email: newOfficerEmail.trim(),
-      roleTitle: newOfficerRole.trim() || 'Gatekeeper Specialist',
-      phone: newOfficerPhone.trim() || undefined, // typed by hand — the HR view has no phone
-      isLead: false,
-    };
+    const newOfficer: GatekeeperOfficer = buildNewOfficer(selectedCategory, {
+      name: newOfficerName,
+      email: newOfficerEmail,
+      roleTitle: newOfficerRole,
+      phone: newOfficerPhone,
+    });
 
     const saved = await saveConfig(
       { officers: [...currentConfig.officers, newOfficer] },
@@ -704,7 +713,7 @@ function useHrAdminPanel(
 
     const payload = buildAdminPayload();
     const current = hrAdmins.find((a) => a.id === editingAdminId);
-    const emailChanged = current && normEmail(current.email) !== normEmail(payload.email);
+    const emailChanged = current && hrAdminChangeLosesAdmin(current, { email: payload.email });
     const block = emailChanged ? hrAdminRemovalBlock(hrAdmins, current.id, myEmail, tr) : null;
     if (block) {
       showToast(block);
@@ -761,8 +770,9 @@ function useHrAdminPanel(
 
   const handleToggleAdminStatus = (admin: HrAdminMember) => {
     const newStatus = admin.status === 'active' ? 'inactive' : 'active';
-    const block =
-      newStatus === 'inactive' ? hrAdminRemovalBlock(hrAdmins, admin.id, myEmail, tr) : null;
+    const block = hrAdminChangeLosesAdmin(admin, { status: newStatus })
+      ? hrAdminRemovalBlock(hrAdmins, admin.id, myEmail, tr)
+      : null;
     if (block) {
       showToast(block);
       return;

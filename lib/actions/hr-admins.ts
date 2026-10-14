@@ -10,6 +10,7 @@ import { prisma } from '@/lib/prisma';
 import { AUDIT_ACTIONS } from '@/lib/audit-actions';
 import { requireTab, ROSTER_TABS, writeAudit } from '@/lib/tab-guard';
 import { candidateEmails } from '@/lib/roster-role';
+import { checkHrAdminRemoval, hrAdminChangeLosesAdmin } from '@/lib/roster-rules';
 import type { TicketViewer } from '@/lib/ticket-scope';
 import { INITIAL_HR_ADMINS } from '@/services/rosterDefaults';
 import { mapHrAdmin } from './mappers';
@@ -46,14 +47,12 @@ async function assertKeepsAdmins(viewer: TicketViewer, id: string): Promise<void
   const target = await prisma.hrAdminMember.findFirst({ where: { id, ...LIVE } });
   if (!target) throw new Error('NOT_FOUND');
   // Every email that resolves to the caller (session + HR-view CurrentEmail), as roster-role does.
-  const mine = await candidateEmails(viewer.email);
-  if (mine.includes(normalizeEmail(target.email))) {
-    throw new Error('CANNOT_REMOVE_SELF');
-  }
-  const othersActive = await prisma.hrAdminMember.count({
+  const myEmails = await candidateEmails(viewer.email);
+  const otherActiveAdmins = await prisma.hrAdminMember.count({
     where: { ...LIVE, isActive: true, status: 'active', id: { not: id } },
   });
-  if (othersActive === 0) throw new Error('LAST_ADMIN');
+  const rejection = checkHrAdminRemoval({ targetEmail: target.email, myEmails, otherActiveAdmins });
+  if (rejection) throw new Error(rejection);
 }
 
 export async function addHrAdminMember(
@@ -81,10 +80,7 @@ export async function updateHrAdminMember(
   const data = HrAdminFields.partial().parse(updates);
   const current = await prisma.hrAdminMember.findFirst({ where: { id, ...LIVE } });
   if (!current) throw new Error('NOT_FOUND');
-  const losesAdmin =
-    (data.status === 'inactive' && current.status === 'active') ||
-    (data.email !== undefined && data.email !== normalizeEmail(current.email));
-  if (losesAdmin) await assertKeepsAdmins(viewer, id);
+  if (hrAdminChangeLosesAdmin(current, data)) await assertKeepsAdmins(viewer, id);
   await prisma.hrAdminMember.update({ where: { id }, data: { ...data, updatedBy: viewer.userId } });
   writeAudit(viewer, AUDIT_ACTIONS.ROSTERS_UPDATE, {
     roster: 'hr_admins',

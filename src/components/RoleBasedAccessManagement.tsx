@@ -55,6 +55,7 @@ import { useConfirmDialog } from './ConfirmDialog';
 import { ExecStatusSelect, ExecutiveStatus } from './executiveShared';
 import HrNameField from './HrNameField';
 import { normalizeEmail } from '@/lib/email-identity';
+import { allCategoriesScope, toggleGatekeeperCategory } from '@/lib/role-access-rules';
 import { clickableProps } from './clickableProps';
 import { useTr } from '../context/useTr';
 import type { Language } from '../context/LanguageContext';
@@ -1165,20 +1166,9 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
 
   const handleGatekeeperDeptToggle = (cat: GrievanceCategory) => {
     const gkConfig = permissions.gatekeeper;
-    const currentDepts = gkConfig.assignedDepartments || [];
-    const hasDept = currentDepts.includes(cat);
-    const newDepts = hasDept ? currentDepts.filter((d) => d !== cat) : [...currentDepts, cat];
-
-    const finalDepts = newDepts.length > 0 ? newDepts : ['HR' as GrievanceCategory];
-    const isAllDepts = finalDepts.length === Object.keys(CATEGORY_DEFINITIONS).length;
-
     const updated = {
       ...permissions,
-      gatekeeper: {
-        ...gkConfig,
-        canViewAllDepartments: isAllDepts,
-        assignedDepartments: finalDepts,
-      },
+      gatekeeper: { ...gkConfig, ...toggleGatekeeperCategory(gkConfig.assignedDepartments, cat) },
     };
 
     commitPermissions(
@@ -1189,15 +1179,10 @@ export const RoleBasedAccessManagement: React.FC<RoleBasedAccessManagementProps>
 
   // "Select all" and "reset" both end at the default scope: every category.
   const grantAllGatekeeperCategories = (toastMsg: string) => {
-    const allCats = Object.keys(CATEGORY_DEFINITIONS) as GrievanceCategory[];
     commitPermissions(
       {
         ...permissions,
-        gatekeeper: {
-          ...permissions.gatekeeper,
-          canViewAllDepartments: true,
-          assignedDepartments: allCats,
-        },
+        gatekeeper: { ...permissions.gatekeeper, ...allCategoriesScope() },
       },
       toastMsg
     );

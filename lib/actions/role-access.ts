@@ -4,10 +4,12 @@
 // opens, its department ceiling and special flags. It is the single permission system
 // (decisions.md 2026-10-09), so writes need the RBAC tab, and the lock-out rules the upstream
 // screen applies client-side hold on the server too: admin always keeps the RBAC tab and
-// canManageRolePermissions.
+// canManageRolePermissions, and a gatekeeper category scope is stored normalised (empty → HR,
+// canViewAllDepartments derived) — both rules live in lib/role-access-rules.ts.
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { AUDIT_ACTIONS } from '@/lib/audit-actions';
+import { keepsAdminInControl, normalizeRoleScope } from '@/lib/role-access-rules';
 import { RBAC_TABS, requireTab, writeAudit } from '@/lib/tab-guard';
 import { requireTicketViewer } from '@/lib/ticket-access';
 import { APP_TABS, INITIAL_ROLE_PERMISSIONS } from '@/services/rosterDefaults';
@@ -35,7 +37,16 @@ const ConfigFields = z.object({
 });
 type ConfigData = Partial<z.infer<typeof ConfigFields>>;
 
-function toRow({ allowedTabs, assignedDepartments, ...rest }: ConfigData) {
+function toRow(
+  role: UserRole,
+  data: ConfigData,
+  storedDepartments?: RolePermissionConfig['assignedDepartments']
+) {
+  const { allowedTabs, assignedDepartments, ...rest } = normalizeRoleScope(
+    role,
+    data,
+    storedDepartments
+  );
   return {
     ...rest,
     allowedTabsJson: allowedTabs ? JSON.stringify([...new Set(allowedTabs)]) : undefined,
@@ -43,13 +54,6 @@ function toRow({ allowedTabs, assignedDepartments, ...rest }: ConfigData) {
       ? JSON.stringify([...new Set(assignedDepartments)])
       : undefined,
   };
-}
-
-/** Admin can never lose the RBAC screen — otherwise nobody could ever give it back. */
-function keepsAdminInControl(role: UserRole, data: ConfigData): boolean {
-  if (role !== 'admin') return true;
-  if (data.allowedTabs && !data.allowedTabs.includes('rbac_management')) return false;
-  return data.canManageRolePermissions !== false;
 }
 
 async function listConfigs(): Promise<Record<UserRole, RolePermissionConfig>> {
@@ -75,7 +79,7 @@ export async function updateRoleAccessConfig(
   if (!keepsAdminInControl(target, data)) throw new Error('ADMIN_LOCKOUT');
   const updated = await prisma.roleAccessConfig.update({
     where: { role: target },
-    data: { ...toRow(data), updatedBy: viewer.userId },
+    data: { ...toRow(target, data), updatedBy: viewer.userId },
   });
   writeAudit(viewer, AUDIT_ACTIONS.RBAC_UPDATE, { role: target, fields: Object.keys(data) });
   return mapRoleAccessConfig(updated);
@@ -98,7 +102,10 @@ export async function saveRoleAccessConfigs(
     parsed.map(({ role, data }) =>
       prisma.roleAccessConfig.update({
         where: { role },
-        data: { ...toRow(data), updatedBy: viewer.userId },
+        data: {
+          ...toRow(role, data, current[role]?.assignedDepartments),
+          updatedBy: viewer.userId,
+        },
       })
     )
   );
@@ -117,7 +124,7 @@ export async function resetRolePermissionsToDefault(): Promise<
       const defaults = ConfigFields.parse(INITIAL_ROLE_PERMISSIONS[role]); // drops role
       return prisma.roleAccessConfig.update({
         where: { role },
-        data: { ...toRow(defaults), updatedBy: viewer.userId },
+        data: { ...toRow(role, defaults), updatedBy: viewer.userId },
       });
     })
   );

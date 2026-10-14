@@ -10,6 +10,7 @@ import { normalizeEmail } from '@/lib/email-identity';
 import { prisma } from '@/lib/prisma';
 import { AUDIT_ACTIONS } from '@/lib/audit-actions';
 import { requireTab, ROSTER_TABS, writeAudit } from '@/lib/tab-guard';
+import { checkOfficerRoster, withSingleLead } from '@/lib/roster-rules';
 import { requireTicketViewer } from '@/lib/ticket-access';
 import { INITIAL_GATEKEEPER_CONFIGS } from '@/mockData';
 import { mapDepartmentConfig } from './mappers';
@@ -36,11 +37,10 @@ const ConfigFields = z.object({
   autoAssignMode: z.enum(['off', 'round_robin', 'lead_manual', 'workload_balanced']),
   escalationEmail: z.string().trim().max(200).optional(),
   notificationWebhookUrl: z.union([z.literal(''), z.url().max(500)]).optional(),
-  officers: z.array(OfficerFields).min(1).max(100),
+  // An empty list is refused by checkOfficerRoster (LAST_OFFICER), the code the screen maps.
+  officers: z.array(OfficerFields).max(100),
   leadOfficer: z.object({ id: z.string() }).loose().optional(),
 });
-
-type OfficerInput = z.infer<typeof OfficerFields>;
 
 async function listConfigs(): Promise<Record<GrievanceCategory, DepartmentGatekeeperConfig>> {
   const rows = await prisma.departmentGatekeeperConfig.findMany({
@@ -60,13 +60,6 @@ export async function getDepartmentGatekeeperConfigs(): Promise<
   return listConfigs();
 }
 
-/** Exactly one lead: the requested lead, else the flagged one, else the first officer. */
-function withSingleLead(officers: OfficerInput[], leadId?: string): OfficerInput[] {
-  const lead =
-    officers.find((o) => o.id === leadId) ?? officers.find((o) => o.isLead) ?? officers[0];
-  return officers.map((o) => ({ ...o, isLead: o === lead }));
-}
-
 export async function updateDepartmentGatekeeperConfig(
   category: GrievanceCategory,
   updates: Partial<DepartmentGatekeeperConfig>
@@ -76,16 +69,20 @@ export async function updateDepartmentGatekeeperConfig(
   const { officers, leadOfficer, ...fields } = ConfigFields.partial().parse(updates);
 
   await prisma.$transaction(async (tx) => {
+    const existing = officers
+      ? await tx.gatekeeperOfficer.findMany({
+          where: { category: cat, ...LIVE },
+          select: { id: true, isLead: true },
+        })
+      : [];
+    const rejection = officers && checkOfficerRoster(existing, officers);
+    if (rejection) throw new Error(rejection);
     await tx.departmentGatekeeperConfig.update({
       where: { category: cat },
       data: { ...fields, updatedBy: viewer.userId },
     });
     if (!officers) return;
     const next = withSingleLead(officers, leadOfficer?.id);
-    const existing = await tx.gatekeeperOfficer.findMany({
-      where: { category: cat, ...LIVE },
-      select: { id: true },
-    });
     const existingIds = new Set(existing.map((o) => o.id));
     const keptIds = new Set(next.map((o) => o.id));
     await tx.gatekeeperOfficer.updateMany({

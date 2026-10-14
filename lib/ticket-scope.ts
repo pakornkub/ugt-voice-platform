@@ -12,6 +12,7 @@
 // A role without a RoleAccessConfigs row sees only its own tickets (deny by default).
 import type { Prisma } from '@prisma/client';
 import { emailVariants, sameEmail } from '@/lib/email-identity';
+import { effectiveDepartments } from '@/lib/role-access-rules';
 import { SERVER_TEXT } from '@/lib/server-text';
 import type {
   ComplaintTicket,
@@ -45,9 +46,9 @@ export function ownTicketsWhere(email: string): Prisma.ticketWhereInput {
   };
 }
 
-/** Role-level category scope from the RBAC page (empty → ['HR'], GatekeeperInbox's fallback). */
+/** Role-level category scope from the RBAC page (empty reads as HR — see effectiveDepartments). */
 export function gatekeeperDepartments(config?: RolePermissionConfig): GrievanceCategory[] {
-  return config?.assignedDepartments?.length ? config.assignedDepartments : ['HR'];
+  return effectiveDepartments(config?.assignedDepartments);
 }
 
 export function ticketScopeWhere(viewer: TicketViewer): Prisma.ticketWhereInput {

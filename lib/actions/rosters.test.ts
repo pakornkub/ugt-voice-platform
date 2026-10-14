@@ -266,10 +266,60 @@ describe('gatekeeper officers', () => {
   it('refuses an empty officer list and an unknown category', async () => {
     await expect(
       gatekeeper.updateDepartmentGatekeeperConfig('HR', { officers: [] })
-    ).rejects.toThrow();
+    ).rejects.toThrow('LAST_OFFICER');
+    expect(db.tx.departmentGatekeeperConfig.update).not.toHaveBeenCalled();
     await expect(
       gatekeeper.updateDepartmentGatekeeperConfig('Nope' as never, { departmentName: 'x' })
     ).rejects.toThrow();
+  });
+
+  describe('rules the screen also enforces', () => {
+    const officer = (id: string, isLead = false) => ({
+      id,
+      name: id,
+      email: `${id}@ube.com`,
+      roleTitle: 'GK',
+      isLead,
+    });
+
+    it('never lets a category lose its last officer, and writes nothing', async () => {
+      db.tx.gatekeeperOfficer.findMany.mockResolvedValue([{ id: 'only', isLead: true }]);
+      await expect(
+        gatekeeper.updateDepartmentGatekeeperConfig('HR', { officers: [] })
+      ).rejects.toThrow('LAST_OFFICER');
+      expect(db.tx.gatekeeperOfficer.updateMany).not.toHaveBeenCalled();
+      expect(db.tx.gatekeeperOfficer.create).not.toHaveBeenCalled();
+    });
+
+    it('never lets the Lead be dropped — the lead is handed over first', async () => {
+      db.tx.gatekeeperOfficer.findMany.mockResolvedValue([
+        { id: 'boss', isLead: true },
+        { id: 'deputy', isLead: false },
+      ]);
+      await expect(
+        gatekeeper.updateDepartmentGatekeeperConfig('HR', { officers: [officer('deputy', true)] })
+      ).rejects.toThrow('CANNOT_REMOVE_LEAD');
+      expect(db.tx.gatekeeperOfficer.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('removes a non-lead and keeps exactly one lead', async () => {
+      db.tx.gatekeeperOfficer.findMany.mockResolvedValue([
+        { id: 'boss', isLead: true },
+        { id: 'deputy', isLead: false },
+      ]);
+      await gatekeeper.updateDepartmentGatekeeperConfig('HR', {
+        officers: [officer('boss', true)],
+      });
+      expect(db.tx.gatekeeperOfficer.updateMany.mock.calls[0][0].where).toEqual({
+        id: { in: ['deputy'] },
+      });
+    });
+
+    it('a config edit without an officer list skips the roster rules', async () => {
+      await gatekeeper.updateDepartmentGatekeeperConfig('HR', { departmentName: 'People' });
+      expect(db.tx.gatekeeperOfficer.findMany).not.toHaveBeenCalled();
+      expect(db.tx.departmentGatekeeperConfig.update).toHaveBeenCalled();
+    });
   });
 
   it('reset recreates the demo officers for every department', async () => {
@@ -304,6 +354,84 @@ describe('RBAC matrix', () => {
     expect(db.prisma.roleAccessConfig.update.mock.calls[0][0].data.allowedTabsJson).toBe(
       '["submit"]'
     );
+  });
+
+  describe('gatekeeper category scope is stored normalised', () => {
+    const storedRow = (role: UserRole, departments: string) => ({
+      ...INITIAL_ROLE_PERMISSIONS[role],
+      allowedTabsJson: '["gatekeeper"]',
+      assignedDepartmentsJson: departments,
+      updatedAt: new Date(),
+    });
+    const written = () => db.prisma.roleAccessConfig.update.mock.calls.map((c) => c[0].data);
+
+    it('an empty scope is stored as HR and view-all is derived', async () => {
+      db.prisma.roleAccessConfig.update.mockResolvedValue(storedRow('gatekeeper', '["HR"]'));
+      await roleAccess.updateRoleAccessConfig('gatekeeper', {
+        assignedDepartments: [],
+        canViewAllDepartments: true,
+      });
+      expect(written()[0]).toMatchObject({
+        assignedDepartmentsJson: '["HR"]',
+        canViewAllDepartments: false,
+      });
+    });
+
+    it('all six categories derive view-all', async () => {
+      db.prisma.roleAccessConfig.update.mockResolvedValue(storedRow('gatekeeper', '[]'));
+      await roleAccess.updateRoleAccessConfig('gatekeeper', {
+        assignedDepartments: ['HR', 'Compliance', 'Ethics', 'Fraud', 'Harassment', 'Quality'],
+        canViewAllDepartments: false,
+      });
+      expect(written()[0]).toMatchObject({ canViewAllDepartments: true });
+    });
+
+    it('the whole-matrix save normalises the changed gatekeeper but not other roles', async () => {
+      db.prisma.roleAccessConfig.findMany.mockResolvedValue(
+        (['employee', 'gatekeeper', 'executive', 'admin'] as const).map((role) =>
+          storedRow(role, JSON.stringify(INITIAL_ROLE_PERMISSIONS[role].assignedDepartments))
+        )
+      );
+      db.prisma.roleAccessConfig.update.mockResolvedValue({});
+      await roleAccess.saveRoleAccessConfigs({
+        ...INITIAL_ROLE_PERMISSIONS,
+        gatekeeper: {
+          ...INITIAL_ROLE_PERMISSIONS.gatekeeper,
+          assignedDepartments: [],
+          canViewAllDepartments: true,
+        },
+        executive: { ...INITIAL_ROLE_PERMISSIONS.executive, canViewDirectCeoTickets: false },
+      });
+      const calls = db.prisma.roleAccessConfig.update.mock.calls.map((c) => c[0]);
+      expect(calls.find((c) => c.where.role === 'gatekeeper')?.data).toMatchObject({
+        assignedDepartmentsJson: '["HR"]',
+        canViewAllDepartments: false,
+      });
+      expect(calls.find((c) => c.where.role === 'executive')?.data).toMatchObject({
+        assignedDepartmentsJson: '[]', // other roles keep an empty scope
+      });
+    });
+
+    it('leaves a legacy empty gatekeeper scope as stored when only another field changed', async () => {
+      db.prisma.roleAccessConfig.findMany.mockResolvedValue([storedRow('gatekeeper', '[]')]);
+      db.prisma.roleAccessConfig.update.mockResolvedValue({});
+      await roleAccess.saveRoleAccessConfigs({
+        ...INITIAL_ROLE_PERMISSIONS,
+        gatekeeper: {
+          ...INITIAL_ROLE_PERMISSIONS.gatekeeper,
+          assignedDepartments: [],
+          canViewAllDepartments: false,
+          canViewDirectCeoTickets: true,
+        },
+      });
+      const gatekeeperWrite = db.prisma.roleAccessConfig.update.mock.calls.find(
+        (c) => c[0].where.role === 'gatekeeper'
+      )?.[0].data;
+      expect(gatekeeperWrite).toMatchObject({
+        assignedDepartmentsJson: '[]',
+        canViewAllDepartments: false,
+      });
+    });
   });
 
   it('saves only the roles that changed and resets every role', async () => {
