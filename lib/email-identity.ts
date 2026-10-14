@@ -28,3 +28,8 @@ export function emailVariants(email: string | null | undefined): string[] {
   if (!primary.endsWith(PRIMARY_DOMAIN)) return [primary];
   return [primary, primary.slice(0, -PRIMARY_DOMAIN.length) + ALIAS_DOMAIN];
 }
+
+/** "a@x, B@y" → normalized, de-duplicated "a@x, b@y" (a recipient may be a whole team). */
+export function emailList(list: string | null | undefined): string {
+  return [...new Set((list ?? '').split(',').map(normalizeEmail).filter(Boolean))].join(', ');
+}

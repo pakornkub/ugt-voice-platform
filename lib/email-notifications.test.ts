@@ -280,7 +280,7 @@ describe('notifyTicketSubmitted', () => {
       recipientName: 'ทีมงาน Gatekeeper ประจำฝ่าย HR – ทรัพยากรบุคคลและสวัสดิการ',
     });
     const query = db.prisma.departmentGatekeeperConfig.findFirst.mock.calls[0][0];
-    expect(query.include.officers.where).toEqual({ isActive: true, isDeleted: false });
+    expect(query.select.officers.where).toEqual({ isActive: true, isDeleted: false });
   });
 
   it('passes the actor through so dev mode redirects the mail', async () => {

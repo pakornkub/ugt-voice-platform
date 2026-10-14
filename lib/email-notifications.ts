@@ -18,9 +18,10 @@ import { emailSettingsInputSchema } from '@/lib/email-settings-schema';
 import { permissionsFor } from '@/lib/get-user-permissions';
 import { escapeHtml } from '@/lib/mail-templates';
 import { PERMISSIONS } from '@/lib/permissions';
-import { normalizeEmail } from '@/lib/email-identity';
+import { emailList, normalizeEmail } from '@/lib/email-identity';
 import { prisma } from '@/lib/prisma';
 import { SERVER_TEMPLATES, SERVER_TEXT } from '@/lib/server-text';
+import { gatekeeperMailTo, readCategoryRoster } from '@/lib/ticket-events';
 import { PROTECTED_ACTOR_NAME, type TicketViewer } from '@/lib/ticket-scope';
 import { CATEGORY_DEFINITIONS } from '@/mockData';
 import { DEFAULT_EMAIL_SETTINGS, interpolateEmailTemplate } from '@/services/emailDefaults';
@@ -217,11 +218,6 @@ interface DispatchSpec {
 
 const NOT_SENT_BODY = SERVER_TEXT.mailNotSentBody.th;
 
-/** "a@x, B@y" → normalized, de-duplicated "a@x, b@y" (a recipient may be a whole team). */
-function emailList(list: string | null | undefined): string {
-  return [...new Set((list ?? '').split(',').map(normalizeEmail).filter(Boolean))].join(', ');
-}
-
 type Outcome = Pick<EmailDispatchLog, 'status'> & { errorMessage?: string };
 
 async function deliver(spec: DispatchSpec, subject: string, bodyText: string): Promise<Outcome> {
@@ -306,17 +302,11 @@ export interface NotifyContext {
 /**
  * Every active GK of the category, Lead included, all on the To line (owner 2026-10-14 — one rule for
  * every category, no single assignee mail). No officers → the department's escalation address.
+ * The roster read and the To-line rule live in lib/ticket-events.ts.
  */
 async function gatekeeperRecipient(category: string): Promise<Recipient> {
-  const config = await prisma.departmentGatekeeperConfig.findFirst({
-    where: { category, isDeleted: false },
-    include: {
-      officers: { where: { isActive: true, isDeleted: false }, orderBy: { createdAt: 'asc' } },
-    },
-  });
-  const team = emailList(config?.officers.map((o) => o.email).join(','));
   return {
-    email: team || config?.escalationEmail,
+    email: gatekeeperMailTo(await readCategoryRoster(category)),
     name: `ทีมงาน Gatekeeper ประจำฝ่าย ${categoryTh(category)}`,
     role: 'gatekeeper',
   };

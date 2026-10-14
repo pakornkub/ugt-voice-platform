@@ -20,12 +20,14 @@ import {
   notifyTicketSubmitted,
 } from '@/lib/email-notifications';
 import { prisma } from '@/lib/prisma';
+import { SERVER_TEMPLATES as TEXT_TEMPLATES, SERVER_TEXT as TEXT } from '@/lib/server-text';
 import {
-  resolvedAnswer,
-  SERVER_TEMPLATES as TEXT_TEMPLATES,
-  SERVER_TEXT as TEXT,
-} from '@/lib/server-text';
-import { statusLabel, timelineActionText } from '@/lib/ticket-status';
+  evaluationRow,
+  chatMessageRow,
+  statusChangeRow,
+  submissionRows,
+} from '@/lib/ticket-events';
+import { timelineActionText } from '@/lib/ticket-status';
 import {
   findVisibleTicket,
   findVisibleTicketWithRelations,
@@ -47,7 +49,6 @@ import { z } from 'zod';
 import { mapTicket } from './mappers';
 import type {
   ComplaintTicket,
-  NotificationItem,
   SatisfactionEvaluation,
   TicketStatus,
   UrgencyLevel,
@@ -121,38 +122,6 @@ function isUniqueViolation(error: unknown): boolean {
 
 type CreatedTicket = Prisma.ticketGetPayload<{ include: typeof TICKET_INCLUDE }>;
 
-function submissionNotifications(created: CreatedTicket): Prisma.notificationCreateManyInput[] {
-  const notifs: Prisma.notificationCreateManyInput[] = [
-    {
-      ticketId: created.id,
-      trackingCode: created.trackingCode,
-      title: TEXT_TEMPLATES.submittedTitle.th(created.title.substring(0, 40)),
-      message: TEXT_TEMPLATES.submittedMessage.th(
-        created.trackingCode,
-        created.gatekeeperDepartment
-      ),
-      type: 'new_ticket',
-      recipientRole: 'employee',
-      recipientEmail: created.submitterEmail,
-    },
-  ];
-  if (created.isDirectToExecutive) {
-    notifs.push({
-      ticketId: created.id,
-      trackingCode: created.trackingCode,
-      title: TEXT.directAlertTitle.th,
-      message: TEXT_TEMPLATES.directAlertMessage.th(
-        created.title,
-        created.category,
-        created.urgency
-      ),
-      type: 'direct_ceo_alert',
-      recipientRole: 'executive',
-    });
-  }
-  return notifs;
-}
-
 /**
  * Next running number of the year — TK-YYYY-0001, 0002, … (owner 2026-10-09; upstream used a
  * random 4-digit code, which read like a continuation of the test tickets). One counter row per
@@ -195,7 +164,7 @@ async function createTicketWithNotifications(
         data: { ...data, trackingCode },
         include: TICKET_INCLUDE,
       });
-      await tx.notification.createMany({ data: submissionNotifications(created) });
+      await tx.notification.createMany({ data: submissionRows(created) });
       return created;
     });
   } catch (error) {
@@ -307,24 +276,6 @@ interface WorkflowUpdates {
   clusterGroup?: string;
 }
 
-function statusNotification(trackingCode: string, status: TicketStatus, actorName: string) {
-  if (status === 'resolved') {
-    return {
-      type: 'satisfaction_pending' as NotificationItem['type'],
-      title: TEXT_TEMPLATES.resolvedTitle.th(trackingCode),
-      message: TEXT.resolvedMessage.th,
-    };
-  }
-  return {
-    type: 'status_update' as NotificationItem['type'],
-    title: TEXT_TEMPLATES.progressTitle.th(trackingCode),
-    message: TEXT_TEMPLATES.statusChangedMessage.th(
-      statusLabel(status, 'serverNotice', 'th'),
-      actorName
-    ),
-  };
-}
-
 // Upstream GatekeeperInbox's fixed triage label (the audit log records the real user).
 const TRIAGE_ACTOR = { actor: 'Gatekeeper Supervisor', actorRole: 'Gatekeeper Lead' };
 
@@ -384,7 +335,6 @@ export async function updateTicketWorkflow(
     current.confidentiality === 'confidential_restricted' && actorRole === 'Employee'
       ? PROTECTED_ACTOR_NAME
       : actor;
-  const notif = statusNotification(current.trackingCode, newStatus, notifActor);
 
   const updated = await prisma.$transaction(async (tx) => {
     const ticket = await tx.ticket.update({
@@ -416,15 +366,7 @@ export async function updateTicketWorkflow(
       },
       include: TICKET_INCLUDE,
     });
-    await tx.notification.create({
-      data: {
-        ticketId: ticket.id,
-        trackingCode: ticket.trackingCode,
-        ...notif,
-        recipientRole: 'employee',
-        recipientEmail: ticket.submitterEmail,
-      },
-    });
+    await tx.notification.create({ data: statusChangeRow(ticket, newStatus, notifActor) });
     return ticket;
   });
 
@@ -529,21 +471,9 @@ export async function sendAnonymousChatMessage(
       include: TICKET_INCLUDE,
     });
 
+    // In-app only (no mail); isNotificationForViewer keeps it from echoing back to the sender.
     await tx.notification.create({
-      data: {
-        ticketId: ticket.id,
-        trackingCode: ticket.trackingCode,
-        title: (isStaff ? TEXT_TEMPLATES.chatStaffTitle : TEXT_TEMPLATES.chatComplainantTitle).th(
-          ticket.trackingCode
-        ),
-        message: `${finalSenderName}: ${text.substring(0, 75)}${text.length > 75 ? '...' : ''}`,
-        // In-app only (no mail); isNotificationForViewer keeps it from echoing back to the sender.
-        type: 'chat_message',
-        recipientRole: isStaff ? 'employee' : 'gatekeeper',
-        recipientEmail: isStaff
-          ? normalizeEmail(ticket.loginEmail || ticket.submitterEmail) || null
-          : null,
-      },
+      data: chatMessageRow(ticket, { senderName: finalSenderName, text, isStaff }),
     });
 
     return ticket;
@@ -586,7 +516,6 @@ export async function submitEvaluation(
     createdAt: now,
   };
 
-  const resolvedText = resolvedAnswer(evaluationData.isResolvedPermanently).th;
   // Rating + staff bell in one transaction (owner 2026-10-14: the officer must learn of it at once;
   // lib/ticket-scope.ts keeps 'evaluation_submitted' off the submitter's own bell).
   const updated = await prisma.$transaction(async (tx) => {
@@ -612,19 +541,7 @@ export async function submitEvaluation(
       },
       include: TICKET_INCLUDE,
     });
-    await tx.notification.create({
-      data: {
-        ticketId: closed.id,
-        trackingCode: closed.trackingCode,
-        type: 'evaluation_submitted',
-        recipientRole: 'gatekeeper',
-        title: TEXT_TEMPLATES.ratedTitle.th(
-          closed.trackingCode,
-          String(evaluationData.overallScore)
-        ),
-        message: TEXT_TEMPLATES.ratedMessage.th(String(evaluationData.overallScore), resolvedText),
-      },
-    });
+    await tx.notification.create({ data: evaluationRow(closed, evaluationData) });
     return closed;
   });
 
