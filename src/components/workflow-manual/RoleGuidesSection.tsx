@@ -384,12 +384,12 @@ const ADMIN_GUIDE_CARDS: readonly TitledText[] = [
   },
   {
     title: {
-      th: '2. ตั้งค่าโหมดการจ่ายงานอัตโนมัติ (Dispatch Policy)',
-      en: '2. Set the auto-assign mode (Dispatch Policy)',
+      th: '2. การจ่ายงานเรื่องใหม่ (ใช้กติกาเดียวทุกหมวด)',
+      en: '2. How new cases are dispatched (one rule for every category)',
     },
     body: {
-      th: 'ตั้งค่าแยกรายหมวดที่หน้ากำหนด Gatekeeper (Auto-Assign Mode) ค่าเริ่มต้นคือ Lead Manual — Admin เปลี่ยนเองรายหมวดได้ มี 4 แบบ: Lead Manual (จ่ายให้ Lead ของหมวดคัดกรองก่อน), Round Robin (จ่ายหมุนเวียนให้เจ้าหน้าที่คนถัดจากผู้รับล่าสุด), Workload Balanced (จ่ายให้เจ้าหน้าที่ที่มีเรื่องค้างน้อยที่สุด) หรือ ปิด (ไม่จ่ายอัตโนมัติ เรื่องจะรอการคัดกรองและมอบหมายเอง) ทั้งนี้เรื่องที่ส่งตรง CEO/EVP จะไม่ถูกจ่ายอัตโนมัติเสมอ และการจ่ายอัตโนมัติจะแสดงในไทม์ไลน์ของเรื่องเป็นรายการจาก "System"',
-      en: 'Set per category on the Gatekeeper assignment page (Auto-Assign Mode). The default is Lead Manual, and an Admin can change it per category. There are 4 options: Lead Manual (assigned to the category Lead for triage first), Round Robin (assigned in turn to the next officer after the last assignee), Workload Balanced (assigned to the officer with the fewest open tickets) or Off (no auto-assignment; the case waits for manual triage and assignment). Cases sent directly to the CEO/EVP are never auto-assigned, and an automatic assignment appears in the case timeline as a "System" entry.',
+      th: 'เมื่อมีเรื่องใหม่ ระบบใส่ชื่อหัวหน้า (Lead) ของหมวดเป็นผู้รับผิดชอบ (ไม่มีหัวหน้า → เจ้าหน้าที่คนแรก) และส่งอีเมลแจ้ง GK ทุกคนในหมวดนั้น — GK คนใดก็เปลี่ยนผู้รับผิดชอบได้ที่ปุ่ม "จัดการ / อัปเดตสถานะ" ไม่มีตัวเลือกรูปแบบการจ่ายงานให้ตั้งแล้ว เรื่องที่ส่งตรง CEO/EVP จะใส่ชื่อหัวหน้าเฉพาะเมื่อเปิดสิทธิ์ "เข้าถึงกล่องข้อร้องเรียนสายตรง CEO/EVP" ให้ GK ในหน้า RBAC และการมอบหมายจะแสดงในไทม์ไลน์เป็นรายการจาก "System"',
+      en: 'For a new case the system sets the category Lead as the responsible officer (no Lead → the first officer) and emails every Gatekeeper of that category. Any Gatekeeper can re-assign it from "Manage / Update status"; there is no per-category assignment mode any more. A case sent directly to the CEO/EVP gets the Lead only when the RBAC page gives Gatekeepers the "direct CEO/EVP inbox" right, and the assignment appears in the case timeline as a "System" entry.',
     },
   },
   {

@@ -260,24 +260,27 @@ describe('notifyTicketSubmitted', () => {
     expect(lastLog().body).toContain('สมชาย ใจดี');
   });
 
-  it('mails the auto-assigned officer with the Lead in CC, and logs the assignee', async () => {
+  it('mails every active GK of the category on the To line, whoever is assigned', async () => {
+    db.prisma.departmentGatekeeperConfig.findFirst.mockResolvedValue(
+      gkConfig([
+        officer(),
+        officer({ name: 'สมศรี', email: 'somsri@ube.co.th', isLead: false }),
+        officer({ name: 'ซ้ำ', email: 'LEAD.hr@ube.com', isLead: false }),
+      ])
+    );
     await notifyTicketSubmitted(
       ticket({ assignedOfficerName: 'สมศรี', assignedOfficerEmail: 'somsri@ube.com' }),
       ctx
     );
-    expect(mail.sendRenderedMail.mock.calls[0][0]).toMatchObject({
-      to: 'somsri@ube.com',
-      cc: 'lead.hr@ube.com',
+    const sent = mail.sendRenderedMail.mock.calls[0][0];
+    expect(sent.to).toBe('lead.hr@ube.com, somsri@ube.com');
+    expect(sent.cc).toBeUndefined();
+    expect(lastLog()).toMatchObject({
+      recipientEmail: 'lead.hr@ube.com, somsri@ube.com',
+      recipientName: 'ทีมงาน Gatekeeper ประจำฝ่าย HR – ทรัพยากรบุคคลและสวัสดิการ',
     });
-    expect(lastLog()).toMatchObject({ recipientEmail: 'somsri@ube.com', recipientName: 'สมศรี' });
-  });
-
-  it('does not CC the Lead when the Lead is the assignee', async () => {
-    await notifyTicketSubmitted(
-      ticket({ assignedOfficerName: 'Lead', assignedOfficerEmail: 'LEAD.hr@ube.com' }),
-      ctx
-    );
-    expect(mail.sendRenderedMail.mock.calls[0][0].cc).toBeUndefined();
+    const query = db.prisma.departmentGatekeeperConfig.findFirst.mock.calls[0][0];
+    expect(query.include.officers.where).toEqual({ isActive: true, isDeleted: false });
   });
 
   it('passes the actor through so dev mode redirects the mail', async () => {
@@ -302,18 +305,12 @@ describe('notifyTicketSubmitted', () => {
     expect(lastLog().status).toBe('disabled');
   });
 
-  it('falls back to the first officer, then to the department escalation address', async () => {
-    db.prisma.departmentGatekeeperConfig.findFirst.mockResolvedValue(
-      gkConfig([officer({ isLead: false, email: 'first@ube.com' })])
-    );
-    await notifyTicketSubmitted(ticket(), ctx);
-    expect(mail.sendRenderedMail.mock.calls[0][0].to).toBe('first@ube.com');
-
+  it('falls back to the department escalation address when the category has no GK', async () => {
     db.prisma.departmentGatekeeperConfig.findFirst.mockResolvedValue(
       gkConfig([], 'escalation@ube.com')
     );
     await notifyTicketSubmitted(ticket(), ctx);
-    expect(mail.sendRenderedMail.mock.calls[1][0].to).toBe('escalation@ube.com');
+    expect(mail.sendRenderedMail.mock.calls[0][0].to).toBe('escalation@ube.com');
   });
 
   it('logs "failed" instead of inventing an address when nobody can receive it', async () => {
@@ -377,23 +374,23 @@ describe('notifyTicketSubmitted', () => {
     });
   });
 
-  it('keeps the Lead in CC next to CEO/EVP when the ticket was assigned, without duplicates', async () => {
+  it('leaves anyone already on the To line out of the CEO/EVP CC', async () => {
+    db.prisma.departmentGatekeeperConfig.findFirst.mockResolvedValue(
+      gkConfig([
+        officer(),
+        officer({ name: 'สมศรี', email: 'somsri@ube.co.th', isLead: false }),
+        officer({ name: 'ซ้ำ', email: 'LEAD.hr@ube.com', isLead: false }),
+      ])
+    );
     db.prisma.executiveMember.findMany.mockResolvedValue([
       { email: 'ceo@ube.com' },
       { email: 'lead.hr@ube.co.th' }, // the Lead is also an executive
-      { email: 'somsri@ube.com' }, // …and the assignee
+      { email: 'somsri@ube.com' }, // …and so is another GK
     ]);
-    await notifyTicketSubmitted(
-      ticket({
-        isDirectToExecutive: true,
-        assignedOfficerName: 'สมศรี',
-        assignedOfficerEmail: 'somsri@ube.com',
-      }),
-      ctx
-    );
+    await notifyTicketSubmitted(ticket({ isDirectToExecutive: true }), ctx);
     const sent = mail.sendRenderedMail.mock.calls[0][0];
-    expect(sent.to).toBe('somsri@ube.com');
-    expect(sent.cc).toBe('lead.hr@ube.com, ceo@ube.com');
+    expect(sent.to).toBe('lead.hr@ube.com, somsri@ube.com');
+    expect(sent.cc).toBe('ceo@ube.com');
   });
 
   it('does not copy executives on an ordinary ticket', async () => {
@@ -543,14 +540,23 @@ describe('notifyTicketEvaluated', () => {
     improvementSuggestions: '',
   };
 
-  it('mails the rating to the officer responsible, CC the Lead, and logs it', async () => {
+  it('mails the rating to every GK of the category and logs it', async () => {
+    db.prisma.departmentGatekeeperConfig.findFirst.mockResolvedValue(
+      gkConfig([
+        officer(),
+        officer({ name: 'สมศรี', email: 'somsri@ube.co.th', isLead: false }),
+        officer({ name: 'ซ้ำ', email: 'LEAD.hr@ube.com', isLead: false }),
+      ])
+    );
     await notifyTicketEvaluated(
       ticket({ assignedOfficerName: 'สมศรี', assignedOfficerEmail: 'somsri@ube.com' }),
       rating,
       ctx
     );
     const sent = mail.sendRenderedMail.mock.calls[0][0];
-    expect(sent).toMatchObject({ to: 'somsri@ube.com', cc: 'lead.hr@ube.com' });
+    expect(sent.to).toBe('lead.hr@ube.com, somsri@ube.com');
+    expect(sent.cc).toBeUndefined();
+    expect(lastLog().body).toContain('เรียน ทีมงาน Gatekeeper ประจำฝ่าย HR');
     expect(sent.subject).toContain('4/5');
     expect(lastLog()).toMatchObject({ triggerEvent: 'ticket_evaluated', status: 'sent' });
     expect(lastLog().body).toContain('ติดตามเรื่องดีมาก');

@@ -58,7 +58,7 @@ export const DEFAULT_EMAIL_SETTINGS: EmailNotificationSettings = {
   onTicketEvaluated: {
     enabled: true,
     subject: '[VoicePlatform แจ้งผลการประเมิน] เรื่อง {ticketId}: ผู้ยื่นให้คะแนน {overallScore}/5',
-    body: `เรียน คุณ {recipientName},
+    body: `เรียน {recipientName},
 
 ผู้ยื่นเรื่องได้ประเมินความพึงพอใจต่อการแก้ไขปัญหาเรียบร้อยแล้ว และเรื่องถูกปิดสมบูรณ์ โดยมีผลการประเมินดังนี้:
 

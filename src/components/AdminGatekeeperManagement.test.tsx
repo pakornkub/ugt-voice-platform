@@ -442,24 +442,17 @@ describe('AdminGatekeeperManagement', () => {
       localStorage.setItem('voiceplatform_lang_preference_v2', 'en');
     });
 
-    it('renders the header, category list and auto-assign options in English', () => {
+    it('renders the header, category list and the assignment rule in English', () => {
       renderPage();
       expect(screen.getByText('Personnel & Governance Directory')).toBeInTheDocument();
       expect(
         screen.getByText('Manage Executives, HR Admins & Department Gatekeepers')
       ).toBeInTheDocument();
       expect(screen.getByText('Select Department (6 categories)')).toBeInTheDocument();
-      expect(screen.getByText('Auto-Assign Mode')).toBeInTheDocument();
-      expect(
-        screen.getByRole('option', { name: 'Off — triage and assign manually' })
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole('option', {
-          name: 'Always route to the Lead for triage first (recommended)',
-        })
-      ).toBeInTheDocument();
-      expect(screen.getByRole('option', { name: /Round-Robin/ })).toBeInTheDocument();
-      expect(screen.getByRole('option', { name: /Workload Balanced/ })).toBeInTheDocument();
+      expect(byId('auto-assign-rule')).toHaveTextContent(
+        'every Gatekeeper of this category is emailed'
+      );
+      expect(document.getElementById('select-auto-assign-mode')).toBeNull();
       expect(screen.getByRole('columnheader', { name: 'Officer / Email' })).toBeInTheDocument();
       expect(screen.getAllByText('Primary owner').length).toBeGreaterThan(0);
       // category names come from the catalog's English name

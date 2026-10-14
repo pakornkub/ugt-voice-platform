@@ -239,7 +239,7 @@ function autoAssignTimeline(officerName: string) {
     actor: 'ระบบจ่ายงานอัตโนมัติ (Auto-Assign)',
     actorRole: 'System',
     action: `มอบหมายเจ้าหน้าที่ผู้รับผิดชอบอัตโนมัติ: ${officerName}`,
-    notes: 'ตามรูปแบบการจ่ายงานที่ตั้งค่าไว้ของหมวดหมู่นี้',
+    notes: 'หัวหน้า Gatekeeper ของหมวดหมู่ — แจ้งอีเมลถึง GK ทุกคนในหมวดแล้ว',
   };
 }
 
@@ -254,7 +254,7 @@ export async function submitTicket(payload: SubmitPayload): Promise<ComplaintTic
   TICKET_FIELDS.parse(payload);
 
   const isAnonymous = payload.confidentiality === 'anonymous';
-  // The server picks the officer (category's AutoAssignMode) — never the client. Direct-to-
+  // The server puts the category Lead on the ticket — never the client. Direct-to-
   // executive tickets stay unassigned: a gatekeeper must not be handed what RBAC may hide.
   const assignable = !payload.isDirectToExecutive || (await gatekeepersSeeDirectTickets());
   const officer = assignable ? await autoAssignOfficer(payload.category) : null;

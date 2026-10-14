@@ -50,6 +50,9 @@ describe('localizeServerText — what the server writes', () => {
     expect(en('ตามรูปแบบการจ่ายงานที่ตั้งค่าไว้ของหมวดหมู่นี้')).toBe(
       "Per this category's configured assignment mode"
     );
+    expect(en('หัวหน้า Gatekeeper ของหมวดหมู่ — แจ้งอีเมลถึง GK ทุกคนในหมวดแล้ว')).toBe(
+      "The category's Lead Gatekeeper — every GK of the category was emailed"
+    );
   });
 
   it('translates the submitted notification and keeps the title, code and department', () => {

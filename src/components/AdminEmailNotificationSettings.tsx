@@ -1030,10 +1030,10 @@ const EmailSettingsPanel: React.FC<PanelProps> = ({ initialSettings, initialLogs
               'ส่งอีเมลแจ้งเตือนไปยัง Gatekeeper ประจำหมวดหมู่ เพื่อคัดกรองและดำเนินการ'
             ),
             recipientLabel: tr(
-              'Assigned officer, CC the Category Lead ({categoryTh}) — unassigned: the Lead',
-              'เจ้าหน้าที่ที่ถูกจ่ายงาน (CC Lead ประจำหมวดหมู่ {categoryTh}) — ยังไม่มอบหมาย: Lead Gatekeeper'
+              'Every Gatekeeper of the category ({categoryTh}), Lead included',
+              'GK ทุกคนในหมวดหมู่ {categoryTh} (รวมหัวหน้า)'
             ),
-            recipientBadge: 'Auto-assigned by Category',
+            recipientBadge: 'All Category Gatekeepers',
             subjectPlaceholder: tr(
               '[VoicePlatform Alert] {ticketId}: New Ticket ({categoryTh})',
               'เช่น [VoicePlatform แจ้งเรื่องใหม่] {ticketId}: มีข้อร้องเรียนใหม่ ({categoryTh})'
@@ -1118,14 +1118,14 @@ const EmailSettingsPanel: React.FC<PanelProps> = ({ initialSettings, initialLogs
               'แจ้งเตือนเมื่อผู้ยื่นประเมินแล้ว'
             ),
             description: tr(
-              'Dispatches the rating details to the responsible Gatekeeper after the submitter completes the satisfaction survey.',
-              'ส่งอีเมลสรุปผลการประเมินความพึงพอใจไปยังเจ้าหน้าที่ผู้รับผิดชอบเรื่อง หลังผู้ยื่นประเมินเสร็จ'
+              "Dispatches the rating details to the category's Gatekeepers after the submitter completes the satisfaction survey.",
+              'ส่งอีเมลสรุปผลการประเมินความพึงพอใจไปยัง GK ทุกคนในหมวด หลังผู้ยื่นประเมินเสร็จ'
             ),
             recipientLabel: tr(
-              'Assigned officer, CC the Category Lead ({categoryTh}) — unassigned: the Lead Gatekeeper',
-              'เจ้าหน้าที่ผู้รับผิดชอบเรื่อง (CC Lead ประจำหมวดหมู่ {categoryTh}) — ยังไม่มอบหมาย: Lead Gatekeeper'
+              'Every Gatekeeper of the category ({categoryTh}), Lead included',
+              'GK ทุกคนในหมวดหมู่ {categoryTh} (รวมหัวหน้า)'
             ),
-            recipientBadge: 'Responsible Gatekeeper',
+            recipientBadge: 'All Category Gatekeepers',
             subjectPlaceholder: tr(
               '[VoicePlatform Rating] {ticketId}: Rated {overallScore}/5',
               'เช่น [VoicePlatform ผลประเมิน] {ticketId}: ผู้ยื่นให้คะแนน {overallScore}/5'

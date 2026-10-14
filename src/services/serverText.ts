@@ -41,6 +41,8 @@ export const EXACT: Record<string, string> = {
   'ติดแท็กสำคัญพิเศษ: ส่งตรงถึงโต๊ะทำงานผู้บริหารระดับสูง':
     'Tagged as special priority: sent straight to the senior executives desk',
   ตามรูปแบบการจ่ายงานที่ตั้งค่าไว้ของหมวดหมู่นี้: "Per this category's configured assignment mode",
+  'หัวหน้า Gatekeeper ของหมวดหมู่ — แจ้งอีเมลถึง GK ทุกคนในหมวดแล้ว':
+    "The category's Lead Gatekeeper — every GK of the category was emailed",
   ส่งผลประเมินความพึงพอใจเสร็จสิ้น: 'Satisfaction evaluation submitted',
   ดำเนินการตรวจสอบและแก้ไขปัญหาเรียบร้อยตามมาตรฐานการปฏิบัติงาน:
     'Reviewed and resolved the issue according to the operating standard',

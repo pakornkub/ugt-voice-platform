@@ -270,15 +270,6 @@ function useGatekeeperPanel(
   const saveConfig = (updates: Partial<DepartmentGatekeeperConfig>, message: string) =>
     run(() => updateDepartmentGatekeeperConfig(selectedCategory, updates), setConfigs, message);
 
-  const handleUpdateConfig = (updates: Partial<DepartmentGatekeeperConfig>) =>
-    saveConfig(
-      updates,
-      tr(
-        `Saved Gatekeeper settings for the ${selectedCategory} department`,
-        `บันทึกการตั้งค่า Gatekeeper หน่วยงาน ${selectedCategory} เรียบร้อยแล้ว`
-      )
-    );
-
   const handleSetLeadOfficer = (officer: GatekeeperOfficer) => {
     const updatedOfficers = currentConfig.officers.map((o) => ({
       ...o,
@@ -422,7 +413,6 @@ function useGatekeeperPanel(
     setNewOfficerPhone,
     newOfficerPicked,
     currentConfig,
-    handleUpdateConfig,
     handleSetLeadOfficer,
     handleRemoveOfficer,
     handleAddOfficerSubmit,
@@ -1042,7 +1032,6 @@ const GatekeepersTab: React.FC<GatekeepersTabProps> = ({ panel, tickets, hrStatu
     setNewOfficerPhone,
     newOfficerPicked,
     currentConfig,
-    handleUpdateConfig,
     handleSetLeadOfficer,
     handleRemoveOfficer,
     handleAddOfficerSubmit,
@@ -1171,55 +1160,19 @@ const GatekeepersTab: React.FC<GatekeepersTabProps> = ({ panel, tickets, hrStatu
             </div>
           </div>
 
-          {/* Auto-Assign Settings Form */}
-          <div className="pt-1">
-            <div>
-              <label
-                htmlFor="select-auto-assign-mode"
-                className="mb-1.5 block flex items-center gap-1.5 text-xs font-semibold text-slate-700"
-              >
-                <Zap className="h-3.5 w-3.5 text-amber-600" />
-                <span>
-                  {tr('Auto-Assign Mode', 'รูปแบบการจ่ายงานอัตโนมัติ (Auto-Assign Mode)')}
-                </span>
-              </label>
-              <select
-                id="select-auto-assign-mode"
-                value={currentConfig.autoAssignMode}
-                onChange={(e) =>
-                  handleUpdateConfig({
-                    autoAssignMode: e.target.value as DepartmentGatekeeperConfig['autoAssignMode'],
-                  })
-                }
-                className="w-full max-w-md rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-              >
-                <option value="off">
-                  {tr(
-                    'Off — triage and assign manually',
-                    'ปิดการจ่ายงานอัตโนมัติ (คัดกรองและมอบหมายเอง)'
-                  )}
-                </option>
-                <option value="lead_manual">
-                  {tr(
-                    'Always route to the Lead for triage first (recommended)',
-                    'จ่ายให้ Lead คัดกรองก่อนเสมอ (แนะนำ)'
-                  )}
-                </option>
-                <option value="round_robin">
-                  {tr(
-                    'Round-Robin (rotate through officers)',
-                    'จ่ายวนตามลำดับเจ้าหน้าที่ (Round-Robin)'
-                  )}
-                </option>
-                <option value="workload_balanced">
-                  {tr(
-                    'Workload Balanced (by open workload)',
-                    'จ่ายตามภาระงานคงค้าง (Workload Balanced)'
-                  )}
-                </option>
-              </select>
-            </div>
-          </div>
+          {/* One assignment rule for every category (owner 2026-10-14) — no per-category mode */}
+          <p
+            id="auto-assign-rule"
+            className="flex items-start gap-1.5 pt-1 text-xs font-medium text-slate-600"
+          >
+            <Zap className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+            <span>
+              {tr(
+                'New tickets: the Lead is set as the responsible officer and every Gatekeeper of this category is emailed. Any Gatekeeper can re-assign from "Manage / Update status".',
+                'เรื่องใหม่: ระบบใส่ชื่อหัวหน้า (Lead) เป็นผู้รับผิดชอบ และส่งอีเมลแจ้ง GK ทุกคนในหมวดนี้ — GK คนใดก็เปลี่ยนผู้รับผิดชอบได้ที่ปุ่ม "จัดการ / อัปเดตสถานะ"'
+              )}
+            </span>
+          </p>
         </div>
 
         {/* Officers Roster Table */}

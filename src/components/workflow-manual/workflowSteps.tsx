@@ -108,22 +108,22 @@ export const WORKFLOW_STEPS: WorkflowStep[] = [
         en: 'Screens the category and matches it to the responsible department Gatekeeper team. A Gatekeeper sees the case when they are an officer of that category and the access-rights (RBAC) page opens that category to Gatekeepers.',
       },
       {
-        th: 'กระจายงานตามโหมดการจ่ายงานอัตโนมัติ (Auto-Assign Mode) ของแต่ละหมวด ค่าเริ่มต้นคือ Lead Manual — Admin เปลี่ยนเป็นรายหมวดที่หน้า Gatekeeper ได้ (รวมถึงปิดการจ่ายอัตโนมัติ): Lead Manual (จ่ายให้ Lead ของหมวดคัดกรองก่อน), Round Robin (หมุนเวียนให้เจ้าหน้าที่คนถัดจากผู้รับล่าสุด), Workload Balanced (จ่ายให้เจ้าหน้าที่ที่มีเรื่องค้างน้อยที่สุด) หรือ ปิด (ไม่จ่ายอัตโนมัติ เรื่องจะรอการคัดกรองและมอบหมายเอง)',
-        en: 'Distributes work according to the Auto-Assign Mode of each category. The default is Lead Manual, and an Admin can change it per category on the Gatekeeper page (including switching it off): Lead Manual (assigned to the category Lead for triage first), Round Robin (the next officer after the last assignee), Workload Balanced (the officer with the fewest open tickets) or Off (no auto-assignment; the case waits for manual triage and assignment).',
+        th: 'ใส่ชื่อหัวหน้า (Lead) ของหมวดเป็นผู้รับผิดชอบโดยอัตโนมัติ (ไม่มีหัวหน้า → เจ้าหน้าที่คนแรก) ใช้กติกาเดียวทุกหมวด — GK คนใดก็เปลี่ยนผู้รับผิดชอบได้ภายหลัง',
+        en: 'Sets the category Lead as the responsible officer (no Lead → the first officer), one rule for every category; any Gatekeeper can re-assign it later.',
       },
       {
-        th: 'เรื่องที่ส่งตรง CEO/EVP จะไม่ถูกจ่ายงานอัตโนมัติเสมอ ไม่ว่าจะตั้งโหมดใดไว้',
-        en: 'Cases sent directly to the CEO/EVP are never auto-assigned, whichever mode is set.',
+        th: 'เรื่องที่ส่งตรง CEO/EVP จะใส่ชื่อหัวหน้าเฉพาะเมื่อเปิดสิทธิ์ "เข้าถึงกล่องข้อร้องเรียนสายตรง CEO/EVP" ให้ GK ในหน้า RBAC',
+        en: 'A case sent directly to the CEO/EVP gets the Lead only when the RBAC page gives Gatekeepers the "direct CEO/EVP inbox" right.',
       },
       {
-        th: 'ส่งการแจ้งเตือนงานใหม่ไปยังเจ้าหน้าที่ที่ได้รับมอบหมายทันที',
-        en: 'Immediately emails the assigned officer about the new case.',
+        th: 'ส่งอีเมลแจ้งงานใหม่ถึง GK ทุกคนในหมวดทันที',
+        en: 'Immediately emails every Gatekeeper of the category about the new case.',
       },
     ],
     systemAutomations: [
       {
-        th: 'ส่งอีเมลแจ้งเจ้าหน้าที่ที่ได้รับมอบหมาย โดยมี Lead Officer ประจำฝ่ายใน CC เมื่อผู้รับมอบหมายเป็นคนอื่น (เรื่องใหม่แสดงใน Gatekeeper Inbox ของฝ่ายทันที)',
-        en: 'Emails the assigned officer, with the department Lead Officer in CC when the assignee is someone else (the new case shows in the Gatekeeper Inbox of the department right away).',
+        th: 'ส่งอีเมลถึง GK ทุกคนในหมวด รวมหัวหน้า (เรื่องใหม่แสดงใน Gatekeeper Inbox ของฝ่ายทันที)',
+        en: 'Emails every Gatekeeper of the category, the Lead included (the new case shows in the Gatekeeper Inbox of the department right away).',
       },
       {
         th: 'แจ้งเตือนระดับความสำคัญและความเร่งด่วนตามหมวดหมู่',
@@ -134,7 +134,7 @@ export const WORKFLOW_STEPS: WorkflowStep[] = [
         en: 'If "CEO/EVP Direct Bypass" is selected, the executive Dashboard is alerted immediately.',
       },
       {
-        th: 'เมื่อจ่ายงานอัตโนมัติ การมอบหมายจะแสดงใน Timeline เป็นรายการของ "System"',
+        th: 'การมอบหมายอัตโนมัติจะแสดงใน Timeline เป็นรายการของ "System"',
         en: 'When a case is auto-assigned, the assignment appears in the Timeline as a "System" entry.',
       },
     ],

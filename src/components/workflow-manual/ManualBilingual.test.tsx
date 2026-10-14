@@ -31,84 +31,61 @@ const openAdminGuide = async (user: ReturnType<typeof userEvent.setup>, tabName:
   await user.click(screen.getByRole('button', { name: /^(ผู้ดูแลระบบ \(Admin\)|Admin) / }));
 };
 
-describe('auto-assign wording', () => {
-  it('describes the four modes and the exemptions in Thai on stage 2', async () => {
+describe('dispatch wording (one rule, mail to every GK)', () => {
+  it('describes the Lead + every-GK rule in Thai on stage 2', async () => {
     const user = renderManual('th');
     await user.click(screen.getByRole('button', { name: /ROUTING/ }));
 
     expect(
-      screen.getByText(/หรือ ปิด \(ไม่จ่ายอัตโนมัติ เรื่องจะรอการคัดกรองและมอบหมายเอง\)/)
+      screen.getByText(/ใช้กติกาเดียวทุกหมวด — GK คนใดก็เปลี่ยนผู้รับผิดชอบได้/)
     ).toBeVisible();
     expect(
-      screen.getByText(
-        /ค่าเริ่มต้นคือ Lead Manual — Admin เปลี่ยนเป็นรายหมวดที่หน้า Gatekeeper ได้/
-      )
+      screen.getByText(/เรื่องที่ส่งตรง CEO\/EVP จะใส่ชื่อหัวหน้าเฉพาะเมื่อเปิดสิทธิ์/)
     ).toBeVisible();
-    expect(screen.getByText(/Lead Manual \(จ่ายให้ Lead ของหมวดคัดกรองก่อน\)/)).toBeVisible();
-    expect(screen.getByText(/คนถัดจากผู้รับล่าสุด/)).toBeVisible();
-    expect(screen.getByText(/มีเรื่องค้างน้อยที่สุด/)).toBeVisible();
-    expect(screen.getByText(/เรื่องที่ส่งตรง CEO\/EVP จะไม่ถูกจ่ายงานอัตโนมัติเสมอ/)).toBeVisible();
+    expect(screen.getByText('ส่งอีเมลแจ้งงานใหม่ถึง GK ทุกคนในหมวดทันที')).toBeVisible();
     expect(screen.getByText(/รายการของ "System"/)).toBeVisible();
-    expect(screen.getByText(/โดยมี Lead Officer ประจำฝ่ายใน CC/)).toBeVisible();
+    expect(screen.queryByText(/Round Robin/)).toBeNull();
   });
 
-  it('describes the four modes and the exemptions in English on stage 2', async () => {
+  it('describes the Lead + every-GK rule in English on stage 2', async () => {
     const user = renderManual('en');
     await user.click(screen.getByRole('button', { name: /ROUTING/ }));
 
     expect(
-      screen.getByText(/or Off \(no auto-assignment; the case waits for manual triage/)
+      screen.getByText(/one rule for every category; any Gatekeeper can re-assign/)
     ).toBeVisible();
     expect(
-      screen.getByText(
-        /The default is Lead Manual, and an Admin can change it per category on the Gatekeeper page/
-      )
+      screen.getByText('Immediately emails every Gatekeeper of the category about the new case.')
     ).toBeVisible();
-    expect(
-      screen.getByText(/Lead Manual \(assigned to the category Lead for triage first\)/)
-    ).toBeVisible();
-    expect(
-      screen.getByText(/Round Robin \(the next officer after the last assignee\)/)
-    ).toBeVisible();
-    expect(screen.getByText(/the officer with the fewest open tickets/)).toBeVisible();
-    expect(screen.getByText(/never auto-assigned, whichever mode is set/)).toBeVisible();
-    expect(screen.getByText(/with the department Lead Officer in CC/)).toBeVisible();
     expect(screen.getByText(/appears in the Timeline as a "System" entry/)).toBeVisible();
+    expect(screen.queryByText(/Workload Balanced/)).toBeNull();
   });
 
-  it('documents the mode on the Thai Admin guide card', async () => {
+  it('documents the rule on the Thai Admin guide card', async () => {
     const user = renderManual('th');
-    await openAdminGuide(user, /^2\. คู่มือการใช้งานแยกตามบทบาท/);
+    await openAdminGuide(user, /^2. คู่มือการใช้งานแยกตามบทบาท/);
 
     expect(
       screen.getByRole('heading', {
         level: 4,
-        name: '2. ตั้งค่าโหมดการจ่ายงานอัตโนมัติ (Dispatch Policy)',
+        name: '2. การจ่ายงานเรื่องใหม่ (ใช้กติกาเดียวทุกหมวด)',
       })
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/ค่าเริ่มต้นคือ Lead Manual — Admin เปลี่ยนเองรายหมวดได้/)
-    ).toBeInTheDocument();
-    expect(screen.getByText(/มี 4 แบบ: Lead Manual \(จ่ายให้ Lead/)).toBeInTheDocument();
+    expect(screen.getByText(/ส่งอีเมลแจ้ง GK ทุกคนในหมวดนั้น/)).toBeInTheDocument();
     expect(screen.getByText(/รายการจาก "System"/)).toBeInTheDocument();
   });
 
-  it('documents the mode on the English Admin guide card', async () => {
+  it('documents the rule on the English Admin guide card', async () => {
     const user = renderManual('en');
-    await openAdminGuide(user, /^2\. Role Guides/);
+    await openAdminGuide(user, /^2. Role Guides/);
 
     expect(
       screen.getByRole('heading', {
         level: 4,
-        name: '2. Set the auto-assign mode (Dispatch Policy)',
+        name: '2. How new cases are dispatched (one rule for every category)',
       })
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        /The default is Lead Manual, and an Admin can change it per category\. There are 4 options/
-      )
-    ).toBeInTheDocument();
-    expect(screen.getByText(/or Off \(no auto-assignment; the case waits/)).toBeInTheDocument();
+    expect(screen.getByText(/emails every Gatekeeper of that category/)).toBeInTheDocument();
     expect(
       screen.getByText(/appears in the case timeline as a "System" entry/)
     ).toBeInTheDocument();

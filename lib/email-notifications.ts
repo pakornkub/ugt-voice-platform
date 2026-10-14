@@ -18,7 +18,7 @@ import { emailSettingsInputSchema } from '@/lib/email-settings-schema';
 import { permissionsFor } from '@/lib/get-user-permissions';
 import { escapeHtml } from '@/lib/mail-templates';
 import { PERMISSIONS } from '@/lib/permissions';
-import { normalizeEmail, sameEmail } from '@/lib/email-identity';
+import { normalizeEmail } from '@/lib/email-identity';
 import { prisma } from '@/lib/prisma';
 import { PROTECTED_ACTOR_NAME, type TicketViewer } from '@/lib/ticket-scope';
 import { CATEGORY_DEFINITIONS } from '@/mockData';
@@ -216,12 +216,17 @@ interface DispatchSpec {
 
 const NOT_SENT_BODY = '(ไม่ได้ส่งอีเมลฉบับนี้ — ระบบไม่เก็บเนื้อหา)';
 
+/** "a@x, B@y" → normalized, de-duplicated "a@x, b@y" (a recipient may be a whole team). */
+function emailList(list: string | null | undefined): string {
+  return [...new Set((list ?? '').split(',').map(normalizeEmail).filter(Boolean))].join(', ');
+}
+
 type Outcome = Pick<EmailDispatchLog, 'status'> & { errorMessage?: string };
 
 async function deliver(spec: DispatchSpec, subject: string, bodyText: string): Promise<Outcome> {
   if (!spec.enabled) return { status: 'disabled' };
   if (spec.skipReason) return { status: 'disabled', errorMessage: spec.skipReason };
-  const to = normalizeEmail(spec.recipient.email);
+  const to = emailList(spec.recipient.email);
   if (!to) return { status: 'failed', errorMessage: 'No recipient email address' };
   try {
     await sendRenderedMail({
@@ -251,11 +256,10 @@ async function dispatch(spec: DispatchSpec): Promise<EmailDispatchLog> {
       triggerEvent: spec.trigger,
       ticketId: spec.ticketId,
       trackingCode: spec.trackingCode,
-      recipientEmail: (
-        spec.recipient.maskedEmail ||
-        normalizeEmail(spec.recipient.email) ||
-        '-'
-      ).slice(0, 200),
+      recipientEmail: (spec.recipient.maskedEmail || emailList(spec.recipient.email) || '-').slice(
+        0,
+        200
+      ),
       recipientName: spec.recipient.name.slice(0, 200),
       recipientRole: spec.recipient.role,
       subject,
@@ -299,29 +303,20 @@ export interface NotifyContext {
 }
 
 /**
- * The officer the ticket was assigned to, with the category Lead in CC when that is someone else.
- * Unassigned → the Lead Gatekeeper (upstream's recipient), else the department's escalation address.
+ * Every active GK of the category, Lead included, all on the To line (owner 2026-10-14 — one rule for
+ * every category, no single assignee mail). No officers → the department's escalation address.
  */
-async function gatekeeperRecipient(ticket: NotifiableTicket): Promise<Recipient> {
-  const { category } = ticket;
+async function gatekeeperRecipient(category: string): Promise<Recipient> {
   const config = await prisma.departmentGatekeeperConfig.findFirst({
     where: { category, isDeleted: false },
-    include: { officers: { where: { isDeleted: false }, orderBy: { createdAt: 'asc' } } },
+    include: {
+      officers: { where: { isActive: true, isDeleted: false }, orderBy: { createdAt: 'asc' } },
+    },
   });
-  const lead = config?.officers.find((o) => o.isLead) ?? config?.officers[0];
-  const assigned = ticket.assignedOfficerEmail?.trim();
-  if (assigned) {
-    const leadEmail = lead?.email?.trim();
-    return {
-      email: assigned,
-      name: ticket.assignedOfficerName || assigned,
-      role: 'gatekeeper',
-      cc: leadEmail && !sameEmail(leadEmail, assigned) ? normalizeEmail(leadEmail) : undefined,
-    };
-  }
+  const team = emailList(config?.officers.map((o) => o.email).join(','));
   return {
-    email: lead?.email || config?.escalationEmail,
-    name: lead?.name || `Gatekeeper ประจำฝ่าย ${categoryTh(category)}`,
+    email: team || config?.escalationEmail,
+    name: `ทีมงาน Gatekeeper ประจำฝ่าย ${categoryTh(category)}`,
     role: 'gatekeeper',
   };
 }
@@ -335,15 +330,13 @@ async function ceoAndEvpEmails(): Promise<string[]> {
   return rows.map((r) => normalizeEmail(r.email)).filter(Boolean);
 }
 
-/** One comma-separated CC line, without duplicates or the To address itself. */
-function ccLine(
-  to: string | null | undefined,
-  addresses: (string | undefined)[]
-): string | undefined {
+/** One comma-separated CC line, without duplicates or anyone already on the To line. */
+function ccLine(to: string | null | undefined, addresses: string[]): string | undefined {
+  const toList = new Set(emailList(to).split(', '));
   const seen = new Set<string>();
   for (const address of addresses) {
     const email = normalizeEmail(address);
-    if (email && !sameEmail(email, to)) seen.add(email);
+    if (email && !toList.has(email)) seen.add(email);
   }
   return seen.size > 0 ? [...seen].join(', ') : undefined;
 }
@@ -363,8 +356,8 @@ function senderIdentity(ticket: NotifiableTicket) {
 }
 
 /**
- * "Ticket submitted": tell the assigned officer (CC Lead), else the Lead. A direct-to-executive
- * ticket goes to the same gatekeeper with every active CEO/EVP in CC and a subject tag (owner
+ * "Ticket submitted": tell every GK of the category. A direct-to-executive ticket goes to the same
+ * team with every active CEO/EVP in CC and a subject tag (owner
  * 2026-10-14 — the gatekeeper role needs the RBAC "direct CEO/EVP inbox" right to open it). Never throws.
  */
 export async function notifyTicketSubmitted(
@@ -373,12 +366,9 @@ export async function notifyTicketSubmitted(
 ): Promise<void> {
   try {
     const settings = await loadEmailSettings();
-    const gatekeeper = await gatekeeperRecipient(ticket);
+    const gatekeeper = await gatekeeperRecipient(ticket.category);
     const recipient = ticket.isDirectToExecutive
-      ? {
-          ...gatekeeper,
-          cc: ccLine(gatekeeper.email, [gatekeeper.cc, ...(await ceoAndEvpEmails())]),
-        }
+      ? { ...gatekeeper, cc: ccLine(gatekeeper.email, await ceoAndEvpEmails()) }
       : gatekeeper;
     const sender = senderIdentity(ticket);
     await dispatch({
@@ -471,8 +461,8 @@ export interface EvaluationDetails {
 }
 
 /**
- * "Ticket evaluated": the submitter's CSAT goes to the officer responsible (assigned officer, CC
- * Lead; unassigned → the Lead / escalation address) — same recipients as a new ticket. Carries the
+ * "Ticket evaluated": the submitter's CSAT goes to every GK of the category — same recipients as a
+ * new ticket. Carries the
  * rating and the submitter's own words, never who they are. Never throws.
  */
 export async function notifyTicketEvaluated(
@@ -482,7 +472,7 @@ export async function notifyTicketEvaluated(
 ): Promise<void> {
   try {
     const settings = await loadEmailSettings();
-    const recipient = await gatekeeperRecipient(ticket);
+    const recipient = await gatekeeperRecipient(ticket.category);
     await dispatch({
       trigger: 'ticket_evaluated',
       ticketId: ticket.id,

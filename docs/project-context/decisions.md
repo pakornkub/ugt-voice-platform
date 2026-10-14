@@ -844,3 +844,12 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   recipients as a new ticket) carry score, resolved-for-good and comments; the Gatekeeper Inbox shows
   the stars with a "View rating" button · rejected: keeping upstream's 5-star / "Yes" / sample-praise
   defaults (an untouched form recorded a glowing review).
+- 2026-10-14 **One dispatch rule for every category: Lead on the ticket, mail to every GK** (owner) —
+  supersedes "Auto-assign defaults to Lead Manual" (2026-10-09): the per-category Auto-Assign Mode
+  (off / lead_manual / round_robin / workload_balanced) is gone from the admin page and from
+  `lib/auto-assign.ts`; a new ticket gets the category Lead (else first active officer) as responsible
+  officer, and both the new-ticket and the rating email go to every active GK of the category on the To
+  line (no Lead CC) — **because** everyone in the category should know about a new case, while one named
+  owner keeps it from falling between people · rejected: leaving the responsible officer empty until a
+  GK picks one (cases risk sitting unclaimed; employees would see "no officer"), keeping the four modes.
+  The `AutoAssignMode` column stays unread (no migration).

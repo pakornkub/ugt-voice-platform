@@ -56,14 +56,12 @@ role + หมวดของ gatekeeper มาจาก `resolveViewer()` (`lib/
 
 ## Gatekeeper triage
 
-- **จ่ายงานอัตโนมัติตอนยื่นเรื่อง** (2026-10-09) — server เลือกเจ้าหน้าที่เอง ไม่รับค่าจาก client
-  (`lib/actions/tickets.ts:submitTicket` → `lib/auto-assign.ts:autoAssignOfficer`) ตาม `AutoAssignMode`
-  ของหมวด: `off` = ไม่มอบหมาย (รอคัดกรองเอง) · `lead_manual` (**ค่าเริ่มต้น** — migration
-  `20261009170000_auto_assign_default_lead` ตั้งทุกหมวดเป็นค่านี้) = Lead ของหมวด (ไม่มี Lead → คนแรก) ·
-  `round_robin` = คนถัดจากผู้รับเรื่องล่าสุดของหมวด (วนกลับคนแรก) · `workload_balanced` = คนที่มีเรื่อง
-  ค้าง (ไม่ใช่ resolved/closed) น้อยสุดในหมวด เสมอกันเอาตามลำดับรายชื่อ — นับเฉพาะเจ้าหน้าที่ active
-  เรียงตาม `CreatedAt`; เรื่อง "ส่งตรง CEO/EVP" ไม่จ่ายอัตโนมัติ (RBAC อาจซ่อนเรื่องนี้จาก Gatekeeper);
-  มอบหมายได้ = เพิ่ม timeline `actorRole: 'System'` อีกแถว · แก้ผู้รับผิดชอบทีหลังได้ใน triage modal ตามเดิม
+- **ผู้รับผิดชอบตอนยื่นเรื่อง** (2026-10-14, แทนแบบ 4 โหมดของ 2026-10-09) — server ใส่ Lead ของหมวด
+  (ไม่มี Lead → เจ้าหน้าที่ active คนแรกตาม `CreatedAt`) ไม่รับค่าจาก client, กติกาเดียวทุกหมวด
+  (`lib/actions/tickets.ts:submitTicket` → `lib/auto-assign.ts:autoAssignOfficer`); คอลัมน์ `AutoAssignMode`
+  ยังอยู่แต่ไม่ถูกอ่านและไม่มีช่องตั้งในหน้า admin; เรื่อง "ส่งตรง CEO/EVP" ใส่ Lead เฉพาะเมื่อ RBAC เปิดสิทธิ์
+  กล่องสายตรงให้ Gatekeeper; มอบหมายได้ = เพิ่ม timeline `actorRole: 'System'` อีกแถว · GK คนใดก็เปลี่ยน
+  ผู้รับผิดชอบได้ใน triage modal
 
 - **ไม่มี SLA แล้ว** (ตัดทั้งระบบตาม upstream `8d885a3`, 2026-10-08): ไม่มี
   `slaTargetHours`/`slaDueDate`/`slaStatus`/`defaultSlaHours`/`slaComplianceRate` และไม่มี
@@ -152,8 +150,8 @@ role + หมวดของ gatekeeper มาจาก `resolveViewer()` (`lib/
   (`GatekeeperInbox.tsx` scopedTickets) และเปิดดูได้แค่หน้า Access Restricted
 - **Triage**: Gatekeeper ทบทวน urgency + riskSeverity แล้วส่งเข้า `updateTicketWorkflow`
 - **อีเมลแจ้งเตือน** (`lib/email-notifications.ts`, ตั้งค่าใน `AppSettings`): `masterEnabled` +
-  `onTicketSubmitted` (→ เจ้าหน้าที่ที่ถูกจ่ายงานอัตโนมัติ + CC Lead ของหมวดเมื่อเป็นคนละคน;
-  ยังไม่มอบหมาย → Lead หรือ `escalationEmail`) + `onTicketResolved` (→ ผู้ยื่น) ใช้ token `{ticketId}`
+  `onTicketSubmitted` (→ GK active ทุกคนของหมวดในช่อง To รวม Lead, 2026-10-14; ไม่มี GK →
+  `escalationEmail`) + `onTicketResolved` (→ ผู้ยื่น) ใช้ token `{ticketId}`
   ฯลฯ, ทุกครั้งลง `EmailDispatchLogs` (2026-10-09)
 - **CSAT**: เหลือดาวรวม + "ปัญหาได้รับการแก้ไขถาวรไหม" + ความคิดเห็น (`SatisfactionModal.tsx`) —
   คะแนนรายด้านทั้ง 4 ถูกบันทึกเท่ากับคะแนนรวม
@@ -172,10 +170,11 @@ role + หมวดของ gatekeeper มาจาก `resolveViewer()` (`lib/
 
 ## เรื่องส่งตรง CEO/EVP · ผลประเมิน CSAT (2026-10-14)
 
-- **ส่งตรง CEO/EVP**: อีเมลเรื่องใหม่ไปที่ Gatekeeper ของหมวด (ผู้ได้รับมอบหมาย → Lead → escalation) +
+- **ส่งตรง CEO/EVP**: อีเมลเรื่องใหม่ไปที่ GK ทุกคนของหมวด (ไม่มี → escalation) +
   CC ผู้บริหารที่ประเภท CEO/EVP สถานะ active + หัวเรื่อง `[ส่งตรงผู้บริหาร]`
   (`lib/email-notifications.ts:notifyTicketSubmitted`) · จ่ายงานอัตโนมัติเฉพาะเมื่อเปิดสิทธิ์ "เข้าถึงกล่อง
   ข้อร้องเรียนสายตรง CEO/EVP" ให้ Gatekeeper ในหน้า RBAC (`lib/auto-assign.ts:gatekeepersSeeDirectTickets`)
+- **อีเมลแจ้งผลประเมิน** (`onTicketEvaluated`): ส่งถึง GK ทุกคนของหมวดเหมือนอีเมลเรื่องใหม่ (2026-10-14)
 - **แบบประเมิน**: ไม่มีค่าตั้งต้น ต้องเลือกดาว + ใช่/ไม่ใช่ก่อนส่ง (`src/components/SatisfactionModal.tsx`)
 - **หลังประเมิน**: กระดิ่ง `evaluation_submitted` เฉพาะเจ้าหน้าที่ (`lib/ticket-scope.ts:isNotificationForViewer`) +
   อีเมล `onTicketEvaluated` ถึงผู้รับผิดชอบ (CC Lead) ไม่มีชื่อผู้ยื่น (`notifyTicketEvaluated`) · Gatekeeper Inbox

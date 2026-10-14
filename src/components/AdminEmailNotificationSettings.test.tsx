@@ -219,9 +219,8 @@ describe('AdminEmailNotificationSettings', () => {
       await renderPanel();
 
       expect(screen.getByText('แจ้งเตือนเมื่อผู้ยื่นประเมินแล้ว')).toBeInTheDocument();
-      expect(
-        screen.getByText(/เจ้าหน้าที่ผู้รับผิดชอบเรื่อง \(CC Lead ประจำหมวดหมู่ \{categoryTh\}\)/)
-      ).toBeInTheDocument();
+      // cases 1 and 3 both go to every GK of the category
+      expect(screen.getAllByText('GK ทุกคนในหมวดหมู่ {categoryTh} (รวมหัวหน้า)')).toHaveLength(2);
       expect((byId('input-evaluated-subject') as HTMLInputElement).value).toBe(
         DEFAULT_EMAIL_SETTINGS.onTicketEvaluated.subject
       );
@@ -295,10 +294,8 @@ describe('AdminEmailNotificationSettings', () => {
         await screen.findByText('Notify Gatekeeper when the submitter rates (CSAT)')
       ).toBeInTheDocument();
       expect(
-        screen.getByText(
-          /Assigned officer, CC the Category Lead \(\{categoryTh\}\) — unassigned: the Lead Gatekeeper/
-        )
-      ).toBeInTheDocument();
+        screen.getAllByText('Every Gatekeeper of the category ({categoryTh}), Lead included')
+      ).toHaveLength(2);
       expect(
         screen.getByText('CSAT overall score given by the submitter (1-5)')
       ).toBeInTheDocument();

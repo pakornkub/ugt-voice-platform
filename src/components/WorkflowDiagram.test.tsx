@@ -290,7 +290,7 @@ describe('WorkflowDiagram role guides', () => {
     {
       role: /ผู้ดูแลระบบ \(Admin\) จัดสรร/,
       heading: 'คู่มือสำหรับผู้ดูแลระบบ (Admin & RBAC Management Guide)',
-      unique: '2. ตั้งค่าโหมดการจ่ายงานอัตโนมัติ (Dispatch Policy)',
+      unique: '2. การจ่ายงานเรื่องใหม่ (ใช้กติกาเดียวทุกหมวด)',
       launch: 'ไปที่หน้าตั้งค่า Admin',
       roleKey: 'admin',
       tab: 'admin_gatekeeper',
