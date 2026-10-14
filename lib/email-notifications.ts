@@ -20,6 +20,7 @@ import { escapeHtml } from '@/lib/mail-templates';
 import { PERMISSIONS } from '@/lib/permissions';
 import { normalizeEmail } from '@/lib/email-identity';
 import { prisma } from '@/lib/prisma';
+import { SERVER_TEMPLATES, SERVER_TEXT } from '@/lib/server-text';
 import { PROTECTED_ACTOR_NAME, type TicketViewer } from '@/lib/ticket-scope';
 import { CATEGORY_DEFINITIONS } from '@/mockData';
 import { DEFAULT_EMAIL_SETTINGS, interpolateEmailTemplate } from '@/services/emailDefaults';
@@ -35,9 +36,9 @@ export const EMAIL_SETTINGS_KEY = 'email.notification-settings';
 export const DISPATCH_LOG_LIMIT = 100;
 const DELIVERY_CHANNEL = 'SMTP / Enterprise Mail Gateway';
 const MASKED_SUBMITTER_EMAIL = 'anonymous-submitter@voiceplatform.internal';
-const ANONYMOUS_SENDER = 'ผู้ยื่นเรื่องนิรนาม (Anonymous)';
-const ANONYMOUS_RECIPIENT = 'ผู้ยื่นเรื่อง (Anonymous Submitter)';
-const HIDDEN_DEPARTMENT = 'ไม่เปิดเผยสังกัด';
+const ANONYMOUS_SENDER = SERVER_TEXT.mailAnonymousSender.th;
+const ANONYMOUS_RECIPIENT = SERVER_TEXT.mailAnonymousRecipient.th;
+const HIDDEN_DEPARTMENT = SERVER_TEXT.mailHiddenDepartment.th;
 const BANGKOK = { timeZone: 'Asia/Bangkok' } as const;
 
 type Trigger = EmailDispatchLog['trigger'];
@@ -214,7 +215,7 @@ interface DispatchSpec {
   subjectPrefix?: string;
 }
 
-const NOT_SENT_BODY = '(ไม่ได้ส่งอีเมลฉบับนี้ — ระบบไม่เก็บเนื้อหา)';
+const NOT_SENT_BODY = SERVER_TEXT.mailNotSentBody.th;
 
 /** "a@x, B@y" → normalized, de-duplicated "a@x, b@y" (a recipient may be a whole team). */
 function emailList(list: string | null | undefined): string {
@@ -349,8 +350,8 @@ function senderIdentity(ticket: NotifiableTicket) {
     return { name: PROTECTED_ACTOR_NAME, dept: HIDDEN_DEPARTMENT, email: '-' };
   }
   return {
-    name: ticket.submitterName || 'พนักงานผู้ยื่นเรื่อง',
-    dept: ticket.submitterDepartment || 'ทั่วไป',
+    name: ticket.submitterName || SERVER_TEXT.submittingEmployee.th,
+    dept: ticket.submitterDepartment || SERVER_TEXT.mailGeneralDepartment.th,
     email: ticket.submitterEmail || '-',
   };
 }
@@ -410,7 +411,11 @@ function submitterRecipient(ticket: NotifiableTicket): Recipient {
   // loginEmail is the signed-in submitter (server-set); the typed submitterEmail only for legacy rows.
   const email = ticket.loginEmail || ticket.submitterEmail;
   if (ticket.confidentiality === 'standard_named') {
-    return { email, name: ticket.submitterName || 'พนักงานผู้ยื่นเรื่อง', role: 'employee' };
+    return {
+      email,
+      name: ticket.submitterName || SERVER_TEXT.submittingEmployee.th,
+      role: 'employee',
+    };
   }
   // Anonymous / restricted: the submitter is mailed, but nobody else may learn who they are.
   const name = ticket.confidentiality === 'anonymous' ? ANONYMOUS_RECIPIENT : PROTECTED_ACTOR_NAME;
@@ -441,7 +446,7 @@ export async function notifyTicketResolved(
         category: ticket.category,
         categoryTh: categoryTh(ticket.category),
         recipientName: recipient.name,
-        resolvedBy: details.resolvedBy || 'เจ้าหน้าที่ผู้รับผิดชอบ',
+        resolvedBy: details.resolvedBy || SERVER_TEXT.responsibleOfficer.th,
         resolvedDate: formatDate(new Date()),
         resolutionNotes:
           details.resolutionNotes || 'ดำเนินการแก้ไขและปรับปรุงตามขั้นตอนเรียบร้อยแล้ว',
@@ -517,8 +522,8 @@ function testVars(trigger: TemplateTrigger): Record<string, string> {
     senderEmail: 'somsak.m@enterprise.co.th',
     recipientName:
       trigger === 'ticket_resolved'
-        ? 'สมศักดิ์ มั่นคง (พนักงาน)'
-        : 'คุณวิภาวรรณ สดใส (Lead Gatekeeper)',
+        ? SERVER_TEMPLATES.employeeSuffix.th('สมศักดิ์ มั่นคง')
+        : SERVER_TEXT.mailTestRecipientLead.th,
     urgency: 'Urgent',
     description:
       'ทดสอบส่งข้อความแจ้งเตือนทางระบบอีเมลอัตโนมัติ เพื่อตรวจสอบความถูกต้องของ Subject และ Body Template',

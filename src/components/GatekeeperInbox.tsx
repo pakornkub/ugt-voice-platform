@@ -36,6 +36,7 @@ import {
 } from '@/lib/ticket-status';
 import { localizeServerText } from '../services/serverText';
 import { updateTicketWorkflow } from '@/lib/actions/tickets';
+import { SERVER_TEXT } from '@/lib/server-text';
 import { useShell } from '../app/shell-context';
 import type { Language } from '../context/LanguageContext';
 import { useTr } from '../context/useTr';
@@ -897,7 +898,7 @@ const TriageModal: React.FC<Readonly<TriageModalProps>> = ({ ticket, onClose, on
     buildTriageForm(
       ticket,
       gatekeeperConfigs[ticket.category],
-      tr('Responsible officer', 'เจ้าหน้าที่ผู้รับผิดชอบ')
+      tr(SERVER_TEXT.responsibleOfficer.en, SERVER_TEXT.responsibleOfficer.th)
     )
   );
   const [isSaving, setIsSaving] = useState(false);
@@ -917,9 +918,7 @@ const TriageModal: React.FC<Readonly<TriageModalProps>> = ({ ticket, onClose, on
       assignedOfficerEmail: form.officerEmail,
       actionNote:
         form.actionNote ||
-        (isResolved
-          ? 'แก้ไขปัญหาเสร็จสิ้น พร้อมส่งมอบให้พนักงานประเมิน'
-          : 'Gatekeeper รับเรื่องและมอบหมายผู้รับผิดชอบ'),
+        (isResolved ? SERVER_TEXT.triageResolvedNote.th : SERVER_TEXT.triageReceivedNote.th),
       resolutionSummary: isResolved ? form.resolutionSummary : ticket.resolutionSummary,
       rootCauseCategory: form.rootCauseCategory,
       preventiveActionPlan: form.preventivePlan,

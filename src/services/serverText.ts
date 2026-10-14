@@ -3,81 +3,30 @@
 // Stored rows are never rewritten (decisions.md 2026-10-09 "Every screen bilingual TH/EN").
 // Unknown text (free-text notes, names) passes through unchanged.
 //
-// Sources (keep in step when the server text changes): lib/actions/tickets.ts, lib/ticket-scope.ts,
-// lib/email-notifications.ts and the demo rows in src/mockData.ts (seeded by prisma/seed.ts).
+// What the server writes now lives in lib/server-text.ts (fixed phrases + sentence templates) and
+// lib/ticket-status.ts (status wording): the maps below are built from them, so a writer and its EN
+// cannot drift (serverText.test.ts walks the whole catalog). What is typed out here is LEGACY
+// wording no writer produces any more, plus the demo rows in src/mockData.ts (prisma/seed.ts).
 import type { Language } from '../context/LanguageContext';
 import { CATEGORY_DEFINITIONS } from '../mockData';
+import { RESOLVED_ANSWER, SERVER_TEMPLATES as T, serverTextToEnglish } from '@/lib/server-text';
 import { serverStatusTextToEnglish } from '@/lib/ticket-status';
 
 /** Exact phrase → English. */
 export const EXACT: Record<string, string> = {
-  // ── Timeline actions (actionLabelForStatus, submissionTimeline, chat, CSAT) ──
-  // The five status-change actions and the status names inside messages come from the one status
-  // table (lib/ticket-status.ts: timelineAction / serverNotice), so they cannot drift from the server.
+  // Everything the server writes today: the fixed phrases of lib/server-text.ts and the status
+  // wording of lib/ticket-status.ts (timelineAction / serverNotice), so neither can drift from the writers.
   ...serverStatusTextToEnglish(),
-  อัปเดตข้อมูล: 'Information updated',
-  'ยื่นเรื่องส่งตรงถึงผู้บริหารระดับสูง (CEO/EVP Whistleblower Channel)':
-    'Submitted directly to senior executives (CEO/EVP Whistleblower Channel)',
-  ยื่นเรื่องเข้าระบบสำเร็จ: 'Ticket submitted successfully',
-  // Triage-modal defaults saved as typed (GatekeeperInbox), whatever the UI language
-  'Gatekeeper รับเรื่องและมอบหมายผู้รับผิดชอบ':
-    'Gatekeeper received the ticket and assigned an owner',
-  'แก้ไขปัญหาเสร็จสิ้น พร้อมส่งมอบให้พนักงานประเมิน':
-    'Issue resolved and handed over for the employee to evaluate',
-  เจ้าหน้าที่ผู้รับผิดชอบ: 'Responsible officer',
-  'ระบบจ่ายงานอัตโนมัติ (Auto-Assign)': 'Auto-Assign',
-  'เจ้าหน้าที่ส่งข้อความสอบถาม/ชี้แจงผ่านช่องทางนิรนาม':
-    'Staff sent a question or clarification through the anonymous channel',
-  ผู้ยื่นเรื่องตอบกลับผ่านช่องทางสื่อสารนิรนาม:
-    'The submitter replied through the anonymous channel',
+  ...serverTextToEnglish(),
 
-  // ── Timeline notes ──
-  'ระบบได้รับเรื่องและเข้าสู่คิวคัดกรองของ Gatekeeper':
-    'The system received the ticket and placed it in the Gatekeeper triage queue',
-  'ยื่นเรื่องแบบไม่ระบุตัวตน (ระบบเชื่อมโยงอีเมลล็อกอินหลังบ้านจากฐานข้อมูลพนักงานเรียบร้อยแล้ว)':
-    'Submitted anonymously (the system linked the login email in the back office from the employee database)',
-  'ติดแท็กสำคัญพิเศษ: ส่งตรงถึงโต๊ะทำงานผู้บริหารระดับสูง':
-    'Tagged as special priority: sent straight to the senior executives desk',
+  // ── Legacy wording (no writer produces these any more; old rows keep them) ──
   ตามรูปแบบการจ่ายงานที่ตั้งค่าไว้ของหมวดหมู่นี้: "Per this category's configured assignment mode",
-  'หัวหน้า Gatekeeper ของหมวดหมู่ — แจ้งอีเมลถึง GK ทุกคนในหมวดแล้ว':
-    "The category's Lead Gatekeeper — every GK of the category was emailed",
-  ส่งผลประเมินความพึงพอใจเสร็จสิ้น: 'Satisfaction evaluation submitted',
-  ดำเนินการตรวจสอบและแก้ไขปัญหาเรียบร้อยตามมาตรฐานการปฏิบัติงาน:
-    'Reviewed and resolved the issue according to the operating standard',
-
-  // ── Actors / sender and recipient labels ──
-  พนักงาน: 'Employee',
-  'พนักงาน (ไม่เปิดเผยตัวตน)': 'Employee (Anonymous)',
-  'พนักงานผู้ยื่นเรื่อง (ไม่ระบุตัวตน)': 'Submitting employee (anonymous)',
-  พนักงานผู้ยื่นเรื่อง: 'Submitting employee',
-  พนักงานผู้แจ้ง: 'Reporting employee',
   พนักงานผู้ขอสงวนนาม: 'Employee (name withheld)',
-  'ผู้ยื่นเรื่อง (ไม่ระบุตัวตน)': 'Submitter (anonymous)',
-  'พนักงานผู้ร้องเรียน (ปกปิดตัวตน)': 'Complainant (identity protected)',
-  'ผู้ยื่นเรื่อง (ไม่เปิดเผยตัวตน / Anonymous)': 'Submitter (Anonymous)',
-  'ผู้ยื่นเรื่อง (Employee)': 'Submitter (Employee)',
-  'ผู้ยื่นเรื่องนิรนาม (Anonymous)': 'Anonymous submitter',
-  'ผู้ยื่นเรื่อง (Anonymous Submitter)': 'Anonymous submitter',
-  'คณะกรรมการตรวจสอบ / ผู้บริหารระดับสูง (Audit Committee)': 'Audit Committee / Senior Executives',
-  'เจ้าหน้าที่ผู้ดูแลระบบ (System Admin)': 'System Admin',
-  ไม่เปิดเผยสังกัด: 'Department withheld',
-  ทั่วไป: 'General',
   ผู้ร้องเรียน: 'Complainant',
   ผู้แจ้งเบาะแส: 'Whistleblower',
   ผู้แจ้งเบาะแสไม่ประสงค์ออกนาม: 'Anonymous whistleblower',
   'ผู้ยื่นข้อเสนอแนะ (Employee)': 'Suggestion submitter',
   'ผู้ร้องเรียน (ไม่เปิดเผยตัวตน / Anonymous)': 'Complainant (Anonymous)',
-
-  // ── Email dispatch log (lib/email-notifications.ts) ──
-  '(ไม่ได้ส่งอีเมลฉบับนี้ — ระบบไม่เก็บเนื้อหา)':
-    '(This email was not sent — the system keeps no content)',
-  'คุณวิภาวรรณ สดใส (Lead Gatekeeper)': 'Wipawan Sodsai (Lead Gatekeeper)',
-
-  // ── Notifications ──
-  '[CEO/EVP Alert] ข้อร้องเรียนสำคัญส่งตรงถึงผู้บริหาร':
-    '[CEO/EVP Alert] Critical grievance sent directly to executives',
-  'หน่วยงานได้ดำเนินการแก้ไขปัญหาเรียบร้อยแล้ว กรุณาให้คะแนนประเมินความพึงพอใจเพื่อพัฒนาองค์กร':
-    'The responsible unit has resolved the issue. Please rate your satisfaction to help us improve.',
 
   // ── Demo data (src/mockData.ts → prisma/seed.ts) ──
   'จัดทำ SOP Rev.4 และทดสอบขั้นตอนจริงหน้างาน':
@@ -167,59 +116,46 @@ const matchTemplate = (text: string, segments: readonly string[]): string[] | nu
   return captured;
 };
 
-/** "1 star" / "N stars" — the Thai says "ดาว" once whatever the count. */
-const stars = (count: string): string => `${count} ${count === '1' ? 'star' : 'stars'}`;
-
-/** Patterns with captured parts carried over, e.g. tracking codes and names. */
+/**
+ * Patterns with captured parts carried over, e.g. tracking codes and names. The sentences the server
+ * writes come from lib/server-text.ts (segments to match, English to build); an argument that is
+ * itself stored text (a status, an actor, a category) is translated here before it reaches `en`.
+ */
 const PATTERNS: ReadonlyArray<Template> = [
   // Notifications
-  [['ยื่นเรื่องสำเร็จ: ', '...'], (title) => `Ticket submitted: ${title}...`],
-  [
-    ['รหัสติดตามของคุณคือ ', ' หน่วยงาน ', ' ได้รับเรื่องเข้าสู่ระบบเรียบร้อยแล้ว'],
-    (code, dept) => `Your tracking code is ${code}. ${dept} has received your ticket.`,
-  ],
-  [
-    ['เรื่อง: ', ' (หมวดหมู่: ', ', ความเร่งด่วน: ', ')'],
-    (title, category, urgency) => `Subject: ${title} (Category: ${category}, Urgency: ${urgency})`,
-  ],
-  [['แก้ไขเสร็จสิ้น: รหัส ', ''], (code) => `Resolved: ticket ${code}`],
+  [T.submittedTitle.segments, T.submittedTitle.en],
+  [T.submittedMessage.segments, T.submittedMessage.en],
+  [T.directAlertMessage.segments, T.directAlertMessage.en],
+  [T.resolvedTitle.segments, T.resolvedTitle.en],
+  // Legacy / demo-data titles
   [['แก้ไขเสร็จสิ้น: ', ''], (subject) => `Resolved: ${subject}`],
   [['อัปเดตสถานะ: ', ''], (subject) => `Status update: ${subject}`],
-  [['อัปเดตความคืบหน้า (', ')'], (code) => `Progress update (${code})`],
+  [T.progressTitle.segments, T.progressTitle.en],
   [
-    ['เรื่องของคุณมีการเปลี่ยนสถานะเป็น "', '" โดย ', ''],
-    (status, actor) =>
-      `Your ticket's status changed to "${toEnglish(status)}" by ${toEnglish(actor)}`,
+    T.statusChangedMessage.segments,
+    (status, actor) => T.statusChangedMessage.en(toEnglish(status), toEnglish(actor)),
   ],
-  [['[ข้อความใหม่จากเจ้าหน้าที่] ', ''], (code) => `[New message from staff] ${code}`],
-  [['[ข้อความใหม่จากผู้ร้องเรียน] ', ''], (code) => `[New message from complainant] ${code}`],
+  [T.chatStaffTitle.segments, T.chatStaffTitle.en],
+  [T.chatComplainantTitle.segments, T.chatComplainantTitle.en],
   // CSAT submitted — staff notification: "[ประเมินแล้ว] <code> · <n>/5"
-  [['[ประเมินแล้ว] ', ' · ', '/5'], (code, score) => `[Rated] ${code} · ${score}/5`],
+  [T.ratedTitle.segments, T.ratedTitle.en],
   [
-    ['ผู้ยื่นให้คะแนน ', '/5 · ปัญหาได้รับการแก้ไขถาวร: ', ''],
+    T.ratedMessage.segments,
     (score, answer) =>
-      `The submitter rated ${score}/5 · Resolved for good: ${answer === 'ใช่' ? 'Yes' : 'No'}`,
+      T.ratedMessage.en(
+        score,
+        answer === RESOLVED_ANSWER.yes.th ? RESOLVED_ANSWER.yes.en : RESOLVED_ANSWER.no.en
+      ),
   ],
 
   // Timeline actions and actors
-  [
-    ['มอบหมายเจ้าหน้าที่ผู้รับผิดชอบอัตโนมัติ: ', ''],
-    (name) => `Automatically assigned the responsible officer: ${name}`,
-  ],
-  [
-    ['ประเมินความพึงพอใจ ', ' ดาว และปิดเรื่อง (Closed)'],
-    (count) => `Rated satisfaction ${stars(count)} and closed the ticket`,
-  ],
-  [
-    ['ประเมินความพึงพอใจ ', ' ดาว และปิดเรื่อง'],
-    (count) => `Rated satisfaction ${stars(count)} and closed the ticket`,
-  ],
-  [
-    ['ประเมินความพึงพอใจ ', ' ดาวและปิดเรื่อง'],
-    (count) => `Rated satisfaction ${stars(count)} and closed the ticket`,
-  ],
-  [['Gatekeeper ประจำฝ่าย ', ''], (dept) => `Gatekeeper, ${toEnglish(dept)} department`],
-  [['', ' (พนักงาน)'], (name) => `${name} (Employee)`],
+  [T.autoAssignAction.segments, T.autoAssignAction.en],
+  [T.csatClosedAction.segments, T.csatClosedAction.en],
+  // Legacy spellings of the same rating action (older rows and the demo data)
+  [['ประเมินความพึงพอใจ ', ' ดาว และปิดเรื่อง'], T.csatClosedAction.en],
+  [['ประเมินความพึงพอใจ ', ' ดาวและปิดเรื่อง'], T.csatClosedAction.en],
+  [T.gatekeeperOfDepartment.segments, (dept) => T.gatekeeperOfDepartment.en(toEnglish(dept))],
+  [T.employeeSuffix.segments, T.employeeSuffix.en],
   [['นิติกรอาวุโส ', ''], (rest) => `Senior Legal Counsel ${rest}`],
 ];
 

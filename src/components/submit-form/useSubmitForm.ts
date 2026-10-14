@@ -9,6 +9,7 @@ import type {
 } from '../../types';
 import { suggestCategoryWithAI, type AICategorySuggestionResult } from '../../services/aiClient';
 import { submitTicket } from '@/lib/actions/tickets';
+import { SERVER_TEXT } from '@/lib/server-text';
 import { uploadTicketFiles, type UploadFailure } from '@/lib/upload-client';
 import type { PendingFile } from '../AttachmentPicker';
 import {
@@ -278,9 +279,9 @@ function useSubmitFlow({ values, pendingFiles, onTicketCreated }: SubmitFlowOpti
   };
 }
 
-// Stored data is Thai whatever the UI language (lib/ticket-scope.ts ANONYMOUS_SUBMITTER_NAME); the
-// tracking screens show it through localizeServerText.
-const ANONYMOUS_SUBMITTER_LABEL = 'ผู้ยื่นเรื่อง (ไม่ระบุตัวตน)';
+// Stored data is Thai whatever the UI language (lib/server-text.ts); the tracking screens show it
+// through localizeServerText.
+const ANONYMOUS_SUBMITTER_LABEL = SERVER_TEXT.anonymousSubmitterName.th;
 
 /** All state and handlers of the submit form; the section components only render slices of it. */
 export function useSubmitForm(

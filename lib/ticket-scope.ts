@@ -12,6 +12,7 @@
 // A role without a RoleAccessConfigs row sees only its own tickets (deny by default).
 import type { Prisma } from '@prisma/client';
 import { emailVariants, sameEmail } from '@/lib/email-identity';
+import { SERVER_TEXT } from '@/lib/server-text';
 import type {
   ComplaintTicket,
   GrievanceCategory,
@@ -100,8 +101,8 @@ export function isOwnTicket(
   return sameEmail(ticket.loginEmail || ticket.submitterEmail, viewer.email);
 }
 
-export const ANONYMOUS_SUBMITTER_NAME = 'ผู้ยื่นเรื่อง (ไม่ระบุตัวตน)';
-export const PROTECTED_ACTOR_NAME = 'พนักงานผู้ร้องเรียน (ปกปิดตัวตน)';
+export const ANONYMOUS_SUBMITTER_NAME = SERVER_TEXT.anonymousSubmitterName.th;
+export const PROTECTED_ACTOR_NAME = SERVER_TEXT.protectedActorName.th;
 
 /**
  * Server-side twin of the client masking (TrackingTimelineModal submitter cards / timeline,

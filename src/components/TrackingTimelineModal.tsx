@@ -37,6 +37,7 @@ import {
   STATUS_ORDER,
 } from '@/lib/ticket-status';
 import { sendAnonymousChatMessage, updateTicketWorkflow } from '@/lib/actions/tickets';
+import { SERVER_TEXT } from '@/lib/server-text';
 import { attachmentDownloadUrl } from '@/lib/upload-client';
 import { useShell } from '../app/shell-context';
 import { useLanguage, type Language } from '../context/LanguageContext';
@@ -1201,8 +1202,8 @@ export const TrackingTimelineModal: React.FC<Readonly<TrackingTimelineModalProps
     const updates = {
       actorName:
         ticket.confidentiality === 'anonymous'
-          ? tr('Employee (Anonymous)', 'พนักงาน (ไม่เปิดเผยตัวตน)')
-          : ticket.submitterName || tr('Employee', 'พนักงาน'),
+          ? tr(SERVER_TEXT.employeeAnonymous.en, SERVER_TEXT.employeeAnonymous.th)
+          : ticket.submitterName || tr(SERVER_TEXT.employee.en, SERVER_TEXT.employee.th),
       actorRole: 'Employee',
       actionNote: inquiryText,
     };

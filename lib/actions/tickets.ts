@@ -20,6 +20,11 @@ import {
   notifyTicketSubmitted,
 } from '@/lib/email-notifications';
 import { prisma } from '@/lib/prisma';
+import {
+  resolvedAnswer,
+  SERVER_TEMPLATES as TEXT_TEMPLATES,
+  SERVER_TEXT as TEXT,
+} from '@/lib/server-text';
 import { statusLabel, timelineActionText } from '@/lib/ticket-status';
 import {
   findVisibleTicket,
@@ -50,7 +55,7 @@ import type {
 } from '@/types';
 
 function actionLabelForStatus(status: TicketStatus, note?: string): string {
-  return timelineActionText(status, 'th') ?? (note || 'อัปเดตข้อมูล');
+  return timelineActionText(status, 'th') ?? (note || TEXT.infoUpdated.th);
 }
 
 // Server Actions are public endpoints — the enum-shaped columns are plain NVARCHAR, so check them
@@ -121,8 +126,11 @@ function submissionNotifications(created: CreatedTicket): Prisma.notificationCre
     {
       ticketId: created.id,
       trackingCode: created.trackingCode,
-      title: `ยื่นเรื่องสำเร็จ: ${created.title.substring(0, 40)}...`,
-      message: `รหัสติดตามของคุณคือ ${created.trackingCode} หน่วยงาน ${created.gatekeeperDepartment} ได้รับเรื่องเข้าสู่ระบบเรียบร้อยแล้ว`,
+      title: TEXT_TEMPLATES.submittedTitle.th(created.title.substring(0, 40)),
+      message: TEXT_TEMPLATES.submittedMessage.th(
+        created.trackingCode,
+        created.gatekeeperDepartment
+      ),
       type: 'new_ticket',
       recipientRole: 'employee',
       recipientEmail: created.submitterEmail,
@@ -132,8 +140,12 @@ function submissionNotifications(created: CreatedTicket): Prisma.notificationCre
     notifs.push({
       ticketId: created.id,
       trackingCode: created.trackingCode,
-      title: '[CEO/EVP Alert] ข้อร้องเรียนสำคัญส่งตรงถึงผู้บริหาร',
-      message: `เรื่อง: ${created.title} (หมวดหมู่: ${created.category}, ความเร่งด่วน: ${created.urgency})`,
+      title: TEXT.directAlertTitle.th,
+      message: TEXT_TEMPLATES.directAlertMessage.th(
+        created.title,
+        created.category,
+        created.urgency
+      ),
       type: 'direct_ceo_alert',
       recipientRole: 'executive',
     });
@@ -193,22 +205,19 @@ async function createTicketWithNotifications(
 }
 
 function submissionTimeline(payload: SubmitPayload, isAnonymous: boolean) {
-  let notes = 'ระบบได้รับเรื่องและเข้าสู่คิวคัดกรองของ Gatekeeper';
+  let notes = TEXT.submittedNote.th;
   if (isAnonymous) {
-    notes =
-      'ยื่นเรื่องแบบไม่ระบุตัวตน (ระบบเชื่อมโยงอีเมลล็อกอินหลังบ้านจากฐานข้อมูลพนักงานเรียบร้อยแล้ว)';
+    notes = TEXT.submittedAnonymousNote.th;
   } else if (payload.isDirectToExecutive) {
-    notes = 'ติดแท็กสำคัญพิเศษ: ส่งตรงถึงโต๊ะทำงานผู้บริหารระดับสูง';
+    notes = TEXT.submittedDirectNote.th;
   }
   return {
     status: 'submitted',
     actor: isAnonymous
-      ? 'พนักงานผู้ยื่นเรื่อง (ไม่ระบุตัวตน)'
-      : payload.submitterName || 'พนักงานผู้ยื่นเรื่อง',
+      ? TEXT.anonymousSubmittingEmployee.th
+      : payload.submitterName || TEXT.submittingEmployee.th,
     actorRole: 'Employee',
-    action: payload.isDirectToExecutive
-      ? 'ยื่นเรื่องส่งตรงถึงผู้บริหารระดับสูง (CEO/EVP Whistleblower Channel)'
-      : 'ยื่นเรื่องเข้าระบบสำเร็จ',
+    action: payload.isDirectToExecutive ? TEXT.submittedDirectAction.th : TEXT.submittedAction.th,
     notes,
   };
 }
@@ -216,10 +225,10 @@ function submissionTimeline(payload: SubmitPayload, isAnonymous: boolean) {
 function autoAssignTimeline(officerName: string) {
   return {
     status: 'submitted',
-    actor: 'ระบบจ่ายงานอัตโนมัติ (Auto-Assign)',
+    actor: TEXT.autoAssignActor.th,
     actorRole: 'System',
-    action: `มอบหมายเจ้าหน้าที่ผู้รับผิดชอบอัตโนมัติ: ${officerName}`,
-    notes: 'หัวหน้า Gatekeeper ของหมวดหมู่ — แจ้งอีเมลถึง GK ทุกคนในหมวดแล้ว',
+    action: TEXT_TEMPLATES.autoAssignAction.th(officerName),
+    notes: TEXT.leadGatekeeperNote.th,
   };
 }
 
@@ -302,15 +311,17 @@ function statusNotification(trackingCode: string, status: TicketStatus, actorNam
   if (status === 'resolved') {
     return {
       type: 'satisfaction_pending' as NotificationItem['type'],
-      title: `แก้ไขเสร็จสิ้น: รหัส ${trackingCode}`,
-      message:
-        'หน่วยงานได้ดำเนินการแก้ไขปัญหาเรียบร้อยแล้ว กรุณาให้คะแนนประเมินความพึงพอใจเพื่อพัฒนาองค์กร',
+      title: TEXT_TEMPLATES.resolvedTitle.th(trackingCode),
+      message: TEXT.resolvedMessage.th,
     };
   }
   return {
     type: 'status_update' as NotificationItem['type'],
-    title: `อัปเดตความคืบหน้า (${trackingCode})`,
-    message: `เรื่องของคุณมีการเปลี่ยนสถานะเป็น "${statusLabel(status, 'serverNotice', 'th')}" โดย ${actorName}`,
+    title: TEXT_TEMPLATES.progressTitle.th(trackingCode),
+    message: TEXT_TEMPLATES.statusChangedMessage.th(
+      statusLabel(status, 'serverNotice', 'th'),
+      actorName
+    ),
   };
 }
 
@@ -340,9 +351,9 @@ function workflowActor(
   if (!isOwnTicket(viewer, ticket)) {
     return { actor: viewer.name, actorRole: TIMELINE_ACTOR_ROLE[viewer.role] };
   }
-  let labels = ['พนักงาน', 'Employee'];
+  let labels = [TEXT.employee.th, TEXT.employee.en];
   if (ticket.confidentiality === 'anonymous') {
-    labels = ['พนักงาน (ไม่เปิดเผยตัวตน)', 'Employee (Anonymous)'];
+    labels = [TEXT.employeeAnonymous.th, TEXT.employeeAnonymous.en];
   } else if (ticket.submitterName) {
     labels = [ticket.submitterName];
   }
@@ -430,9 +441,7 @@ export async function updateTicketWorkflow(
       {
         resolvedBy: viewer.name || actor,
         resolutionNotes:
-          updates.resolutionSummary ||
-          updates.actionNote ||
-          'ดำเนินการตรวจสอบและแก้ไขปัญหาเรียบร้อยตามมาตรฐานการปฏิบัติงาน',
+          updates.resolutionSummary || updates.actionNote || TEXT.defaultResolutionNote.th,
       },
       { actor: mailActorFor(viewer), userId: viewer.userId }
     ).catch(() => {});
@@ -452,16 +461,16 @@ function defaultChatSenderName(ticket: ChatTicket, senderRole: UserRole): string
     case 'employee':
       return ticket.confidentiality === 'anonymous' ||
         ticket.confidentiality === 'confidential_restricted'
-        ? 'ผู้ยื่นเรื่อง (ไม่เปิดเผยตัวตน / Anonymous)'
-        : ticket.submitterName || 'ผู้ยื่นเรื่อง (Employee)';
+        ? TEXT.chatSubmitterAnonymous.th
+        : ticket.submitterName || TEXT.chatSubmitterEmployee.th;
     case 'gatekeeper':
       return ticket.assignedOfficerName
         ? `Gatekeeper (${ticket.assignedOfficerName})`
-        : `Gatekeeper ประจำฝ่าย ${ticket.gatekeeperDepartment || ticket.category}`;
+        : TEXT_TEMPLATES.gatekeeperOfDepartment.th(ticket.gatekeeperDepartment || ticket.category);
     case 'executive':
-      return 'คณะกรรมการตรวจสอบ / ผู้บริหารระดับสูง (Audit Committee)';
+      return TEXT.chatAuditCommittee.th;
     default:
-      return 'เจ้าหน้าที่ผู้ดูแลระบบ (System Admin)';
+      return TEXT.chatSystemAdmin.th;
   }
 }
 
@@ -510,9 +519,7 @@ export async function sendAnonymousChatMessage(
         timeline: {
           create: {
             status: current.status,
-            action: isStaff
-              ? 'เจ้าหน้าที่ส่งข้อความสอบถาม/ชี้แจงผ่านช่องทางนิรนาม'
-              : 'ผู้ยื่นเรื่องตอบกลับผ่านช่องทางสื่อสารนิรนาม',
+            action: isStaff ? TEXT.chatStaffAction.th : TEXT.chatSubmitterAction.th,
             actor: finalSenderName,
             actorRole: TIMELINE_ACTOR_ROLE[senderRole],
             notes: `[Anonymous Q&A] ${text.length > 80 ? text.substring(0, 80) + '...' : text}`,
@@ -526,9 +533,9 @@ export async function sendAnonymousChatMessage(
       data: {
         ticketId: ticket.id,
         trackingCode: ticket.trackingCode,
-        title: isStaff
-          ? `[ข้อความใหม่จากเจ้าหน้าที่] ${ticket.trackingCode}`
-          : `[ข้อความใหม่จากผู้ร้องเรียน] ${ticket.trackingCode}`,
+        title: (isStaff ? TEXT_TEMPLATES.chatStaffTitle : TEXT_TEMPLATES.chatComplainantTitle).th(
+          ticket.trackingCode
+        ),
         message: `${finalSenderName}: ${text.substring(0, 75)}${text.length > 75 ? '...' : ''}`,
         // In-app only (no mail); isNotificationForViewer keeps it from echoing back to the sender.
         type: 'chat_message',
@@ -579,7 +586,7 @@ export async function submitEvaluation(
     createdAt: now,
   };
 
-  const resolvedText = evaluationData.isResolvedPermanently ? 'ใช่' : 'ไม่ใช่';
+  const resolvedText = resolvedAnswer(evaluationData.isResolvedPermanently).th;
   // Rating + staff bell in one transaction (owner 2026-10-14: the officer must learn of it at once;
   // lib/ticket-scope.ts keeps 'evaluation_submitted' off the submitter's own bell).
   const updated = await prisma.$transaction(async (tx) => {
@@ -593,13 +600,13 @@ export async function submitEvaluation(
         timeline: {
           create: {
             status: 'closed',
-            action: `ประเมินความพึงพอใจ ${evaluationData.overallScore} ดาว และปิดเรื่อง (Closed)`,
+            action: TEXT_TEMPLATES.csatClosedAction.th(String(evaluationData.overallScore)),
             actor:
               current.confidentiality === 'anonymous'
-                ? 'พนักงานผู้แจ้ง'
-                : current.submitterName || 'พนักงาน',
+                ? TEXT.reportingEmployee.th
+                : current.submitterName || TEXT.employee.th,
             actorRole: 'Employee',
-            notes: evaluationData.feedbackComment || 'ส่งผลประเมินความพึงพอใจเสร็จสิ้น',
+            notes: evaluationData.feedbackComment || TEXT.evaluationDoneNote.th,
           },
         },
       },
@@ -611,8 +618,11 @@ export async function submitEvaluation(
         trackingCode: closed.trackingCode,
         type: 'evaluation_submitted',
         recipientRole: 'gatekeeper',
-        title: `[ประเมินแล้ว] ${closed.trackingCode} · ${evaluationData.overallScore}/5`,
-        message: `ผู้ยื่นให้คะแนน ${evaluationData.overallScore}/5 · ปัญหาได้รับการแก้ไขถาวร: ${resolvedText}`,
+        title: TEXT_TEMPLATES.ratedTitle.th(
+          closed.trackingCode,
+          String(evaluationData.overallScore)
+        ),
+        message: TEXT_TEMPLATES.ratedMessage.th(String(evaluationData.overallScore), resolvedText),
       },
     });
     return closed;
