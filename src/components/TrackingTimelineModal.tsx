@@ -531,8 +531,10 @@ const ProgressStepper: React.FC<Readonly<{ status: TicketStatus }>> = ({ status 
 
       <div className="grid grid-cols-5 gap-1 sm:gap-2">
         {steps.map((step, idx) => {
-          const isPassed = idx < currentStepIdx;
-          const isCurrent = idx === currentStepIdx;
+          // Closed is the last step and nothing follows it, so it shows done (✓) too.
+          const isDone = status === 'closed';
+          const isPassed = idx < currentStepIdx || isDone;
+          const isCurrent = idx === currentStepIdx && !isDone;
           return (
             <div key={step.key} className="flex flex-col items-center text-center">
               <div

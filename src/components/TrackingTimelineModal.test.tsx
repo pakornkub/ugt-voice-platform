@@ -188,6 +188,13 @@ describe('TrackingTimelineModal', () => {
     expect(props.onOpenSatisfactionModal).toHaveBeenCalledWith(resolvedTicket);
   });
 
+  it('ticks all five progress steps once the ticket is closed', () => {
+    renderModal({ ...resolvedTicket, status: 'closed' });
+    const tracker = screen.getByText(/Real-time Progress Tracker/).parentElement as HTMLElement;
+    expect(tracker.querySelectorAll('.lucide-check')).toHaveLength(5);
+    expect(tracker).not.toHaveTextContent(/d/);
+  });
+
   describe('submitter card (RBAC confidentiality)', () => {
     const open = { ...directCeoTicket, isDirectToExecutive: false };
 

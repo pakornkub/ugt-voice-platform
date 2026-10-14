@@ -1023,7 +1023,10 @@ const TriageModal: React.FC<Readonly<TriageModalProps>> = ({ ticket, onClose, on
           {form.targetStatus === 'resolved' && (
             <div className="space-y-1.5 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs">
               <label htmlFor="triage-resolution" className="block font-bold text-emerald-900">
-                {tr('Resolution Statement:', 'สรุปวิธีการแก้ไขปัญหา (Resolution Statement):')}
+                {tr(
+                  'Resolution Statement:',
+                  'สรุปผลการแก้ไขปัญหาฉบับสมบูรณ์ (Resolution Statement):'
+                )}
               </label>
               <textarea
                 id="triage-resolution"
