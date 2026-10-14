@@ -22,6 +22,11 @@ export const emailSettingsInputSchema = z.object({
   masterEnabled: z.boolean(),
   onTicketSubmitted: template,
   onTicketResolved: template,
+  onTicketEvaluated: template,
 });
 
-export const emailTriggerSchema = z.enum(['ticket_submitted', 'ticket_resolved']);
+export const emailTriggerSchema = z.enum([
+  'ticket_submitted',
+  'ticket_resolved',
+  'ticket_evaluated',
+]);

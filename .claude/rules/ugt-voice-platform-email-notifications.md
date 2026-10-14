@@ -14,9 +14,10 @@ paths:
 Decisions 2026-10-08 / 2026-10-09 (`docs/project-context/decisions.md`): email follows upstream's
 `AdminEmailNotificationSettings` model, which supersedes parts of `ugt-nextjs-mail.md` here:
 
-- Two triggers only — `onTicketSubmitted` (→ the auto-assigned officer with the category Lead in CC; unassigned → the
+- Three triggers — `onTicketSubmitted` (→ the auto-assigned officer with the category Lead in CC; unassigned → the
   Lead, else the department `escalationEmail`) and `onTicketResolved` (→ the submitter, on the transition into
-  `resolved` only) — each `{ enabled, subject, body }` plus `masterEnabled`. Tokens are
+  `resolved` only), and `onTicketEvaluated` (2026-10-14: the CSAT rating → the same gatekeeper recipient as a new
+  ticket, with score / resolved-for-good / comments, never the submitter's identity) — each `{ enabled, subject, body }` plus `masterEnabled`. Tokens are
   single-brace `{ticketId}` (`interpolateEmailTemplate` in `src/services/emailDefaults.ts`).
 - Settings live in one `AppSettings` row (`email.notification-settings`, zod schema in
   `lib/email-settings-schema.ts`); every attempt writes an `EmailDispatchLogs` row
@@ -30,7 +31,9 @@ Decisions 2026-10-08 / 2026-10-09 (`docs/project-context/decisions.md`): email f
 - Dev mode (`dev-mode:enable`) exists only on the dev environment (basePath ending `-dev`), never in
   production — see `permissionsFor` in `lib/get-user-permissions.ts`.
 - Privacy: anonymous / confidential_restricted tickets get neutral sender labels in gatekeeper
-  mail; logs and the dev banner never show an anonymous submitter's address; direct-to-executive
-  tickets are not mailed to gatekeepers whose role lacks `canViewDirectCeoTickets`. Never put
+  mail; logs and the dev banner never show an anonymous submitter's address; a direct-to-executive
+  ticket IS mailed to the category gatekeeper with every active CEO/EVP (`ExecutiveMembers.RoleType`) in CC and a
+  `[ส่งตรงผู้บริหาร]` subject tag (owner 2026-10-14) — the gatekeeper role needs the RBAC "direct CEO/EVP inbox" right
+  to open it, and only then is such a ticket auto-assigned. Never put
   anonymous-chat message bodies into email or audit logs.
 - `ticket.sla_warning` no longer exists (SLA removed 2026-10-08) — don't re-add it.

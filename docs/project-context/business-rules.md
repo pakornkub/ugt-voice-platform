@@ -169,3 +169,14 @@ role + หมวดของ gatekeeper มาจาก `resolveViewer()` (`lib/
 - **รหัสติดตาม** `TK-ปี-NNNN` เลขรันต่อปีเริ่ม 0001 (`lib/actions/tickets.ts:nextTrackingCode`) —
   ข้ามเลขที่มีอยู่แล้ว · ขึ้นปีใหม่เริ่ม 0001 ใหม่ (counter แยกต่อปีใน `AppSettings`)
 - **เบอร์โทร** กรอกเอง — ไม่ดึงจากข้อมูล HR (HR view ไม่มีเบอร์) และไม่ใส่เบอร์ตัวอย่างแทนเมื่อเว้นว่าง
+
+## เรื่องส่งตรง CEO/EVP · ผลประเมิน CSAT (2026-10-14)
+
+- **ส่งตรง CEO/EVP**: อีเมลเรื่องใหม่ไปที่ Gatekeeper ของหมวด (ผู้ได้รับมอบหมาย → Lead → escalation) +
+  CC ผู้บริหารที่ประเภท CEO/EVP สถานะ active + หัวเรื่อง `[ส่งตรงผู้บริหาร]`
+  (`lib/email-notifications.ts:notifyTicketSubmitted`) · จ่ายงานอัตโนมัติเฉพาะเมื่อเปิดสิทธิ์ "เข้าถึงกล่อง
+  ข้อร้องเรียนสายตรง CEO/EVP" ให้ Gatekeeper ในหน้า RBAC (`lib/auto-assign.ts:gatekeepersSeeDirectTickets`)
+- **แบบประเมิน**: ไม่มีค่าตั้งต้น ต้องเลือกดาว + ใช่/ไม่ใช่ก่อนส่ง (`src/components/SatisfactionModal.tsx`)
+- **หลังประเมิน**: กระดิ่ง `evaluation_submitted` เฉพาะเจ้าหน้าที่ (`lib/ticket-scope.ts:isNotificationForViewer`) +
+  อีเมล `onTicketEvaluated` ถึงผู้รับผิดชอบ (CC Lead) ไม่มีชื่อผู้ยื่น (`notifyTicketEvaluated`) · Gatekeeper Inbox
+  แสดงดาว + ปุ่ม "ดูผลประเมิน" เปิดหน้าติดตาม

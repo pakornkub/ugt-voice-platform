@@ -209,6 +209,39 @@ describe('Shell (bilingual)', () => {
     ).toBeInTheDocument();
   });
 
+  describe('evaluation_submitted notification', () => {
+    const evaluationNotification: NotificationItem = {
+      ...notification,
+      id: 'n3',
+      type: 'evaluation_submitted',
+      title: '[ประเมินแล้ว] TK-2026-0001 · 4/5',
+      message: 'ผู้ยื่นให้คะแนน 4/5 · ปัญหาได้รับการแก้ไขถาวร: ใช่',
+    };
+
+    it('shows the rating notification with an amber star icon, in Thai', async () => {
+      const user = userEvent.setup();
+      renderLocalized('th', [evaluationNotification]);
+
+      await openDrawer(user);
+
+      expect(screen.getByText(evaluationNotification.title)).toBeInTheDocument();
+      expect(screen.getByText(evaluationNotification.message)).toBeInTheDocument();
+      expect(document.querySelector('.bg-amber-100 svg.lucide-star')).not.toBeNull();
+    });
+
+    it('translates the rating notification in English', async () => {
+      const user = userEvent.setup();
+      renderLocalized('en', [evaluationNotification]);
+
+      await openDrawer(user);
+
+      expect(screen.getByText('[Rated] TK-2026-0001 · 4/5')).toBeInTheDocument();
+      expect(
+        screen.getByText('The submitter rated 4/5 · Resolved for good: Yes')
+      ).toBeInTheDocument();
+    });
+  });
+
   it('keeps the stored Thai notification text in the drawer in TH', async () => {
     const user = userEvent.setup();
     renderLocalized('th');

@@ -8,6 +8,7 @@ const db = vi.hoisted(() => ({
     emailDispatchLog: { create: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
     departmentGatekeeperConfig: { findFirst: vi.fn() },
     roleAccessConfig: { findFirst: vi.fn() },
+    executiveMember: { findMany: vi.fn() },
   },
 }));
 const mail = vi.hoisted(() => ({ sendRenderedMail: vi.fn() }));
@@ -28,6 +29,7 @@ const {
   listDispatchLogs,
   loadEmailSettings,
   mailActorFor,
+  notifyTicketEvaluated,
   notifyTicketResolved,
   notifyTicketSubmitted,
   parseStoredSettings,
@@ -84,6 +86,10 @@ beforeEach(() => {
   db.prisma.appSetting.findUnique.mockResolvedValue(null);
   db.prisma.departmentGatekeeperConfig.findFirst.mockResolvedValue(gkConfig());
   db.prisma.roleAccessConfig.findFirst.mockResolvedValue({ canViewDirectCeoTickets: true });
+  db.prisma.executiveMember.findMany.mockResolvedValue([
+    { email: 'ceo@ube.co.th' },
+    { email: 'EVP@ube.com' },
+  ]);
   db.prisma.emailDispatchLog.create.mockImplementation(
     async ({ data }: { data: Record<string, unknown> }) => ({
       id: 'log-1',
@@ -130,6 +136,7 @@ describe('settings storage', () => {
       masterEnabled: true,
       onTicketSubmitted: DEFAULT_EMAIL_SETTINGS.onTicketSubmitted,
       onTicketResolved: DEFAULT_EMAIL_SETTINGS.onTicketResolved,
+      onTicketEvaluated: DEFAULT_EMAIL_SETTINGS.onTicketEvaluated,
     });
   });
 
@@ -139,6 +146,7 @@ describe('settings storage', () => {
         masterEnabled: false,
         onTicketSubmitted: DEFAULT_EMAIL_SETTINGS.onTicketSubmitted,
         onTicketResolved: DEFAULT_EMAIL_SETTINGS.onTicketResolved,
+        onTicketEvaluated: DEFAULT_EMAIL_SETTINGS.onTicketEvaluated,
       },
       'user-1'
     );
@@ -353,24 +361,45 @@ describe('notifyTicketSubmitted', () => {
     expect(lastLog().body).toContain('ปกปิดตัวตน');
   });
 
-  it('does not mail a direct-to-executive ticket to a gatekeeper role that may not view it', async () => {
+  it('mails a direct-to-executive ticket to the gatekeeper with every active CEO/EVP in CC', async () => {
     db.prisma.roleAccessConfig.findFirst.mockResolvedValue({ canViewDirectCeoTickets: false });
     await notifyTicketSubmitted(ticket({ isDirectToExecutive: true }), ctx);
-    expect(mail.sendRenderedMail).not.toHaveBeenCalled();
-    expect(lastLog()).toMatchObject({ status: 'disabled' });
-    expect(lastLog().errorMessage).toContain('Direct-to-executive');
-    // the withheld ticket text is not kept in the log either
-    expect(lastLog().body).not.toContain(ticket().description ?? '__none__');
-    expect(lastLog().body).toContain('ไม่ได้ส่ง');
 
-    db.prisma.roleAccessConfig.findFirst.mockResolvedValue(null);
-    await notifyTicketSubmitted(ticket({ isDirectToExecutive: true }), ctx);
-    expect(mail.sendRenderedMail).not.toHaveBeenCalled();
+    expect(mail.sendRenderedMail).toHaveBeenCalledTimes(1);
+    const sent = mail.sendRenderedMail.mock.calls[0][0];
+    expect(sent.to).toBe('lead.hr@ube.com');
+    expect(sent.cc).toBe('ceo@ube.com, evp@ube.com');
+    expect(sent.subject.startsWith('[ส่งตรงผู้บริหาร] ')).toBe(true);
+    expect(db.prisma.executiveMember.findMany.mock.calls[0][0].where).toMatchObject({
+      roleType: { in: ['CEO', 'EVP'] },
+      status: 'active',
+      isDeleted: false,
+    });
   });
 
-  it('does send a direct-to-executive ticket when the gatekeeper role may view it', async () => {
-    await notifyTicketSubmitted(ticket({ isDirectToExecutive: true }), ctx);
-    expect(mail.sendRenderedMail).toHaveBeenCalledTimes(1);
+  it('keeps the Lead in CC next to CEO/EVP when the ticket was assigned, without duplicates', async () => {
+    db.prisma.executiveMember.findMany.mockResolvedValue([
+      { email: 'ceo@ube.com' },
+      { email: 'lead.hr@ube.co.th' }, // the Lead is also an executive
+      { email: 'somsri@ube.com' }, // …and the assignee
+    ]);
+    await notifyTicketSubmitted(
+      ticket({
+        isDirectToExecutive: true,
+        assignedOfficerName: 'สมศรี',
+        assignedOfficerEmail: 'somsri@ube.com',
+      }),
+      ctx
+    );
+    const sent = mail.sendRenderedMail.mock.calls[0][0];
+    expect(sent.to).toBe('somsri@ube.com');
+    expect(sent.cc).toBe('lead.hr@ube.com, ceo@ube.com');
+  });
+
+  it('does not copy executives on an ordinary ticket', async () => {
+    await notifyTicketSubmitted(ticket(), ctx);
+    expect(mail.sendRenderedMail.mock.calls[0][0].cc).toBeUndefined();
+    expect(db.prisma.executiveMember.findMany).not.toHaveBeenCalled();
   });
 
   it('flattens line breaks in the subject (no header injection)', async () => {
@@ -503,5 +532,42 @@ describe('sendTestNotification', () => {
       status: 'failed',
       errorMessage: 'SMTP_HOST environment variable is required',
     });
+  });
+});
+
+describe('notifyTicketEvaluated', () => {
+  const rating = {
+    overallScore: 4,
+    isResolvedPermanently: false,
+    feedbackComment: 'ติดตามเรื่องดีมาก',
+    improvementSuggestions: '',
+  };
+
+  it('mails the rating to the officer responsible, CC the Lead, and logs it', async () => {
+    await notifyTicketEvaluated(
+      ticket({ assignedOfficerName: 'สมศรี', assignedOfficerEmail: 'somsri@ube.com' }),
+      rating,
+      ctx
+    );
+    const sent = mail.sendRenderedMail.mock.calls[0][0];
+    expect(sent).toMatchObject({ to: 'somsri@ube.com', cc: 'lead.hr@ube.com' });
+    expect(sent.subject).toContain('4/5');
+    expect(lastLog()).toMatchObject({ triggerEvent: 'ticket_evaluated', status: 'sent' });
+    expect(lastLog().body).toContain('ติดตามเรื่องดีมาก');
+    expect(lastLog().body).toContain('ไม่ใช่');
+    expect(sent.html).toContain('https://ugtweb.ube.co.th/ugt-voice-platform/gatekeeper');
+  });
+
+  it('never names an anonymous submitter and respects the trigger switch', async () => {
+    await notifyTicketEvaluated(ticket({ confidentiality: 'anonymous' }), rating, ctx);
+    expect(lastLog().body).not.toContain('สมชาย');
+
+    useSettings({
+      onTicketEvaluated: { ...DEFAULT_EMAIL_SETTINGS.onTicketEvaluated, enabled: false },
+    });
+    mail.sendRenderedMail.mockClear();
+    await notifyTicketEvaluated(ticket(), rating, ctx);
+    expect(mail.sendRenderedMail).not.toHaveBeenCalled();
+    expect(lastLog().status).toBe('disabled');
   });
 });

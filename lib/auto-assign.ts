@@ -47,6 +47,19 @@ export function pickAssignee(
 }
 
 /**
+ * A direct-to-executive ticket is handled by the category gatekeepers only when the RBAC page lets
+ * the gatekeeper role open such tickets ("direct CEO/EVP inbox" right) — otherwise nobody is
+ * assigned an item they cannot see.
+ */
+export async function gatekeepersSeeDirectTickets(): Promise<boolean> {
+  const row = await prisma.roleAccessConfig.findFirst({
+    where: { role: 'gatekeeper', isDeleted: false },
+    select: { canViewDirectCeoTickets: true },
+  });
+  return row?.canViewDirectCeoTickets ?? false;
+}
+
+/**
  * Officer for a new ticket in `category`, or null (mode off, no active officers, unknown category).
  * ponytail: two submissions in the same instant can pick the same round-robin officer — fine at
  * this volume; a per-category counter row would be the upgrade.

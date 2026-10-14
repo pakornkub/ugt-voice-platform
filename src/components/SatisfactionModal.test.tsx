@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, render, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SatisfactionModal } from './SatisfactionModal';
 import { LanguageProvider } from '../context/LanguageContext';
@@ -73,5 +73,34 @@ describe('SatisfactionModal', () => {
     const updated = props.onEvaluationCompleted.mock.calls[0][0];
     expect(updated.evaluation?.overallScore).toBe(4);
     expect(updated.evaluation?.isResolvedPermanently).toBe(false);
+  });
+
+  it('starts unanswered — no stars, no yes/no, empty comments — and refuses to submit until answered', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    vi.mocked(submitEvaluation).mockClear();
+    renderModal();
+
+    expect(screen.getByText('แตะดาวเพื่อให้คะแนน')).toBeInTheDocument();
+    expect(byId('input-csat-comment')).toHaveValue('');
+    expect(byId('btn-resolved-yes').className).toBe(byId('btn-resolved-no').className);
+
+    await user.click(byId('btn-submit-csat'));
+    expect(await screen.findByRole('alert')).toHaveTextContent('กรุณาให้คะแนนดาว');
+    expect(submitEvaluation).not.toHaveBeenCalled();
+
+    await user.click(byId('btn-csat-star-3'));
+    await user.click(byId('btn-submit-csat')); // still missing the yes/no answer
+    expect(submitEvaluation).not.toHaveBeenCalled();
+
+    await user.click(byId('btn-resolved-yes'));
+    await user.click(byId('btn-submit-csat'));
+    await waitFor(() => expect(submitEvaluation).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(submitEvaluation).mock.calls[0][1]).toMatchObject({
+      overallScore: 3,
+      isResolvedPermanently: true,
+      feedbackComment: '',
+      improvementSuggestions: '',
+    });
+    expect(byId('csat-required-error')).toBeNull();
   });
 });

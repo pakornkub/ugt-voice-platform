@@ -73,6 +73,10 @@ export function parseStoredSettings(
       ...DEFAULT_EMAIL_SETTINGS.onTicketResolved,
       ...asRecord(parsed.onTicketResolved),
     },
+    onTicketEvaluated: {
+      ...DEFAULT_EMAIL_SETTINGS.onTicketEvaluated,
+      ...asRecord(parsed.onTicketEvaluated),
+    },
   };
   const result = emailSettingsInputSchema.safeParse(merged);
   if (!result.success) return DEFAULT_EMAIL_SETTINGS;
@@ -322,12 +326,26 @@ async function gatekeeperRecipient(ticket: NotifiableTicket): Promise<Recipient>
   };
 }
 
-/** A direct-to-executive ticket is hidden from gatekeepers without this right — so is its mail. */
-async function gatekeeperMaySeeDirectTickets(): Promise<boolean> {
-  const row = await prisma.roleAccessConfig.findFirst({
-    where: { role: 'gatekeeper', isDeleted: false },
+/** Active executives whose type is CEO or EVP — copied on direct-to-executive tickets. */
+async function ceoAndEvpEmails(): Promise<string[]> {
+  const rows = await prisma.executiveMember.findMany({
+    where: { roleType: { in: ['CEO', 'EVP'] }, status: 'active', isActive: true, isDeleted: false },
+    select: { email: true },
   });
-  return row?.canViewDirectCeoTickets ?? false;
+  return rows.map((r) => normalizeEmail(r.email)).filter(Boolean);
+}
+
+/** One comma-separated CC line, without duplicates or the To address itself. */
+function ccLine(
+  to: string | null | undefined,
+  addresses: (string | undefined)[]
+): string | undefined {
+  const seen = new Set<string>();
+  for (const address of addresses) {
+    const email = normalizeEmail(address);
+    if (email && !sameEmail(email, to)) seen.add(email);
+  }
+  return seen.size > 0 ? [...seen].join(', ') : undefined;
 }
 
 function senderIdentity(ticket: NotifiableTicket) {
@@ -344,21 +362,24 @@ function senderIdentity(ticket: NotifiableTicket) {
   };
 }
 
-async function submittedSkipReason(ticket: NotifiableTicket): Promise<string | undefined> {
-  if (!ticket.isDirectToExecutive) return undefined;
-  return (await gatekeeperMaySeeDirectTickets())
-    ? undefined
-    : 'Direct-to-executive ticket: the gatekeeper role may not view it';
-}
-
-/** Upstream rule "ticket submitted": tell the assigned officer (CC Lead), else the Lead. Never throws. */
+/**
+ * "Ticket submitted": tell the assigned officer (CC Lead), else the Lead. A direct-to-executive
+ * ticket goes to the same gatekeeper with every active CEO/EVP in CC and a subject tag (owner
+ * 2026-10-14 — the gatekeeper role needs the RBAC "direct CEO/EVP inbox" right to open it). Never throws.
+ */
 export async function notifyTicketSubmitted(
   ticket: NotifiableTicket,
   ctx: NotifyContext
 ): Promise<void> {
   try {
     const settings = await loadEmailSettings();
-    const recipient = await gatekeeperRecipient(ticket);
+    const gatekeeper = await gatekeeperRecipient(ticket);
+    const recipient = ticket.isDirectToExecutive
+      ? {
+          ...gatekeeper,
+          cc: ccLine(gatekeeper.email, [gatekeeper.cc, ...(await ceoAndEvpEmails())]),
+        }
+      : gatekeeper;
     const sender = senderIdentity(ticket);
     await dispatch({
       trigger: 'ticket_submitted',
@@ -366,7 +387,7 @@ export async function notifyTicketSubmitted(
       trackingCode: ticket.trackingCode,
       template: settings.onTicketSubmitted,
       enabled: settings.masterEnabled && settings.onTicketSubmitted.enabled,
-      skipReason: await submittedSkipReason(ticket),
+      subjectPrefix: ticket.isDirectToExecutive ? '[ส่งตรงผู้บริหาร] ' : undefined,
       recipient,
       actor: ctx.actor,
       createdBy: ctx.userId,
@@ -442,9 +463,59 @@ export async function notifyTicketResolved(
   }
 }
 
+export interface EvaluationDetails {
+  overallScore: number;
+  isResolvedPermanently: boolean;
+  feedbackComment?: string | null;
+  improvementSuggestions?: string | null;
+}
+
+/**
+ * "Ticket evaluated": the submitter's CSAT goes to the officer responsible (assigned officer, CC
+ * Lead; unassigned → the Lead / escalation address) — same recipients as a new ticket. Carries the
+ * rating and the submitter's own words, never who they are. Never throws.
+ */
+export async function notifyTicketEvaluated(
+  ticket: NotifiableTicket,
+  evaluation: EvaluationDetails,
+  ctx: NotifyContext
+): Promise<void> {
+  try {
+    const settings = await loadEmailSettings();
+    const recipient = await gatekeeperRecipient(ticket);
+    await dispatch({
+      trigger: 'ticket_evaluated',
+      ticketId: ticket.id,
+      trackingCode: ticket.trackingCode,
+      template: settings.onTicketEvaluated,
+      enabled: settings.masterEnabled && settings.onTicketEvaluated.enabled,
+      recipient,
+      actor: ctx.actor,
+      createdBy: ctx.userId,
+      vars: {
+        ticketId: ticket.trackingCode || ticket.id,
+        title: ticket.title || '-',
+        category: ticket.category,
+        categoryTh: categoryTh(ticket.category),
+        recipientName: recipient.name,
+        overallScore: String(evaluation.overallScore),
+        resolvedText: evaluation.isResolvedPermanently ? 'ใช่' : 'ไม่ใช่',
+        feedbackComment: evaluation.feedbackComment?.trim() || '-',
+        improvementSuggestions: evaluation.improvementSuggestions?.trim() || '-',
+        evaluatedDate: formatDate(new Date()),
+        trackingUrl: trackingUrlFor('/gatekeeper'),
+      },
+    });
+  } catch (error) {
+    console.error('ticket-evaluated email failed', { ticketId: ticket.id, error });
+  }
+}
+
 // ─── Test send ─────────────────────────────────────────────────────────────────
 
-function testVars(trigger: 'ticket_submitted' | 'ticket_resolved'): Record<string, string> {
+type TemplateTrigger = Exclude<Trigger, 'test_dispatch'>;
+
+function testVars(trigger: TemplateTrigger): Record<string, string> {
   const now = formatDate(new Date());
   return {
     ticketId: 'TK-2026-TEST',
@@ -455,9 +526,9 @@ function testVars(trigger: 'ticket_submitted' | 'ticket_resolved'): Record<strin
     senderDept: 'ฝ่ายปฏิบัติการคลังสินค้า',
     senderEmail: 'somsak.m@enterprise.co.th',
     recipientName:
-      trigger === 'ticket_submitted'
-        ? 'คุณวิภาวรรณ สดใส (Lead Gatekeeper)'
-        : 'สมศักดิ์ มั่นคง (พนักงาน)',
+      trigger === 'ticket_resolved'
+        ? 'สมศักดิ์ มั่นคง (พนักงาน)'
+        : 'คุณวิภาวรรณ สดใส (Lead Gatekeeper)',
     urgency: 'Urgent',
     description:
       'ทดสอบส่งข้อความแจ้งเตือนทางระบบอีเมลอัตโนมัติ เพื่อตรวจสอบความถูกต้องของ Subject และ Body Template',
@@ -466,9 +537,23 @@ function testVars(trigger: 'ticket_submitted' | 'ticket_resolved'): Record<strin
     resolvedDate: now,
     resolutionNotes:
       'ได้ปรับปรุงแบบฟอร์มเบิกจ่ายออนไลน์และเพิ่มช่องทางยืนยันเอกสารผ่านระบบอัตโนมัติแล้ว',
-    trackingUrl: trackingUrlFor('/my-tickets'),
+    overallScore: '4',
+    resolvedText: 'ใช่',
+    feedbackComment: 'เจ้าหน้าที่ติดตามเรื่องและแจ้งความคืบหน้าอย่างสม่ำเสมอ',
+    improvementSuggestions: 'อยากให้มีการแจ้งเตือนเมื่อสถานะเปลี่ยน',
+    evaluatedDate: now,
+    trackingUrl: trackingUrlFor(trigger === 'ticket_resolved' ? '/my-tickets' : '/gatekeeper'),
   };
 }
+
+const TEMPLATE_KEY: Record<
+  TemplateTrigger,
+  keyof Omit<EmailNotificationSettings, 'masterEnabled' | 'updatedAt'>
+> = {
+  ticket_submitted: 'onTicketSubmitted',
+  ticket_resolved: 'onTicketResolved',
+  ticket_evaluated: 'onTicketEvaluated',
+};
 
 /**
  * "Send Test Dispatch": renders the saved template with sample data and mails it to the admin who
@@ -476,12 +561,11 @@ function testVars(trigger: 'ticket_submitted' | 'ticket_resolved'): Record<strin
  * of a switched-off template is still a test). Throws only if the log write fails.
  */
 export async function sendTestNotification(
-  trigger: 'ticket_submitted' | 'ticket_resolved',
+  trigger: TemplateTrigger,
   ctx: NotifyContext & { email: string }
 ): Promise<EmailDispatchLog> {
   const settings = await loadEmailSettings();
-  const template =
-    trigger === 'ticket_submitted' ? settings.onTicketSubmitted : settings.onTicketResolved;
+  const template = settings[TEMPLATE_KEY[trigger]];
   const vars = testVars(trigger);
   return dispatch({
     trigger: 'test_dispatch',

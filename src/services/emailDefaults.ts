@@ -54,6 +54,32 @@ export const DEFAULT_EMAIL_SETTINGS: EmailNotificationSettings = {
 ขอแสดงความนับถือ,
 ทีมงาน VoicePlatform & แผนก {categoryTh}`,
   },
+  // Owner request 2026-10-14: tell the officer responsible what the submitter rated.
+  onTicketEvaluated: {
+    enabled: true,
+    subject: '[VoicePlatform แจ้งผลการประเมิน] เรื่อง {ticketId}: ผู้ยื่นให้คะแนน {overallScore}/5',
+    body: `เรียน คุณ {recipientName},
+
+ผู้ยื่นเรื่องได้ประเมินความพึงพอใจต่อการแก้ไขปัญหาเรียบร้อยแล้ว และเรื่องถูกปิดสมบูรณ์ โดยมีผลการประเมินดังนี้:
+
+- รหัสติดตาม (Tracking ID): {ticketId}
+- หัวข้อเรื่อง (Title): {title}
+- หมวดหมู่ (Category): {categoryTh}
+- คะแนนความพึงพอใจ (CSAT): {overallScore} / 5
+- ปัญหาได้รับการแก้ไขถาวร: {resolvedText}
+- วันที่ประเมิน: {evaluatedDate}
+
+ความคิดเห็นเพิ่มเติม:
+"{feedbackComment}"
+
+ข้อเสนอแนะเพื่อการปรับปรุง:
+"{improvementSuggestions}"
+
+ดูรายละเอียดและผลการประเมินในระบบ: {trackingUrl}
+
+ขอแสดงความนับถือ,
+ระบบรับเรื่องร้องเรียนและข้อเสนอแนะองค์กร VoicePlatform`,
+  },
   updatedAt: new Date().toISOString(),
 };
 

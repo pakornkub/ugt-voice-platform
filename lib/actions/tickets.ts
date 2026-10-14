@@ -10,11 +10,12 @@
 // Lead Gatekeeper and updateTicketWorkflow tells the submitter when a ticket becomes resolved —
 // lib/email-notifications.ts honours the admin's settings, writes the dispatch log and never throws.
 import { Prisma } from '@prisma/client';
-import { autoAssignOfficer } from '@/lib/auto-assign';
+import { autoAssignOfficer, gatekeepersSeeDirectTickets } from '@/lib/auto-assign';
 import { normalizeEmail } from '@/lib/email-identity';
 import { AUDIT_ACTIONS, type AuditAction } from '@/lib/audit-actions';
 import {
   mailActorFor,
+  notifyTicketEvaluated,
   notifyTicketResolved,
   notifyTicketSubmitted,
 } from '@/lib/email-notifications';
@@ -255,7 +256,8 @@ export async function submitTicket(payload: SubmitPayload): Promise<ComplaintTic
   const isAnonymous = payload.confidentiality === 'anonymous';
   // The server picks the officer (category's AutoAssignMode) — never the client. Direct-to-
   // executive tickets stay unassigned: a gatekeeper must not be handed what RBAC may hide.
-  const officer = payload.isDirectToExecutive ? null : await autoAssignOfficer(payload.category);
+  const assignable = !payload.isDirectToExecutive || (await gatekeepersSeeDirectTickets());
+  const officer = assignable ? await autoAssignOfficer(payload.category) : null;
   const timeline = [submissionTimeline(payload, isAnonymous)];
   if (officer) timeline.push(autoAssignTimeline(officer.name));
   const data: Omit<Prisma.ticketCreateInput, 'trackingCode'> = {
@@ -597,27 +599,43 @@ export async function submitEvaluation(
     createdAt: now,
   };
 
-  const updated = await prisma.ticket.update({
-    where: { id: ticketId },
-    data: {
-      status: 'closed',
-      closedAt: now,
-      updatedBy: viewer.userId,
-      evaluation: { upsert: { create: evaluation, update: evaluation } },
-      timeline: {
-        create: {
-          status: 'closed',
-          action: `ประเมินความพึงพอใจ ${evaluationData.overallScore} ดาว และปิดเรื่อง (Closed)`,
-          actor:
-            current.confidentiality === 'anonymous'
-              ? 'พนักงานผู้แจ้ง'
-              : current.submitterName || 'พนักงาน',
-          actorRole: 'Employee',
-          notes: evaluationData.feedbackComment || 'ส่งผลประเมินความพึงพอใจเสร็จสิ้น',
+  const resolvedText = evaluationData.isResolvedPermanently ? 'ใช่' : 'ไม่ใช่';
+  // Rating + staff bell in one transaction (owner 2026-10-14: the officer must learn of it at once;
+  // lib/ticket-scope.ts keeps 'evaluation_submitted' off the submitter's own bell).
+  const updated = await prisma.$transaction(async (tx) => {
+    const closed = await tx.ticket.update({
+      where: { id: ticketId },
+      data: {
+        status: 'closed',
+        closedAt: now,
+        updatedBy: viewer.userId,
+        evaluation: { upsert: { create: evaluation, update: evaluation } },
+        timeline: {
+          create: {
+            status: 'closed',
+            action: `ประเมินความพึงพอใจ ${evaluationData.overallScore} ดาว และปิดเรื่อง (Closed)`,
+            actor:
+              current.confidentiality === 'anonymous'
+                ? 'พนักงานผู้แจ้ง'
+                : current.submitterName || 'พนักงาน',
+            actorRole: 'Employee',
+            notes: evaluationData.feedbackComment || 'ส่งผลประเมินความพึงพอใจเสร็จสิ้น',
+          },
         },
       },
-    },
-    include: TICKET_INCLUDE,
+      include: TICKET_INCLUDE,
+    });
+    await tx.notification.create({
+      data: {
+        ticketId: closed.id,
+        trackingCode: closed.trackingCode,
+        type: 'evaluation_submitted',
+        recipientRole: 'gatekeeper',
+        title: `[ประเมินแล้ว] ${closed.trackingCode} · ${evaluationData.overallScore}/5`,
+        message: `ผู้ยื่นให้คะแนน ${evaluationData.overallScore}/5 · ปัญหาได้รับการแก้ไขถาวร: ${resolvedText}`,
+      },
+    });
+    return closed;
   });
 
   await auditLog(viewer.userId, AUDIT_ACTIONS.TICKETS_EVALUATE, {
@@ -625,5 +643,10 @@ export async function submitEvaluation(
     trackingCode: updated.trackingCode,
     overallScore: evaluationData.overallScore,
   });
+  // Not awaited: SMTP latency must not hold up the submitter (notify* never rejects).
+  notifyTicketEvaluated(updated, evaluationData, {
+    actor: mailActorFor(viewer),
+    userId: viewer.userId,
+  }).catch(() => {});
   return redactTicketForViewer(viewer, mapTicket(updated));
 }

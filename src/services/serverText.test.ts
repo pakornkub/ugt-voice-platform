@@ -125,6 +125,16 @@ describe('localizeServerText — what the server writes', () => {
     expect(en('ส่งผลประเมินความพึงพอใจเสร็จสิ้น')).toBe('Satisfaction evaluation submitted');
   });
 
+  it('translates the staff notification created when the submitter rates', () => {
+    expect(en('[ประเมินแล้ว] TK-2026-0042 · 4/5')).toBe('[Rated] TK-2026-0042 · 4/5');
+    expect(en('ผู้ยื่นให้คะแนน 4/5 · ปัญหาได้รับการแก้ไขถาวร: ใช่')).toBe(
+      'The submitter rated 4/5 · Resolved for good: Yes'
+    );
+    expect(en('ผู้ยื่นให้คะแนน 2/5 · ปัญหาได้รับการแก้ไขถาวร: ไม่ใช่')).toBe(
+      'The submitter rated 2/5 · Resolved for good: No'
+    );
+  });
+
   it('translates the chat timeline, notifications and sender labels', () => {
     expect(en('เจ้าหน้าที่ส่งข้อความสอบถาม/ชี้แจงผ่านช่องทางนิรนาม')).toBe(
       'Staff sent a question or clarification through the anonymous channel'

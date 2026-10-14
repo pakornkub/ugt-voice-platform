@@ -200,6 +200,13 @@ const PATTERNS: ReadonlyArray<Template> = [
   ],
   [['[ข้อความใหม่จากเจ้าหน้าที่] ', ''], (code) => `[New message from staff] ${code}`],
   [['[ข้อความใหม่จากผู้ร้องเรียน] ', ''], (code) => `[New message from complainant] ${code}`],
+  // CSAT submitted — staff notification: "[ประเมินแล้ว] <code> · <n>/5"
+  [['[ประเมินแล้ว] ', ' · ', '/5'], (code, score) => `[Rated] ${code} · ${score}/5`],
+  [
+    ['ผู้ยื่นให้คะแนน ', '/5 · ปัญหาได้รับการแก้ไขถาวร: ', ''],
+    (score, answer) =>
+      `The submitter rated ${score}/5 · Resolved for good: ${answer === 'ใช่' ? 'Yes' : 'No'}`,
+  ],
 
   // Timeline actions and actors
   [

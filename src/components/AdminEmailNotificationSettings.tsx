@@ -16,6 +16,7 @@ import {
   Inbox,
   UserCheck,
   User,
+  Star,
 } from 'lucide-react';
 import { EmailNotificationSettings, EmailNotificationTemplate, EmailDispatchLog } from '../types';
 import {
@@ -31,8 +32,10 @@ import { Language, useLanguage } from '../context/LanguageContext';
 import { localizeServerText } from '../services/serverText';
 import { useConfirmDialog } from './ConfirmDialog';
 
-type TemplateKey = 'onTicketSubmitted' | 'onTicketResolved';
-type Tone = 'indigo' | 'emerald';
+type TemplateKey = 'onTicketSubmitted' | 'onTicketResolved' | 'onTicketEvaluated';
+type Tone = 'indigo' | 'emerald' | 'amber';
+type TestTrigger = 'ticket_submitted' | 'ticket_resolved' | 'ticket_evaluated';
+type CardKey = 'submitted' | 'resolved' | 'evaluated';
 
 // Tailwind needs complete class names at build time, so each tone is spelled out.
 interface ToneClasses {
@@ -73,6 +76,18 @@ const TONES: Record<Tone, ToneClasses> = {
     previewBtn: 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100',
     previewTitle: 'text-emerald-400',
   },
+  amber: {
+    iconBox: 'border-amber-200 bg-amber-50 text-amber-700',
+    caseBadge: 'bg-amber-100/60 text-amber-700',
+    toggleOn: 'bg-amber-600',
+    recipientBox: 'border-amber-100 bg-amber-50/50 text-amber-900',
+    recipientIcon: 'text-amber-600',
+    recipientBadge: 'border-amber-200 text-amber-700',
+    focus: 'focus:border-amber-500 focus:ring-amber-500',
+    tagHover: 'hover:bg-amber-50 hover:text-amber-700',
+    previewBtn: 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100',
+    previewTitle: 'text-amber-400',
+  },
 };
 
 const SUBMITTED_TAGS = [
@@ -96,6 +111,19 @@ const RESOLVED_TAGS = [
   '{resolvedBy}',
   '{resolvedDate}',
   '{resolutionNotes}',
+  '{trackingUrl}',
+];
+
+const EVALUATED_TAGS = [
+  '{ticketId}',
+  '{title}',
+  '{categoryTh}',
+  '{recipientName}',
+  '{overallScore}',
+  '{resolvedText}',
+  '{feedbackComment}',
+  '{improvementSuggestions}',
+  '{evaluatedDate}',
   '{trackingUrl}',
 ];
 
@@ -137,6 +165,17 @@ function buildSampleVariables(lang: Language): Record<string, string> {
       'HR department approved the E-Claim pilot project, scheduled to test with Strategy Unit next month.',
       'ฝ่ายบุคคลได้อนุมัติโครงการ E-Claim และจะเริ่มทดสอบนำร่องกับฝ่ายกลยุทธ์ในเดือนหน้า'
     ),
+    overallScore: '4',
+    resolvedText: tr('Yes', 'ใช่'),
+    feedbackComment: tr(
+      'Fast and clear follow-up, thank you.',
+      'ติดตามผลรวดเร็วและชัดเจน ขอบคุณครับ'
+    ),
+    improvementSuggestions: tr(
+      'Share progress updates more often.',
+      'อยากให้แจ้งความคืบหน้าบ่อยขึ้น'
+    ),
+    evaluatedDate: now,
     trackingUrl: 'https://voiceplatform.enterprise.co.th/#tracking=TK-2026-0881',
   };
 }
@@ -196,7 +235,7 @@ interface TemplatePreview {
 
 interface TemplateCardProps {
   readonly tone: Tone;
-  readonly idKey: 'submitted' | 'resolved';
+  readonly idKey: CardKey;
   readonly icon: React.ReactNode;
   readonly recipientIcon: React.ReactNode;
   readonly copy: TemplateCopy;
@@ -394,6 +433,12 @@ const TRIGGER_BADGES: Record<
     icon: <CheckCircle2 className="h-3 w-3" />,
     en: 'Resolution Complete',
     th: 'แก้ไขเสร็จสิ้น',
+  },
+  ticket_evaluated: {
+    className: 'border-amber-200 bg-amber-50 text-amber-700',
+    icon: <Star className="h-3 w-3" />,
+    en: 'Rated (CSAT)',
+    th: 'ประเมินผลแล้ว',
   },
   test_dispatch: {
     className: 'border-purple-200 bg-purple-50 text-purple-700',
@@ -686,6 +731,13 @@ function useTimedMessage(ms: number) {
   return [message, flash] as const;
 }
 
+/** [EN, TH] fragment of the success flash after a test dispatch. */
+const TEST_SUCCESS_TEXT: Record<TestTrigger, readonly [string, string]> = {
+  ticket_submitted: ['alert to Gatekeeper', 'แจ้งเตือนเคสใหม่หา Gatekeeper'],
+  ticket_resolved: ['resolution alert to Employee', 'แจ้งผลการแก้ไขหาพนักงาน'],
+  ticket_evaluated: ['rating alert to Gatekeeper', 'แจ้งผลการประเมินหา Gatekeeper'],
+};
+
 interface PanelProps {
   readonly initialSettings: EmailNotificationSettings;
   readonly initialLogs: EmailDispatchLog[];
@@ -700,7 +752,7 @@ const EmailSettingsPanel: React.FC<PanelProps> = ({ initialSettings, initialLogs
   const [saveSuccess, flashSaved] = useTimedMessage(3000);
   const [testSuccessMessage, flashTestSuccess] = useTimedMessage(4000);
   const [errorMessage, flashError] = useTimedMessage(4000);
-  const [activePreview, setActivePreview] = useState<'submitted' | 'resolved' | null>(null);
+  const [activePreview, setActivePreview] = useState<CardKey | null>(null);
   const [selectedLogForDetail, setSelectedLogForDetail] = useState<EmailDispatchLog | null>(null);
   const busy = useRef(false);
 
@@ -742,7 +794,7 @@ const EmailSettingsPanel: React.FC<PanelProps> = ({ initialSettings, initialLogs
     });
   };
 
-  const applyTestLog = (type: 'ticket_submitted' | 'ticket_resolved', log: EmailDispatchLog) => {
+  const applyTestLog = (type: TestTrigger, log: EmailDispatchLog) => {
     setLogs((prev) => [log, ...prev].slice(0, 100));
     if (log.status === 'failed') {
       flashError(
@@ -753,16 +805,16 @@ const EmailSettingsPanel: React.FC<PanelProps> = ({ initialSettings, initialLogs
       );
       return;
     }
-    const toGatekeeper = type === 'ticket_submitted';
+    const [en, th] = TEST_SUCCESS_TEXT[type];
     flashTestSuccess(
       tr(
-        `Simulated email ${toGatekeeper ? 'alert to Gatekeeper' : 'resolution alert to Employee'} sent successfully! View in logs below.`,
-        `จำลองการส่งอีเมล ${toGatekeeper ? 'แจ้งเตือนเคสใหม่หา Gatekeeper' : 'แจ้งผลการแก้ไขหาพนักงาน'} สำเร็จ! ตรวจสอบได้ในตารางประวัติด้านล่าง`
+        `Simulated email ${en} sent successfully! View in logs below.`,
+        `จำลองการส่งอีเมล ${th} สำเร็จ! ตรวจสอบได้ในตารางประวัติด้านล่าง`
       )
     );
   };
 
-  const handleTestDispatch = (type: 'ticket_submitted' | 'ticket_resolved') =>
+  const handleTestDispatch = (type: TestTrigger) =>
     run(
       () => sendTestEmailNotification(type),
       (log) => applyTestLog(type, log)
@@ -781,7 +833,7 @@ const EmailSettingsPanel: React.FC<PanelProps> = ({ initialSettings, initialLogs
     });
   };
 
-  const togglePreview = (which: 'submitted' | 'resolved') =>
+  const togglePreview = (which: CardKey) =>
     setActivePreview(activePreview === which ? null : which);
 
   const sample = buildSampleVariables(lang);
@@ -794,6 +846,7 @@ const EmailSettingsPanel: React.FC<PanelProps> = ({ initialSettings, initialLogs
     ),
   };
   const resolvedBodyVars = { ...sample, recipientName: submitterName };
+  const gatekeeperEmail = `${sample.recipientName} <hr-gatekeeper@enterprise.co.th>`;
 
   const glossary: [string, string, string][] = [
     ['{ticketId}', 'Tracking code e.g. TK-2026-0881', 'รหัสติดตาม เช่น TK-2026-0881'],
@@ -817,6 +870,23 @@ const EmailSettingsPanel: React.FC<PanelProps> = ({ initialSettings, initialLogs
     ['{resolvedBy}', 'Officer who resolved the case', 'ชื่อเจ้าหน้าที่ผู้ดำเนินการปิดเคส'],
     ['{resolvedDate}', 'Date & time of resolution', 'วันที่และเวลาปิดเคส'],
     ['{resolutionNotes}', 'Summary of resolution actions', 'สรุปผลการแก้ไขและการดำเนินงาน'],
+    [
+      '{overallScore}',
+      'CSAT overall score given by the submitter (1-5)',
+      'คะแนนความพึงพอใจรวมที่ผู้ยื่นให้ (1-5)',
+    ],
+    [
+      '{resolvedText}',
+      'Whether the submitter says the issue is resolved for good',
+      'ผู้ยื่นยืนยันว่าปัญหาได้รับการแก้ไขถาวรหรือไม่',
+    ],
+    ['{feedbackComment}', 'Comment written by the submitter', 'ความคิดเห็นที่ผู้ยื่นเขียน'],
+    [
+      '{improvementSuggestions}',
+      'Improvement suggestions from the submitter',
+      'ข้อเสนอแนะเพื่อการปรับปรุงจากผู้ยื่น',
+    ],
+    ['{evaluatedDate}', 'Date & time of the rating', 'วันที่และเวลาที่ประเมิน'],
     ['{trackingUrl}', 'Direct URL link to track case', 'ลิงก์ตรงสำหรับตรวจสอบสถานะเคส'],
   ];
 
@@ -982,7 +1052,7 @@ const EmailSettingsPanel: React.FC<PanelProps> = ({ initialSettings, initialLogs
               'LIVE PREVIEW: Email sent to Gatekeeper',
               'LIVE PREVIEW: อีเมลส่งหา Gatekeeper'
             ),
-            to: `${sample.recipientName} <hr-gatekeeper@enterprise.co.th>`,
+            to: gatekeeperEmail,
             subject: interpolateEmailTemplate(settings.onTicketSubmitted.subject, sample),
             body: interpolateEmailTemplate(settings.onTicketSubmitted.body, sample),
           }}
@@ -1034,6 +1104,52 @@ const EmailSettingsPanel: React.FC<PanelProps> = ({ initialSettings, initialLogs
           }}
           onTogglePreview={() => togglePreview('resolved')}
           onTestDispatch={() => handleTestDispatch('ticket_resolved')}
+        />
+
+        <TemplateCard
+          tone="amber"
+          idKey="evaluated"
+          icon={<Star className="h-5 w-5" />}
+          recipientIcon={<UserCheck className="h-4 w-4" />}
+          copy={{
+            caseLabel: tr('Case 3 • Ticket Rated', 'กรณีที่ 3 • Ticket Rated'),
+            title: tr(
+              'Notify Gatekeeper when the submitter rates (CSAT)',
+              'แจ้งเตือนเมื่อผู้ยื่นประเมินแล้ว'
+            ),
+            description: tr(
+              'Dispatches the rating details to the responsible Gatekeeper after the submitter completes the satisfaction survey.',
+              'ส่งอีเมลสรุปผลการประเมินความพึงพอใจไปยังเจ้าหน้าที่ผู้รับผิดชอบเรื่อง หลังผู้ยื่นประเมินเสร็จ'
+            ),
+            recipientLabel: tr(
+              'Assigned officer, CC the Category Lead ({categoryTh}) — unassigned: the Lead Gatekeeper',
+              'เจ้าหน้าที่ผู้รับผิดชอบเรื่อง (CC Lead ประจำหมวดหมู่ {categoryTh}) — ยังไม่มอบหมาย: Lead Gatekeeper'
+            ),
+            recipientBadge: 'Responsible Gatekeeper',
+            subjectPlaceholder: tr(
+              '[VoicePlatform Rating] {ticketId}: Rated {overallScore}/5',
+              'เช่น [VoicePlatform ผลประเมิน] {ticketId}: ผู้ยื่นให้คะแนน {overallScore}/5'
+            ),
+            bodyPlaceholder: tr(
+              'Enter notification message to send to the Gatekeeper when the submitter rates...',
+              'กรอกเนื้อหาข้อความที่ต้องการส่งถึง Gatekeeper เมื่อผู้ยื่นประเมินแล้ว...'
+            ),
+          }}
+          tags={EVALUATED_TAGS}
+          template={settings.onTicketEvaluated}
+          onChange={(patch) => updateTemplate('onTicketEvaluated', patch)}
+          preview={{
+            open: activePreview === 'evaluated',
+            title: tr(
+              'LIVE PREVIEW: Email sent to Gatekeeper',
+              'LIVE PREVIEW: อีเมลส่งหา Gatekeeper'
+            ),
+            to: gatekeeperEmail,
+            subject: interpolateEmailTemplate(settings.onTicketEvaluated.subject, sample),
+            body: interpolateEmailTemplate(settings.onTicketEvaluated.body, sample),
+          }}
+          onTogglePreview={() => togglePreview('evaluated')}
+          onTestDispatch={() => handleTestDispatch('ticket_evaluated')}
         />
       </div>
 

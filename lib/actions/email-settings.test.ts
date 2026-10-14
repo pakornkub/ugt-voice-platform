@@ -38,6 +38,7 @@ const validInput = () => ({
   masterEnabled: true,
   onTicketSubmitted: { enabled: true, subject: 'S1', body: 'B1' },
   onTicketResolved: { enabled: false, subject: 'S2', body: 'B2' },
+  onTicketEvaluated: { enabled: true, subject: 'S3', body: 'B3' },
 });
 
 const WRITES: ReadonlyArray<readonly [string, () => Promise<unknown>]> = [
@@ -105,6 +106,7 @@ describe('saveEmailNotificationSettings', () => {
       masterEnabled: true,
       onTicketSubmitted: true,
       onTicketResolved: false,
+      onTicketEvaluated: true,
     });
     expect(audit.detail).not.toContain('S1');
     expect(audit.detail).not.toContain('B1');
@@ -165,6 +167,7 @@ describe('resetEmailNotificationSettings', () => {
       masterEnabled: DEFAULT_EMAIL_SETTINGS.masterEnabled,
       onTicketSubmitted: DEFAULT_EMAIL_SETTINGS.onTicketSubmitted,
       onTicketResolved: DEFAULT_EMAIL_SETTINGS.onTicketResolved,
+      onTicketEvaluated: DEFAULT_EMAIL_SETTINGS.onTicketEvaluated,
     });
     expect(db.prisma.activityLog.create.mock.calls[0][0].data.action).toBe('email-settings.reset');
   });

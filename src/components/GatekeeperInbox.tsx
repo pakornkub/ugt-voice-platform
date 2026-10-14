@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Lock,
   MessageSquare,
+  Star,
 } from 'lucide-react';
 import {
   ComplaintTicket,
@@ -483,6 +484,32 @@ interface TicketRowProps {
   onTriage: (ticket: ComplaintTicket, e: React.MouseEvent) => void;
 }
 
+const MAX_SCORE = 5;
+
+/** CSAT stars (★ filled · ☆ empty) of a rated ticket — staff-only, amber like the CSAT modal. */
+const EvaluationStars: React.FC<Readonly<{ ticketId: string; score: number }>> = ({
+  ticketId,
+  score,
+}) => {
+  const { tr } = useTr();
+  const filled = Math.max(0, Math.min(MAX_SCORE, Math.round(score)));
+  return (
+    <span
+      data-testid={`evaluation-stars-${ticketId}`}
+      title={tr(`Rated ${score} of ${MAX_SCORE}`, `ผู้ยื่นให้คะแนน ${score} จาก ${MAX_SCORE}`)}
+      className="inline-flex items-center gap-1 text-xs font-bold text-amber-600"
+    >
+      <span aria-hidden="true" className="tracking-tight text-amber-500">
+        {'★'.repeat(filled)}
+        <span className="text-slate-300">{'☆'.repeat(MAX_SCORE - filled)}</span>
+      </span>
+      <span>
+        {score}/{MAX_SCORE}
+      </span>
+    </span>
+  );
+};
+
 const TicketRow: React.FC<Readonly<TicketRowProps>> = ({ ticket: t, onSelect, onTriage }) => {
   const { tr, lang } = useTr();
   const catInfo = CATEGORY_DEFINITIONS[t.category];
@@ -547,7 +574,24 @@ const TicketRow: React.FC<Readonly<TicketRowProps>> = ({ ticket: t, onSelect, on
       </div>
 
       {/* Actions Right */}
-      <div className="flex shrink-0 items-center gap-2 border-t border-slate-100 pt-2 sm:border-t-0 sm:pt-0">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-slate-100 pt-2 sm:border-t-0 sm:pt-0">
+        {t.evaluation && (
+          <>
+            <EvaluationStars ticketId={t.id} score={t.evaluation.overallScore} />
+            <button
+              type="button"
+              id={`btn-view-evaluation-${t.id}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect(t);
+              }}
+              className="flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-100"
+            >
+              <Star className="h-3.5 w-3.5" />
+              <span>{tr('View rating', 'ดูผลประเมิน')}</span>
+            </button>
+          </>
+        )}
         <button
           type="button"
           id={`btn-triage-${t.id}`}

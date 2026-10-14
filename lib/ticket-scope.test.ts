@@ -227,6 +227,12 @@ describe('isNotificationForViewer', () => {
     expect(isNotificationForViewer(employee, toStaff)).toBe(false);
   });
 
+  it('shows a CSAT rating to staff only, not back to the submitter who gave it', () => {
+    const rated = { type: 'evaluation_submitted' as const, recipientRole: 'gatekeeper' as const };
+    expect(isNotificationForViewer(gatekeeper, rated)).toBe(true);
+    expect(isNotificationForViewer(employee, rated)).toBe(false);
+  });
+
   it('leaves every other notification to ticket visibility', () => {
     expect(
       isNotificationForViewer(gatekeeper, { type: 'status_update', recipientRole: 'employee' })

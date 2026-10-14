@@ -161,6 +161,8 @@ export function isNotificationForViewer(
   viewer: Pick<TicketViewer, 'email' | 'role'>,
   notification: Pick<NotificationItem, 'type' | 'recipientRole' | 'recipientEmail'>
 ): boolean {
+  // A CSAT rating is news for the staff handling the ticket, not for the submitter who gave it.
+  if (notification.type === 'evaluation_submitted') return viewer.role !== 'employee';
   if (notification.type !== 'chat_message') return true;
   if (notification.recipientRole === 'employee') {
     return sameEmail(notification.recipientEmail, viewer.email);

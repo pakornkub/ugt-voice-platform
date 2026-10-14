@@ -214,6 +214,98 @@ describe('AdminEmailNotificationSettings', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
+  describe('Case 3 · rated (CSAT) trigger', () => {
+    it('renders the third card in Thai with its recipient, tokens and default template', async () => {
+      await renderPanel();
+
+      expect(screen.getByText('แจ้งเตือนเมื่อผู้ยื่นประเมินแล้ว')).toBeInTheDocument();
+      expect(
+        screen.getByText(/เจ้าหน้าที่ผู้รับผิดชอบเรื่อง \(CC Lead ประจำหมวดหมู่ \{categoryTh\}\)/)
+      ).toBeInTheDocument();
+      expect((byId('input-evaluated-subject') as HTMLInputElement).value).toBe(
+        DEFAULT_EMAIL_SETTINGS.onTicketEvaluated.subject
+      );
+      expect((byId('textarea-evaluated-body') as HTMLTextAreaElement).value).toBe(
+        DEFAULT_EMAIL_SETTINGS.onTicketEvaluated.body
+      );
+      expect(byId('toggle-ticket-evaluated-email')).toHaveAttribute('aria-checked', 'true');
+      for (const tag of [
+        '{overallScore}',
+        '{resolvedText}',
+        '{feedbackComment}',
+        '{evaluatedDate}',
+      ]) {
+        expect(screen.getByRole('button', { name: `+ ${tag}` })).toBeInTheDocument();
+      }
+    });
+
+    it('edits, toggles and saves the rated template with the other settings', async () => {
+      const user = userEvent.setup();
+      await renderPanel();
+
+      await user.click(byId('toggle-ticket-evaluated-email'));
+      const subject = byId('input-evaluated-subject') as HTMLInputElement;
+      await user.clear(subject);
+      await user.type(subject, 'Rated');
+      await user.click(screen.getByRole('button', { name: '+ {overallScore}' }));
+      await user.click(byId('btn-save-email-settings'));
+
+      expect(actions.saveEmailNotificationSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          onTicketEvaluated: expect.objectContaining({
+            enabled: false,
+            subject: 'Rated',
+            body: expect.stringContaining('{overallScore}'),
+          }),
+        })
+      );
+    });
+
+    it('previews the rated email with sample score data', async () => {
+      const user = userEvent.setup();
+      await renderPanel();
+
+      await user.click(byId('btn-preview-evaluated-email'));
+      expect(screen.getByText(/LIVE PREVIEW: อีเมลส่งหา Gatekeeper/)).toBeInTheDocument();
+      expect(screen.getAllByText(/TK-2026-0881/).length).toBeGreaterThan(0);
+      expect(screen.getByText(/ผู้ยื่นให้คะแนน 4\/5/)).toBeInTheDocument();
+    });
+
+    it('sends the ticket_evaluated test dispatch and logs it with the rated badge', async () => {
+      const user = userEvent.setup();
+      actions.sendTestEmailNotification.mockResolvedValue(
+        testLog({ id: 'log-3', trigger: 'ticket_evaluated' })
+      );
+      await renderPanel();
+
+      await user.click(byId('btn-test-evaluated-email'));
+      expect(actions.sendTestEmailNotification).toHaveBeenCalledWith('ticket_evaluated');
+      expect(await screen.findByText(/แจ้งผลการประเมินหา Gatekeeper/)).toBeInTheDocument();
+      expect(screen.getByText('ประเมินผลแล้ว')).toBeInTheDocument();
+    });
+
+    it('renders the card, tokens and log badge in English', async () => {
+      localStorage.setItem('voiceplatform_lang_preference_v2', 'en');
+      await renderPanel({
+        initialSettings: DEFAULT_EMAIL_SETTINGS,
+        initialLogs: [testLog({ trigger: 'ticket_evaluated' })],
+      });
+
+      expect(
+        await screen.findByText('Notify Gatekeeper when the submitter rates (CSAT)')
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Assigned officer, CC the Category Lead \(\{categoryTh\}\) — unassigned: the Lead Gatekeeper/
+        )
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText('CSAT overall score given by the submitter (1-5)')
+      ).toBeInTheDocument();
+      expect(screen.getByText('Rated (CSAT)')).toBeInTheDocument();
+    });
+  });
+
   it('shows a failed test send with its reason in the log and a failure message', async () => {
     const user = userEvent.setup();
     actions.sendTestEmailNotification.mockResolvedValue(

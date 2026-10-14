@@ -43,6 +43,7 @@ export async function saveEmailNotificationSettings(
     masterEnabled: saved.masterEnabled,
     onTicketSubmitted: saved.onTicketSubmitted.enabled,
     onTicketResolved: saved.onTicketResolved.enabled,
+    onTicketEvaluated: saved.onTicketEvaluated.enabled,
   });
   return saved;
 }
@@ -54,6 +55,7 @@ export async function resetEmailNotificationSettings(): Promise<EmailNotificatio
       masterEnabled: DEFAULT_EMAIL_SETTINGS.masterEnabled,
       onTicketSubmitted: DEFAULT_EMAIL_SETTINGS.onTicketSubmitted,
       onTicketResolved: DEFAULT_EMAIL_SETTINGS.onTicketResolved,
+      onTicketEvaluated: DEFAULT_EMAIL_SETTINGS.onTicketEvaluated,
     },
     viewer.userId
   );

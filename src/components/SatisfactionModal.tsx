@@ -24,6 +24,7 @@ interface SatisfactionModalProps {
 
 /** [English, Thai] caption shown under the stars for each overall score. */
 const SCORE_CAPTIONS: Record<number, readonly [string, string]> = {
+  0: ['Tap a star to rate', 'แตะดาวเพื่อให้คะแนน'],
   5: ['🌟 Very Satisfied (5/5)', '🌟 ยอดเยี่ยมมาก (5/5)'],
   4: ['👍 Satisfied (4/5)', '👍 พึงพอใจดี (4/5)'],
   3: ['👌 Neutral (3/5)', '👌 ปานกลาง (3/5)'],
@@ -75,14 +76,14 @@ const StarRating: React.FC<
 };
 
 const ResolvedToggle: React.FC<
-  Readonly<{ resolved: boolean; onChange: (resolved: boolean) => void; lang: Language }>
+  Readonly<{ resolved: boolean | null; onChange: (resolved: boolean) => void; lang: Language }>
 > = ({ resolved, onChange, lang }) => (
   <div className="grid grid-cols-2 gap-3">
     <button
       type="button"
       id="btn-resolved-yes"
       onClick={() => onChange(true)}
-      className={`${TOGGLE_BASE} ${resolved ? TOGGLE_YES_ACTIVE : TOGGLE_IDLE}`}
+      className={`${TOGGLE_BASE} ${resolved === true ? TOGGLE_YES_ACTIVE : TOGGLE_IDLE}`}
     >
       <Check className="h-4 w-4" />
       <span>{pick(lang, 'Yes', 'ใช่')}</span>
@@ -92,7 +93,7 @@ const ResolvedToggle: React.FC<
       type="button"
       id="btn-resolved-no"
       onClick={() => onChange(false)}
-      className={`${TOGGLE_BASE} ${resolved ? TOGGLE_IDLE : TOGGLE_NO_ACTIVE}`}
+      className={`${TOGGLE_BASE} ${resolved === false ? TOGGLE_NO_ACTIVE : TOGGLE_IDLE}`}
     >
       <X className="h-4 w-4" />
       <span>{pick(lang, 'No', 'ไม่ใช่')}</span>
@@ -186,22 +187,13 @@ export const SatisfactionModal: React.FC<Readonly<SatisfactionModalProps>> = ({
   onEvaluationCompleted,
 }) => {
   const { lang } = useLanguage();
-  const [overallScore, setOverallScore] = useState<number>(5);
-  const [isResolvedPermanently, setIsResolvedPermanently] = useState<boolean>(true);
-  const [feedbackComment, setFeedbackComment] = useState<string>(
-    pick(
-      lang,
-      'The assigned officer handled and resolved this issue promptly and professionally.',
-      'เจ้าหน้าที่ประสานงานแก้ไขปัญหาได้รวดเร็วและเป็นมืออาชีพมากครับ'
-    )
-  );
-  const [improvementSuggestions, setImprovementSuggestions] = useState<string>(
-    pick(
-      lang,
-      'Would love to receive simultaneous SMS or direct chat updates in addition to email.',
-      'อยากให้มีระบบอัปเดตแจ้งเตือนผ่าน SMS หรือ LINE Notify ควบคู่กันไปด้วยครับ'
-    )
-  );
+  // Nothing is answered for the user (owner report 2026-10-14: upstream pre-filled 5 stars, "Yes"
+  // and sample praise, so an untouched form recorded a glowing review). 0 / null = not answered.
+  const [overallScore, setOverallScore] = useState<number>(0);
+  const [isResolvedPermanently, setIsResolvedPermanently] = useState<boolean | null>(null);
+  const [feedbackComment, setFeedbackComment] = useState<string>('');
+  const [improvementSuggestions, setImprovementSuggestions] = useState<string>('');
+  const [showRequired, setShowRequired] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
 
@@ -210,6 +202,11 @@ export const SatisfactionModal: React.FC<Readonly<SatisfactionModalProps>> = ({
   const handleSubmit = (e: React.SubmitEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
+    if (overallScore === 0 || isResolvedPermanently === null) {
+      setShowRequired(true);
+      return;
+    }
+    setShowRequired(false);
     setIsSubmitting(true);
 
     submitEvaluation(ticket.id, {
@@ -321,6 +318,20 @@ export const SatisfactionModal: React.FC<Readonly<SatisfactionModalProps>> = ({
             />
 
             {/* Submit buttons */}
+            {showRequired && (
+              <p
+                id="csat-required-error"
+                role="alert"
+                className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700"
+              >
+                {pick(
+                  lang,
+                  'Please rate the service (stars) and answer whether the issue was resolved.',
+                  'กรุณาให้คะแนนดาว และตอบว่าปัญหาได้รับการแก้ไขหรือไม่ ก่อนส่งแบบประเมิน'
+                )}
+              </p>
+            )}
+
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 type="button"

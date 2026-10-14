@@ -387,4 +387,39 @@ describe('GatekeeperInbox', () => {
       alertSpy.mockRestore();
     });
   });
+
+  describe('CSAT rating on rated tickets', () => {
+    const ratedTicket = INITIAL_COMPLAINTS.find(
+      (t) => t.evaluation && !t.isDirectToExecutive
+    ) as ComplaintTicket;
+    const unratedTicket = { ...normalTicket, evaluation: undefined };
+
+    it('shows the stars and a view-rating button that opens the tracking modal', async () => {
+      const user = userEvent.setup({ delay: null });
+      const { onSelectTicket } = renderInbox({ currentRole: 'executive' }, [
+        ratedTicket,
+        unratedTicket,
+      ]);
+
+      const stars = screen.getByTestId(`evaluation-stars-${ratedTicket.id}`);
+      const score = ratedTicket.evaluation!.overallScore;
+      expect(stars).toHaveTextContent(`${'★'.repeat(score)}${'☆'.repeat(5 - score)}${score}/5`);
+      expect(screen.queryByTestId(`evaluation-stars-${unratedTicket.id}`)).not.toBeInTheDocument();
+      expect(document.getElementById(`btn-view-evaluation-${unratedTicket.id}`)).toBeNull();
+
+      await user.click(document.getElementById(`btn-view-evaluation-${ratedTicket.id}`)!);
+      expect(onSelectTicket).toHaveBeenCalledTimes(1);
+      expect(onSelectTicket).toHaveBeenCalledWith(ratedTicket);
+    });
+
+    it('labels the button in Thai and in English', async () => {
+      const { unmount } = renderInbox({ currentRole: 'executive' }, [ratedTicket]);
+      expect(screen.getByRole('button', { name: 'ดูผลประเมิน' })).toBeInTheDocument();
+      unmount();
+
+      localStorage.setItem('voiceplatform_lang_preference_v2', 'en');
+      renderInbox({ currentRole: 'executive' }, [ratedTicket]);
+      expect(await screen.findByRole('button', { name: 'View rating' })).toBeInTheDocument();
+    });
+  });
 });

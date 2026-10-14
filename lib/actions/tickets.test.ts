@@ -4,7 +4,10 @@ import { INITIAL_ROLE_PERMISSIONS } from '@/services/api';
 import type { TicketViewer } from '@/lib/ticket-scope';
 import type { UserRole } from '@/types';
 
-const assign = vi.hoisted(() => ({ autoAssignOfficer: vi.fn() }));
+const assign = vi.hoisted(() => ({
+  autoAssignOfficer: vi.fn(),
+  gatekeepersSeeDirectTickets: vi.fn(),
+}));
 const db = vi.hoisted(() => {
   const prisma = {
     ticket: { create: vi.fn(), update: vi.fn(), findUnique: vi.fn() },
@@ -27,6 +30,7 @@ const mail = vi.hoisted(() => ({
   mailActorFor: vi.fn(),
   notifyTicketSubmitted: vi.fn(),
   notifyTicketResolved: vi.fn(),
+  notifyTicketEvaluated: vi.fn(),
 }));
 
 vi.mock('@/lib/prisma', () => db);
@@ -123,6 +127,8 @@ beforeEach(() => {
   mail.notifyTicketSubmitted.mockResolvedValue(undefined);
   mail.notifyTicketResolved.mockResolvedValue(undefined);
   assign.autoAssignOfficer.mockResolvedValue(null);
+  assign.gatekeepersSeeDirectTickets.mockResolvedValue(false);
+  mail.notifyTicketEvaluated.mockResolvedValue(undefined);
 });
 
 describe('reads', () => {
@@ -246,6 +252,18 @@ describe('submitTicket', () => {
       expect(data.assignedOfficerEmail).toBeNull();
       expect(data.timeline.create).toHaveLength(1);
     }
+  });
+
+  it('auto-assigns a direct-to-executive ticket once gatekeepers may open such tickets', async () => {
+    db.prisma.ticket.create.mockImplementation(async ({ data }) => row({ ...data, timeline: [] }));
+    assign.gatekeepersSeeDirectTickets.mockResolvedValue(true);
+    assign.autoAssignOfficer.mockResolvedValue({ name: 'สมศรี', email: 'somsri@ube.com' });
+
+    await submitTicket({ ...payload, isDirectToExecutive: true });
+
+    expect(db.prisma.ticket.create.mock.calls[0][0].data.assignedOfficerEmail).toBe(
+      'somsri@ube.com'
+    );
   });
 
   it('writes the ticket and its notifications in one transaction', async () => {
@@ -538,6 +556,31 @@ describe('submitEvaluation', () => {
       actor: 'พนักงานผู้แจ้ง',
       notes: 'ส่งผลประเมินความพึงพอใจเสร็จสิ้น',
     });
+  });
+
+  it('raises a staff-only bell and mails the rating to the officer, after the save', async () => {
+    access.findVisibleTicket.mockResolvedValue(row());
+    db.prisma.ticket.update.mockResolvedValue(
+      row({ status: 'closed', trackingCode: 'TK-2026-0007' })
+    );
+
+    await submitEvaluation('tk1', { ...evaluation, isResolvedPermanently: false });
+
+    expect(db.prisma.notification.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        type: 'evaluation_submitted',
+        recipientRole: 'gatekeeper',
+        title: '[ประเมินแล้ว] TK-2026-0007 · 4/5',
+        message: 'ผู้ยื่นให้คะแนน 4/5 · ปัญหาได้รับการแก้ไขถาวร: ไม่ใช่',
+      }),
+    });
+    expect(mail.notifyTicketEvaluated).toHaveBeenCalledTimes(1);
+    const [mailed, rating] = mail.notifyTicketEvaluated.mock.calls[0];
+    expect(mailed).toMatchObject({ trackingCode: 'TK-2026-0007' });
+    expect(rating).toMatchObject({ overallScore: 4, isResolvedPermanently: false });
+    expect(db.prisma.$transaction.mock.invocationCallOrder[0]).toBeLessThan(
+      mail.notifyTicketEvaluated.mock.invocationCallOrder[0]
+    );
   });
 
   it('rejects scores outside 1-5', async () => {

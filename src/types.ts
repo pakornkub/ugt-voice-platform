@@ -173,7 +173,12 @@ export interface NotificationItem {
   timestamp: string;
   read: boolean;
   type:
-    'status_update' | 'new_ticket' | 'direct_ceo_alert' | 'satisfaction_pending' | 'chat_message';
+    | 'status_update'
+    | 'new_ticket'
+    | 'direct_ceo_alert'
+    | 'satisfaction_pending'
+    | 'chat_message'
+    | 'evaluation_submitted';
   recipientRole?: UserRole;
   recipientEmail?: string;
 }
@@ -296,13 +301,15 @@ export interface EmailNotificationSettings {
   masterEnabled: boolean;
   onTicketSubmitted: EmailNotificationTemplate;
   onTicketResolved: EmailNotificationTemplate;
+  /** To the officer responsible once the submitter has rated the resolution (2026-10-14). */
+  onTicketEvaluated: EmailNotificationTemplate;
   updatedAt: string;
 }
 
 export interface EmailDispatchLog {
   id: string;
   timestamp: string;
-  trigger: 'ticket_submitted' | 'ticket_resolved' | 'test_dispatch';
+  trigger: 'ticket_submitted' | 'ticket_resolved' | 'ticket_evaluated' | 'test_dispatch';
   ticketId: string;
   trackingCode: string;
   recipientEmail: string;

@@ -832,3 +832,15 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   skipped on `/submit`; a submit that still hits the old build saves the typed draft to
   sessionStorage (`src/components/submit-form/draft.ts`) and offers a reload that restores it ·
   rejected: plain "please refresh" text (loses a long complaint), auto-reload without asking.
+- 2026-10-14 **Direct-to-executive tickets are mailed to the category gatekeeper, CEO/EVP in CC**
+  (owner) — supersedes "not mailed to gatekeepers whose role lacks `canViewDirectCeoTickets`": To =
+  assigned officer / Lead / escalation address, CC = active `ExecutiveMembers` with `RoleType` CEO or
+  EVP, subject tag `[ส่งตรงผู้บริหาร]`; such tickets are auto-assigned only when the RBAC "direct
+  CEO/EVP inbox" right is on for the gatekeeper role (so nobody is assigned what they cannot open)
+  · rejected: mailing CEO/EVP only (owner wants the department gatekeeper to act).
+- 2026-10-14 **CSAT: nothing pre-filled; the rating reaches the gatekeeper** (owner) — the form
+  starts with no stars, no yes/no and empty comments (stars + yes/no required); on submit a staff-only
+  bell `evaluation_submitted` and a new email trigger `onTicketEvaluated` (admin-editable, same
+  recipients as a new ticket) carry score, resolved-for-good and comments; the Gatekeeper Inbox shows
+  the stars with a "View rating" button · rejected: keeping upstream's 5-star / "Yes" / sample-praise
+  defaults (an untouched form recorded a glowing review).

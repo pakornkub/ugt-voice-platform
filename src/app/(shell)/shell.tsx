@@ -30,6 +30,7 @@ import {
   Clock,
   MessageSquare,
   Smartphone,
+  Star,
   X,
 } from 'lucide-react';
 import { PATH_TO_TAB, ShellContext, ShellData, ShellIdentity, TAB_TO_PATH } from '../shell-context';
@@ -633,6 +634,10 @@ const NOTIFICATION_ICONS: Partial<
   satisfaction_pending: {
     box: 'bg-emerald-100 text-emerald-700',
     icon: <CheckCircle2 className="h-3.5 w-3.5" />,
+  },
+  evaluation_submitted: {
+    box: 'bg-amber-100 text-amber-700',
+    icon: <Star className="h-3.5 w-3.5" />,
   },
 };
 const DEFAULT_NOTIFICATION_ICON = {
