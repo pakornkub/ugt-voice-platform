@@ -4,9 +4,7 @@ Last updated: 2026-10-15
 
 ## In progress
 
-- **Architecture refactor on DEV only** (`b630c24`…`d2559f7`, 6 commits + docs): status / server-text /
-  events / visibility / admin-rules modules, api.ts split. Prod still `489161b`. Next: DEV build green +
-  owner QA on DEV, then the owner decides the prod push. No migrations.
+- Nothing in progress. `main` = `55b55a4` on prod (build #12) and dev (#37), Sonar 0 new issues. No migrations.
 
 ## Next
 
@@ -14,7 +12,7 @@ Last updated: 2026-10-15
   DEV already) — without it direct-to-executive tickets get no Lead. Prod mail goes to real people.
 - **Owner QA on prod** (SSO needs the owner; Claude can't enter passwords): roster pickers, RBAC,
   a test ticket, a CSAT rating.
-- **Clean up QA data on DEV**: TK-2026-0001, -0002, -1184, -5377 (+ attachment, email log rows).
+- **Clean up QA data on DEV**: TK-2026-0001, -0002, -0003, -1184, -5377 (+ attachment, email log rows).
 - **Platform PRs** #21 (DEV bar) and #22 (version skew) both claim 4.76.0 — the second to merge
   renumbers to 4.77.0. Earlier #16–#20: merge one at a time in order, renumber later versions;
   `/plugin update` only after merge + tag.
@@ -35,6 +33,7 @@ Last updated: 2026-10-15
 
 ## Done (newest first — older chunks condensed; full detail in git log + docs/project-context/)
 
+- 2026-10-15 **Prod deploy** of the refactor (`489161b..55b55a4`, build #12, health OK).
 - 2026-10-15 **Architecture refactor** (owner: all 6 review items, behaviour unchanged): `lib/ticket-status.ts`,
   `lib/server-text.ts`, `lib/ticket-events.ts`, server-owned visibility (`ticket.view`, bell audience in
   `isNotificationForViewer`), `lib/roster-rules.ts` + `lib/role-access-rules.ts`, api.ts split. 1229 tests.
