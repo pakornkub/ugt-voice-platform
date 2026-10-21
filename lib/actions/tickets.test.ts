@@ -40,6 +40,7 @@ const portal = vi.hoisted(() => ({
   SUBMIT_LIMIT: { limit: 5, windowMs: 1000 },
 }));
 const directory = vi.hoisted(() => ({ findEmployeeByCode: vi.fn() }));
+const deployment = vi.hoisted(() => ({ isDevEnvironment: vi.fn() }));
 
 const mail = vi.hoisted(() => ({
   mailActorFor: vi.fn(),
@@ -55,6 +56,7 @@ vi.mock('@/lib/ticket-access', () => access);
 vi.mock('@/lib/auto-assign', () => assign);
 vi.mock('@/lib/public-access', () => portal);
 vi.mock('@/lib/directory', () => directory);
+vi.mock('@/lib/environment', () => deployment);
 
 const {
   getTicketByTrackingCode,
@@ -154,6 +156,7 @@ beforeEach(() => {
   portal.takeRateLimit.mockReturnValue(true);
   portal.hrMatchStatusFor.mockReturnValue('matched');
   directory.findEmployeeByCode.mockResolvedValue(null);
+  deployment.isDevEnvironment.mockReturnValue(false);
 });
 
 describe('reads', () => {
@@ -715,5 +718,28 @@ describe('submitPublicTicket (no-login portal)', () => {
     });
     expect(portal.takeRateLimit).toHaveBeenCalledWith('submit:10.0.0.1', 5, 1000);
     expect(db.prisma.ticket.create).not.toHaveBeenCalled();
+  });
+
+  it('prod: the gatekeeper mail goes to the real recipients', async () => {
+    created();
+    await submitPublicTicket({ ...payload, confidentiality: 'anonymous' });
+    expect(mail.notifyTicketSubmitted.mock.calls[0][1]).toEqual({
+      actor: { email: null, hasDevMode: false },
+      userId: 'public-portal',
+    });
+  });
+
+  it('DEV: the typed address plays the tester; an anonymous ticket mails nobody', async () => {
+    deployment.isDevEnvironment.mockReturnValue(true);
+    created();
+    await submitPublicTicket(identified);
+    expect(mail.notifyTicketSubmitted.mock.calls[0][1].actor).toEqual({
+      email: 'somchai@ube.com',
+      hasDevMode: true,
+    });
+
+    mail.notifyTicketSubmitted.mockClear();
+    await submitPublicTicket({ ...payload, confidentiality: 'anonymous' });
+    expect(mail.notifyTicketSubmitted).not.toHaveBeenCalled();
   });
 });

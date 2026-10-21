@@ -30,6 +30,8 @@ import {
   takeRateLimit,
 } from '@/lib/public-access';
 import { findEmployeeByCode } from '@/lib/directory';
+import type { MailActor } from '@/lib/email';
+import { isDevEnvironment } from '@/lib/environment';
 import { prisma } from '@/lib/prisma';
 import { SERVER_TEMPLATES as TEXT_TEMPLATES, SERVER_TEXT as TEXT } from '@/lib/server-text';
 import {
@@ -235,7 +237,18 @@ type SubmitterColumns = Pick<
 /** Who files it, for CreatedBy / the audit log / the mail's dev-mode actor. */
 interface Filer {
   userId: string;
-  mailActor: ReturnType<typeof mailActorFor>;
+  /** null = send no workflow mail for this filing (see portalMailActor). */
+  mailActor: MailActor | null;
+}
+
+/**
+ * The mail actor of a portal (no-login) event. Prod: none — real recipients. DEV: there is no
+ * signed-in tester for dev mode to redirect to, so the identified submitter's typed address plays
+ * the tester; an anonymous DEV ticket mails nobody rather than the real gatekeepers.
+ */
+function portalMailActor(submitterEmail: string | null | undefined): MailActor | null {
+  if (!isDevEnvironment()) return { email: null, hasDevMode: false };
+  return submitterEmail ? { email: submitterEmail, hasDevMode: true } : null;
 }
 
 /**
@@ -287,7 +300,11 @@ async function createTicket(
     trackingCode: created.trackingCode,
   });
   // Not awaited: SMTP latency must not hold up the submitter (notify* never rejects).
-  notifyTicketSubmitted(created, { actor: filer.mailActor, userId: filer.userId }).catch(() => {});
+  if (filer.mailActor) {
+    notifyTicketSubmitted(created, { actor: filer.mailActor, userId: filer.userId }).catch(
+      () => {}
+    );
+  }
   return created;
 }
 
@@ -378,10 +395,11 @@ export async function submitPublicTicket(payload: SubmitPayload): Promise<Public
   if (payload.confidentiality === 'confidential_restricted') throw new Error('BAD_REQUEST');
 
   const accessKey = generateAccessKey();
+  const submitter = await publicSubmitterColumns(payload, accessKey);
   const created = await createTicket(
-    { userId: PUBLIC_PORTAL_USER_ID, mailActor: { email: null, hasDevMode: false } },
+    { userId: PUBLIC_PORTAL_USER_ID, mailActor: portalMailActor(submitter.submitterEmail) },
     payload,
-    await publicSubmitterColumns(payload, accessKey)
+    submitter
   );
   await rememberPublicTicket(created.id, accessKey);
   notifyPublicSubmitter(created, { kind: 'receipt', accessKey }).catch(() => {});
@@ -692,9 +710,13 @@ export async function submitEvaluation(
     overallScore: evaluationData.overallScore,
   });
   // Not awaited: SMTP latency must not hold up the submitter (notify* never rejects).
-  notifyTicketEvaluated(updated, evaluationData, {
-    actor: mailActorFor(viewer),
-    userId: viewer.userId,
-  }).catch(() => {});
+  const actor = viewer.publicTicketId
+    ? portalMailActor(updated.submitterEmail)
+    : mailActorFor(viewer);
+  if (actor) {
+    notifyTicketEvaluated(updated, evaluationData, { actor, userId: viewer.userId }).catch(
+      () => {}
+    );
+  }
   return presentTicketForViewer(viewer, mapTicket(updated));
 }
