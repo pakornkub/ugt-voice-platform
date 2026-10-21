@@ -13,6 +13,7 @@ import type { EmployeeRecord, HrMatchStatus } from '@/types';
 // No 0/O, 1/I/L — read off a phone screen and typed back.
 const KEY_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const KEY_LENGTH = 8;
+// Same name in src/proxy.ts (it cannot import this server-only module) — keep in sync.
 export const PUBLIC_TICKET_COOKIE = 'vc_track';
 const COOKIE_MAX_AGE_SECONDS = 2 * 60 * 60;
 
@@ -87,6 +88,8 @@ export function takeRateLimit(
   windowMs: number,
   now = Date.now()
 ): boolean {
+  // ponytail: whole map dropped at 10k keys — crude memory cap; prune per key if it ever matters.
+  if (buckets.size > 10_000) buckets.clear();
   const recent = (buckets.get(bucket) ?? []).filter((at) => now - at < windowMs);
   const allowed = recent.length < limit;
   if (allowed) recent.push(now);
@@ -94,10 +97,14 @@ export function takeRateLimit(
   return allowed;
 }
 
-/** Caller IP behind the TLS-terminating proxy (first X-Forwarded-For hop). */
+/**
+ * Caller IP behind the one TLS-terminating proxy: the LAST X-Forwarded-For hop is the one that proxy
+ * appended; earlier hops are whatever the client sent, so a limit keyed on them is bypassable.
+ */
 export async function clientIp(): Promise<string> {
   const h = await headers();
-  return h.get('x-forwarded-for')?.split(',')[0].trim() || h.get('x-real-ip') || 'unknown';
+  const lastHop = h.get('x-forwarded-for')?.split(',').at(-1)?.trim();
+  return lastHop || h.get('x-real-ip') || 'unknown';
 }
 
 export const SUBMIT_LIMIT = { limit: 5, windowMs: 60 * 60 * 1000 };
@@ -105,12 +112,21 @@ export const LOOKUP_LIMIT = { limit: 10, windowMs: 15 * 60 * 1000 };
 
 // ─── HR check of what an identified submitter typed ────────────────────────────
 
-const compact = (text: string) => text.toLowerCase().replaceAll(/\s+/g, '');
+// Title prefixes the HR view carries and people usually leave out. Stripped BEFORE spaces/dots go,
+// so the English ones keep their boundary ("Mr Somchai" is not "Mrs omchai"); Thai titles are
+// written attached to the name.
+const NAME_PREFIX = /^(?:นางสาว|นาง|นาย|น\.ส\.|(?:mrs|mr|ms|miss)(?:\.|\s)+)/;
+const compact = (text: string) =>
+  text
+    .trim()
+    .toLowerCase()
+    .replace(NAME_PREFIX, '')
+    .replaceAll(/[\s.]+/g, '');
 
 /**
- * The HR record of the typed employee id against the typed name. Loose on purpose (HR names carry
- * a title prefix, people skip spaces): either name containing the other counts as a match.
- * ponytail: substring match — a staff hint, not proof of identity.
+ * The HR record of the typed employee id against the typed name: the whole name must match (title
+ * prefix, spaces, dots and case ignored) — a fragment like "สม" must not earn a green tick.
+ * A staff hint, not proof of identity.
  */
 export function hrMatchStatusFor(
   employee: EmployeeRecord | null,
@@ -119,7 +135,5 @@ export function hrMatchStatusFor(
   if (!employee) return 'not_found';
   const typed = compact(typedName);
   const names = [employee.nameTh, employee.nameEn].map(compact).filter(Boolean);
-  const matched =
-    typed.length >= 2 && names.some((name) => name.includes(typed) || typed.includes(name));
-  return matched ? 'matched' : 'mismatch';
+  return typed && names.includes(typed) ? 'matched' : 'mismatch';
 }

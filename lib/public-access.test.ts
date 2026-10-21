@@ -65,11 +65,14 @@ describe('hrMatchStatusFor', () => {
     expect(hrMatchStatusFor(employee, 'สมชาย ใจดี')).toBe('matched');
     expect(hrMatchStatusFor(employee, 'สมชายใจดี')).toBe('matched');
     expect(hrMatchStatusFor(employee, 'somchai jaidee')).toBe('matched');
+    expect(hrMatchStatusFor(employee, 'Mr Somchai Jaidee')).toBe('matched');
   });
 
   it('flags a different name and an unknown employee id', () => {
     expect(hrMatchStatusFor(employee, 'สมหญิง รักดี')).toBe('mismatch');
-    expect(hrMatchStatusFor(employee, 'ก')).toBe('mismatch');
+    expect(hrMatchStatusFor(employee, 'สม')).toBe('mismatch'); // a fragment is not a match
+    expect(hrMatchStatusFor(employee, 'สมชาย')).toBe('mismatch');
+    expect(hrMatchStatusFor(employee, '')).toBe('mismatch');
     expect(hrMatchStatusFor(null, 'สมชาย ใจดี')).toBe('not_found');
   });
 });

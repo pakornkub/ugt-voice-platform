@@ -4,14 +4,10 @@ Last updated: 2026-10-21
 
 ## In progress
 
-- **No-login portal + rename to UGT VoiceCare** on branch `claude/no-login-anonymous-version-950672`
-  (`4bf9d69`, `74612bc`, `8ab140b`, `481190d` + docs) — **not pushed / not merged**. Migration
-  `20261021000000_public_portal` already applied to `UGT_VoicePlatform_DEV` (not prod). Verified locally
-  end to end on DEV DB (anonymous + identified submit, /track open, wrong secret, chat). Next: owner QA of
-  the staff view via SSO (HR match badge, portal anonymous card), `/code-review`, then merge → develop.
-- **Architecture refactor on DEV only** (`b630c24`…`d2559f7`, 6 commits + docs): status / server-text /
-  events / visibility / admin-rules modules, api.ts split. Prod still `489161b`. Next: DEV build green +
-  owner QA on DEV, then the owner decides the prod push. No migrations.
+- **No-login portal + rename to UGT VoiceCare** merged to `develop` and `main` 2026-10-21 (owner: "merge
+  เข้า dev และ prd"; `/code-review` run, fixes: whole-name HR match, last X-Forwarded-For hop, docs).
+  Prod deploy runs migration `20261021000000_public_portal` (DEV already has it). Next: confirm both
+  Jenkins builds green + health; owner QA of the staff view via SSO (HR match badge, portal anonymous card).
 
 ## Next
 
@@ -24,7 +20,7 @@ Last updated: 2026-10-21
   DEV already) — without it direct-to-executive tickets get no Lead. Prod mail goes to real people.
 - **Owner QA on prod** (SSO needs the owner; Claude can't enter passwords): roster pickers, RBAC,
   a test ticket, a CSAT rating.
-- **Clean up QA data on DEV**: TK-2026-0001, -0002, -1184, -5377 (+ attachment, email log rows), and
+- **Clean up QA data on DEV**: TK-2026-0001, -0002, -0003, -1184, -5377 (+ attachment, email log rows), and
   portal tests TK-2026-0004 (anonymous), TK-2026-0005 (`qa-portal@example.invalid`).
 - **Platform PRs** #21 (DEV bar) and #22 (version skew) both claim 4.76.0 — the second to merge
   renumbers to 4.77.0. Earlier #16–#20: merge one at a time in order, renumber later versions;
@@ -50,6 +46,7 @@ Last updated: 2026-10-21
   `lib/public-access.ts`, `lib/actions/public-tickets.ts`, `tickets.ts:submitPublicTicket`,
   `requireTicketActor`, `fileCaller`), DEV mail safeguard, login hero hidden on phones; display name
   **UGT VoiceCare**. 1260+ tests. See decisions.md / business-rules.md 2026-10-21.
+- 2026-10-15 **Prod deploy** of the refactor (`489161b..55b55a4`, build #12, health OK).
 - 2026-10-15 **Architecture refactor** (owner: all 6 review items, behaviour unchanged): `lib/ticket-status.ts`,
   `lib/server-text.ts`, `lib/ticket-events.ts`, server-owned visibility (`ticket.view`, bell audience in
   `isNotificationForViewer`), `lib/roster-rules.ts` + `lib/role-access-rules.ts`, api.ts split. 1229 tests.

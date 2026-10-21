@@ -108,7 +108,9 @@ describe('WorkflowDiagram workflow section', () => {
 
     expect(stepHeading('1. พนักงานยื่นข้อร้องเรียน / ข้อเสนอแนะ')).toBeInTheDocument();
     expect(
-      screen.getByText('ออกรหัสติดตามเฉพาะแบบถาวร (Tracking ID เช่น TK-2026-XXXX)')
+      screen.getByText(
+        'ออกเลขที่เรื่อง (Tracking ID เช่น TK-2026-XXXX) คู่กับรหัสลับที่แสดงครั้งเดียว ใช้เปิดเรื่องที่หน้า "ติดตามเรื่อง"'
+      )
     ).toBeVisible();
 
     await user.click(screen.getByRole('button', { name: /TRIAGE_ACTION/ }));

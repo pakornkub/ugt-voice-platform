@@ -106,6 +106,10 @@ unreachable, the local session still clears and the user still lands on
   into a whole-app outage. The real session check (and the `appRole` gate)
   belongs in `src/app/(shell)/layout.tsx` / `src/app/admin/setup/layout.tsx`,
   which already talk to the DB once per render.
+- No-login portal (2026-10-21): `PUBLIC_PATHS` (`/report`, `/track`) pass without a session,
+  `/api/files` passes with the portal cookie `vc_track` (the route checks it), and the bare root
+  without a session goes to `/report` — the matcher lists `'/'` explicitly (the catch-all pattern
+  misses the basePath root). The cookie name is duplicated in `lib/public-access.ts` — keep in sync.
 - Always bypasses `/_next/`, static assets, `/api/auth/`, and `/api/health` —
   the health check must never bounce to `/login` or the container never goes
   healthy.

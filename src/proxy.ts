@@ -21,6 +21,7 @@ const AUTH_ONLY_PATHS = ['/login'];
 const PUBLIC_PATHS = ['/report', '/track'];
 // Set by lib/public-access.ts once a ticket was opened with its secret — lets the portal reach the
 // file routes, which check it against the ticket themselves.
+// Same name as lib/public-access.ts PUBLIC_TICKET_COOKIE (server-only, not importable here) — keep in sync.
 const PUBLIC_TICKET_COOKIE = 'vc_track';
 
 const matchesPath = (pathname: string, paths: string[]) =>

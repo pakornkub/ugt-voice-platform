@@ -20,7 +20,7 @@ Decisions 2026-10-08 / 2026-10-09 (`docs/project-context/decisions.md`): email f
   ticket, with score / resolved-for-good / comments, never the submitter's identity) — each `{ enabled, subject, body }` plus `masterEnabled`. Tokens are
   single-brace `{ticketId}` (`interpolateEmailTemplate` in `src/services/emailDefaults.ts`).
 - Settings live in one `AppSettings` row (`email.notification-settings`, zod schema in
-  `lib/email-settings-schema.ts`); every attempt writes an `EmailDispatchLogs` row
+  `lib/email-settings-schema.ts`); every attempt writes an `EmailDispatchLogs` row (exception, 2026-10-21: `notifyPublicSubmitter` — the portal receipt carries the tracking secret, so portal-submitter mail is not logged)
   (`sent` / `failed` / `disabled`). Actions in `lib/actions/email-settings.ts` are guarded with
   `requireTab(ROSTER_TABS)`.
 - Delivery: `lib/email-notifications.ts` (`notifyTicketSubmitted` / `notifyTicketResolved`,
