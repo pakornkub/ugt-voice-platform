@@ -4,14 +4,12 @@ Last updated: 2026-10-21
 
 ## In progress
 
-- **No-login portal + rename to UGT VoiceCare** merged to `develop` and `main` 2026-10-21 (owner: "merge
-  เข้า dev และ prd"; `/code-review` run, fixes: whole-name HR match, last X-Forwarded-For hop, docs).
-  Prod deploy runs migration `20261021000000_public_portal` (DEV already has it). Next: confirm both
-  Jenkins builds green + health; owner QA of the staff view via SSO (HR match badge, portal anonymous card).
+- Nothing in progress — portal + VoiceCare live on DEV (#39) and prod (#13). Owner QA of the staff view
+  via SSO still open (HR match badge, portal anonymous card) — see Next.
 
 ## Next
 
-- **Prod after the portal ships**: the deploy runs the migration; tell employees the new link / QR
+- **Portal is live on prod**: owner QA of the staff view via SSO; tell employees the new link / QR
   (`…/ugt-voice-platform/` now opens the form). Employees who filed via SSO before lose "my tickets".
 - Portal follow-ups skipped for speed: "request a new secret" button, HR match badge in the inbox list,
   admin-readable (encrypted, audited) secret — owner asked for it, hash chosen for now.
@@ -42,6 +40,8 @@ Last updated: 2026-10-21
 
 ## Done (newest first — older chunks condensed; full detail in git log + docs/project-context/)
 
+- 2026-10-21 **Prod deploy** of the portal (`55b55a4..ef68fe0`, build #13; DEV #39; migration
+  `20261021000000_public_portal` on both) — prod `/` → `/report`, title UGT VoiceCare, no DEV bar.
 - 2026-10-21 **No-login portal** `/report` + `/track` (`src/components/PublicPortal.tsx`,
   `lib/public-access.ts`, `lib/actions/public-tickets.ts`, `tickets.ts:submitPublicTicket`,
   `requireTicketActor`, `fileCaller`), DEV mail safeguard, login hero hidden on phones; display name
