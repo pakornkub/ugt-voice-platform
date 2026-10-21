@@ -177,8 +177,8 @@ export const FAQ_ITEMS: FaqItem[] = [
       en: '3. How do I use the Tracking Code?',
     },
     a: {
-      th: 'เมื่อบันทึกคำร้องสำเร็จ ระบบจะออกรหัสเฉพาะ เช่น TK-2026-0881 ซึ่งพนักงานสามารถนำรหัสนี้ไปค้นหาได้ทันทีที่ช่อง "ค้นหาด้วยรหัสติดตาม" บนแถบเมนูด้านบน หรือเปิดดูได้ที่แท็บ "คำร้องของฉัน" เพื่อดูขั้นตอนการดำเนินงานแบบเรียลไทม์',
-      en: 'Once a request is saved, the system issues a unique code such as TK-2026-0881. Employees can enter it straight into the tracking-code search box in the top menu bar, or open it from the "My Tickets" tab, to follow the progress in real time.',
+      th: 'เมื่อบันทึกคำร้องสำเร็จ ระบบจะแสดงเลขที่เรื่อง เช่น TK-2026-0881 คู่กับรหัสลับ เช่น K7QM-4XPA ซึ่งแสดงครั้งเดียว (ผู้ระบุตัวตนได้สำเนาทางอีเมล) พนักงานเปิดหน้า "ติดตามเรื่อง" แล้วใส่ทั้งสองรหัสเพื่อดูขั้นตอนการดำเนินงานแบบเรียลไทม์ แชทกับเจ้าหน้าที่ และประเมินความพึงพอใจ โดยไม่ต้องเข้าสู่ระบบ — ใช้เลขที่เรื่องอย่างเดียวเปิดไม่ได้ และถ้ายื่นแบบไม่ระบุตัวตนแล้วทำรหัสลับหาย จะกู้คืนไม่ได้ ส่วนเจ้าหน้าที่ยังค้นด้วยเลขที่เรื่องได้ที่ช่องค้นหาบนแถบเมนูหลังเข้าสู่ระบบ',
+      en: 'Once a request is saved, the system shows a tracking code such as TK-2026-0881 with a secret such as K7QM-4XPA, shown only once (identified submitters also get it by email). Employees open the "Track" page and enter both to follow the progress in real time, chat with the officers and rate the service — no sign-in needed. The code alone does not open a ticket, and a lost secret of an anonymous ticket cannot be recovered. Staff can still look a code up in the search box of the top menu after signing in.',
     },
   },
   {
@@ -237,8 +237,8 @@ export const FAQ_ITEMS: FaqItem[] = [
       en: '9. How do I get Gatekeeper / Executive / HR Admin rights?',
     },
     a: {
-      th: 'ทุกคนเข้าสู่ระบบด้วยบัญชีบริษัท (SSO) และไม่มีตัวสลับบทบาท บทบาทมาจากรายชื่อในหน้า "จัดการผู้บริหาร & Gatekeeper" — อยู่ในรายชื่อ HR Admin จะเป็น HR Admin, อยู่ในรายชื่อผู้บริหารจะเป็นผู้บริหาร, เป็นเจ้าหน้าที่ Gatekeeper ของหมวดใดก็ได้จะเป็น Gatekeeper และคนอื่นเป็นพนักงานทั่วไป (ถ้าอยู่หลายรายชื่อ บทบาทสูงสุดชนะ) ให้แจ้ง HR Admin เพิ่มชื่อคุณ การแก้รายชื่อจะมีผลเมื่อคุณเปลี่ยนหน้าครั้งถัดไป ส่วนแท็บที่เปิดได้และสิทธิ์พิเศษของแต่ละบทบาทกำหนดที่หน้า "กำหนดสิทธิ์เข้าถึง (RBAC)"',
-      en: 'Everyone signs in with the company account (SSO) and there is no role switcher. Roles come from the lists on the "Personnel & Gatekeepers" page — being on the HR Admin list makes you an HR Admin, being on the executive list makes you an executive, being a Gatekeeper officer of any category makes you a Gatekeeper, and everyone else is a regular employee (if you are on several lists, the highest role wins). Ask an HR Admin to add your name. Changes to the lists take effect the next time you change page. The tabs each role can open and their special rights are set on the "Access Control (RBAC)" page.',
+      th: 'พนักงานยื่นและติดตามเรื่องได้โดยไม่ต้องเข้าสู่ระบบ ส่วนเจ้าหน้าที่เข้าสู่ระบบด้วยบัญชีบริษัท (SSO) และไม่มีตัวสลับบทบาท บทบาทมาจากรายชื่อในหน้า "จัดการผู้บริหาร & Gatekeeper" — อยู่ในรายชื่อ HR Admin จะเป็น HR Admin, อยู่ในรายชื่อผู้บริหารจะเป็นผู้บริหาร, เป็นเจ้าหน้าที่ Gatekeeper ของหมวดใดก็ได้จะเป็น Gatekeeper และคนอื่นเป็นพนักงานทั่วไป (ถ้าอยู่หลายรายชื่อ บทบาทสูงสุดชนะ) ให้แจ้ง HR Admin เพิ่มชื่อคุณ การแก้รายชื่อจะมีผลเมื่อคุณเปลี่ยนหน้าครั้งถัดไป ส่วนแท็บที่เปิดได้และสิทธิ์พิเศษของแต่ละบทบาทกำหนดที่หน้า "กำหนดสิทธิ์เข้าถึง (RBAC)"',
+      en: 'Employees file and track without signing in; staff sign in with the company account (SSO) and there is no role switcher. Roles come from the lists on the "Personnel & Gatekeepers" page — being on the HR Admin list makes you an HR Admin, being on the executive list makes you an executive, being a Gatekeeper officer of any category makes you a Gatekeeper, and everyone else is a regular employee (if you are on several lists, the highest role wins). Ask an HR Admin to add your name. Changes to the lists take effect the next time you change page. The tabs each role can open and their special rights are set on the "Access Control (RBAC)" page.',
     },
   },
 ];

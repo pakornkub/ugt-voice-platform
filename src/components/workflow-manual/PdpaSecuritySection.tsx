@@ -52,8 +52,8 @@ const PDPA_POINTS: readonly PdpaPoint[] = [
       en: '4. Enterprise Encryption & System Security',
     },
     body: {
-      th: 'ผู้ใช้เข้าสู่ระบบด้วยบัญชีบริษัท (SSO) และระบบส่งข้อมูลผ่านการเชื่อมต่อที่เข้ารหัส ไฟล์แนบไม่ได้เปิดเป็นลิงก์สาธารณะ — ดาวน์โหลดได้เฉพาะผู้ที่มีสิทธิ์เห็นคำร้องนั้นผ่านระบบที่ตรวจสอบสิทธิ์ทุกครั้ง',
-      en: 'Users sign in with the company account (SSO) and data travels over encrypted connections. Attachments are never public links — only people allowed to see the request can download them, through a service that checks permissions every time.',
+      th: 'เจ้าหน้าที่เข้าสู่ระบบด้วยบัญชีบริษัท (SSO) ส่วนผู้ยื่นที่ไม่เข้าสู่ระบบเปิดได้เฉพาะเรื่องของตัวเองด้วยเลขที่เรื่องคู่กับรหัสลับ (ระบบเก็บรหัสลับแบบเข้ารหัสทางเดียว และจำกัดจำนวนครั้งที่ลองผิด) ระบบส่งข้อมูลผ่านการเชื่อมต่อที่เข้ารหัส ไฟล์แนบไม่ได้เปิดเป็นลิงก์สาธารณะ — ดาวน์โหลดได้เฉพาะผู้ที่มีสิทธิ์เห็นคำร้องนั้นผ่านระบบที่ตรวจสอบสิทธิ์ทุกครั้ง',
+      en: 'Staff sign in with the company account (SSO); a submitter without an account opens only their own ticket with its tracking code and secret (the secret is stored one-way hashed and wrong attempts are rate-limited). Data travels over encrypted connections. Attachments are never public links — only people allowed to see the request can download them, through a service that checks permissions every time.',
     },
   },
 ];

@@ -37,8 +37,8 @@ export const WORKFLOW_STEPS: WorkflowStep[] = [
         en: 'Assess the urgency and impact (Low, Medium, Urgent, Critical).',
       },
       {
-        th: 'ตรวจสอบข้อมูลผู้ยื่นเรื่อง (ชื่อ-นามสกุล, รหัสพนักงาน, ฝ่าย, อีเมล) ซึ่งระบบเติมให้จากโปรไฟล์ HR ของบัญชีที่ล็อกอินด้วย SSO โดยส่งต่อเฉพาะ Gatekeeper ที่รับผิดชอบตามเกณฑ์ PDPA',
-        en: 'Review the submitter details (full name, employee ID, department, email), which the system fills in from the HR profile of the SSO account. They are shared only with the responsible Gatekeeper, in line with PDPA.',
+        th: 'ยื่นได้โดยไม่ต้องเข้าสู่ระบบ: เลือกระบุตัวตนแล้วกรอกชื่อ-นามสกุล, รหัสพนักงาน, ฝ่าย, อีเมลเอง (ระบบเทียบรหัสพนักงานกับข้อมูล HR ให้เจ้าหน้าที่เห็นเท่านั้น) หรือเลือกไม่ระบุตัวตนซึ่งไม่เก็บข้อมูลตัวตนเลย ข้อมูลผู้ยื่นส่งต่อเฉพาะ Gatekeeper ที่รับผิดชอบตามเกณฑ์ PDPA',
+        en: 'File without signing in: choose Identified and type your full name, employee ID, department and email (the system checks the ID against HR data for staff only), or choose Anonymous, which stores no identity at all. Submitter details are shared only with the responsible Gatekeeper, in line with PDPA.',
       },
       {
         th: 'เลือกช่องทางส่งตรงถึงผู้บริหาร (CEO / EVP Direct Bypass) หากเป็นประเด็นอ่อนไหวหรือเร่งด่วนเป็นพิเศษ',
@@ -55,8 +55,8 @@ export const WORKFLOW_STEPS: WorkflowStep[] = [
     ],
     systemAutomations: [
       {
-        th: 'ออกรหัสติดตามเฉพาะแบบถาวร (Tracking ID เช่น TK-2026-XXXX)',
-        en: 'Issues a permanent, unique Tracking ID (e.g. TK-2026-XXXX).',
+        th: 'ออกเลขที่เรื่อง (Tracking ID เช่น TK-2026-XXXX) คู่กับรหัสลับที่แสดงครั้งเดียว ใช้เปิดเรื่องที่หน้า "ติดตามเรื่อง"',
+        en: 'Issues a tracking ID (e.g. TK-2026-XXXX) with a secret shown only once, used to open the ticket on the "Track" page.',
       },
       {
         th: 'วิเคราะห์ความรู้สึกและคัดกรองระดับความเร่งด่วนอัตโนมัติ (AI Sentiment & Priority Tagging)',

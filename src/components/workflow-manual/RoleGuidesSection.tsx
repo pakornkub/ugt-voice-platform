@@ -52,6 +52,25 @@ const EMPLOYEE_GUIDE_CARDS: readonly EmployeeGuideCard[] = [
     },
     items: [
       {
+        id: 'no-login',
+        content: {
+          th: (
+            <>
+              <strong>ไม่ต้องเข้าสู่ระบบ:</strong> เปิดลิงก์ของระบบแล้วจะเจอฟอร์มยื่นเรื่อง (หน้า{' '}
+              <code>/report</code>) ทันที หรือกด &quot;พนักงาน: ยื่นเรื่องร้องเรียน&quot;
+              ในหน้าเข้าสู่ระบบ
+            </>
+          ),
+          en: (
+            <>
+              <strong>No sign-in needed:</strong> opening the system link takes you straight to the
+              submission form (the <code>/report</code> page), or press &quot;Employees: submit a
+              grievance&quot; on the sign-in page
+            </>
+          ),
+        },
+      },
+      {
         id: 'part-1',
         content: {
           th: (
@@ -104,16 +123,18 @@ const EMPLOYEE_GUIDE_CARDS: readonly EmployeeGuideCard[] = [
         content: {
           th: (
             <>
-              <strong>ส่วนที่ 4:</strong> ตรวจสอบข้อมูลพนักงาน (ชื่อ, รหัส, ฝ่าย, อีเมล)
-              ซึ่งระบบเติมให้จากโปรไฟล์ HR ของบัญชีที่ล็อกอิน และสามารถเลือก &quot;ส่งตรงถึง
+              <strong>ส่วนที่ 4:</strong> เลือก &quot;ระบุตัวตน&quot; แล้วกรอกชื่อ, รหัสพนักงาน,
+              ฝ่าย และอีเมลเอง (เบอร์โทรไม่บังคับ) หรือเลือก &quot;ไม่ระบุตัวตน&quot;
+              ซึ่งระบบจะไม่เก็บข้อมูลที่ระบุตัวคุณได้เลย และสามารถเลือก &quot;ส่งตรงถึง
               CEO/EVP&quot; ได้หากเป็นเรื่องอ่อนไหวสูง
             </>
           ),
           en: (
             <>
-              <strong>Part 4:</strong> Check the employee details (name, ID, department, email),
-              which the system fills in from the HR profile of the signed-in account, and choose
-              &quot;Send directly to CEO/EVP&quot; if the matter is highly sensitive
+              <strong>Part 4:</strong> Choose &quot;Identified&quot; and type your name, employee
+              ID, department and email (phone is optional), or choose &quot;Anonymous&quot;, in
+              which case nothing that identifies you is stored. You can also choose &quot;Send
+              directly to CEO/EVP&quot; if the matter is highly sensitive
             </>
           ),
         },
@@ -152,12 +173,20 @@ const EMPLOYEE_GUIDE_CARDS: readonly EmployeeGuideCard[] = [
         content: {
           th: (
             <>
-              หลังจากส่งเรื่อง ระบบจะออกรหัสติดตาม เช่น <code>TK-2026-0881</code>
+              หลังจากส่งเรื่อง ระบบจะแสดง <strong>เลขที่เรื่อง</strong> เช่น{' '}
+              <code>TK-2026-0881</code> คู่กับ <strong>รหัสลับ</strong> เช่น <code>K7QM-4XPA</code>{' '}
+              ซึ่งแสดงครั้งเดียว — จดหรือแคปหน้าจอเก็บไว้ (ถ้าระบุตัวตน
+              ระบบส่งสำเนาไปที่อีเมลของคุณด้วย) ถ้ายื่นแบบไม่ระบุตัวตนแล้วทำรหัสลับหาย
+              จะกู้คืนไม่ได้ เพราะไม่มีใครรู้ว่าใครเป็นผู้ยื่น
             </>
           ),
           en: (
             <>
-              After you submit, the system issues a tracking code such as <code>TK-2026-0881</code>
+              After you submit, the system shows a <strong>tracking code</strong> such as{' '}
+              <code>TK-2026-0881</code> with a <strong>secret</strong> such as{' '}
+              <code>K7QM-4XPA</code>, shown only once — write it down or take a screenshot
+              (identified submitters also get a copy by email). If you filed anonymously and lose
+              the secret it cannot be recovered, because nobody knows who filed it
             </>
           ),
         },
@@ -167,14 +196,16 @@ const EMPLOYEE_GUIDE_CARDS: readonly EmployeeGuideCard[] = [
         content: {
           th: (
             <>
-              ค้นหาผ่านช่อง &quot;ค้นหาด้วยรหัสติดตาม&quot; ที่เมนูด้านบน หรือดูในแท็บ
-              &quot;คำร้องของฉัน&quot;
+              เปิดหน้า &quot;ติดตามเรื่อง&quot; (<code>/track</code>)
+              แล้วใส่เลขที่เรื่องคู่กับรหัสลับ (พิมพ์ตัวเล็กหรือไม่ใส่ขีดก็ได้) —
+              เครื่องที่ใช้ยื่นจะจำเลขที่เรื่องไว้ให้กดเลือก แต่ไม่จำรหัสลับ
             </>
           ),
           en: (
             <>
-              Look it up in the tracking-code search box in the top menu, or find it in the &quot;My
-              Tickets&quot; tab
+              Open the &quot;Track&quot; page (<code>/track</code>) and enter the tracking code with
+              the secret (lower case or no dash is fine) — the device you filed from remembers the
+              code for you, never the secret
             </>
           ),
         },
@@ -184,14 +215,15 @@ const EMPLOYEE_GUIDE_CARDS: readonly EmployeeGuideCard[] = [
         content: {
           th: (
             <>
-              คลิกที่การ์ดเพื่อเปิดดู <strong>Interactive Timeline</strong>{' '}
-              ตรวจสอบสถานะและขั้นตอนแบบเรียลไทม์
+              ระบบเปิด <strong>Interactive Timeline</strong>{' '}
+              ของเรื่องนั้นให้ตรวจสอบสถานะและขั้นตอนแบบเรียลไทม์ (ปิดหน้าต่างแล้ว
+              ต้องใส่รหัสลับใหม่ทุกครั้ง)
             </>
           ),
           en: (
             <>
-              Click the card to open the <strong>Interactive Timeline</strong> and check the status
-              and steps in real time
+              The <strong>Interactive Timeline</strong> of that ticket opens so you can check the
+              status and steps in real time (after closing it you enter the secret again)
             </>
           ),
         },
@@ -259,8 +291,8 @@ const EMPLOYEE_GUIDE_CARDS: readonly EmployeeGuideCard[] = [
       {
         id: 'notice',
         content: {
-          th: 'เมื่อเจ้าหน้าที่แก้ไขเสร็จ (Resolved) ระบบจะส่งอีเมลแจ้งผู้ยื่นเรื่อง และขึ้นแถบแจ้งเตือนให้ทำแบบประเมิน (สถานะอ่าน/ยังไม่อ่านของการแจ้งเตือนเป็นของแต่ละคน)',
-          en: 'When the officer finishes the fix (Resolved), the system emails the submitter and shows a banner asking them to complete the survey (read/unread state of notifications is kept per person).',
+          th: 'เมื่อเจ้าหน้าที่แก้ไขเสร็จ (Resolved) ระบบจะส่งอีเมลแจ้งผู้ยื่นที่ระบุตัวตนพร้อมลิงก์หน้า "ติดตามเรื่อง" และขึ้นแถบให้ทำแบบประเมินเมื่อเปิดเรื่องด้วยเลขที่เรื่อง + รหัสลับ (ผู้ยื่นแบบไม่ระบุตัวตนไม่ได้รับอีเมล ต้องเข้ามาเปิดดูเอง)',
+          en: 'When the officer finishes the fix (Resolved), the system emails identified submitters with a link to the "Track" page, and a banner asks for the survey when the ticket is opened with its code + secret (anonymous submitters get no email and check for themselves).',
         },
       },
       {
