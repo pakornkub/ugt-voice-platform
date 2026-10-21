@@ -8,7 +8,7 @@ import type {
   UrgencyLevel,
 } from '../../types';
 import { suggestCategoryWithAI, type AICategorySuggestionResult } from '../../services/aiClient';
-import { submitTicket } from '@/lib/actions/tickets';
+import { submitPublicTicket, submitTicket } from '@/lib/actions/tickets';
 import { SERVER_TEXT } from '@/lib/server-text';
 import { uploadTicketFiles, type UploadFailure } from '@/lib/upload-client';
 import type { PendingFile } from '../AttachmentPicker';
@@ -31,6 +31,10 @@ const AI_EMPTY_NOTICE: Bilingual = {
 const AI_FALLBACK_NOTICE: Bilingual = {
   en: 'Unable to connect to AI server. Fallback rule applied.',
   th: 'ไม่สามารถติดต่อ AI Server ได้ ระบบใช้เกณฑ์วิเคราะห์คำสำคัญสำรองแทน',
+};
+const RATE_LIMITED_ALERT: Bilingual = {
+  en: 'Too many submissions from this network in the last hour. Please try again later.',
+  th: 'มีการส่งเรื่องจากเครือข่ายนี้หลายครั้งในชั่วโมงที่ผ่านมา กรุณาลองใหม่ภายหลัง',
 };
 const SUBMIT_FAILED_ALERT: Bilingual = {
   en: 'Could not submit your ticket. Please try again.',
@@ -205,12 +209,25 @@ interface SubmitFlowOptions {
   values: SubmitFormValues;
   pendingFiles: PendingFile[];
   onTicketCreated: (ticket: ComplaintTicket) => void;
+  /** No-login portal: submitPublicTicket, which also hands back the one-time tracking secret. */
+  portal: boolean;
+}
+
+type Saved = { ticket: ComplaintTicket; accessKey: string | null };
+
+async function save(values: SubmitFormValues, portal: boolean): Promise<Saved> {
+  const payload = buildSubmitPayload(values);
+  if (!portal) return { ticket: await submitTicket(payload), accessKey: null };
+  const result = await submitPublicTicket(payload);
+  if (!result.ok) throw new Error(result.error);
+  return result;
 }
 
 /** Submit -> upload attachments -> success screen, plus retrying the failed uploads. */
-function useSubmitFlow({ values, pendingFiles, onTicketCreated }: SubmitFlowOptions) {
+function useSubmitFlow({ values, pendingFiles, onTicketCreated, portal }: SubmitFlowOptions) {
   const { lang } = useTr();
   const [createdTicket, setCreatedTicket] = useState<ComplaintTicket | null>(null);
+  const [accessKey, setAccessKey] = useState<string | null>(null);
   const [uploadFailures, setUploadFailures] = useState<UploadFailure[]>([]);
   const [isRetryingUploads, setIsRetryingUploads] = useState(false);
   // Guards double-submit while the Server Action runs (upstream saved synchronously).
@@ -227,8 +244,8 @@ function useSubmitFlow({ values, pendingFiles, onTicketCreated }: SubmitFlowOpti
     }
 
     setIsSubmitting(true);
-    submitTicket(buildSubmitPayload(values))
-      .then(async (newTicket) => {
+    save(values, portal)
+      .then(async ({ ticket: newTicket, accessKey: secret }) => {
         // The ticket exists now, so the chosen files can be uploaded to it. A failed upload never
         // undoes the ticket — it is reported on the success screen instead.
         setUploadFailures(
@@ -237,6 +254,7 @@ function useSubmitFlow({ values, pendingFiles, onTicketCreated }: SubmitFlowOpti
             pendingFiles.map((pending) => pending.file)
           )
         );
+        setAccessKey(secret);
         setCreatedTicket(newTicket);
         onTicketCreated(newTicket);
       })
@@ -247,7 +265,8 @@ function useSubmitFlow({ values, pendingFiles, onTicketCreated }: SubmitFlowOpti
           if (globalThis.confirm(NEW_VERSION_CONFIRM[lang])) globalThis.location.reload();
           return;
         }
-        alert(SUBMIT_FAILED_ALERT[lang]);
+        const rateLimited = error instanceof Error && error.message === 'RATE_LIMITED';
+        alert((rateLimited ? RATE_LIMITED_ALERT : SUBMIT_FAILED_ALERT)[lang]);
       })
       .finally(() => setIsSubmitting(false));
   };
@@ -265,11 +284,13 @@ function useSubmitFlow({ values, pendingFiles, onTicketCreated }: SubmitFlowOpti
 
   const clearResult = () => {
     setCreatedTicket(null);
+    setAccessKey(null);
     setUploadFailures([]);
   };
 
   return {
     createdTicket,
+    accessKey,
     uploadFailures,
     isRetryingUploads,
     isSubmitting,
@@ -286,7 +307,8 @@ const ANONYMOUS_SUBMITTER_LABEL = SERVER_TEXT.anonymousSubmitterName.th;
 /** All state and handlers of the submit form; the section components only render slices of it. */
 export function useSubmitForm(
   currentEmployee: EmployeeRecord,
-  onTicketCreated: (ticket: ComplaintTicket) => void
+  onTicketCreated: (ticket: ComplaintTicket) => void,
+  portal = false
 ) {
   const { lang } = useTr();
   const classification = useClassification();
@@ -313,7 +335,12 @@ export function useSubmitForm(
     selectedEmployee: submitter.selectedEmployee,
     anonymousName: ANONYMOUS_SUBMITTER_LABEL,
   };
-  const flow = useSubmitFlow({ values, pendingFiles: attachments.pendingFiles, onTicketCreated });
+  const flow = useSubmitFlow({
+    values,
+    pendingFiles: attachments.pendingFiles,
+    onTicketCreated,
+    portal,
+  });
 
   const restoreDraft = (draft: SubmitDraft) => {
     classification.setSubmissionType(draft.submissionType);

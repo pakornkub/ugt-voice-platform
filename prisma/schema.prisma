@@ -64,6 +64,14 @@ model ticket {
   loginEmail          String? @map("LoginEmail") @db.NVarChar(200)
   isAnonymousMapped   Boolean @default(false) @map("IsAnonymousMapped")
 
+  // Public portal (no login, 2026-10-21): HMAC of the tracking secret shown once to the submitter
+  // (lib/public-access.ts), how the ticket was filed ('sso' | 'public') and, for an identified
+  // public ticket, whether the typed employee id/name matched the HR view
+  // ('matched' | 'mismatch' | 'not_found'; null = not checked / view unreachable).
+  accessKeyHash String? @map("AccessKeyHash") @db.NVarChar(64)
+  submitChannel String  @default("sso") @map("SubmitChannel") @db.NVarChar(10)
+  hrMatchStatus String? @map("HrMatchStatus") @db.NVarChar(20)
+
   // Triage & gatekeeper handling
   gatekeeperDepartment String  @map("GatekeeperDepartment") @db.NVarChar(300)
   assignedOfficerName  String? @map("AssignedOfficerName") @db.NVarChar(200)

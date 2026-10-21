@@ -36,6 +36,9 @@ export default async function ShellLayout({ children }: Readonly<{ children: Rea
   // The copy lives in a client component (only the client knows the UI language).
   if (!viewer || !appRole) return <MissingAccountScreen email={session.user.email} />;
 
+  // Employees file and track on the no-login portal (owner 2026-10-21); the shell is for staff.
+  if (appRole === 'employee') redirect('/report');
+
   // Everything the shell's pages read, scoped to this user on the server (lib/ticket-scope.ts).
   // Mutations call Server Actions and then router.refresh(), which re-runs this.
   const [rolePermissions, gatekeeperConfigs, employee] = await Promise.all([

@@ -125,6 +125,8 @@ export function mapTicket(
     submitterPhone: row.submitterPhone ?? undefined,
     loginEmail: row.loginEmail ?? undefined,
     isAnonymousMapped: row.isAnonymousMapped,
+    submitChannel: row.submitChannel as ComplaintTicket['submitChannel'],
+    hrMatchStatus: (row.hrMatchStatus ?? undefined) as ComplaintTicket['hrMatchStatus'],
     gatekeeperDepartment: row.gatekeeperDepartment,
     assignedOfficerName: row.assignedOfficerName ?? undefined,
     assignedOfficerEmail: row.assignedOfficerEmail ?? undefined,

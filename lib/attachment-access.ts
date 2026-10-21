@@ -1,7 +1,10 @@
 // kit: ugt-nextjs-platform 4.58.0 · ugt-nextjs-upload-setup/lib/attachment-access.ts (adapted)
 import 'server-only';
+import { auth } from '@/lib/auth';
+import { getUserPermissions } from '@/lib/get-user-permissions';
+import type { PermissionKey } from '@/lib/permissions';
 import { prisma } from '@/lib/prisma';
-import { findVisibleTicket, resolveViewer } from '@/lib/ticket-access';
+import { findVisibleTicket, getPublicTicketViewer, resolveViewer } from '@/lib/ticket-access';
 
 /**
  * Who may read a given ticket's attachments — the project-specific rule the skill's skeleton
@@ -20,4 +23,40 @@ export async function canReadAttachment(
   const viewer = await resolveViewer({ user: { id: userId, email: user.email } });
   if (!viewer) return false;
   return (await findVisibleTicket(viewer, { id: attachment.ticketId })) !== null;
+}
+
+/** Who is calling a file route, and which tickets' files they may use. */
+export interface FileCaller {
+  /** ActivityLogs user id. */
+  userId: string;
+  /** Attachments.CreatedBy. */
+  label: string;
+  mayUseTicket: (ticketId: string) => Promise<boolean>;
+}
+
+/**
+ * The signed-in user (needs `permission`), else the no-login portal's submitter (cookie,
+ * lib/public-access.ts, 2026-10-21), who may use the files of their one ticket only.
+ */
+export async function fileCaller(
+  requestHeaders: Headers,
+  permission: PermissionKey
+): Promise<FileCaller | 'UNAUTHORIZED' | 'FORBIDDEN'> {
+  const session = await auth.api.getSession({ headers: requestHeaders });
+  if (session?.user) {
+    const userId = session.user.id;
+    if (!(await getUserPermissions(userId)).includes(permission)) return 'FORBIDDEN';
+    return {
+      userId,
+      label: session.user.email ?? userId,
+      mayUseTicket: (ticketId) => canReadAttachment(userId, { ticketId }),
+    };
+  }
+  const viewer = await getPublicTicketViewer();
+  if (!viewer) return 'UNAUTHORIZED';
+  return {
+    userId: viewer.userId,
+    label: viewer.userId,
+    mayUseTicket: async (ticketId) => ticketId === viewer.publicTicketId,
+  };
 }

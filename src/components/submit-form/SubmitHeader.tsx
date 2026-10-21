@@ -39,7 +39,8 @@ const PRESET_CHIPS: {
 ];
 
 /** Page title, the quick sample chips and the intro line. */
-export const SubmitHeader: React.FC<Readonly<{ onPreset: (preset: PresetType) => void }>> = ({
+/** `onPreset` absent (no-login portal) → no sample chips. */
+export const SubmitHeader: React.FC<Readonly<{ onPreset?: (preset: PresetType) => void }>> = ({
   onPreset,
 }) => {
   const { lang, tr } = useTr();
@@ -51,22 +52,24 @@ export const SubmitHeader: React.FC<Readonly<{ onPreset: (preset: PresetType) =>
         </h1>
 
         {/* Quick preset chips */}
-        <div className="no-scrollbar flex items-center gap-1.5 overflow-x-auto py-1">
-          <span className="text-[11px] font-medium whitespace-nowrap text-slate-500">
-            {tr('Quick Samples:', 'ตัวอย่างด่วน:')}
-          </span>
-          {PRESET_CHIPS.map((chip) => (
-            <button
-              key={chip.preset}
-              type="button"
-              id={chip.id}
-              onClick={() => onPreset(chip.preset)}
-              className={chip.className}
-            >
-              <span>{chip.label[lang]}</span>
-            </button>
-          ))}
-        </div>
+        {onPreset && (
+          <div className="no-scrollbar flex items-center gap-1.5 overflow-x-auto py-1">
+            <span className="text-[11px] font-medium whitespace-nowrap text-slate-500">
+              {tr('Quick Samples:', 'ตัวอย่างด่วน:')}
+            </span>
+            {PRESET_CHIPS.map((chip) => (
+              <button
+                key={chip.preset}
+                type="button"
+                id={chip.id}
+                onClick={() => onPreset(chip.preset)}
+                className={chip.className}
+              >
+                <span>{chip.label[lang]}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       <p className="text-xs text-slate-600 sm:text-sm">
         {tr(

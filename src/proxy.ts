@@ -16,6 +16,16 @@ import { getSessionCookie } from 'better-auth/cookies';
 // has no local email/password login (SSO only).
 const AUTH_ONLY_PATHS = ['/login'];
 
+// No-login portal (owner 2026-10-21): anyone may file a ticket and track it with its code + secret.
+// The pages and their Server Actions guard themselves (rate limit, secret check).
+const PUBLIC_PATHS = ['/report', '/track'];
+// Set by lib/public-access.ts once a ticket was opened with its secret — lets the portal reach the
+// file routes, which check it against the ticket themselves.
+const PUBLIC_TICKET_COOKIE = 'vc_track';
+
+const matchesPath = (pathname: string, paths: string[]) =>
+  paths.some((p) => pathname === p || pathname.startsWith(p + '/'));
+
 function generateNonce(): string {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
@@ -92,16 +102,17 @@ export function proxy(request: NextRequest) {
   const sessionCookiePrefix =
     (process.env.NEXT_PUBLIC_BASE_PATH || '').replace(/^\//, '') || 'better-auth';
   const sessionCookie = getSessionCookie(request, { cookiePrefix: sessionCookiePrefix });
-  const isAuthOnlyPath = AUTH_ONLY_PATHS.some(
-    (p) => pathname === p || pathname.startsWith(p + '/')
-  );
+  const isAuthOnlyPath = matchesPath(pathname, AUTH_ONLY_PATHS);
+  const isPublic =
+    matchesPath(pathname, PUBLIC_PATHS) ||
+    (pathname.startsWith('/api/files') && request.cookies.has(PUBLIC_TICKET_COOKIE));
 
   // A cookie on /login is NOT bounced to the app here: presence ≠ a live session, and a stale
   // cookie would loop (/ → layout → /login → here → /). The login page checks the real session.
 
   // Unauthenticated user visiting a protected page → redirect to /login.
   // API routes get 401 JSON instead of a redirect.
-  if (!isAuthOnlyPath && !sessionCookie) {
+  if (!isAuthOnlyPath && !isPublic && !sessionCookie) {
     if (pathname.startsWith('/api/')) {
       return applySecurityHeaders(
         NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
@@ -110,6 +121,11 @@ export function proxy(request: NextRequest) {
       );
     }
     const url = request.nextUrl.clone();
+    // The app root without a session is the employees' door: the no-login form.
+    if (pathname === '/') {
+      url.pathname = '/report';
+      return applySecurityHeaders(NextResponse.redirect(url), request, nonce);
+    }
     // ?from= = หน้าที่ผู้ใช้ตั้งใจไป (basePath-relative) — login flow ใช้พา
     // กลับหลัง login สำเร็จ
     const from = pathname === '/' && !url.search ? '' : pathname + url.search;
@@ -129,6 +145,9 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
+    // The bare app root (basePath with no trailing path) is not matched by the pattern below —
+    // without this entry it skipped the proxy and the no-login redirect to /report.
+    '/',
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpe?g|gif|webp|avif|svg|ico|woff2?|ttf|eot|otf)).*)',
   ],
 };

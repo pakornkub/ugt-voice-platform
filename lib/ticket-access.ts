@@ -8,11 +8,13 @@ import type { Prisma } from '@prisma/client';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { normalizeEmail } from '@/lib/email-identity';
+import { accessKeyMatches, readPublicTicketCookie } from '@/lib/public-access';
 import { gatekeeperScope, resolveRosterRole } from '@/lib/roster-role';
 import {
   gatekeeperDepartments,
   isNotificationForViewer,
   presentTicketForViewer,
+  publicViewerFor,
   redactNotificationForViewer,
   ticketScopeWhere,
   type TicketViewer,
@@ -67,6 +69,33 @@ export async function getTicketViewer(): Promise<TicketViewer | null> {
 
 export async function requireTicketViewer(): Promise<TicketViewer> {
   const viewer = await getTicketViewer();
+  if (!viewer) throw new Error('UNAUTHORIZED');
+  return viewer;
+}
+
+/**
+ * The no-login submitter (2026-10-21): the ticket in the portal cookie, only while its secret still
+ * matches the stored hash — a public ticket only, never one filed through SSO.
+ */
+export async function getPublicTicketViewer(): Promise<TicketViewer | null> {
+  const access = await readPublicTicketCookie();
+  if (!access) return null;
+  const row = await prisma.ticket.findFirst({
+    where: { id: access.ticketId, isDeleted: false, submitChannel: 'public' },
+    select: { accessKeyHash: true },
+  });
+  return row && accessKeyMatches(access.key, row.accessKeyHash)
+    ? publicViewerFor(access.ticketId)
+    : null;
+}
+
+/**
+ * Who may act on ONE ticket as its submitter or staff: the signed-in user, else the portal cookie.
+ * Only for the per-ticket actions (note, chat, CSAT, files) — lists, triage tabs and admin stay
+ * requireTicketViewer (session only).
+ */
+export async function requireTicketActor(): Promise<TicketViewer> {
+  const viewer = (await getTicketViewer()) ?? (await getPublicTicketViewer());
   if (!viewer) throw new Error('UNAUTHORIZED');
   return viewer;
 }

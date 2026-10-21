@@ -15,10 +15,21 @@ import { normalizeEmail } from '@/lib/email-identity';
 import { AUDIT_ACTIONS, type AuditAction } from '@/lib/audit-actions';
 import {
   mailActorFor,
+  notifyPublicSubmitter,
   notifyTicketEvaluated,
   notifyTicketResolved,
   notifyTicketSubmitted,
 } from '@/lib/email-notifications';
+import {
+  clientIp,
+  generateAccessKey,
+  hashAccessKey,
+  hrMatchStatusFor,
+  rememberPublicTicket,
+  SUBMIT_LIMIT,
+  takeRateLimit,
+} from '@/lib/public-access';
+import { findEmployeeByCode } from '@/lib/directory';
 import { prisma } from '@/lib/prisma';
 import { SERVER_TEMPLATES as TEXT_TEMPLATES, SERVER_TEXT as TEXT } from '@/lib/server-text';
 import {
@@ -32,16 +43,20 @@ import {
   findVisibleTicket,
   findVisibleTicketWithRelations,
   listVisibleTickets,
+  requireTicketActor,
   requireTicketViewer,
   TICKET_INCLUDE,
 } from '@/lib/ticket-access';
 import {
+  ANONYMOUS_SUBMITTER_NAME,
   canSubmit,
   canTriage,
   isOwnTicket,
   ownTicketsWhere,
   presentTicketForViewer,
   PROTECTED_ACTOR_NAME,
+  PUBLIC_PORTAL_USER_ID,
+  publicViewerFor,
   touchesTriageFields,
   type TicketViewer,
 } from '@/lib/ticket-scope';
@@ -49,6 +64,7 @@ import { z } from 'zod';
 import { mapTicket } from './mappers';
 import type {
   ComplaintTicket,
+  HrMatchStatus,
   SatisfactionEvaluation,
   TicketStatus,
   UrgencyLevel,
@@ -173,10 +189,10 @@ async function createTicketWithNotifications(
   }
 }
 
-function submissionTimeline(payload: SubmitPayload, isAnonymous: boolean) {
+function submissionTimeline(payload: SubmitPayload, isAnonymous: boolean, portal: boolean) {
   let notes = TEXT.submittedNote.th;
   if (isAnonymous) {
-    notes = TEXT.submittedAnonymousNote.th;
+    notes = portal ? TEXT.submittedPortalAnonymousNote.th : TEXT.submittedAnonymousNote.th;
   } else if (payload.isDirectToExecutive) {
     notes = TEXT.submittedDirectNote.th;
   }
@@ -201,24 +217,52 @@ function autoAssignTimeline(officerName: string) {
   };
 }
 
-/**
- * The login email is always the signed-in user's — it is what "my tickets" and the anonymous
- * mapping key on. The submitter fields are the form's (prefilled from the HR view). Files are
- * uploaded by the client to /api/files once the ticket exists (lib/upload-client.ts).
- */
-export async function submitTicket(payload: SubmitPayload): Promise<ComplaintTicket> {
-  const viewer = await requireTicketViewer();
-  if (!canSubmit(viewer)) throw new Error('FORBIDDEN');
-  TICKET_FIELDS.parse(payload);
+/** Who the new ticket is from — the only columns the SSO form and the no-login portal fill differently. */
+type SubmitterColumns = Pick<
+  Prisma.ticketCreateInput,
+  | 'submitterName'
+  | 'submitterEmployeeId'
+  | 'submitterDepartment'
+  | 'submitterEmail'
+  | 'submitterPhone'
+  | 'loginEmail'
+  | 'isAnonymousMapped'
+  | 'accessKeyHash'
+  | 'submitChannel'
+  | 'hrMatchStatus'
+>;
 
+/** Who files it, for CreatedBy / the audit log / the mail's dev-mode actor. */
+interface Filer {
+  userId: string;
+  mailActor: ReturnType<typeof mailActorFor>;
+}
+
+/**
+ * Shared by both forms: validate → the category Lead (never the client's pick) → store with the
+ * notifications → audit → mail the gatekeepers. Files are uploaded by the client to /api/files once
+ * the ticket exists (lib/upload-client.ts).
+ */
+async function createTicket(
+  filer: Filer,
+  payload: SubmitPayload,
+  submitter: SubmitterColumns
+): Promise<CreatedTicket> {
+  TICKET_FIELDS.parse(payload);
   const isAnonymous = payload.confidentiality === 'anonymous';
-  // The server puts the category Lead on the ticket — never the client. Direct-to-
-  // executive tickets stay unassigned: a gatekeeper must not be handed what RBAC may hide.
+  // Direct-to-executive tickets stay unassigned: a gatekeeper must not be handed what RBAC may hide.
   const assignable = !payload.isDirectToExecutive || (await gatekeepersSeeDirectTickets());
   const officer = assignable ? await autoAssignOfficer(payload.category) : null;
-  const timeline = [submissionTimeline(payload, isAnonymous)];
+  const timeline = [
+    submissionTimeline(
+      { ...payload, submitterName: submitter.submitterName ?? undefined },
+      isAnonymous,
+      submitter.submitChannel === 'public'
+    ),
+  ];
   if (officer) timeline.push(autoAssignTimeline(officer.name));
-  const data: Omit<Prisma.ticketCreateInput, 'trackingCode'> = {
+
+  const created = await createTicketWithNotifications({
     type: payload.type,
     category: payload.category,
     title: payload.title,
@@ -226,13 +270,7 @@ export async function submitTicket(payload: SubmitPayload): Promise<ComplaintTic
     locationOrUnit: payload.locationOrUnit,
     isDirectToExecutive: payload.isDirectToExecutive,
     confidentiality: payload.confidentiality,
-    submitterName: payload.submitterName,
-    submitterEmployeeId: payload.submitterEmployeeId,
-    submitterDepartment: payload.submitterDepartment,
-    submitterEmail: normalizeEmail(payload.submitterEmail || viewer.email),
-    submitterPhone: payload.submitterPhone,
-    loginEmail: normalizeEmail(viewer.email),
-    isAnonymousMapped: isAnonymous || !!payload.isAnonymousMapped,
+    ...submitter,
     gatekeeperDepartment: payload.gatekeeperDepartment,
     assignedOfficerName: officer?.name ?? null,
     assignedOfficerEmail: officer ? normalizeEmail(officer.email) : null,
@@ -240,21 +278,118 @@ export async function submitTicket(payload: SubmitPayload): Promise<ComplaintTic
     urgency: payload.urgency,
     riskSeverity: payload.riskSeverity,
     sentiment: payload.sentiment,
-    createdBy: viewer.userId,
+    createdBy: filer.userId,
     timeline: { create: timeline },
-  };
+  });
 
-  const created = await createTicketWithNotifications(data);
-
-  await auditLog(viewer.userId, AUDIT_ACTIONS.TICKETS_SUBMIT, {
+  await auditLog(filer.userId, AUDIT_ACTIONS.TICKETS_SUBMIT, {
     ticketId: created.id,
     trackingCode: created.trackingCode,
   });
   // Not awaited: SMTP latency must not hold up the submitter (notify* never rejects).
-  notifyTicketSubmitted(created, { actor: mailActorFor(viewer), userId: viewer.userId }).catch(
-    () => {}
+  notifyTicketSubmitted(created, { actor: filer.mailActor, userId: filer.userId }).catch(() => {});
+  return created;
+}
+
+/**
+ * SSO form. The login email is always the signed-in user's — it is what "my tickets" and the
+ * anonymous mapping key on. The submitter fields are the form's (prefilled from the HR view).
+ */
+export async function submitTicket(payload: SubmitPayload): Promise<ComplaintTicket> {
+  const viewer = await requireTicketViewer();
+  if (!canSubmit(viewer)) throw new Error('FORBIDDEN');
+  const created = await createTicket(
+    { userId: viewer.userId, mailActor: mailActorFor(viewer) },
+    payload,
+    {
+      submitterName: payload.submitterName,
+      submitterEmployeeId: payload.submitterEmployeeId,
+      submitterDepartment: payload.submitterDepartment,
+      submitterEmail: normalizeEmail(payload.submitterEmail || viewer.email),
+      submitterPhone: payload.submitterPhone,
+      loginEmail: normalizeEmail(viewer.email),
+      isAnonymousMapped: payload.confidentiality === 'anonymous' || !!payload.isAnonymousMapped,
+    }
   );
   return presentTicketForViewer(viewer, mapTicket(created));
+}
+
+// What an identified portal submitter must type (the server never fills it in — no HR lookup is
+// shown to an unauthenticated caller).
+const PUBLIC_SUBMITTER = z.object({
+  submitterName: z.string().trim().min(1).max(200),
+  submitterEmployeeId: z.string().trim().min(1).max(50),
+  submitterDepartment: z.string().trim().min(1).max(300),
+  submitterEmail: z.email().max(200),
+  submitterPhone: z.string().trim().max(50).optional(),
+});
+
+/** Silent HR check of the typed id + name, shown to staff only. HR view down → null (unchecked). */
+async function hrMatchFor(employeeId: string, name: string): Promise<HrMatchStatus | null> {
+  try {
+    return hrMatchStatusFor(await findEmployeeByCode(employeeId), name);
+  } catch (error) {
+    console.error('HR match check failed', error);
+    return null;
+  }
+}
+
+async function publicSubmitterColumns(
+  payload: SubmitPayload,
+  accessKey: string
+): Promise<SubmitterColumns> {
+  const common = {
+    loginEmail: null,
+    isAnonymousMapped: false,
+    accessKeyHash: hashAccessKey(accessKey),
+    submitChannel: 'public',
+  };
+  // Anonymous on the portal is anonymous for real: nothing that could identify the person is kept.
+  if (payload.confidentiality === 'anonymous') {
+    return { ...common, submitterName: ANONYMOUS_SUBMITTER_NAME, hrMatchStatus: null };
+  }
+  const typed = PUBLIC_SUBMITTER.parse(payload);
+  return {
+    ...common,
+    submitterName: typed.submitterName,
+    submitterEmployeeId: typed.submitterEmployeeId,
+    submitterDepartment: typed.submitterDepartment,
+    submitterEmail: normalizeEmail(typed.submitterEmail),
+    submitterPhone: typed.submitterPhone || null,
+    hrMatchStatus: await hrMatchFor(typed.submitterEmployeeId, typed.submitterName),
+  };
+}
+
+/**
+ * No-login portal (/report, owner 2026-10-21): no session by design — rate limit per IP instead.
+ * Returns the tracking secret ONCE (only its HMAC is stored) and opens the ticket for this browser
+ * (cookie) so the attachments upload right after. The identified submitter also gets it by mail.
+ */
+export type PublicSubmitResult =
+  | { ok: true; ticket: ComplaintTicket; accessKey: string }
+  // A value, not a throw: production masks a Server Action error message.
+  | { ok: false; error: 'RATE_LIMITED' };
+
+export async function submitPublicTicket(payload: SubmitPayload): Promise<PublicSubmitResult> {
+  const ip = await clientIp();
+  if (!takeRateLimit(`submit:${ip}`, SUBMIT_LIMIT.limit, SUBMIT_LIMIT.windowMs)) {
+    return { ok: false, error: 'RATE_LIMITED' };
+  }
+  if (payload.confidentiality === 'confidential_restricted') throw new Error('BAD_REQUEST');
+
+  const accessKey = generateAccessKey();
+  const created = await createTicket(
+    { userId: PUBLIC_PORTAL_USER_ID, mailActor: { email: null, hasDevMode: false } },
+    payload,
+    await publicSubmitterColumns(payload, accessKey)
+  );
+  await rememberPublicTicket(created.id, accessKey);
+  notifyPublicSubmitter(created, { kind: 'receipt', accessKey }).catch(() => {});
+  return {
+    ok: true,
+    ticket: presentTicketForViewer(publicViewerFor(created.id), mapTicket(created)),
+    accessKey,
+  };
 }
 
 interface WorkflowUpdates {
@@ -280,6 +415,8 @@ interface WorkflowUpdates {
 const TRIAGE_ACTOR = { actor: 'Gatekeeper Supervisor', actorRole: 'Gatekeeper Lead' };
 
 type ActorTicket = {
+  id: string;
+  submitChannel: string;
   confidentiality: string;
   submitterName: string | null;
   loginEmail: string | null;
@@ -320,7 +457,7 @@ export async function updateTicketWorkflow(
   ticketId: string,
   updates: WorkflowUpdates
 ): Promise<ComplaintTicket | null> {
-  const viewer = await requireTicketViewer();
+  const viewer = await requireTicketActor();
   const current = await findVisibleTicket(viewer, { id: ticketId });
   if (!current) return null;
   const triage = touchesTriageFields(updates);
@@ -433,7 +570,7 @@ export async function sendAnonymousChatMessage(
   messageText: string,
   senderRole: UserRole
 ): Promise<ComplaintTicket | null> {
-  const viewer = await requireTicketViewer();
+  const viewer = await requireTicketActor();
   if (viewer.role !== senderRole) throw new Error('FORBIDDEN');
   const row = await findVisibleTicket(viewer, { id: ticketId });
   if (!row) return null;
@@ -485,6 +622,10 @@ export async function sendAnonymousChatMessage(
     trackingCode: updated.trackingCode,
     senderRole,
   });
+  // A portal submitter has no bell — an identified one hears about a staff reply by mail.
+  if (isStaff && updated.submitChannel === 'public') {
+    notifyPublicSubmitter(updated, { kind: 'chat' }).catch(() => {});
+  }
 
   return presentTicketForViewer(viewer, mapTicket(updated));
 }
@@ -497,10 +638,10 @@ export async function submitEvaluation(
   ticketId: string,
   evaluationData: Omit<SatisfactionEvaluation, 'id' | 'ticketId' | 'evaluatedAt'>
 ): Promise<ComplaintTicket | null> {
-  const viewer = await requireTicketViewer();
+  const viewer = await requireTicketActor();
   EVALUATION_SCORES.parse(evaluationData);
   const current = await findVisibleTicket(viewer, {
-    AND: [{ id: ticketId }, ownTicketsWhere(viewer.email), { status: 'resolved' }],
+    AND: [{ id: ticketId }, ownTicketsWhere(viewer), { status: 'resolved' }],
   });
   if (!current) return null;
   const now = new Date();

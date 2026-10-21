@@ -1,9 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({
-  getSession: vi.fn(),
-  getUserPermissions: vi.fn(),
-}));
+const mocks = vi.hoisted(() => ({ fileCaller: vi.fn() }));
 vi.mock('@/lib/env', () => ({
   env: {
     BETTER_AUTH_URL: 'https://ugtweb.ube.co.th',
@@ -11,11 +8,9 @@ vi.mock('@/lib/env', () => ({
     UPLOAD_MAX_BYTES: String(5 * 1024 * 1024),
   },
 }));
-vi.mock('@/lib/auth', () => ({ auth: { api: { getSession: mocks.getSession } } }));
-vi.mock('@/lib/get-user-permissions', () => ({ getUserPermissions: mocks.getUserPermissions }));
 vi.mock('@/lib/prisma', () => ({ prisma: {} }));
 vi.mock('@/lib/storage', () => ({}));
-vi.mock('@/lib/attachment-access', () => ({ canReadAttachment: vi.fn() }));
+vi.mock('@/lib/attachment-access', () => ({ fileCaller: mocks.fileCaller }));
 
 const { POST } = await import('./route');
 
@@ -25,14 +20,13 @@ const post = (headers: Record<string, string>) =>
 describe('POST /api/files guards', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.getSession.mockResolvedValue({ user: { id: 'u1' } });
-    mocks.getUserPermissions.mockResolvedValue(['files:create']);
+    mocks.fileCaller.mockResolvedValue({ userId: 'u1', label: 'u1', mayUseTicket: vi.fn() });
   });
 
-  it('refuses a request from another origin before touching the session', async () => {
+  it('refuses a request from another origin before looking at the caller', async () => {
     const res = await post({ origin: 'https://other.ube.co.th' });
     expect(res.status).toBe(403);
-    expect(mocks.getSession).not.toHaveBeenCalled();
+    expect(mocks.fileCaller).not.toHaveBeenCalled();
   });
 
   it('refuses an oversized body from its Content-Length before reading it', async () => {
@@ -42,5 +36,11 @@ describe('POST /api/files guards', () => {
     });
     expect(res.status).toBe(413);
     expect(await res.json()).toMatchObject({ error: { code: 'FILE_TOO_LARGE', maxMb: 5 } });
+  });
+
+  it('answers 401 when there is neither a session nor a portal ticket', async () => {
+    mocks.fileCaller.mockResolvedValue('UNAUTHORIZED');
+    const res = await post({ origin: 'https://ugtweb.ube.co.th' });
+    expect(res.status).toBe(401);
   });
 });

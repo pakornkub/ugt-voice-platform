@@ -13,7 +13,7 @@
 import 'server-only';
 import type { emailDispatchLog as DispatchLogRow } from '@prisma/client';
 import { env } from '@/lib/env';
-import { sendRenderedMail, type MailActor } from '@/lib/email';
+import { sendRenderedMail, sendTemplatedMail, type MailActor } from '@/lib/email';
 import { emailSettingsInputSchema } from '@/lib/email-settings-schema';
 import { permissionsFor } from '@/lib/get-user-permissions';
 import { escapeHtml } from '@/lib/mail-templates';
@@ -156,7 +156,7 @@ export function mailActorFor(viewer: Pick<TicketViewer, 'email' | 'role' | 'conf
 
 /** Absolute link for the mail (opened outside the app): the gatekeeper inbox for staff, the
  * tracking page for submitters. */
-export function trackingUrlFor(page: '/gatekeeper' | '/my-tickets'): string {
+export function trackingUrlFor(page: '/gatekeeper' | '/my-tickets' | '/track'): string {
   const base = env.APP_URL || env.BETTER_AUTH_URL;
   const origin = base ? new URL(base).origin : ''; // drops any trailing slash, no regex needed
   return `${origin}${env.NEXT_PUBLIC_BASE_PATH}${page}`;
@@ -287,6 +287,8 @@ export interface NotifiableTicket {
   submitterDepartment: string | null;
   submitterEmail: string | null;
   loginEmail: string | null;
+  /** 'public' = filed on the no-login portal: no account, tracked at /track. */
+  submitChannel?: string;
   createdAt: Date;
   /** Set when lib/auto-assign.ts picked an officer at submit time. */
   assignedOfficerName?: string | null;
@@ -418,6 +420,9 @@ export async function notifyTicketResolved(
   details: ResolvedDetails,
   ctx: NotifyContext
 ): Promise<void> {
+  const isPublic = ticket.submitChannel === 'public';
+  // An anonymous portal ticket has no address at all — nothing to send, nothing to log.
+  if (isPublic && !ticket.submitterEmail) return;
   try {
     const settings = await loadEmailSettings();
     const recipient = submitterRecipient(ticket);
@@ -440,11 +445,54 @@ export async function notifyTicketResolved(
         resolvedDate: formatDate(new Date()),
         resolutionNotes:
           details.resolutionNotes || 'ดำเนินการแก้ไขและปรับปรุงตามขั้นตอนเรียบร้อยแล้ว',
-        trackingUrl: trackingUrlFor('/my-tickets'),
+        trackingUrl: trackingUrlFor(isPublic ? '/track' : '/my-tickets'),
       },
     });
   } catch (error) {
     console.error('ticket-resolved email failed', { ticketId: ticket.id, error });
+  }
+}
+
+/**
+ * No-login portal (owner 2026-10-21): mail the identified submitter at the address they typed — the
+ * receipt carrying the tracking secret, and a nudge when staff answer in the chat. Anonymous tickets
+ * have no address. Kept out of the dispatch log on purpose (the receipt holds the secret). Never throws.
+ */
+export async function notifyPublicSubmitter(
+  ticket: Pick<
+    NotifiableTicket,
+    'id' | 'trackingCode' | 'confidentiality' | 'submitterName' | 'submitterEmail'
+  >,
+  event: { kind: 'receipt'; accessKey: string } | { kind: 'chat' }
+): Promise<void> {
+  if (ticket.confidentiality === 'anonymous' || !ticket.submitterEmail) return;
+  const code = ticket.trackingCode;
+  const receipt = event.kind === 'receipt';
+  try {
+    await sendTemplatedMail({
+      templateKey: receipt ? 'ticket.new_ticket' : 'ticket.status_update',
+      to: ticket.submitterEmail,
+      // Nobody is signed in on the portal, so there is no tester to redirect to.
+      actor: { email: null, hasDevMode: false },
+      vars: {
+        appName: env.NEXT_PUBLIC_APP_NAME || 'UGT VoiceCare',
+        recipientName: ticket.submitterName || SERVER_TEXT.submittingEmployee.th,
+        trackingCode: code,
+        notificationTitle: receipt
+          ? `ได้รับเรื่อง ${code} แล้ว`
+          : `มีข้อความใหม่จากเจ้าหน้าที่ (${code})`,
+        notificationMessage: receipt
+          ? `รหัสลับสำหรับติดตามเรื่อง: ${event.accessKey} — ใช้คู่กับเลขที่เรื่องที่หน้า "ติดตามเรื่อง" และอย่าส่งต่อรหัสนี้ให้ผู้อื่น`
+          : 'เจ้าหน้าที่ตอบกลับในช่องแชทของเรื่องคุณ เปิดหน้า "ติดตามเรื่อง" แล้วใส่เลขที่เรื่องกับรหัสลับเพื่ออ่านข้อความ',
+        detailUrl: trackingUrlFor('/track'),
+      },
+    });
+  } catch (error) {
+    console.error('public-submitter email failed', {
+      ticketId: ticket.id,
+      kind: event.kind,
+      error,
+    });
   }
 }
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, ArrowRight, CheckCircle2, Crown } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CheckCircle2, Copy, Crown, KeyRound } from 'lucide-react';
 import type { ComplaintTicket } from '../../types';
 import { CATEGORY_DEFINITIONS } from '../../mockData';
 import { getUrgencyBadgeText } from '../../services/badges';
@@ -57,8 +57,61 @@ const TrackingCodeCard: React.FC<Readonly<{ ticket: ComplaintTicket }>> = ({ tic
   );
 };
 
+/** No-login portal: the tracking secret, shown this once (only its hash is stored). */
+const AccessKeyCard: React.FC<Readonly<{ accessKey: string; hasEmail: boolean }>> = ({
+  accessKey,
+  hasEmail,
+}) => {
+  const { tr } = useTr();
+  const [copied, setCopied] = React.useState(false);
+  const copy = () => {
+    navigator.clipboard
+      ?.writeText(accessKey)
+      .then(() => setCopied(true))
+      .catch(() => setCopied(false));
+  };
+  return (
+    <div className="mx-auto mb-6 max-w-lg rounded-xl border border-amber-300 bg-amber-50 p-5 text-left">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-amber-800">
+            <KeyRound className="h-3.5 w-3.5" />
+            {tr('Tracking secret', 'รหัสลับสำหรับติดตามเรื่อง')}
+          </span>
+          <div
+            id="portal-access-key"
+            className="mt-0.5 font-mono text-2xl font-black tracking-widest text-amber-900"
+          >
+            {accessKey}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={copy}
+          className="flex shrink-0 items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 transition hover:bg-amber-100"
+        >
+          <Copy className="h-3.5 w-3.5" />
+          {copied ? tr('Copied', 'คัดลอกแล้ว') : tr('Copy', 'คัดลอก')}
+        </button>
+      </div>
+      <p className="mt-3 flex items-start gap-1.5 text-[11px] leading-relaxed text-amber-900">
+        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+        <span>
+          {tr(
+            'Shown only this once — write it down or take a screenshot. You need the tracking code + this secret to follow the ticket. Staff cannot see this secret.',
+            'รหัสนี้แสดงครั้งเดียว กรุณาจดหรือแคปหน้าจอเก็บไว้ ต้องใช้เลขที่เรื่องคู่กับรหัสนี้เพื่อติดตามเรื่อง เจ้าหน้าที่ก็ดูรหัสนี้ไม่ได้'
+          )}
+          {hasEmail && tr(' A copy was sent to your email.', ' ระบบส่งสำเนาไปที่อีเมลของคุณแล้ว')}
+        </span>
+      </p>
+    </div>
+  );
+};
+
 interface SuccessScreenProps {
   ticket: ComplaintTicket;
+  /** No-login portal only. */
+  accessKey?: string | null;
   uploadFailures: UploadFailure[];
   isRetryingUploads: boolean;
   onRetryUploads: () => void;
@@ -69,6 +122,7 @@ interface SuccessScreenProps {
 /** Shown after the record was saved. */
 export const SuccessScreen: React.FC<Readonly<SuccessScreenProps>> = ({
   ticket,
+  accessKey,
   uploadFailures,
   isRetryingUploads,
   onRetryUploads,
@@ -97,6 +151,12 @@ export const SuccessScreen: React.FC<Readonly<SuccessScreenProps>> = ({
 
         {/* Tracking Code Highlight Card */}
         <TrackingCodeCard ticket={ticket} />
+        {accessKey && (
+          <AccessKeyCard
+            accessKey={accessKey}
+            hasEmail={ticket.confidentiality !== 'anonymous' && !!ticket.submitterEmail}
+          />
+        )}
 
         {uploadFailures.length > 0 && (
           <AttachmentFailureNotice

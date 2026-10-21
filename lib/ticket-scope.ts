@@ -35,13 +35,43 @@ export interface TicketViewer {
   config?: RolePermissionConfig;
   /** Categories a gatekeeper may see (unused for other roles). */
   gatekeeperCategories: GrievanceCategory[];
+  /**
+   * No-login portal (2026-10-21): the one ticket this browser proved it owns (tracking code +
+   * secret, lib/public-access.ts). Set → "own" means that ticket and nothing else.
+   */
+  publicTicketId?: string;
 }
 
-export function ownTicketsWhere(email: string): Prisma.ticketWhereInput {
+/** The no-login submitter of one ticket: employee rules, no RBAC row, owns only that ticket. */
+export const PUBLIC_PORTAL_USER_ID = 'public-portal';
+export function publicViewerFor(ticketId: string): TicketViewer {
+  return {
+    userId: PUBLIC_PORTAL_USER_ID,
+    email: '',
+    name: SERVER_TEXT.employee.th,
+    rbacRoleName: null,
+    role: 'employee',
+    gatekeeperCategories: [],
+    publicTicketId: ticketId,
+  };
+}
+
+type OwnerViewer = Pick<TicketViewer, 'email' | 'publicTicketId'>;
+
+/**
+ * A signed-in user owns what they filed (login email; the typed submitter email only on legacy SSO
+ * rows without one — never on a public ticket, whose typed email proves nothing).
+ */
+export function ownTicketsWhere(viewer: OwnerViewer): Prisma.ticketWhereInput {
+  if (viewer.publicTicketId) return { id: viewer.publicTicketId };
   return {
     OR: [
-      { loginEmail: { in: emailVariants(email) } },
-      { loginEmail: null, submitterEmail: { in: emailVariants(email) } },
+      { loginEmail: { in: emailVariants(viewer.email) } },
+      {
+        loginEmail: null,
+        submitChannel: 'sso',
+        submitterEmail: { in: emailVariants(viewer.email) },
+      },
     ],
   };
 }
@@ -52,7 +82,7 @@ export function gatekeeperDepartments(config?: RolePermissionConfig): GrievanceC
 }
 
 export function ticketScopeWhere(viewer: TicketViewer): Prisma.ticketWhereInput {
-  const own = ownTicketsWhere(viewer.email);
+  const own = ownTicketsWhere(viewer);
   if (viewer.role === 'employee' || !viewer.config) return { isDeleted: false, ...own };
 
   const roleScope: Prisma.ticketWhereInput[] = [];
@@ -97,9 +127,16 @@ export function touchesTriageFields(updates: object): boolean {
 
 /** Same rule as ownTicketsWhere, for a row already loaded (SQL Server compares case-insensitively). */
 export function isOwnTicket(
-  viewer: Pick<TicketViewer, 'email'>,
-  ticket: { loginEmail?: string | null; submitterEmail?: string | null }
+  viewer: OwnerViewer,
+  ticket: {
+    id?: string;
+    loginEmail?: string | null;
+    submitterEmail?: string | null;
+    submitChannel?: string | null;
+  }
 ): boolean {
+  if (viewer.publicTicketId) return ticket.id === viewer.publicTicketId;
+  if (ticket.submitChannel === 'public') return false;
   return sameEmail(ticket.loginEmail || ticket.submitterEmail, viewer.email);
 }
 
@@ -183,7 +220,9 @@ export function presentTicketForViewer(
   viewer: TicketViewer,
   ticket: ComplaintTicket
 ): ComplaintTicket {
-  return { ...redactTicketForViewer(viewer, ticket), view: ticketViewFor(viewer, ticket) };
+  // The HR check is a staff hint; on the portal it would let anyone probe id/name pairs.
+  const shown = viewer.publicTicketId ? { ...ticket, hrMatchStatus: undefined } : ticket;
+  return { ...redactTicketForViewer(viewer, shown), view: ticketViewFor(viewer, ticket) };
 }
 
 /**

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import {
   CheckCircle2,
   Clock,
@@ -21,7 +21,13 @@ import {
   ShieldAlert,
   FileText,
 } from 'lucide-react';
-import { ComplaintTicket, RolePermissionConfig, TicketStatus, UserRole } from '../types';
+import {
+  ComplaintTicket,
+  HrMatchStatus,
+  RolePermissionConfig,
+  TicketStatus,
+  UserRole,
+} from '../types';
 import { CATEGORY_DEFINITIONS } from '../mockData';
 import {
   getUrgencyBadgeText,
@@ -39,7 +45,7 @@ import {
 import { sendAnonymousChatMessage, updateTicketWorkflow } from '@/lib/actions/tickets';
 import { SERVER_TEXT } from '@/lib/server-text';
 import { attachmentDownloadUrl } from '@/lib/upload-client';
-import { useShell } from '../app/shell-context';
+import { ShellContext, type ShellContextValue } from '../app/shell-context';
 import { useLanguage, type Language } from '../context/LanguageContext';
 import { useTr } from '../context/useTr';
 import { localizeServerText } from '../services/serverText';
@@ -54,6 +60,13 @@ interface TrackingTimelineModalProps {
 }
 
 type RoleConfig = RolePermissionConfig | undefined;
+
+// The no-login /track page has no shell: no role matrix (labels fall back to the role id) and no
+// gatekeeper roster (the report prints no Lead name).
+const NO_SHELL: Pick<ShellContextValue, 'rolePermissions' | 'gatekeeperConfigs'> = {
+  rolePermissions: {} as ShellContextValue['rolePermissions'],
+  gatekeeperConfigs: {} as ShellContextValue['gatekeeperConfigs'],
+};
 type ChatMessage = NonNullable<ComplaintTicket['anonymousMessages']>[number];
 type TimelineLog = ComplaintTicket['timeline'][number];
 
@@ -999,6 +1012,65 @@ const GrantedSubmitterCard: React.FC<Readonly<{ ticket: ComplaintTicket }>> = ({
   );
 };
 
+const HR_MATCH_BADGES: Record<HrMatchStatus, { className: string; en: string; th: string }> = {
+  matched: {
+    className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    en: '✓ Matches HR record',
+    th: '✓ ตรงกับข้อมูล HR',
+  },
+  mismatch: {
+    className: 'border-amber-200 bg-amber-50 text-amber-800',
+    en: '⚠ Name differs from HR record',
+    th: '⚠ ชื่อไม่ตรงกับข้อมูล HR',
+  },
+  not_found: {
+    className: 'border-amber-200 bg-amber-50 text-amber-800',
+    en: '⚠ Employee ID not found in HR',
+    th: '⚠ ไม่พบรหัสพนักงานนี้ใน HR',
+  },
+};
+
+/** No-login portal ticket (2026-10-21): the details were typed, not signed in — say so to staff. */
+const PortalIdentityNote: React.FC<Readonly<{ ticket: ComplaintTicket }>> = ({ ticket }) => {
+  const { tr } = useTr();
+  if (ticket.submitChannel !== 'public') return null;
+  const badge = ticket.hrMatchStatus ? HR_MATCH_BADGES[ticket.hrMatchStatus] : null;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+      <span className="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-medium text-slate-600">
+        {tr(
+          'Filed without sign-in · details typed by the submitter',
+          'ยื่นแบบไม่ login · ข้อมูลผู้ยื่นกรอกเอง'
+        )}
+      </span>
+      {badge && (
+        <span className={`rounded border px-1.5 py-0.5 font-semibold ${badge.className}`}>
+          {tr(badge.en, badge.th)}
+        </span>
+      )}
+    </div>
+  );
+};
+
+/** No-login portal, anonymous: nothing about the person exists, so there is nothing to unmask. */
+const PortalAnonymousSubmitterCard: React.FC = () => {
+  const { tr } = useTr();
+  return (
+    <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs">
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 font-bold text-slate-800">
+        <EyeOff className="h-4 w-4 text-slate-500" />
+        <span>{tr('Submitter (Anonymous)', 'ผู้ยื่นเรื่อง (ไม่ระบุตัวตน)')}</span>
+      </div>
+      <p className="text-[11px] leading-relaxed text-slate-600">
+        {tr(
+          'Filed without sign-in. No name, employee ID, email or login is stored for this ticket — reply through the anonymous chat.',
+          'ยื่นแบบไม่ login ระบบไม่มีชื่อ รหัสพนักงาน อีเมล หรือบัญชีผู้ใช้ของผู้ยื่นเรื่องนี้ ติดต่อผู้ยื่นผ่านแชทนิรนามเท่านั้น'
+        )}
+      </p>
+    </div>
+  );
+};
+
 const NamedSubmitterCard: React.FC<Readonly<{ ticket: ComplaintTicket }>> = ({ ticket }) => {
   const { tr } = useTr();
   return (
@@ -1014,6 +1086,7 @@ const NamedSubmitterCard: React.FC<Readonly<{ ticket: ComplaintTicket }>> = ({ t
           Standard Named
         </span>
       </div>
+      <PortalIdentityNote ticket={ticket} />
       <SubmitterFields ticket={ticket} />
     </div>
   );
@@ -1025,6 +1098,7 @@ const SubmitterCard: React.FC<
   const hasConfidentialAccess = ticket.view?.identityShown ?? false;
 
   if (ticket.confidentiality === 'anonymous') {
+    if (ticket.submitChannel === 'public') return <PortalAnonymousSubmitterCard />;
     return (
       <AnonymousSubmitterCard ticket={ticket} roleConfig={roleConfig} currentRole={currentRole} />
     );
@@ -1169,7 +1243,7 @@ export const TrackingTimelineModal: React.FC<Readonly<TrackingTimelineModalProps
   const [isSendingChat, setIsSendingChat] = useState(false);
   const [chatSendFailed, setChatSendFailed] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
-  const { rolePermissions, gatekeeperConfigs } = useShell();
+  const { rolePermissions, gatekeeperConfigs } = useContext(ShellContext) ?? NO_SHELL;
 
   if (!ticket) return null;
 

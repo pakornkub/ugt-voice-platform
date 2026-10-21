@@ -11,10 +11,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { env } from '@/lib/env';
-import { auth } from '@/lib/auth';
-import { getUserPermissions } from '@/lib/get-user-permissions';
 import { PERMISSIONS } from '@/lib/permissions';
-import { canReadAttachment } from '@/lib/attachment-access';
+import { fileCaller } from '@/lib/attachment-access';
 import { AUDIT_ACTIONS, type AuditAction } from '@/lib/audit-actions';
 import { checksum, newStorageKey, safeDisplayName, writeStoredFile } from '@/lib/storage';
 
@@ -60,13 +58,12 @@ export async function POST(request: Request) {
     );
   }
 
-  const session = await auth.api.getSession({ headers: request.headers });
-  if (!session?.user) {
+  // Signed-in user with files:create, or the no-login portal submitter of one ticket.
+  const caller = await fileCaller(request.headers, PERMISSIONS.FILES_CREATE);
+  if (caller === 'UNAUTHORIZED') {
     return NextResponse.json({ success: false, error: { code: 'UNAUTHORIZED' } }, { status: 401 });
   }
-
-  const permissions = await getUserPermissions(session.user.id);
-  if (!permissions.includes(PERMISSIONS.FILES_CREATE)) {
+  if (caller === 'FORBIDDEN') {
     return NextResponse.json(
       { success: false, error: { code: 'FORBIDDEN_UPLOAD' } },
       { status: 403 }
@@ -93,7 +90,7 @@ export async function POST(request: Request) {
 
   // The ticket (and, if given, the timeline log entry on that same ticket) must exist AND be one
   // the caller may see (same scope as downloads) — no attaching files to someone else's ticket.
-  if (!(await canReadAttachment(session.user.id, { ticketId }))) {
+  if (!(await caller.mayUseTicket(ticketId))) {
     return NextResponse.json(
       { success: false, error: { code: 'TICKET_NOT_FOUND' } },
       { status: 404 }
@@ -129,12 +126,12 @@ export async function POST(request: Request) {
       fileSize: bytes.length,
       checksum: checksum(bytes),
       scanStatus: 'unscanned',
-      createdBy: session.user.email ?? session.user.id,
+      createdBy: caller.label,
     },
     select: { id: true, fileName: true, fileSize: true, contentType: true },
   });
 
-  await auditLog(session.user.id, AUDIT_ACTIONS.FILES_UPLOAD, {
+  await auditLog(caller.userId, AUDIT_ACTIONS.FILES_UPLOAD, {
     attachmentId: attachment.id,
     ticketId,
     timelineLogId,

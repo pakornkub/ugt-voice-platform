@@ -46,6 +46,8 @@ export const AUDIT_ACTIONS = {
   TICKETS_SUBMIT: 'tickets.submit',
   TICKETS_UPDATE: 'tickets.update',
   TICKETS_EVALUATE: 'tickets.evaluate',
+  // No-login portal: someone opened a ticket with its tracking code + secret (2026-10-21).
+  TICKETS_PUBLIC_OPEN: 'tickets.public-open',
 
   // Admin config — rosters (HR admins / executives / gatekeeper officers), RBAC matrix, resets;
   // written by lib/actions/{hr-admins,executives,gatekeeper,role-access}.ts (rewiring slice 2)

@@ -45,6 +45,11 @@ export const SERVER_TEXT = bilingualTable({
     th: 'ยื่นเรื่องแบบไม่ระบุตัวตน (ระบบเชื่อมโยงอีเมลล็อกอินหลังบ้านจากฐานข้อมูลพนักงานเรียบร้อยแล้ว)',
     en: 'Submitted anonymously (the system linked the login email in the back office from the employee database)',
   },
+  // No-login portal (2026-10-21): anonymous for real — nothing is linked behind the scenes.
+  submittedPortalAnonymousNote: {
+    th: 'ยื่นเรื่องแบบไม่ระบุตัวตนผ่านช่องทางไม่ต้องเข้าสู่ระบบ (ไม่มีข้อมูลตัวตนของผู้ยื่นในระบบ)',
+    en: 'Submitted anonymously without sign-in (no submitter identity is stored)',
+  },
   submittedDirectNote: {
     th: 'ติดแท็กสำคัญพิเศษ: ส่งตรงถึงโต๊ะทำงานผู้บริหารระดับสูง',
     en: 'Tagged as special priority: sent straight to the senior executives desk',

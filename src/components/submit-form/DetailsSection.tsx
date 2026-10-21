@@ -36,10 +36,7 @@ const AiSuggestButton: React.FC<Readonly<{ isAnalyzing: boolean; onClick: () => 
   );
 };
 
-const DetailsHeader: React.FC<Readonly<{ isAnalyzing: boolean; onSuggest: () => void }>> = ({
-  isAnalyzing,
-  onSuggest,
-}) => {
+const DetailsHeader: React.FC<Readonly<{ ai?: AiAssistantSlice }>> = ({ ai }) => {
   const { tr } = useTr();
   return (
     <div className="flex flex-col justify-between gap-2 border-b border-slate-100 pb-1.5 sm:flex-row sm:items-center">
@@ -53,7 +50,7 @@ const DetailsHeader: React.FC<Readonly<{ isAnalyzing: boolean; onSuggest: () => 
       </div>
 
       {/* AI Category Assistant Action Button */}
-      <AiSuggestButton isAnalyzing={isAnalyzing} onClick={onSuggest} />
+      {ai && <AiSuggestButton isAnalyzing={ai.isAnalyzing} onClick={() => ai.suggest()} />}
     </div>
   );
 };
@@ -210,7 +207,8 @@ interface DetailsSectionProps {
   description: string;
   locationOrUnit: string;
   category: GrievanceCategory;
-  ai: AiAssistantSlice;
+  /** Absent on the no-login portal: complaint text must not go to the AI service from there. */
+  ai?: AiAssistantSlice;
   pendingFiles: PendingFile[];
   isSubmitting: boolean;
   onTitleChange: (value: string) => void;
@@ -240,7 +238,7 @@ export const DetailsSection: React.FC<Readonly<DetailsSectionProps>> = ({
   onRemoveAttachment,
 }) => (
   <div className="space-y-3.5 rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs sm:p-4">
-    <DetailsHeader isAnalyzing={ai.isAnalyzing} onSuggest={() => ai.suggest()} />
+    <DetailsHeader ai={ai} />
     <TitleLocationFields
       title={title}
       locationOrUnit={locationOrUnit}
@@ -248,13 +246,15 @@ export const DetailsSection: React.FC<Readonly<DetailsSectionProps>> = ({
       onLocationChange={onLocationChange}
     />
     <DescriptionField description={description} onChange={onDescriptionChange} />
-    <AiAssistantPanels
-      ai={ai}
-      description={description}
-      category={category}
-      onApplyCategory={onApplyCategory}
-      onUseSample={onUseSample}
-    />
+    {ai && (
+      <AiAssistantPanels
+        ai={ai}
+        description={description}
+        category={category}
+        onApplyCategory={onApplyCategory}
+        onUseSample={onUseSample}
+      />
+    )}
     <AttachmentPicker
       files={pendingFiles}
       disabled={isSubmitting}

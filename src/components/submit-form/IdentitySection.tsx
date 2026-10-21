@@ -1,5 +1,5 @@
 import React from 'react';
-import { Crown, Database, EyeOff, ShieldCheck, UserCheck } from 'lucide-react';
+import { Crown, Database, EyeOff, KeyRound, Mail, ShieldCheck, UserCheck } from 'lucide-react';
 import type { EmployeeRecord } from '../../types';
 import type { Bilingual, IdentityChoice } from './constants';
 import type { SubmitterField } from './useSubmitForm';
@@ -152,22 +152,23 @@ const INPUT_FOCUS_CLASS = 'text-xs focus:ring-2 focus:ring-indigo-500 focus:outl
 const SubmitterInput: React.FC<
   Readonly<{
     id: string;
-    type: 'text' | 'email';
+    type: 'text' | 'email' | 'tel';
     label: string;
     value: string;
     placeholder: string;
     mono?: boolean;
+    optional?: boolean;
     onChange: (value: string) => void;
   }>
-> = ({ id, type, label, value, placeholder, mono = false, onChange }) => (
+> = ({ id, type, label, value, placeholder, mono = false, optional = false, onChange }) => (
   <div>
     <label htmlFor={id} className="mb-1 block text-[11px] font-medium text-slate-700">
-      {label} <span className="text-rose-500">*</span>
+      {label} {!optional && <span className="text-rose-500">*</span>}
     </label>
     <input
       type={type}
       id={id}
-      required
+      required={!optional}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
@@ -181,6 +182,8 @@ const SubmitterInput: React.FC<
 );
 
 interface IdentifiedFieldsProps {
+  /** No-login portal: everything is typed, no directory pick, plus the phone and the mail note. */
+  portal: boolean;
   currentEmployee: EmployeeRecord;
   selectedEmployee: EmployeeRecord;
   details: Record<SubmitterField, string>;
@@ -190,6 +193,7 @@ interface IdentifiedFieldsProps {
 
 /** Identified mode: pick the directory profile and review the submitter details. */
 const IdentifiedFields: React.FC<Readonly<IdentifiedFieldsProps>> = ({
+  portal,
   currentEmployee,
   selectedEmployee,
   details,
@@ -200,28 +204,30 @@ const IdentifiedFields: React.FC<Readonly<IdentifiedFieldsProps>> = ({
   return (
     <div className="space-y-3 pt-1">
       {/* Quick Select Employee from Corporate Directory */}
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs">
-        <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-slate-600">
-          <Database className="h-3.5 w-3.5 text-blue-600" />
-          {tr('Select Profile from Directory:', 'เลือกข้อมูลจากฐานข้อมูลพนักงาน:')}
-        </span>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {[currentEmployee].map((emp) => (
-            <button
-              key={emp.employeeId}
-              type="button"
-              onClick={() => onSelectEmployee(emp)}
-              className={`rounded border px-2 py-0.5 text-[11px] font-medium transition ${
-                selectedEmployee.employeeId === emp.employeeId
-                  ? 'border-blue-600 bg-blue-600 text-white'
-                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
-              }`}
-            >
-              {emp.nameTh.split(' ')[0]} ({emp.department.split(' ')[0]})
-            </button>
-          ))}
+      {!portal && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs">
+          <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-slate-600">
+            <Database className="h-3.5 w-3.5 text-blue-600" />
+            {tr('Select Profile from Directory:', 'เลือกข้อมูลจากฐานข้อมูลพนักงาน:')}
+          </span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {[currentEmployee].map((emp) => (
+              <button
+                key={emp.employeeId}
+                type="button"
+                onClick={() => onSelectEmployee(emp)}
+                className={`rounded border px-2 py-0.5 text-[11px] font-medium transition ${
+                  selectedEmployee.employeeId === emp.employeeId
+                    ? 'border-blue-600 bg-blue-600 text-white'
+                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                }`}
+              >
+                {emp.nameTh.split(' ')[0]} ({emp.department.split(' ')[0]})
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Submitter Info Inputs */}
       <div className="grid grid-cols-2 gap-2.5 text-xs sm:grid-cols-4">
@@ -259,7 +265,43 @@ const IdentifiedFields: React.FC<Readonly<IdentifiedFieldsProps>> = ({
           mono
           onChange={(value) => onDetailChange('email', value)}
         />
+        {portal && (
+          <SubmitterInput
+            id="input-submitter-phone"
+            type="tel"
+            label={tr('Phone:', 'เบอร์โทร:')}
+            value={details.phone}
+            placeholder="081-234-5678"
+            optional
+            onChange={(value) => onDetailChange('phone', value)}
+          />
+        )}
       </div>
+      {portal && (
+        <p className="flex items-center gap-1.5 text-[11px] text-slate-500">
+          <Mail className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+          {tr(
+            'We will mail the tracking code and secret to this address, and tell you when there is news.',
+            'เราจะส่งเลขที่เรื่องและรหัสลับไปที่อีเมลนี้ และแจ้งเมื่อมีความคืบหน้า'
+          )}
+        </p>
+      )}
+    </div>
+  );
+};
+
+/** No-login portal, anonymous: what “anonymous” means here and how the person follows up. */
+const PortalAnonymousNote: React.FC = () => {
+  const { tr } = useTr();
+  return (
+    <div className="flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-xs text-emerald-900">
+      <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+      <p className="leading-relaxed">
+        {tr(
+          'We do not ask for your name, employee ID or email, and nothing that identifies you is kept. After sending you get a tracking code + secret to follow up yourself — if you lose the secret, this ticket can no longer be tracked.',
+          'ระบบไม่ถามชื่อ รหัสพนักงาน หรืออีเมล และไม่เก็บข้อมูลที่ระบุตัวคุณได้เลย หลังส่งคุณจะได้เลขที่เรื่องและรหัสลับไว้ติดตามเรื่องเอง ถ้าทำรหัสลับหาย จะติดตามเรื่องนี้ไม่ได้อีก'
+        )}
+      </p>
     </div>
   );
 };
@@ -338,6 +380,7 @@ const IdentityNotice: React.FC = () => {
 };
 
 interface IdentitySectionProps {
+  portal?: boolean;
   currentEmployee: EmployeeRecord;
   identityChoice: IdentityChoice;
   selectedEmployee: EmployeeRecord;
@@ -351,6 +394,7 @@ interface IdentitySectionProps {
 
 /** Step 4: submitter details (identified or anonymous) plus the CEO / EVP routing box. */
 export const IdentitySection: React.FC<Readonly<IdentitySectionProps>> = ({
+  portal = false,
   currentEmployee,
   identityChoice,
   selectedEmployee,
@@ -368,6 +412,7 @@ export const IdentitySection: React.FC<Readonly<IdentitySectionProps>> = ({
     {/* Conditional View: Identified Mode Form */}
     {identityChoice === 'identified' && (
       <IdentifiedFields
+        portal={portal}
         currentEmployee={currentEmployee}
         selectedEmployee={selectedEmployee}
         details={details}
@@ -375,6 +420,7 @@ export const IdentitySection: React.FC<Readonly<IdentitySectionProps>> = ({
         onDetailChange={onDetailChange}
       />
     )}
+    {identityChoice === 'anonymous' && portal && <PortalAnonymousNote />}
 
     {/* CEO / EVP Direct Box & Notice in 2 columns */}
     <div className="grid grid-cols-1 gap-2.5 pt-1 md:grid-cols-2">

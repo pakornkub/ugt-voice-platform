@@ -111,6 +111,10 @@ export interface ComplaintTicket {
   submitterPhone?: string;
   loginEmail?: string; // Authenticated login email mapped from employee database
   isAnonymousMapped?: boolean; // Flag indicating backend mapping was applied for anonymous submission
+  /** How it was filed: SSO shell or the no-login portal (2026-10-21). Rows before that are sso. */
+  submitChannel?: SubmitChannel;
+  /** Identified public ticket: did the typed employee id / name match the HR view (null = unchecked). */
+  hrMatchStatus?: HrMatchStatus;
 
   // Triage & Gatekeeper handling
   gatekeeperDepartment: string;
@@ -160,6 +164,9 @@ export interface ComplaintTicket {
  * Presentation facts the server decides per viewer, so screens render them instead of
  * re-deriving them from the RBAC matrix. Every fact reads as false when `view` is absent.
  */
+export type SubmitChannel = 'sso' | 'public';
+export type HrMatchStatus = 'matched' | 'mismatch' | 'not_found';
+
 export interface TicketView {
   /** Inside the viewer's triage scope: the Gatekeeper inbox lists it (a ticket that is only the viewer's own submission is not). */
   inTriageScope: boolean;

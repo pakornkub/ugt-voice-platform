@@ -5,7 +5,9 @@ import {
   gatekeeperDepartments,
   isNotificationForViewer,
   isOwnTicket,
+  ownTicketsWhere,
   presentTicketForViewer,
+  publicViewerFor,
   PROTECTED_ACTOR_NAME,
   redactNotificationForViewer,
   redactTicketForViewer,
@@ -35,7 +37,11 @@ const OWN = {
   // Both spellings of the org mailbox (lib/email-identity.ts).
   OR: [
     { loginEmail: { in: ['me@ube.com', 'me@ube.co.th'] } },
-    { loginEmail: null, submitterEmail: { in: ['me@ube.com', 'me@ube.co.th'] } },
+    {
+      loginEmail: null,
+      submitChannel: 'sso',
+      submitterEmail: { in: ['me@ube.com', 'me@ube.co.th'] },
+    },
   ],
 };
 
@@ -113,6 +119,23 @@ describe('isOwnTicket', () => {
       false
     );
     expect(isOwnTicket(me, {})).toBe(false);
+  });
+
+  it('never treats a typed email on a portal ticket as ownership', () => {
+    const me = { email: 'me@ube.com' };
+    expect(
+      isOwnTicket(me, { loginEmail: null, submitterEmail: 'me@ube.com', submitChannel: 'public' })
+    ).toBe(false);
+  });
+
+  it('the portal viewer owns exactly its one ticket', () => {
+    const portal = publicViewerFor('tk-pub');
+    expect(isOwnTicket(portal, { id: 'tk-pub' })).toBe(true);
+    expect(isOwnTicket(portal, { id: 'tk-other', loginEmail: '', submitterEmail: '' })).toBe(false);
+    expect(ownTicketsWhere(portal)).toEqual({ id: 'tk-pub' });
+    expect(ticketScopeWhere(portal)).toEqual({ isDeleted: false, id: 'tk-pub' });
+    expect(canTriage(portal)).toBe(false);
+    expect(canSubmit(portal)).toBe(false);
   });
 });
 

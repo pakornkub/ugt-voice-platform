@@ -18,31 +18,50 @@ const db = vi.hoisted(() => {
   };
   return { prisma };
 });
-const access = vi.hoisted(() => ({
-  requireTicketViewer: vi.fn(),
-  findVisibleTicket: vi.fn(),
-  findVisibleTicketWithRelations: vi.fn(),
-  listVisibleTickets: vi.fn(),
-  TICKET_INCLUDE: {},
+const access = vi.hoisted(() => {
+  const requireTicketViewer = vi.fn();
+  return {
+    requireTicketViewer,
+    // The per-ticket actions also accept the portal cookie; here it resolves like the session.
+    requireTicketActor: vi.fn(() => requireTicketViewer()),
+    findVisibleTicket: vi.fn(),
+    findVisibleTicketWithRelations: vi.fn(),
+    listVisibleTickets: vi.fn(),
+    TICKET_INCLUDE: {},
+  };
+});
+const portal = vi.hoisted(() => ({
+  clientIp: vi.fn(),
+  generateAccessKey: vi.fn(),
+  hashAccessKey: vi.fn(() => 'HMAC'),
+  hrMatchStatusFor: vi.fn(),
+  rememberPublicTicket: vi.fn(),
+  takeRateLimit: vi.fn(),
+  SUBMIT_LIMIT: { limit: 5, windowMs: 1000 },
 }));
+const directory = vi.hoisted(() => ({ findEmployeeByCode: vi.fn() }));
 
 const mail = vi.hoisted(() => ({
   mailActorFor: vi.fn(),
   notifyTicketSubmitted: vi.fn(),
   notifyTicketResolved: vi.fn(),
   notifyTicketEvaluated: vi.fn(),
+  notifyPublicSubmitter: vi.fn(),
 }));
 
 vi.mock('@/lib/prisma', () => db);
 vi.mock('@/lib/email-notifications', () => mail);
 vi.mock('@/lib/ticket-access', () => access);
 vi.mock('@/lib/auto-assign', () => assign);
+vi.mock('@/lib/public-access', () => portal);
+vi.mock('@/lib/directory', () => directory);
 
 const {
   getTicketByTrackingCode,
   getTickets,
   sendAnonymousChatMessage,
   submitEvaluation,
+  submitPublicTicket,
   submitTicket,
   updateTicketWorkflow,
 } = await import('./tickets');
@@ -129,6 +148,12 @@ beforeEach(() => {
   assign.autoAssignOfficer.mockResolvedValue(null);
   assign.gatekeepersSeeDirectTickets.mockResolvedValue(false);
   mail.notifyTicketEvaluated.mockResolvedValue(undefined);
+  mail.notifyPublicSubmitter.mockResolvedValue(undefined);
+  portal.clientIp.mockResolvedValue('10.0.0.1');
+  portal.generateAccessKey.mockReturnValue('K7QM-4XPA');
+  portal.takeRateLimit.mockReturnValue(true);
+  portal.hrMatchStatusFor.mockReturnValue('matched');
+  directory.findEmployeeByCode.mockResolvedValue(null);
 });
 
 describe('reads', () => {
@@ -542,6 +567,7 @@ describe('submitEvaluation', () => {
             { loginEmail: { in: ['employee@ube.com', 'employee@ube.co.th'] } },
             {
               loginEmail: null,
+              submitChannel: 'sso',
               submitterEmail: { in: ['employee@ube.com', 'employee@ube.co.th'] },
             },
           ],
@@ -592,5 +618,102 @@ describe('submitEvaluation', () => {
   it('returns null when the ticket is out of scope', async () => {
     access.findVisibleTicket.mockResolvedValue(null);
     expect(await submitEvaluation('tk1', evaluation)).toBeNull();
+  });
+});
+
+describe('submitPublicTicket (no-login portal)', () => {
+  const created = () =>
+    db.prisma.ticket.create.mockImplementation(async ({ data }) =>
+      row({ ...data, timeline: [], id: 'tk-pub' })
+    );
+  const identified = {
+    ...payload,
+    submitterEmployeeId: '650123',
+    submitterDepartment: 'ฝ่ายผลิต',
+    submitterPhone: '',
+  };
+
+  it('keeps nothing that identifies an anonymous submitter, only the hash of the secret', async () => {
+    created();
+    const result = await submitPublicTicket({
+      ...payload,
+      confidentiality: 'anonymous',
+      submitterEmployeeId: '650123', // sent by a tampered client — ignored
+    });
+
+    const { data } = db.prisma.ticket.create.mock.calls[0][0];
+    expect(data).toMatchObject({
+      loginEmail: null,
+      isAnonymousMapped: false,
+      submitChannel: 'public',
+      accessKeyHash: 'HMAC',
+      hrMatchStatus: null,
+      createdBy: 'public-portal',
+    });
+    expect(data.submitterEmployeeId).toBeUndefined();
+    expect(data.timeline.create[0].notes).toBe(
+      'ยื่นเรื่องแบบไม่ระบุตัวตนผ่านช่องทางไม่ต้องเข้าสู่ระบบ (ไม่มีข้อมูลตัวตนของผู้ยื่นในระบบ)'
+    );
+    expect(data.submitterEmail).toBeUndefined();
+    expect(JSON.stringify(data)).not.toContain('K7QM-4XPA');
+    expect(portal.rememberPublicTicket).toHaveBeenCalledWith('tk-pub', 'K7QM-4XPA');
+    expect(result).toMatchObject({ ok: true, accessKey: 'K7QM-4XPA', ticket: { id: 'tk-pub' } });
+    expect(db.prisma.activityLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ userId: 'public-portal', action: 'tickets.submit' }),
+    });
+  });
+
+  it('stores the typed identity with the HR check and mails the receipt', async () => {
+    created();
+    const employee = { employeeId: '650123', nameTh: 'นายสมชาย ใจดี' };
+    directory.findEmployeeByCode.mockResolvedValue(employee);
+    portal.hrMatchStatusFor.mockReturnValue('mismatch');
+
+    const result = await submitPublicTicket({ ...identified, submitterEmail: 'Somchai@UBE.com' });
+
+    const { data } = db.prisma.ticket.create.mock.calls[0][0];
+    expect(data).toMatchObject({
+      submitterName: 'สมชาย',
+      submitterEmployeeId: '650123',
+      submitterEmail: 'somchai@ube.com',
+      submitterPhone: null,
+      loginEmail: null,
+      hrMatchStatus: 'mismatch',
+    });
+    expect(portal.hrMatchStatusFor).toHaveBeenCalledWith(employee, 'สมชาย');
+    expect(mail.notifyPublicSubmitter).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'tk-pub' }),
+      { kind: 'receipt', accessKey: 'K7QM-4XPA' }
+    );
+    // The HR hint is for staff — the portal never gets it back.
+    expect(result.ok && result.ticket.hrMatchStatus).toBeUndefined();
+  });
+
+  it('still files the ticket when the HR view is down (unchecked)', async () => {
+    created();
+    directory.findEmployeeByCode.mockRejectedValue(new Error('linked server down'));
+    await submitPublicTicket(identified);
+    expect(db.prisma.ticket.create.mock.calls[0][0].data.hrMatchStatus).toBeNull();
+  });
+
+  it('refuses an identified submission without the typed details', async () => {
+    await expect(submitPublicTicket({ ...identified, submitterEmail: '' })).rejects.toThrow();
+    await expect(
+      submitPublicTicket({ ...identified, submitterEmployeeId: '  ' })
+    ).rejects.toThrow();
+    await expect(
+      submitPublicTicket({ ...identified, confidentiality: 'confidential_restricted' })
+    ).rejects.toThrow('BAD_REQUEST');
+    expect(db.prisma.ticket.create).not.toHaveBeenCalled();
+  });
+
+  it('answers RATE_LIMITED without saving once the IP used its quota', async () => {
+    portal.takeRateLimit.mockReturnValue(false);
+    await expect(submitPublicTicket(identified)).resolves.toEqual({
+      ok: false,
+      error: 'RATE_LIMITED',
+    });
+    expect(portal.takeRateLimit).toHaveBeenCalledWith('submit:10.0.0.1', 5, 1000);
+    expect(db.prisma.ticket.create).not.toHaveBeenCalled();
   });
 });

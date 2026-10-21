@@ -4,8 +4,9 @@
 // hand-built Tailwind matching this app's existing pattern (see
 // docs/DESIGN.md §1/§4, .claude/rules/ugt-nextjs-design.md) — no shadcn/ui,
 // no next-intl.
+import Link from 'next/link';
 import { useState } from 'react';
-import { Building2, Loader2, Shield, TriangleAlert } from 'lucide-react';
+import { Building2, Loader2, PenLine, Search, Shield, TriangleAlert } from 'lucide-react';
 import { authClient } from '@/lib/auth-client';
 import { useTr } from '@/context/useTr';
 import { AuthLanguageSwitch } from './AuthLanguageSwitch';
@@ -107,11 +108,48 @@ export function LoginForm({
         </div>
       )}
 
+      {/* Employees need no account (no-login portal, owner 2026-10-21). */}
+      <div className="flex w-full flex-col gap-2">
+        <Link
+          id="link-portal-report"
+          href="/report"
+          className="flex w-full flex-col rounded-xl border-2 border-indigo-200 bg-indigo-50/60 px-4 py-3 transition hover:border-indigo-400 hover:bg-indigo-50"
+        >
+          <span className="flex items-center gap-2 text-sm font-bold text-indigo-700">
+            <PenLine className="h-4 w-4" />
+            {tr(
+              'Employees: submit a grievance / suggestion',
+              'พนักงาน: ยื่นเรื่องร้องเรียน / ข้อเสนอแนะ'
+            )}
+          </span>
+          <span className="mt-0.5 text-[11px] text-slate-500">
+            {tr(
+              'No sign-in needed · identified or anonymous',
+              'ไม่ต้องเข้าสู่ระบบ · ระบุตัวตนหรือไม่ก็ได้'
+            )}
+          </span>
+        </Link>
+        <Link
+          id="link-portal-track"
+          href="/track"
+          className="flex items-center justify-center gap-1.5 text-xs font-medium text-indigo-700 hover:underline"
+        >
+          <Search className="h-3.5 w-3.5" />
+          {tr('Have a tracking code? Track your ticket', 'มีเลขที่เรื่องแล้ว? ติดตามเรื่อง')}
+        </Link>
+      </div>
+
+      <div className="flex w-full items-center gap-2 text-[11px] text-slate-400">
+        <span className="flex-1 border-t border-slate-200" />
+        {tr('For staff', 'สำหรับเจ้าหน้าที่')}
+        <span className="flex-1 border-t border-slate-200" />
+      </div>
+
       <div className="flex w-full flex-col gap-3">
         <p className="text-center text-xs text-slate-500">
           {tr(
-            'Sign in with your company account (Single Sign-On)',
-            'เข้าสู่ระบบด้วยบัญชีองค์กร (Single Sign-On)'
+            'Gatekeepers, executives and administrators sign in with the company account (SSO)',
+            'Gatekeeper ผู้บริหาร และผู้ดูแลระบบ เข้าสู่ระบบด้วยบัญชีองค์กร (SSO)'
           )}
         </p>
         <button
