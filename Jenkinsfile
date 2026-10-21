@@ -1,5 +1,5 @@
 // ============================================================================
-// Org-standard Jenkins pipeline — 10 stages — UGT VoicePlatform (ugt-voice-platform)
+// Org-standard Jenkins pipeline — 10 stages — UGT VoiceCare (ugt-voice-platform)
 // Checkout → Install → Code Quality (parallel) → Unit Tests → Build
 //   → OWASP Dependency Check → SonarQube Analysis → Quality Gate
 //   → Docker Build → Deploy
@@ -36,7 +36,7 @@ pipeline {
     environment {
         CI                  = 'true'   // activates JUnit reporter + standalone output
         SKIP_ENV_VALIDATION = '1'      // bypass @t3-oss/env-nextjs in CI (never in prod container)
-        NEXT_PUBLIC_APP_NAME = 'UGT VoicePlatform'
+        NEXT_PUBLIC_APP_NAME = 'UGT VoiceCare'
         // NOTIFY_EMAIL and SMTP_FROM must be set in
         // Manage Jenkins → System → Global properties → Environment variables
         // NEXT_PUBLIC_BASE_PATH / NEXT_PUBLIC_APP_URL are resolved per-branch

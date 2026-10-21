@@ -30,7 +30,7 @@ export function LoginHero() {
   const { tr } = useTr();
   return (
     <section
-      aria-label={tr('About UGT VoicePlatform', 'เกี่ยวกับ UGT VoicePlatform')}
+      aria-label={tr('About UGT VoiceCare', 'เกี่ยวกับ UGT VoiceCare')}
       className="relative h-56 overflow-hidden bg-indigo-950 sm:h-72 lg:h-auto lg:min-h-screen"
     >
       <Image
@@ -49,7 +49,7 @@ export function LoginHero() {
 
       <div className="absolute inset-x-0 bottom-0 flex flex-col gap-3 p-5 text-white sm:p-8 lg:gap-5 lg:p-12">
         <span className="w-fit rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[11px] font-semibold tracking-wide backdrop-blur-sm">
-          UGT VoicePlatform
+          UGT VoiceCare
         </span>
         <h2 className="max-w-lg text-xl leading-snug font-bold sm:text-2xl lg:text-3xl">
           {tr(

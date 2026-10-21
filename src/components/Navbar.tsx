@@ -286,7 +286,7 @@ export const Navbar: React.FC<Readonly<NavbarProps>> = ({
             <div className="hidden sm:block">
               <div className="flex items-center gap-2">
                 <span className="text-base font-bold tracking-tight whitespace-nowrap text-slate-900 sm:text-lg">
-                  UGT VoicePlatform
+                  UGT VoiceCare
                 </span>
                 <span className="hidden items-center rounded border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-indigo-700 xl:inline-flex">
                   Grievance & Whistleblower

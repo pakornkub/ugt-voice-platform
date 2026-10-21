@@ -22,7 +22,7 @@ export interface Translations {
 
 export const DICTIONARY: Translations = {
   // Brand & Header
-  'brand.name': { th: 'UGT VoicePlatform', en: 'UGT VoicePlatform' },
+  'brand.name': { th: 'UGT VoiceCare', en: 'UGT VoiceCare' },
   'brand.subtitle': { th: 'Grievance & Whistleblower', en: 'Grievance & Whistleblower' },
   'brand.desc': {
     th: 'ระบบบันทึกข้อร้องเรียน ข้อเสนอแนะ และติดตามผลเรียลไทม์',

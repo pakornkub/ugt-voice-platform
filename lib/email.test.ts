@@ -9,7 +9,7 @@ const envMock = vi.hoisted(() => ({
     SMTP_USER: undefined,
     SMTP_PASS: undefined,
     SMTP_FROM: 'noreply@ube.com',
-    NEXT_PUBLIC_APP_NAME: 'UGT VoicePlatform',
+    NEXT_PUBLIC_APP_NAME: 'UGT VoiceCare',
   },
 }));
 
@@ -37,7 +37,7 @@ describe('sendRenderedMail', () => {
   it('sends to the real recipient when the actor is not in dev mode', async () => {
     await sendRenderedMail({ ...base, actor: { email: 'a@ube.com', hasDevMode: false } });
     expect(smtp.sendMail).toHaveBeenCalledWith({
-      from: '"UGT VoicePlatform" <noreply@ube.com>',
+      from: '"UGT VoiceCare" <noreply@ube.com>',
       to: 'real@ube.com',
       cc: undefined,
       subject: 'Hello',

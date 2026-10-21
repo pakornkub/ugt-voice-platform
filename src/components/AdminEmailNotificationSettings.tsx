@@ -1035,8 +1035,8 @@ const EmailSettingsPanel: React.FC<PanelProps> = ({ initialSettings, initialLogs
             ),
             recipientBadge: 'All Category Gatekeepers',
             subjectPlaceholder: tr(
-              '[VoicePlatform Alert] {ticketId}: New Ticket ({categoryTh})',
-              'เช่น [VoicePlatform แจ้งเรื่องใหม่] {ticketId}: มีข้อร้องเรียนใหม่ ({categoryTh})'
+              '[VoiceCare Alert] {ticketId}: New Ticket ({categoryTh})',
+              'เช่น [VoiceCare แจ้งเรื่องใหม่] {ticketId}: มีข้อร้องเรียนใหม่ ({categoryTh})'
             ),
             bodyPlaceholder: tr(
               'Enter notification message to send to Gatekeeper...',
@@ -1081,8 +1081,8 @@ const EmailSettingsPanel: React.FC<PanelProps> = ({ initialSettings, initialLogs
             ),
             recipientBadge: 'Employee In-Box',
             subjectPlaceholder: tr(
-              '[VoicePlatform Result] {ticketId}: Resolution complete',
-              'เช่น [VoicePlatform แจ้งผลการแก้ไข] เรื่อง {ticketId}: ดำเนินการแก้ไขเสร็จสิ้นเรียบร้อยแล้ว'
+              '[VoiceCare Result] {ticketId}: Resolution complete',
+              'เช่น [VoiceCare แจ้งผลการแก้ไข] เรื่อง {ticketId}: ดำเนินการแก้ไขเสร็จสิ้นเรียบร้อยแล้ว'
             ),
             bodyPlaceholder: tr(
               'Enter notification message to send to employee upon resolution...',
@@ -1127,8 +1127,8 @@ const EmailSettingsPanel: React.FC<PanelProps> = ({ initialSettings, initialLogs
             ),
             recipientBadge: 'All Category Gatekeepers',
             subjectPlaceholder: tr(
-              '[VoicePlatform Rating] {ticketId}: Rated {overallScore}/5',
-              'เช่น [VoicePlatform ผลประเมิน] {ticketId}: ผู้ยื่นให้คะแนน {overallScore}/5'
+              '[VoiceCare Rating] {ticketId}: Rated {overallScore}/5',
+              'เช่น [VoiceCare ผลประเมิน] {ticketId}: ผู้ยื่นให้คะแนน {overallScore}/5'
             ),
             bodyPlaceholder: tr(
               'Enter notification message to send to the Gatekeeper when the submitter rates...',

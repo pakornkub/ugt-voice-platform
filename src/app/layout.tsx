@@ -18,10 +18,10 @@ const notoSansThai = Noto_Sans_Thai({
 });
 
 const DESCRIPTION =
-  'UGT VoicePlatform - Enterprise Employee Grievance & Feedback Portal with Interactive Workflow Diagram, Gatekeeper Triage & Department Management, Real-time Tracking, Auto-notifications, CSAT Evaluation, Executive Analytics, and Root Cause AI Clustering.';
+  'UGT VoiceCare - Enterprise Employee Grievance & Feedback Portal with Interactive Workflow Diagram, Gatekeeper Triage & Department Management, Real-time Tracking, Auto-notifications, CSAT Evaluation, Executive Analytics, and Root Cause AI Clustering.';
 
 // The dev deployment says so in the browser tab too (owner request 2026-10-09).
-const TITLE = isDevEnvironment() ? '[DEV] UGT VoicePlatform' : 'UGT VoicePlatform';
+const TITLE = isDevEnvironment() ? '[DEV] UGT VoiceCare' : 'UGT VoiceCare';
 
 export const metadata: Metadata = {
   title: TITLE,

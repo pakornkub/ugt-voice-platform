@@ -6,11 +6,10 @@ export const DEFAULT_EMAIL_SETTINGS: EmailNotificationSettings = {
   masterEnabled: true,
   onTicketSubmitted: {
     enabled: true,
-    subject:
-      '[VoicePlatform แจ้งเรื่องใหม่] {ticketId}: มีข้อร้องเรียนใหม่ ({categoryTh}) - {urgency}',
+    subject: '[VoiceCare แจ้งเรื่องใหม่] {ticketId}: มีข้อร้องเรียนใหม่ ({categoryTh}) - {urgency}',
     body: `เรียน ทีมงาน Gatekeeper ประจำฝ่าย {categoryTh},
 
-ระบบ VoicePlatform ขอแจ้งเตือนว่ามีผู้ยื่นเรื่องข้อร้องเรียน/ข้อเสนอแนะใหม่เข้าระบบ โดยมีรายละเอียดดังนี้:
+ระบบ VoiceCare ขอแจ้งเตือนว่ามีผู้ยื่นเรื่องข้อร้องเรียน/ข้อเสนอแนะใหม่เข้าระบบ โดยมีรายละเอียดดังนี้:
 
 - รหัสติดตาม (Tracking ID): {ticketId}
 - หมวดหมู่ (Category): {categoryTh} ({category})
@@ -27,15 +26,14 @@ export const DEFAULT_EMAIL_SETTINGS: EmailNotificationSettings = {
 เข้าสู่ระบบจัดการเคส: {trackingUrl}
 
 ขอแสดงความนับถือ,
-ระบบรับเรื่องร้องเรียนและข้อเสนอแนะองค์กร VoicePlatform`,
+ระบบรับเรื่องร้องเรียนและข้อเสนอแนะองค์กร VoiceCare`,
   },
   onTicketResolved: {
     enabled: true,
-    subject:
-      '[VoicePlatform แจ้งผลการแก้ไข] เรื่อง {ticketId}: ดำเนินการแก้ไขเสร็จสิ้นเรียบร้อยแล้ว',
+    subject: '[VoiceCare แจ้งผลการแก้ไข] เรื่อง {ticketId}: ดำเนินการแก้ไขเสร็จสิ้นเรียบร้อยแล้ว',
     body: `เรียน คุณ {recipientName},
 
-ระบบ VoicePlatform ขอแจ้งให้ท่านทราบว่า ข้อร้องเรียน/ข้อเสนอแนะของท่านได้รับการตรวจสอบและดำเนินการแก้ไขเสร็จสิ้นเรียบร้อยแล้ว
+ระบบ VoiceCare ขอแจ้งให้ท่านทราบว่า ข้อร้องเรียน/ข้อเสนอแนะของท่านได้รับการตรวจสอบและดำเนินการแก้ไขเสร็จสิ้นเรียบร้อยแล้ว
 
 ข้อมูลสรุปการดำเนินงาน:
 - รหัสติดตาม (Tracking ID): {ticketId}
@@ -52,12 +50,12 @@ export const DEFAULT_EMAIL_SETTINGS: EmailNotificationSettings = {
 ตรวจสอบผลการแก้ไขและทำแบบประเมิน: {trackingUrl}
 
 ขอแสดงความนับถือ,
-ทีมงาน VoicePlatform & แผนก {categoryTh}`,
+ทีมงาน VoiceCare & แผนก {categoryTh}`,
   },
   // Owner request 2026-10-14: tell the officer responsible what the submitter rated.
   onTicketEvaluated: {
     enabled: true,
-    subject: '[VoicePlatform แจ้งผลการประเมิน] เรื่อง {ticketId}: ผู้ยื่นให้คะแนน {overallScore}/5',
+    subject: '[VoiceCare แจ้งผลการประเมิน] เรื่อง {ticketId}: ผู้ยื่นให้คะแนน {overallScore}/5',
     body: `เรียน {recipientName},
 
 ผู้ยื่นเรื่องได้ประเมินความพึงพอใจต่อการแก้ไขปัญหาเรียบร้อยแล้ว และเรื่องถูกปิดสมบูรณ์ โดยมีผลการประเมินดังนี้:
@@ -78,7 +76,7 @@ export const DEFAULT_EMAIL_SETTINGS: EmailNotificationSettings = {
 ดูรายละเอียดและผลการประเมินในระบบ: {trackingUrl}
 
 ขอแสดงความนับถือ,
-ระบบรับเรื่องร้องเรียนและข้อเสนอแนะองค์กร VoicePlatform`,
+ระบบรับเรื่องร้องเรียนและข้อเสนอแนะองค์กร VoiceCare`,
   },
   updatedAt: new Date().toISOString(),
 };
