@@ -31,7 +31,7 @@ export function LoginHero() {
   return (
     <section
       aria-label={tr('About UGT VoiceCare', 'เกี่ยวกับ UGT VoiceCare')}
-      className="relative h-56 overflow-hidden bg-indigo-950 sm:h-72 lg:h-auto lg:min-h-screen"
+      className="relative hidden overflow-hidden bg-indigo-950 lg:block lg:min-h-screen"
     >
       <Image
         src={heroImage}
