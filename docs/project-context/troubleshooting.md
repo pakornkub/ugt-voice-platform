@@ -99,3 +99,12 @@ sqlserver`** → `migration_lock.toml` was hand-written during the offline migra
   `next build`, so the file does not exist there → commit `src/static-images.d.ts` with
   `/// <reference types="next/image-types/global" />`; reproduce locally by moving `next-env.d.ts`
   aside and running `tsc` (2026-10-09). Stack-wide — candidate for `/ugt-contribute`.
+- **No-session visit to the bare app root (`/ugt-voice-platform-dev`, no trailing path) ends on
+  `/login` although `src/proxy.ts` redirects `/` elsewhere; the response has no CSP header** → the
+  matcher pattern `/((?!_next/static|…).*)` does not match the basePath root, so the proxy never ran
+  and the `(shell)` layout's `redirect('/login')` answered → list `'/'` explicitly in `config.matcher`
+  (2026-10-21)
+- **A new public page builds as `○ (Static)`** → with the nonce-based CSP from `src/proxy.ts` a
+  prerendered page ships scripts without the per-request nonce and the browser blocks them in
+  production → `export const dynamic = 'force-dynamic'` on the page (`src/app/report/page.tsx`)
+  (2026-10-21)

@@ -863,3 +863,21 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   upstream line-for-line"** for `GatekeeperInbox.tsx`, `TrackingTimelineModal.tsx` and `shell.tsx`
   (client visibility re-derivation removed) — future upstream ports of those files must be merged
   by hand · rejected: keeping per-component copies for upstream parity.
+- 2026-10-21 **Display name is "UGT VoiceCare"** (owner) — supersedes "Product name is UGT
+  VoicePlatform" (2026-10-09) for what people see only: UI strings, page title, mail `appName`,
+  `NEXT_PUBLIC_APP_NAME` (Jenkinsfile, Dockerfile, `.env.example`), default mail-settings text ·
+  unchanged on purpose: repo, basePath `/ugt-voice-platform(-dev)`, SonarQube project names/keys,
+  DB names, localStorage keys `voiceplatform_*`, internal masked address — **because** those would
+  change URLs, pipelines and stored data for no visible gain. Email settings an admin already saved in
+  `AppSettings` keep their own text · rejected: a full rename including basePath and Sonar keys.
+- 2026-10-21 **Employees file and track without logging in** (owner, urgent) — `/report` + `/track`;
+  identified = typed by hand (no HR lookup shown to an unauthenticated caller; a silent HR match flag
+  for staff), anonymous = nothing that identifies the person is stored; one-time tracking secret
+  stored as HMAC; per-IP rate limit; employee-role SSO sessions go to the portal, the shell is for
+  staff — **because** employees should not need an account to raise a concern and anonymity should
+  not depend on trusting the back office · rejected: tracking code alone (codes are a guessable
+  running number), autofilling identity from the employee ID (lets anyone read names), storing the
+  secret readable for admin recovery (owner preferred it, deferred: hash now for speed; encrypted +
+  audited "show secret" is the upgrade path), keeping SSO filing for employees (two ways to file).
+  Deviates from the org rule "session → permission → action → audit" for `submitPublicTicket` /
+  `openPublicTicket` (rate limit + secret instead of a session) — see architecture.md.

@@ -23,6 +23,26 @@
   - `lib/roster-rules.ts` + `lib/role-access-rules.ts` — admin rules as pure functions shared by
     the admin hooks and the Server Actions (same error codes).
   - `src/services/aiClient.ts`, `badges.ts`, `recentSearches.ts` — the former `api.ts` grab-bag.
+- **No-login employee portal (2026-10-21)** — employees file and track without an account; the
+  `(shell)` is for staff (an `employee`-role session is redirected to `/report`).
+  - `src/app/report/page.tsx`, `src/app/track/page.tsx` + `src/components/PublicPortal.tsx`
+    (`PortalHeader` / `PortalReport` / `PortalTrack`) — reuse `EmployeeSubmitForm` (`portal` prop:
+    typed identity, no AI, no sample chips) and `TrackingTimelineModal` (works without the shell).
+  - `lib/public-access.ts` — tracking secret (generate / HMAC with `BETTER_AUTH_SECRET` / compare),
+    the `vc_track` httpOnly cookie (one ticket per browser), in-memory per-IP rate limit, HR match.
+  - `lib/actions/tickets.ts:submitPublicTicket` (shares `createTicket` with `submitTicket`) and
+    `lib/actions/public-tickets.ts` (`openPublicTicket` / `getPublicTicket` / `leavePublicTicket`).
+  - `lib/ticket-scope.ts:publicViewerFor` + `TicketViewer.publicTicketId` — the portal submitter is a
+    viewer that owns exactly one ticket; `lib/ticket-access.ts:requireTicketActor` (session, else
+    cookie) guards note / chat / CSAT, `lib/attachment-access.ts:fileCaller` the file routes.
+  - Tickets columns `AccessKeyHash` / `SubmitChannel` ('sso' | 'public') / `HrMatchStatus`
+    (migration `20261021000000_public_portal`).
+  - `src/proxy.ts` — `PUBLIC_PATHS` (`/report`, `/track`), `/api/files` passes with the portal
+    cookie, root without a session → `/report`; matcher has an explicit `'/'`.
+  - ⚠ deviation: `submitPublicTicket` / `openPublicTicket` have no session → permission step
+    (org rule "session → permission → action → audit") — a no-login channel has no session; per-IP
+    rate limit + the ticket secret stand in for it, the audit log still records `public-portal`
+    (2026-10-21).
 - `src/app/(shell)/` — Next.js App Router routes (one per tab) + `layout.tsx`/`shell.tsx`
   (client Shell: Navbar, toast, notifications drawer, tracking/satisfaction/export modals,
   mobile bottom nav) shared across every route.

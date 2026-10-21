@@ -1,20 +1,31 @@
 # Handoff
 
-Last updated: 2026-10-15
+Last updated: 2026-10-21
 
 ## In progress
 
+- **No-login portal + rename to UGT VoiceCare** on branch `claude/no-login-anonymous-version-950672`
+  (`4bf9d69`, `74612bc`, `8ab140b`, `481190d` + docs) — **not pushed / not merged**. Migration
+  `20261021000000_public_portal` already applied to `UGT_VoicePlatform_DEV` (not prod). Verified locally
+  end to end on DEV DB (anonymous + identified submit, /track open, wrong secret, chat). Next: owner QA of
+  the staff view via SSO (HR match badge, portal anonymous card), `/code-review`, then merge → develop.
 - **Architecture refactor on DEV only** (`b630c24`…`d2559f7`, 6 commits + docs): status / server-text /
   events / visibility / admin-rules modules, api.ts split. Prod still `489161b`. Next: DEV build green +
   owner QA on DEV, then the owner decides the prod push. No migrations.
 
 ## Next
 
+- **Prod after the portal ships**: the deploy runs the migration; tell employees the new link / QR
+  (`…/ugt-voice-platform/` now opens the form). Employees who filed via SSO before lose "my tickets".
+- Portal follow-ups skipped for speed: "request a new secret" button, HR match badge in the inbox list,
+  admin-readable (encrypted, audited) secret — owner asked for it, hash chosen for now.
+- Admin-saved email settings may still read "VoicePlatform" — re-save the texts on the admin page.
 - **Prod after this deploy**: turn on RBAC → "เข้าถึงกล่องข้อร้องเรียนสายตรง CEO/EVP" for **GK** (on
   DEV already) — without it direct-to-executive tickets get no Lead. Prod mail goes to real people.
 - **Owner QA on prod** (SSO needs the owner; Claude can't enter passwords): roster pickers, RBAC,
   a test ticket, a CSAT rating.
-- **Clean up QA data on DEV**: TK-2026-0001, -0002, -1184, -5377 (+ attachment, email log rows).
+- **Clean up QA data on DEV**: TK-2026-0001, -0002, -1184, -5377 (+ attachment, email log rows), and
+  portal tests TK-2026-0004 (anonymous), TK-2026-0005 (`qa-portal@example.invalid`).
 - **Platform PRs** #21 (DEV bar) and #22 (version skew) both claim 4.76.0 — the second to merge
   renumbers to 4.77.0. Earlier #16–#20: merge one at a time in order, renumber later versions;
   `/plugin update` only after merge + tag.
@@ -35,23 +46,16 @@ Last updated: 2026-10-15
 
 ## Done (newest first — older chunks condensed; full detail in git log + docs/project-context/)
 
+- 2026-10-21 **No-login portal** `/report` + `/track` (`src/components/PublicPortal.tsx`,
+  `lib/public-access.ts`, `lib/actions/public-tickets.ts`, `tickets.ts:submitPublicTicket`,
+  `requireTicketActor`, `fileCaller`), DEV mail safeguard, login hero hidden on phones; display name
+  **UGT VoiceCare**. 1260+ tests. See decisions.md / business-rules.md 2026-10-21.
 - 2026-10-15 **Architecture refactor** (owner: all 6 review items, behaviour unchanged): `lib/ticket-status.ts`,
   `lib/server-text.ts`, `lib/ticket-events.ts`, server-owned visibility (`ticket.view`, bell audience in
   `isNotificationForViewer`), `lib/roster-rules.ts` + `lib/role-access-rules.ts`, api.ts split. 1229 tests.
   Upstream-parity deviation recorded in decisions.md.
-- 2026-10-14 **Prod test-data reset** (owner): all 7 prod tickets soft-deleted (`IsDeleted=1`,
-  code renamed `X-TK-…` so numbers free up; same `X-` prefix on their Notifications +
-  EmailDispatchLogs rows; `UpdatedBy='test-data-reset-2026-10-14'`), counter
-  `ticket.tracking-sequence.2026` → 0, so the next ticket is TK-2026-0001. Users/roles/RBAC untouched.
-- 2026-10-14 **Prod deploy** of the chunk below (`e0f9dbb..489161b`, 5 commits).
-- 2026-10-14 **One dispatch rule** (`489161b`): Auto-Assign Mode selector and modes removed
-  (`lib/auto-assign.ts` → category Lead); new-ticket + rating mail → every active GK of the category
-  (`lib/email-notifications.ts:gatekeeperRecipient`). Verified on DEV (TK-2026-0002 → 3 HR GKs).
-- 2026-10-14 **Owner UI fixes** (`9fa9dec`, `5226716`, `dd7b6d5`): executive type badge (CEO/EVP get
-  the direct-mail CC); report signs as the category Lead, GRC block removed; "สรุปวิธีการแก้ไขปัญหา"
-  in the tracking modal; status-button gap; closed ticket ticks step 5; CSAT warning clears.
-- 2026-10-14 **CSAT + direct mail** (`f8bf793`): direct-to-executive mail → GK, CC active CEO/EVP;
-  CSAT form starts empty; rating → staff bell, inbox stars + "ดูผลประเมิน", email trigger 3.
+- 2026-10-14 Prod test-data reset (codes `X-TK-…`, counter → 0) · prod deploy `e0f9dbb..489161b`: one
+  dispatch rule (Lead on ticket, mail every GK), owner UI fixes, CSAT + direct-to-executive mail.
 - 2026-10-09 **Owner fixes after go-live** (`a25daf0`…`4a1429e`): reference-data migration, DEV bar,
   HR search, chat notifications, @ube.com emails, TK-YYYY-0001 numbers, version-skew handling.
 - 2026-10-09 **Prod deploy** (`9713263..2f1e450`, 42 commits) · every screen bilingual TH/EN (`87929b7`).

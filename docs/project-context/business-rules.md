@@ -179,3 +179,33 @@ role + หมวดของ gatekeeper มาจาก `resolveViewer()` (`lib/
 - **หลังประเมิน**: กระดิ่ง `evaluation_submitted` เฉพาะเจ้าหน้าที่ (`lib/ticket-scope.ts:isNotificationForViewer`) +
   อีเมล `onTicketEvaluated` ถึงผู้รับผิดชอบ (CC Lead) ไม่มีชื่อผู้ยื่น (`notifyTicketEvaluated`) · Gatekeeper Inbox
   แสดงดาว + ปุ่ม "ดูผลประเมิน" เปิดหน้าติดตาม
+
+## ช่องทางไม่ต้อง login — `/report` · `/track` (2026-10-21, decisions.md วันเดียวกัน)
+
+- **ใครใช้:** พนักงานทุกคนไม่ต้องมีบัญชี — เปิดแอปโดยไม่มี session → `/report` (`src/proxy.ts`);
+  หน้า login มีทางเข้าพนักงานเหนือปุ่ม SSO (`LoginForm.tsx`); คนที่ login SSO แล้ว role = `employee`
+  ถูกส่งไป `/report` (`src/app/(shell)/layout.tsx`) — shell เหลือให้เจ้าหน้าที่ · ผลข้างเคียง: เรื่องเก่าที่
+  พนักงานเคยยื่นผ่าน SSO ดูผ่าน "เรื่องของฉัน" ไม่ได้แล้ว
+- **ระบุตัวตน:** กรอกเองทุกช่อง (ชื่อ / รหัสพนักงาน / ฝ่าย / อีเมล บังคับ, เบอร์โทรไม่บังคับ) —
+  server ตรวจด้วย zod (`lib/actions/tickets.ts:PUBLIC_SUBMITTER`) ไม่เติมข้อมูลจาก HR ให้คนที่ไม่ login;
+  เทียบรหัสพนักงาน + ชื่อกับ view HR แบบเงียบ → `HrMatchStatus` `matched` / `mismatch` / `not_found`
+  (view ล่ม = null) เห็นเฉพาะเจ้าหน้าที่ (`lib/public-access.ts:hrMatchStatusFor`,
+  `presentTicketForViewer` ตัดออกจากผลของ portal, ป้ายใน `TrackingTimelineModal.tsx:PortalIdentityNote`)
+- **ไม่ระบุตัวตน:** ไม่เก็บชื่อ/รหัส/ฝ่าย/อีเมล/login เลย (`LoginEmail` null, `IsAnonymousMapped` false) —
+  `canViewAnonymousSubmitterEmail` ไม่มีอะไรให้ดูสำหรับเรื่องจาก portal; timeline ใช้
+  `submittedPortalAnonymousNote`
+- **รหัสลับ:** `XXXX-XXXX` (ตัดอักษรที่สับสน) แสดงครั้งเดียวบนหน้าส่งสำเร็จ เก็บแค่ HMAC-SHA256
+  (`AccessKeyHash`, key = `BETTER_AUTH_SECRET` — เปลี่ยน secret = รหัสเดิมใช้ไม่ได้ทั้งหมด); ระบุตัวตน
+  ได้สำเนาทางอีเมลด้วย · ไม่มีปุ่มขอรหัสใหม่ (ตัดเพื่อความเร็ว) · พิมพ์ตัวเล็ก/ไม่มีขีดได้ (`formatAccessKey`)
+- **`/track`:** เลขเรื่อง + รหัสลับ → cookie `vc_track` (httpOnly, 2 ชม., ผูกเรื่องเดียว) → เห็นไทม์ไลน์ /
+  แชทนิรนาม / CSAT / แนบไฟล์เฉพาะเรื่องนั้น; รหัสผิดหรือเลขผิดตอบ "ไม่ถูกต้อง" เหมือนกัน; ปิดหน้าต่าง =
+  ลบ cookie; หน้าดึงข้อมูลใหม่ทุก 30 วิ; เครื่องจำเลขเรื่องที่เคยยื่น (localStorage
+  `voiceplatform_portal_codes`, ไม่จำรหัสลับ)
+- **จำกัดจำนวนครั้งต่อ IP:** ยื่น 5 ครั้ง/ชม., เปิดเรื่อง 10 ครั้ง/15 นาที (`lib/public-access.ts`
+  in-memory — รีเซ็ตเมื่อ deploy, ใช้ได้เพราะรัน container เดียว)
+- **อีเมล:** GK ได้เมลเรื่องใหม่เหมือนเดิม; ผู้ยื่นระบุตัวตนได้ receipt (template `ticket.new_ticket`),
+  เมลเมื่อเจ้าหน้าที่ตอบแชท (`ticket.status_update`, ไม่มีข้อความแชทในเมล) และเมลแจ้งปิดเรื่องพร้อมลิงก์
+  `/track` (`lib/email-notifications.ts:notifyPublicSubmitter`, `notifyTicketResolved`); ไม่ระบุตัวตน =
+  ไม่มีเมลถึงผู้ยื่น · **บน DEV** portal ไม่มีผู้ทดสอบที่ login: อีเมลที่ผู้ยื่นกรอกทำหน้าที่ผู้ทดสอบ
+  (dev mode), เรื่องนิรนามบน DEV ไม่ส่งเมลเลย (`tickets.ts:portalMailActor`)
+- **AI:** ไม่มีปุ่ม AI บนฟอร์ม portal (ข้อความร้องเรียนไม่ออกไป Gemini จากช่องทางนี้)
