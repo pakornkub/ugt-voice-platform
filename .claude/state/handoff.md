@@ -26,9 +26,9 @@ Last updated: 2026-10-26
 - **Gemini / PDPA**: complaint text (incl. anonymous) goes to Google Gemini when `GEMINI_API_KEY` is
   set — Compliance/DPO to confirm, or remove the key. `/api/ai/*` only checks cookie presence.
 - OWASP: two reviewed suppressions (`braces`, `sprintf-js`) — remove when fixed versions ship.
-- **Prod gate headroom is 1** (new_violations 9 / max 10, all OWASP): vite 8.2.2 + `@vitest/mocker` 4.1.11
-  (dev-only — `npm install vitest@^4.1.12` crashes npm 10.9 with `edgesOut`; retry on a newer npm) and
-  `@azure/msal-node` 5.6.0 (transitive, fix needs 7.x). The next new advisory fails the prod build.
+- `npm audit` = 0 since 2026-10-26 via `package.json` overrides (`undici`, `vite`, `@vitest/mocker`,
+  `@azure/msal-node` 7 — only under `@types/mssql`, `fast-uri` 3.1.9). Drop each override once its
+  parent ships the fix; bump `vitest` itself with npm 11 (`npx npm@11 install`), npm 10.9 crashes.
 - `/setup-matt-pocock-skills` has not been run; run it before the first `/grill-with-docs`.
 
 ## Open Questions

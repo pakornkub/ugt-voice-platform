@@ -118,3 +118,7 @@ affected by a known security vulnerability`** (sometimes a retry passes) → the
   to the main checkout's, Turbopack doesn't (workspace root = the worktree) → build in the main
   checkout after merging, or `next dev <worktree> --webpack` from the main checkout's binary
   (2026-10-26)
+- **`npm install` dies with `Cannot read properties of null (reading 'edgesOut')`** (bumping
+  `vitest` / overriding `@vitest/mocker`) → an npm 10.9 arborist bug in `#loadPeerSet` → run the
+  same install with `npx -y npm@11 install`; the lockfile stays v3 and `npm ci` on npm 10 reads it
+  (checked). After any `npm ci` run `npx prisma generate` before `tsc` / tests (2026-10-26)
