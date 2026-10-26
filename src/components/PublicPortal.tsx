@@ -7,18 +7,19 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useState, useSyncExternalStore } from 'react';
-import { KeyRound, Loader2, LogIn, MessageSquareHeart, Search } from 'lucide-react';
+import { BookOpen, KeyRound, Loader2, LogIn, MessageSquareHeart, Search } from 'lucide-react';
 import type { ComplaintTicket, EmployeeRecord } from '@/types';
 import { useTr } from '@/context/useTr';
 import { getPublicTicket, leavePublicTicket, openPublicTicket } from '@/lib/actions/public-tickets';
 import { AuthLanguageSwitch } from './AuthLanguageSwitch';
+import { EmployeeGuideBody } from './workflow-manual/RoleGuidesSection';
 import { EmployeeSubmitForm } from './EmployeeSubmitForm';
 import { SatisfactionModal } from './SatisfactionModal';
 import { TrackingTimelineModal } from './TrackingTimelineModal';
 
 // ─── Header ───────────────────────────────────────────────────────────────────
 
-export function PortalHeader({ active }: Readonly<{ active: 'report' | 'track' }>) {
+export function PortalHeader({ active }: Readonly<{ active: 'report' | 'track' | 'guide' }>) {
   const { tr } = useTr();
   const tab = (isActive: boolean) =>
     `rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
@@ -39,6 +40,9 @@ export function PortalHeader({ active }: Readonly<{ active: 'report' | 'track' }
           </Link>
           <Link href="/track" className={tab(active === 'track')}>
             {tr('Track', 'ติดตามเรื่อง')}
+          </Link>
+          <Link href="/guide" className={tab(active === 'guide')}>
+            {tr('User guide', 'คู่มือการใช้งาน')}
           </Link>
         </nav>
         <div className="flex items-center gap-2">
@@ -114,6 +118,36 @@ export function PortalReport() {
       // submitPublicTicket already opened the ticket for this browser (cookie).
       onOpenTracking={() => router.push('/track')}
     />
+  );
+}
+
+// ─── /guide ───────────────────────────────────────────────────────────────────
+
+/** The employee part of the in-app manual — the rest (SOP, RACI, staff roles) stays behind sign-in. */
+export function PortalGuide() {
+  const { tr } = useTr();
+  return (
+    <main className="mx-auto max-w-4xl space-y-4 px-4 py-8">
+      <div>
+        <h1 className="flex items-center gap-2 text-xl font-bold text-slate-900">
+          <BookOpen className="h-5 w-5 text-emerald-600" />
+          {tr('Employee User Guide', 'คู่มือการใช้งานสำหรับพนักงาน')}
+        </h1>
+        <p className="mt-1 text-xs text-slate-500 sm:text-sm">
+          {tr(
+            'Submit and track your ticket without signing in — how to fill in the form, keep your secret and rate the result.',
+            'ยื่นและติดตามเรื่องได้โดยไม่ต้องเข้าสู่ระบบ — วิธีกรอกฟอร์ม เก็บรหัสลับ และประเมินผล'
+          )}
+        </p>
+      </div>
+      <EmployeeGuideBody />
+      <Link
+        href="/report"
+        className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-indigo-700"
+      >
+        {tr('Go to the submission page', 'ไปที่หน้ายื่นเรื่อง')}
+      </Link>
+    </main>
   );
 }
 

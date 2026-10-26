@@ -476,7 +476,8 @@ const ADMIN_GUIDE_CARDS: readonly TitledText[] = [
   },
 ];
 
-const EmployeeGuideBody = () => {
+/** Also the no-login portal's /guide page (src/components/PublicPortal.tsx). */
+export const EmployeeGuideBody = () => {
   const { lang } = useLanguage();
   return (
     <>

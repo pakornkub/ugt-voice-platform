@@ -18,7 +18,7 @@ const AUTH_ONLY_PATHS = ['/login'];
 
 // No-login portal (owner 2026-10-21): anyone may file a ticket and track it with its code + secret.
 // The pages and their Server Actions guard themselves (rate limit, secret check).
-const PUBLIC_PATHS = ['/report', '/track'];
+const PUBLIC_PATHS = ['/report', '/track', '/guide'];
 // Set by lib/public-access.ts once a ticket was opened with its secret — lets the portal reach the
 // file routes, which check it against the ticket themselves.
 // Same name as lib/public-access.ts PUBLIC_TICKET_COOKIE (server-only, not importable here) — keep in sync.

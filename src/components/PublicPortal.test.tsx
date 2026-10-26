@@ -40,6 +40,7 @@ describe('PortalHeader', () => {
     inPortal(<PortalHeader active="track" />);
     expect(screen.getByRole('link', { name: 'ยื่นเรื่อง' })).toHaveAttribute('href', '/report');
     expect(screen.getByRole('link', { name: 'ติดตามเรื่อง' })).toHaveAttribute('href', '/track');
+    expect(screen.getByRole('link', { name: 'คู่มือการใช้งาน' })).toHaveAttribute('href', '/guide');
     expect(screen.getByRole('link', { name: /เข้าสู่ระบบเจ้าหน้าที่/ })).toHaveAttribute(
       'href',
       '/login'
