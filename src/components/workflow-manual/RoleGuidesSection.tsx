@@ -57,15 +57,15 @@ const EMPLOYEE_GUIDE_CARDS: readonly EmployeeGuideCard[] = [
           th: (
             <>
               <strong>ไม่ต้องเข้าสู่ระบบ:</strong> เปิดลิงก์ของระบบแล้วจะเจอฟอร์มยื่นเรื่อง (หน้า{' '}
-              <code>/report</code>) ทันที หรือกด &quot;พนักงาน: ยื่นเรื่องร้องเรียน&quot;
-              ในหน้าเข้าสู่ระบบ
+              <code>/report</code>) ทันที หรือกด &quot;พนักงาน: ยื่นเรื่องร้องเรียน /
+              ข้อเสนอแนะ&quot; ในหน้าเข้าสู่ระบบ
             </>
           ),
           en: (
             <>
               <strong>No sign-in needed:</strong> opening the system link takes you straight to the
               submission form (the <code>/report</code> page), or press &quot;Employees: submit a
-              grievance&quot; on the sign-in page
+              grievance / suggestion&quot; on the sign-in page
             </>
           ),
         },
@@ -197,15 +197,17 @@ const EMPLOYEE_GUIDE_CARDS: readonly EmployeeGuideCard[] = [
           th: (
             <>
               เปิดหน้า &quot;ติดตามเรื่อง&quot; (<code>/track</code>)
-              แล้วใส่เลขที่เรื่องคู่กับรหัสลับ (พิมพ์ตัวเล็กหรือไม่ใส่ขีดก็ได้) —
-              เครื่องที่ใช้ยื่นจะจำเลขที่เรื่องไว้ให้กดเลือก แต่ไม่จำรหัสลับ
+              แล้วใส่เลขที่เรื่องคู่กับรหัสลับ (พิมพ์ตัวเล็กได้ทั้งคู่ รหัสลับไม่ใส่ขีดก็ได้
+              แต่เลขที่เรื่องต้องมีขีดครบ) — เครื่องที่ใช้ยื่นจะจำเลขที่เรื่องไว้ให้กดเลือก
+              แต่ไม่จำรหัสลับ
             </>
           ),
           en: (
             <>
               Open the &quot;Track&quot; page (<code>/track</code>) and enter the tracking code with
-              the secret (lower case or no dash is fine) — the device you filed from remembers the
-              code for you, never the secret
+              the secret (lower case is fine for both; the secret works without its dash, the code
+              needs its dashes) — the device you filed from remembers the code for you, never the
+              secret
             </>
           ),
         },
@@ -234,13 +236,13 @@ const EMPLOYEE_GUIDE_CARDS: readonly EmployeeGuideCard[] = [
           th: (
             <>
               <strong>ไฟล์แนบ:</strong> ดาวน์โหลดไฟล์ที่แนบกับคำร้องได้จาก Timeline
-              (เฉพาะผู้ที่มีสิทธิ์เห็นคำร้องนั้น)
+              (ผู้ยื่นดูได้หลังเปิดเรื่องด้วยเลขที่เรื่อง + รหัสลับ)
             </>
           ),
           en: (
             <>
               <strong>Attachments:</strong> Download the files attached to the request from the
-              Timeline (only people allowed to see that request can do so)
+              Timeline (as the submitter, after opening the ticket with its code + secret)
             </>
           ),
         },
@@ -252,13 +254,14 @@ const EMPLOYEE_GUIDE_CARDS: readonly EmployeeGuideCard[] = [
             <>
               <strong>สื่อสารสองทางนิรนาม (Anonymous 2-Way Chat):</strong>{' '}
               พิมพ์ข้อความสอบถามหรือชี้แจงพยานหลักฐานเพิ่มเติมกับเจ้าหน้าที่ได้ตลอดเวลา
-              โดยระบบปิดบังชื่อตัวตน 100%
+              ถ้ายื่นแบบไม่ระบุตัวตน ระบบปิดบังชื่อ 100% (ถ้าระบุตัวตน เจ้าหน้าที่เห็นชื่อของคุณ)
             </>
           ),
           en: (
             <>
               <strong>Anonymous 2-Way Chat:</strong> Send questions or clarify further evidence to
-              the officers at any time, with your identity 100% hidden by the system
+              the officers at any time. If you filed anonymously your name is 100% hidden (if you
+              filed with your identity, the officers see your name)
             </>
           ),
         },

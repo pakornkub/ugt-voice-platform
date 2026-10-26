@@ -24,7 +24,7 @@ vi.mock('next/navigation', () => ({
   unstable_isUnrecognizedActionError: () => false,
 }));
 
-const { PortalHeader, PortalReport, PortalTrack } = await import('./PublicPortal');
+const { PortalGuide, PortalHeader, PortalReport, PortalTrack } = await import('./PublicPortal');
 
 const inPortal = (node: React.ReactNode) => render(<LanguageProvider>{node}</LanguageProvider>);
 const TICKET = { ...INITIAL_COMPLAINTS[0], trackingCode: 'TK-2026-0012' };
@@ -36,7 +36,7 @@ beforeEach(() => {
 });
 
 describe('PortalHeader', () => {
-  it('links the two portal pages and the staff sign-in', () => {
+  it('links the three portal pages and the staff sign-in', () => {
     inPortal(<PortalHeader active="track" />);
     expect(screen.getByRole('link', { name: 'ยื่นเรื่อง' })).toHaveAttribute('href', '/report');
     expect(screen.getByRole('link', { name: 'ติดตามเรื่อง' })).toHaveAttribute('href', '/track');
@@ -44,6 +44,18 @@ describe('PortalHeader', () => {
     expect(screen.getByRole('link', { name: /เข้าสู่ระบบเจ้าหน้าที่/ })).toHaveAttribute(
       'href',
       '/login'
+    );
+  });
+});
+
+describe('PortalGuide', () => {
+  it('shows the employee guide cards and a way back to the form', () => {
+    inPortal(<PortalGuide />);
+    expect(screen.getByRole('heading', { name: 'คู่มือการใช้งานสำหรับพนักงาน' })).toBeVisible();
+    expect(screen.getByText('การติดตามสถานะด้วย Tracking Code')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'ไปที่หน้ายื่นเรื่อง' })).toHaveAttribute(
+      'href',
+      '/report'
     );
   });
 });
