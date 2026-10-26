@@ -36,7 +36,7 @@ export const EmployeeSubmitForm: React.FC<Readonly<EmployeeSubmitFormProps>> = (
     return (
       <SuccessScreen
         ticket={flow.createdTicket}
-        accessKey={flow.accessKey}
+        trackingSecret={flow.accessKey}
         uploadFailures={flow.uploadFailures}
         isRetryingUploads={flow.isRetryingUploads}
         onRetryUploads={flow.handleRetryUploads}

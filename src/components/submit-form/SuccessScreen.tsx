@@ -58,15 +58,15 @@ const TrackingCodeCard: React.FC<Readonly<{ ticket: ComplaintTicket }>> = ({ tic
 };
 
 /** No-login portal: the tracking secret, shown this once (only its hash is stored). */
-const AccessKeyCard: React.FC<Readonly<{ accessKey: string; hasEmail: boolean }>> = ({
-  accessKey,
+const AccessKeyCard: React.FC<Readonly<{ trackingSecret: string; hasEmail: boolean }>> = ({
+  trackingSecret,
   hasEmail,
 }) => {
   const { tr } = useTr();
   const [copied, setCopied] = React.useState(false);
   const copy = () => {
     navigator.clipboard
-      ?.writeText(accessKey)
+      ?.writeText(trackingSecret)
       .then(() => setCopied(true))
       .catch(() => setCopied(false));
   };
@@ -82,7 +82,7 @@ const AccessKeyCard: React.FC<Readonly<{ accessKey: string; hasEmail: boolean }>
             id="portal-access-key"
             className="mt-0.5 font-mono text-2xl font-black tracking-widest text-amber-900"
           >
-            {accessKey}
+            {trackingSecret}
           </div>
         </div>
         <button
@@ -111,7 +111,7 @@ const AccessKeyCard: React.FC<Readonly<{ accessKey: string; hasEmail: boolean }>
 interface SuccessScreenProps {
   ticket: ComplaintTicket;
   /** No-login portal only. */
-  accessKey?: string | null;
+  trackingSecret?: string | null;
   uploadFailures: UploadFailure[];
   isRetryingUploads: boolean;
   onRetryUploads: () => void;
@@ -122,7 +122,7 @@ interface SuccessScreenProps {
 /** Shown after the record was saved. */
 export const SuccessScreen: React.FC<Readonly<SuccessScreenProps>> = ({
   ticket,
-  accessKey,
+  trackingSecret,
   uploadFailures,
   isRetryingUploads,
   onRetryUploads,
@@ -151,9 +151,9 @@ export const SuccessScreen: React.FC<Readonly<SuccessScreenProps>> = ({
 
         {/* Tracking Code Highlight Card */}
         <TrackingCodeCard ticket={ticket} />
-        {accessKey && (
+        {trackingSecret && (
           <AccessKeyCard
-            accessKey={accessKey}
+            trackingSecret={trackingSecret}
             hasEmail={ticket.confidentiality !== 'anonymous' && !!ticket.submitterEmail}
           />
         )}
