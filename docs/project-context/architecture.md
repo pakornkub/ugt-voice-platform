@@ -25,8 +25,8 @@
   - `src/services/aiClient.ts`, `badges.ts`, `recentSearches.ts` — the former `api.ts` grab-bag.
 - **No-login employee portal (2026-10-21)** — employees file and track without an account; the
   `(shell)` is for staff (an `employee`-role session is redirected to `/report`).
-  - `src/app/report/page.tsx`, `src/app/track/page.tsx` + `src/components/PublicPortal.tsx`
-    (`PortalHeader` / `PortalReport` / `PortalTrack`) — reuse `EmployeeSubmitForm` (`portal` prop:
+  - `src/app/report/page.tsx`, `src/app/track/page.tsx`, `src/app/guide/page.tsx` (2026-10-26) + `src/components/PublicPortal.tsx`
+    (`PortalHeader` / `PortalReport` / `PortalTrack` / `PortalGuide` — the last renders `workflow-manual/RoleGuidesSection.tsx:EmployeeGuideBody`, the same cards as the staff manual) — reuse `EmployeeSubmitForm` (`portal` prop:
     typed identity, no AI, no sample chips) and `TrackingTimelineModal` (works without the shell).
   - `lib/public-access.ts` — tracking secret (generate / HMAC with `BETTER_AUTH_SECRET` / compare),
     the `vc_track` httpOnly cookie (one ticket per browser), in-memory per-IP rate limit, HR match.
@@ -37,7 +37,7 @@
     cookie) guards note / chat / CSAT, `lib/attachment-access.ts:fileCaller` the file routes.
   - Tickets columns `AccessKeyHash` / `SubmitChannel` ('sso' | 'public') / `HrMatchStatus`
     (migration `20261021000000_public_portal`).
-  - `src/proxy.ts` — `PUBLIC_PATHS` (`/report`, `/track`), `/api/files` passes with the portal
+  - `src/proxy.ts` — `PUBLIC_PATHS` (`/report`, `/track`, `/guide`), `/api/files` passes with the portal
     cookie, root without a session → `/report`; matcher has an explicit `'/'`.
   - ⚠ deviation: `submitPublicTicket` / `openPublicTicket` have no session → permission step
     (org rule "session → permission → action → audit") — a no-login channel has no session; per-IP

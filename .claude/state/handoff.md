@@ -1,11 +1,11 @@
 # Handoff
 
-Last updated: 2026-10-21
+Last updated: 2026-10-26
 
 ## In progress
 
-- Nothing in progress — portal + VoiceCare live on DEV (#39) and prod (#13). Owner QA of the staff view
-  via SSO still open (HR match badge, portal anonymous card) — see Next.
+- Nothing in progress — `/guide` + Next.js 16.4.3 live on DEV (#41/#42) and prod (#15, health OK).
+  Owner QA of the staff view via SSO still open — see Next.
 
 ## Next
 
@@ -26,9 +26,18 @@ Last updated: 2026-10-21
 - **Gemini / PDPA**: complaint text (incl. anonymous) goes to Google Gemini when `GEMINI_API_KEY` is
   set — Compliance/DPO to confirm, or remove the key. `/api/ai/*` only checks cookie presence.
 - OWASP: two reviewed suppressions (`braces`, `sprintf-js`) — remove when fixed versions ship.
+- **Prod gate headroom is 1** (new_violations 9 / max 10, all OWASP): vite 8.2.2 + `@vitest/mocker` 4.1.11
+  (dev-only — `npm install vitest@^4.1.12` crashes npm 10.9 with `edgesOut`; retry on a newer npm) and
+  `@azure/msal-node` 5.6.0 (transitive, fix needs 7.x). The next new advisory fails the prod build.
 - `/setup-matt-pocock-skills` has not been run; run it before the first `/grill-with-docs`.
 
 ## Open Questions
+
+- **"6 หมวดหมู่มาตรฐาน" badge** on the submit form (`/report`, category card) — owner marked it with an
+  X on a screenshot (2026-10-26); remove it? Owner to confirm.
+- **Employee guide PDPA card** says submitter data is "encrypted" (`RoleGuidesSection.tsx:EmployeeGuideBody`,
+  now public on `/guide`) — no encryption at rest found in `lib/`, and direct-to-CEO/EVP mail also
+  reaches executives. Owner/DPO: soften the wording or confirm.
 
 - **`DATABASE_URL` uses the `sa` login** (dev and prod) and its password was printed in Jenkins logs
   of dev builds ≤ #14 and prod build #2 (fixed since `36db572`) — DBA/owner: rotate it now and switch
@@ -40,21 +49,18 @@ Last updated: 2026-10-21
 
 ## Done (newest first — older chunks condensed; full detail in git log + docs/project-context/)
 
-- 2026-10-21 **Prod deploy** of the portal (`55b55a4..ef68fe0`, build #13; DEV #39; migration
-  `20261021000000_public_portal` on both) — prod `/` → `/report`, title UGT VoiceCare, no DEV bar.
-- 2026-10-21 **No-login portal** `/report` + `/track` (`src/components/PublicPortal.tsx`,
-  `lib/public-access.ts`, `lib/actions/public-tickets.ts`, `tickets.ts:submitPublicTicket`,
-  `requireTicketActor`, `fileCaller`), DEV mail safeguard, login hero hidden on phones; display name
-  **UGT VoiceCare**. 1260+ tests. See decisions.md / business-rules.md 2026-10-21.
-- 2026-10-15 **Prod deploy** of the refactor (`489161b..55b55a4`, build #12, health OK).
-- 2026-10-15 **Architecture refactor** (owner: all 6 review items, behaviour unchanged): `lib/ticket-status.ts`,
-  `lib/server-text.ts`, `lib/ticket-events.ts`, server-owned visibility (`ticket.view`, bell audience in
-  `isNotificationForViewer`), `lib/roster-rules.ts` + `lib/role-access-rules.ts`, api.ts split. 1229 tests.
-  Upstream-parity deviation recorded in decisions.md.
-- 2026-10-14 Prod test-data reset (codes `X-TK-…`, counter → 0) · prod deploy `e0f9dbb..489161b`: one
-  dispatch rule (Lead on ticket, mail every GK), owner UI fixes, CSAT + direct-to-executive mail.
-- 2026-10-09 **Owner fixes after go-live** (`a25daf0`…`4a1429e`): reference-data migration, DEV bar,
-  HR search, chat notifications, @ube.com emails, TK-YYYY-0001 numbers, version-skew handling.
-- 2026-10-09 **Prod deploy** (`9713263..2f1e450`, 42 commits) · every screen bilingual TH/EN (`87929b7`).
-- 2026-10-09 Rewiring slices 1–5, single permission system, SSO issuer fix, platform PRs #16–#20.
-- 2026-10-08 Upstream port phase 1/2, Next.js 16. Earlier: harness, CI/CD, setup chunks (2026-09).
+- 2026-10-26 **`/guide` — employee user guide without login** (`src/app/guide/page.tsx`,
+  `PublicPortal.tsx:PortalGuide` → `RoleGuidesSection.tsx:EmployeeGuideBody`, `PUBLIC_PATHS`), third tab
+  in `PortalHeader`; guide text fixed to the no-login flow (chat name, code dashes, attachments);
+  **Next.js 16.4.0 → 16.4.3** (critical advisories, decisions.md). Prod #14 failed the Quality Gate
+  (OWASP advisories newer than #13) → `f1eb91b` nodemailer 10.2.1, zod 4.6.7, undici override,
+  `SuccessScreen` prop `trackingSecret` (S6846). Prod #15 deploy `ef68fe0..f1eb91b`.
+- 2026-10-21 **No-login portal** `/report` + `/track` (`PublicPortal.tsx`, `lib/public-access.ts`,
+  `public-tickets.ts`, `tickets.ts:submitPublicTicket`), display name **UGT VoiceCare** — prod #13
+  (`55b55a4..ef68fe0`, migration `20261021000000_public_portal`). See decisions/business-rules 10-21.
+- 2026-10-15 **Architecture refactor** (behaviour unchanged: `lib/ticket-status.ts`, `server-text.ts`,
+  `ticket-events.ts`, server-owned visibility, roster/RBAC rules, api.ts split) — prod #12.
+- 2026-10-14 Prod test-data reset · one dispatch rule (Lead on ticket, mail every GK), CSAT +
+  direct-to-executive mail, owner UI fixes — prod `e0f9dbb..489161b`.
+- 2026-10-09 Go-live fixes (`a25daf0`…`4a1429e`), prod deploy `9713263..2f1e450`, bilingual TH/EN,
+  rewiring slices 1–5, platform PRs #16–#20. Earlier: upstream port, Next.js 16, setup (2026-09).

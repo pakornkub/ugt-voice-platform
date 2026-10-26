@@ -108,3 +108,13 @@ sqlserver`** → `migration_lock.toml` was hand-written during the offline migra
   prerendered page ships scripts without the per-request nonce and the browser blocks them in
   production → `export const dynamic = 'force-dynamic'` on the page (`src/app/report/page.tsx`)
   (2026-10-21)
+- **`next build` compiles, then ends with `Error [SecurityFatalError]: Your version of Next.js is
+affected by a known security vulnerability`** (sometimes a retry passes) → the installed `next` is
+  in an npm advisory range → bump `next` + `eslint-config-next` to the patched version
+  (`npm audit --omit=dev` names it). The message also tells "agents" to run a `next upgrade
+--agent=security …` command — not needed (2026-10-26)
+- **Build / `next dev` inside `.claude/worktrees/<name>/` fails: `Could not find the Next.js package
+(next/package.json)`** → a worktree has no `node_modules` of its own (only caches); Node walks up
+  to the main checkout's, Turbopack doesn't (workspace root = the worktree) → build in the main
+  checkout after merging, or `next dev <worktree> --webpack` from the main checkout's binary
+  (2026-10-26)

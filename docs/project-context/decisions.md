@@ -881,3 +881,8 @@ answer 404`) plus the two `messages/upload.*.ts` i18n checks from the deviation 
   audited "show secret" is the upgrade path), keeping SSO filing for employees (two ways to file).
   Deviates from the org rule "session → permission → action → audit" for `submitPublicTicket` /
   `openPublicTicket` (rate limit + secret instead of a session) — see architecture.md.
+- 2026-10-26 **Next.js / eslint-config-next 16.4.0 → 16.4.3** (owner OK, shipped with the `/guide`
+  deploy) — **because** npm audit marks 16.0.0–16.4.0 critical (GHSA-2464-fhr4-w9xw RCE via the
+  image optimizer + SVG, GHSA-p3m5-59mp-jv5r Server Actions DoS, GHSA-673q-mjm6-r5xr RCE in
+  `use cache`) and `next build` on 16.4.0 stops with `SecurityFatalError` · rejected: running the
+  `next upgrade --agent=security` command the build output suggests (a plain patch bump is enough).

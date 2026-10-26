@@ -209,3 +209,7 @@ role + หมวดของ gatekeeper มาจาก `resolveViewer()` (`lib/
   ไม่มีเมลถึงผู้ยื่น · **บน DEV** portal ไม่มีผู้ทดสอบที่ login: อีเมลที่ผู้ยื่นกรอกทำหน้าที่ผู้ทดสอบ
   (dev mode), เรื่องนิรนามบน DEV ไม่ส่งเมลเลย (`tickets.ts:portalMailActor`)
 - **AI:** ไม่มีปุ่ม AI บนฟอร์ม portal (ข้อความร้องเรียนไม่ออกไป Gemini จากช่องทางนี้)
+- **`/guide` (2026-10-26):** คู่มือพนักงานแบบไม่ต้อง login — แท็บที่ 3 ใน `PortalHeader`; แสดงการ์ดชุดเดียวกับ
+  คู่มือพนักงานในแท็บ "คู่มือ & ผังขั้นตอน (SOP)" ของเจ้าหน้าที่ (`RoleGuidesSection.tsx:EMPLOYEE_GUIDE_CARDS`)
+  แก้ที่เดียวเปลี่ยนทั้งสองที่ · SOP / RACI / คู่มือบทบาทอื่นยังต้อง login · เลขเรื่องพิมพ์ตัวเล็กได้แต่ต้องมีขีด
+  (`public-tickets.ts:openPublicTicket` แค่ `toUpperCase`), รหัสลับไม่มีขีดก็ได้
