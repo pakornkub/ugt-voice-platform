@@ -21,12 +21,16 @@ export default async function LoginPage({
     // Two columns from lg (owner request 2026-10-09): hero image + pitch left, sign-in card right.
     <div className="grid min-h-screen bg-slate-50 font-sans antialiased lg:grid-cols-2">
       <LoginHero />
-      <main className="flex items-center justify-center p-4 sm:p-8">
+      <main className="flex flex-col items-center justify-center gap-5 p-4 sm:p-8">
         <LoginForm
           sessionExpired={sp.reason === 'session_expired'}
           ssoError={sp.error}
           from={sp.from}
         />
+        {/* Developer credit (owner request 2026-10-27) — same text in TH and EN. */}
+        <footer className="text-[11px] text-slate-400">
+          Developed by <span className="font-medium text-slate-500">Pisanu Punyaporn</span>
+        </footer>
       </main>
     </div>
   );
